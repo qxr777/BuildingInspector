@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('修改监测对象评估')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-objectIndex-edit" th:object="${objectIndex}">
+            <input name="id" th:field="*{id}" type="hidden">
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">对象：</label>
+                <div class="col-sm-8">
+                    <input name="objectId" th:field="*{objectId}" class="form-control" type="hidden">
+                    <input name="objectName" th:field="*{object.name}" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">指标：</label>
+                <div class="col-sm-8">
+                    <input name="indexId" th:field="*{indexId}" class="form-control" type="hidden">
+                    <input id="indexUnit" th:field="*{index.unit}" class="form-control" type="hidden">
+                    <input id="indexDataType" th:field="*{index.dataType}" class="form-control" type="hidden">
+                    <input name="indexName" th:field="*{index.name}" class="form-control" type="text" readonly>
+                    <input id="indexOptions" name="indexOptions" th:field="*{index.options}" class="form-control" type="hidden">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">原始数据转换器：</label>
+                <div class="col-sm-8">
+                    <input name="converter" th:field="*{converter}" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">数据转换参数：</label>
+                <div class="col-sm-8">
+                    <input name="convertParams" th:field="*{convertParams}" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">原始数据值：</label>
+                <div class="col-sm-8">
+                    <select id="binaryValue" class="form-control" onchange="changeBinaryValueStr()">
+                        <option value="0" selected>否</option>
+                        <option value="1">是</option>
+                    </select>
+                    <select id="ordinalValue" class="form-control" onchange="changeOrdinalValueStr()"></select>
+                    <input id="valueStr" name="valueStr" class="form-control" type="text">
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/objectIndex";
+
+        $(function () {
+            $("#ordinalValue").hide();
+            $("#binaryValue").hide();
+            var dataType = $("#indexDataType").val();
+            var unit = $("#indexUnit").val();
+            var options = $("#indexOptions").val();
+
+            if(dataType == 4) {  // 序数属性
+                var optionArray= new Array();
+                optionArray = options.split("/");
+                $.each(optionArray,function(key,val){  //回调函数有两个参数,第一个是元素索引,第二个为当前值
+                    $("#ordinalValue").append("<option value='" + key + "'>" + val + unit +"</option>");
+                });
+                $("#ordinalValue").show();
+                $("#valueStr").hide();
+                $("#valueStr").val(0);
+            } else if (dataType == 3) {  //二元属性
+                $("#binaryValue").show();
+                $("#valueStr").hide();
+                $("#valueStr").val(0);
+            }
+        });
+
+
+        $("#form-objectIndex-edit").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/appendData", $('#form-objectIndex-edit').serialize());
+            }
+        }
+
+        function changeOrdinalValueStr() {
+            var selectValue = $("#ordinalValue").val();
+            $("#valueStr").val(selectValue);
+        }
+
+        function changeBinaryValueStr() {
+            var selectValue = $("#binaryValue").val();
+            $("#valueStr").val(selectValue);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.BmObjectMapper">
+    
+    <resultMap type="BmObject" id="BmObjectResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="ancestors"    column="ancestors"    />
+        <result property="orderNum"    column="order_num"    />
+        <result property="status"    column="status"    />
+        <result property="delFlag"    column="del_flag"    />
+        <result property="longitude"    column="longitude"    />
+        <result property="latitude"    column="latitude"    />
+        <result property="altitude"    column="altitude"    />
+        <result property="remark"    column="remark"    />
+        <result property="parentId"    column="parent_id"    />
+        <result property="address"    column="address"    />
+        <result property="area"    column="area"    />
+        <result property="adminDept"    column="admin_dept"    />
+        <result property="weight"    column="weight"    />
+        <result property="videoFeed"    column="video_feed"    />
+        <result property="parentName" column="parent_name" />
+    </resultMap>
+
+    <sql id="selectBmObjectVo">
+        select create_time, update_time, id, name, create_by, update_by, ancestors, order_num, status, del_flag, longitude, latitude, altitude, remark, parent_id, address, area, admin_dept, weight, video_feed from bm_object
+    </sql>
+
+    <select id="selectBmObjectList" parameterType="BmObject" resultMap="BmObjectResult">
+        <include refid="selectBmObjectVo"/>
+        <where>  
+            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="address != null  and address != ''"> and address = #{address}</if>
+            <if test="area != null  and area != ''"> and area = #{area}</if>
+            <if test="adminDept != null  and adminDept != ''"> and admin_dept = #{adminDept}</if>
+            <if test="weight != null "> and weight = #{weight}</if>
+        </where>
+        order by parent_id
+    </select>
+    
+    <select id="selectBmObjectById" parameterType="Long" resultMap="BmObjectResult">
+        select t.create_time, t.update_time, t.id, t.name, t.create_by, t.update_by, t.ancestors, t.order_num, t.status, t.del_flag, t.longitude, t.latitude, t.altitude, t.remark, t.parent_id, t.address, t.area, t.admin_dept, t.weight, t.video_feed, p.name as parent_name
+        from bm_object t
+        left join bm_object p on p.id = t.parent_id
+        where t.id = #{id}
+    </select>
+
+    <select id="selectChildrenObjectById" parameterType="Long" resultMap="BmObjectResult">
+		select * from bm_object where find_in_set(#{objectId}, ancestors)
+	</select>
+        
+    <insert id="insertBmObject" parameterType="BmObject" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_object
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="name != null and name != ''">name,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="ancestors != null">ancestors,</if>
+            <if test="orderNum != null">order_num,</if>
+            <if test="status != null">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="longitude != null">longitude,</if>
+            <if test="latitude != null">latitude,</if>
+            <if test="altitude != null">altitude,</if>
+            <if test="remark != null">remark,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="address != null">address,</if>
+            <if test="area != null">area,</if>
+            <if test="adminDept != null">admin_dept,</if>
+            <if test="weight != null">weight,</if>
+            <if test="videoFeed != null">video_feed,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="ancestors != null">#{ancestors},</if>
+            <if test="orderNum != null">#{orderNum},</if>
+            <if test="status != null">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="longitude != null">#{longitude},</if>
+            <if test="latitude != null">#{latitude},</if>
+            <if test="altitude != null">#{altitude},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="address != null">#{address},</if>
+            <if test="area != null">#{area},</if>
+            <if test="adminDept != null">#{adminDept},</if>
+            <if test="weight != null">#{weight},</if>
+            <if test="videoFeed != null">#{videoFeed},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBmObject" parameterType="BmObject">
+        update bm_object
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="ancestors != null">ancestors = #{ancestors},</if>
+            <if test="orderNum != null">order_num = #{orderNum},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="altitude != null">altitude = #{altitude},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="area != null">area = #{area},</if>
+            <if test="adminDept != null">admin_dept = #{adminDept},</if>
+            <if test="weight != null">weight = #{weight},</if>
+            <if test="videoFeed != null">video_feed = #{videoFeed},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <update id="updateObjectChildren" parameterType="java.util.List">
+        update bm_object set ancestors =
+        <foreach collection="objects" item="item" index="index"
+                 separator=" " open="case id" close="end">
+            when #{item.id} then #{item.ancestors}
+        </foreach>
+        where id in
+        <foreach collection="objects" item="item" index="index"
+                 separator="," open="(" close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <delete id="deleteBmObjectById" parameterType="Long">
+        delete from bm_object where id = #{id}
+    </delete>
+
+    <delete id="deleteBmObjectByIds" parameterType="String">
+        delete from bm_object where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+
+<head>
+    <th:block th:include="include :: header('监测数据列表')"/>
+    <style>
+
+    </style>
+</head>
+<body class="gray-bg">
+    <div class="container-div">
+        <div class="row">
+            <div class="col-sm-12 search-collapse">
+                <form id="formId">
+                    <div class="select-list">
+                        <ul>
+                            <li class="select-time">
+                                <label>时间： </label>
+                                <input type="text" class="time-input" id="startTime" placeholder="开始时间" name="params[beginTime]"/>
+                                <span>-</span>
+                                <input type="text" class="time-input" id="endTime" placeholder="结束时间" name="params[endTime]"/>
+                            </li>
+                            <li>
+                                <a class="btn btn-primary btn-rounded btn-sm" onclick="test()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                            </li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+
+            <div class="col-sm-12 select-table table-striped" id="lineChartBox">
+            </div>
+        </div>
+    </div>
+	<th:block th:include="include :: footer" />
+
+    <script th:src="@{/js/echarts.js}"></script>
+	<script th:inline="javascript">
+        var indexDataVos = [[${indexDataVos}]];
+        var prefix = ctx + "biz/data";
+
+
+        $(document).ready(function () {
+            console.log(indexDataVos);
+            createLineChart(indexDataVos);
+        });
+
+        function createLineChart(indexDataVos) {
+            console.log(indexDataVos);
+            $("#lineChartBox").empty();
+            //循环建图
+            for (let i = 0; i < indexDataVos.length; i++) {
+                // $("#lineChartBox").append("<div class = \"linechart\" id = \"linechart" + i + "\"><\div>");
+                $("#lineChartBox").append("<div class='c1' style=\"width:100%;height:350%;\" id = \"linechart" + i + "\"><\div>");
+                obj = indexDataVos[i];
+                var option = {
+                    title: {
+                        text: obj.objectName + "-" + obj.indexName
+                    },
+                    tooltip: {},
+                    legend: {
+                        // data: ['销量']
+                    },
+                    xAxis: {
+                        // data: ['7月21日', '7月22日', '7月23日', '7月24日', '7月25日', '7月26日', '7月27日', '7月28日', '7月29日']
+                        data: obj.date,
+                    },
+                    yAxis: {},
+                    series: [
+                        {
+                            // name: '销量',
+                            // type: 'line',
+                            // data: [5, -20, 36, 10, 10, 20, 20, 20, 20]
+                            name: '单位：' + obj.unit,
+                            type: 'line',
+                            data: obj.data
+                        }
+                    ]
+                };
+                // 使用刚指定的配置项和数据显示图表。
+                var myChart = echarts.init(document.getElementById('linechart' + i));
+                // 加载过渡动画
+                // myChart.hideLoading();
+                myChart.setOption(option);
+            }
+        }
+
+        function test(){
+            var startTime = document.getElementById("startTime").value;
+            var endTime = document.getElementById("endTime").value;
+            var indexDataVosList = indexDataVos;
+            var ids = "";
+            console.log("开始时间:" + startTime);
+            console.log("结束时间：" + endTime);
+            console.log(indexDataVosList);
+            for (let i = 0; i < indexDataVosList.length; i++) {
+                //最后一位id不需要拼接“,”
+                if (i != indexDataVosList.length - 1) {
+                    ids += indexDataVosList[i].id + ",";
+                }else {
+                    ids += indexDataVosList[i].id;
+                }
+            }
+            console.log(ids);
+            var url = prefix + "/chart/list/" + ids + "/" + startTime + "/" + endTime;
+            console.log("现在的url是什么？" + url);
+            // $.operate.get(url);
+            // console.log("现在是什么：" + JSON.stringify(indexDataVos));
+            // createLineChart(test);
+            $.ajax({
+                type: "POST",//请求类型：GET POST 其他请求方式eg:PUT DELETE（仅部分浏览器支持）
+                url: url,//ajax请求地址
+                dataType:'json',//预期服务器返回的数据类型
+                data: "",
+                success: function(data){
+                    console.log(data);
+                    createLineChart(data);
+                }
+            });
+
+        }
+
+    </script>
+</body>
+</html>

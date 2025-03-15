@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('修改监测指标')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-index-edit" th:object="${index}">
+            <input name="id" th:field="*{id}" type="hidden">
+            <div class="form-group">
+                <label class="col-sm-3 control-label">指标名称：</label>
+                <div class="col-sm-8">
+                    <input name="name" th:field="*{name}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">数据类型：</label>
+                <div class="col-sm-8">
+                    <select id="dataType" name="dataType" class="form-control m-b" th:with="type=${@dict.getType('bm_index_data_type')}" onchange="toggleDiv()" required>
+                        <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="*{dataType}"></option>
+                    </select>
+                </div>
+            </div>
+            <div id="ordinalDiv" class="form-group">
+                <label class="col-sm-3 control-label">序数选项：</label>
+                <div class="col-sm-8">
+                    <input name="options" th:field="*{options}" class="form-control" type="text">
+                </div>
+            </div>
+            <div id="numericalDiv" class="form-group">
+                <label class="col-sm-3 control-label">数值下限：</label>
+                <div class="col-sm-8">
+                    <input name="min" th:field="*{min}" class="form-control" type="text">
+                </div>
+<!--            </div>-->
+<!--            <div class="form-group">    -->
+                <label class="col-sm-3 control-label">数值上限：</label>
+                <div class="col-sm-8">
+                    <input name="max" th:field="*{max}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">监测精度要求：</label>
+                <div class="col-sm-8">
+                    <input name="precisionDemand" th:field="*{precisionDemand}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">分辨率要求：</label>
+                <div class="col-sm-8">
+                    <input name="resolutionDemand" th:field="*{resolutionDemand}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">数值单位：</label>
+                <div class="col-sm-8">
+                    <input name="unit" th:field="*{unit}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">小数位数：</label>
+                <div class="col-sm-8">
+                    <input name="decimalPlace" th:field="*{decimalPlace}" class="form-control" type="text">
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/index";
+
+        $(function () {
+            toggleDiv();
+        });
+
+        $("#form-index-edit").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/edit", $('#form-index-edit').serialize());
+            }
+        }
+
+        function toggleDiv() {
+            var dataType = $("#dataType").val();
+            if (dataType == 1) {  // 数值属性
+                $("#ordinalDiv").hide();
+                $("#numericalDiv").show();
+            } else if (dataType == 4) {  // 序数属性
+                $("#ordinalDiv").show();
+                $("#numericalDiv").hide();
+            } else {
+                $("#ordinalDiv").hide();
+                $("#numericalDiv").hide();
+            }
+        }
+    </script>
+</body>
+</html>

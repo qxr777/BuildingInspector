@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.IndexDataMapper">
+
+    <resultMap type="IndexData" id="IndexDataResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="objectId"    column="object_id"    />
+        <result property="indexId"    column="index_id"    />
+        <result property="indexDataType"    column="index_data_type"    />
+        <result property="numericValue"    column="numeric_value"    />
+        <result property="binaryValue"    column="binary_value"    />
+        <result property="ordinalValue"    column="ordinal_value"    />
+        <result property="nominalValue"    column="nominal_value"    />
+        <result property="createType"    column="create_type"    />
+        <result property="isAlert"    column="is_alert"    />
+        <result property="measurement"    column="measurement"    />
+        <result property="score"    column="score"    />
+        <result property="valueStr"    column="value_str"    />
+        <association property="index" javaType="Index" column="index_id">
+            <id property="id" column="index_id" />
+            <result property="name" column="iname" />
+            <result property="unit" column="unit" />
+        </association>
+        <association property="bmObject" javaType="BmObject" column="object_id">
+            <id property="id" column="object_id" />
+            <result property="name" column="oname" />
+            <result property="parentName" column="poname" />
+        </association>
+    </resultMap>
+
+    <sql id="selectIndexDataVo">
+        select d.create_time, d.update_time, d.id, d.create_by, d.update_by,
+				object_id, o.name as oname, po.name as poname,
+                index_id, i.name as iname,
+                index_data_type, numeric_value, binary_value, ordinal_value, nominal_value, value_str, create_type, is_alert, score, measurement, unit
+        from bm_index_data d
+				left join bm_index i on d.index_id = i.id
+				left join bm_object o	on d.object_id = o.id
+                left join bm_object po	on o.parent_id = po.id
+    </sql>
+
+    <sql id="selectIndexDataVo_COUNT">
+        select count(0)
+           from bm_index_data d
+    </sql>
+
+    <select id="selectIndexDataList_COUNT" parameterType="IndexData" resultType="Long">
+        <include refid="selectIndexDataVo_COUNT"/>
+        <where>
+            <if test="objectId != null ">
+                AND (object_id = #{objectId} OR object_id IN ( SELECT t.id FROM bm_object t WHERE FIND_IN_SET (#{objectId},ancestors) ))
+            </if>
+            <if test="indexId != null "> and index_id = #{indexId}</if>
+            <if test="createType != null "> and create_type = #{createType}</if>
+            <if test="isAlert != null "> and is_alert = #{isAlert}</if>
+            <if test="measurement != null  and measurement != ''"> and measurement like concat('%', #{measurement}, '%')</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                and date_format(d.create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                and date_format(d.create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+        </where>
+        order by d.create_time desc
+    </select>
+
+    <select id="selectIndexDataList" parameterType="IndexData" resultMap="IndexDataResult">
+        <include refid="selectIndexDataVo"/>
+        <where>
+            <if test="objectId != null ">
+                AND (object_id = #{objectId} OR object_id IN ( SELECT t.id FROM bm_object t WHERE FIND_IN_SET (#{objectId},ancestors) ))
+             </if>
+            <if test="indexId != null "> and index_id = #{indexId}</if>
+            <if test="createType != null "> and create_type = #{createType}</if>
+            <if test="isAlert != null "> and is_alert = #{isAlert}</if>
+            <if test="measurement != null  and measurement != ''"> and measurement like concat('%', #{measurement}, '%')</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                and date_format(d.create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                and date_format(d.create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+        </where>
+        order by d.create_time desc
+    </select>
+
+    <select id="selectIndexDataById" parameterType="Long" resultMap="IndexDataResult">
+        <include refid="selectIndexDataVo"/>
+        where d.id = #{id}
+    </select>
+
+    <select id="selectPreviousIndexData" resultMap="IndexDataResult">
+        <include refid="selectIndexDataVo"/>
+        where d.object_id = #{objectId} and d.index_id = #{indexId}
+        and d.create_time &lt; date_add(now(), interval -#{period} second)
+        order by d.create_time desc
+        limit 1
+    </select>
+
+    <select id="selectIndexDataListByIds" resultMap="IndexDataResult">
+        <include refid="selectIndexDataVo"/>
+        <where>
+            d.id in <foreach item="id" collection="array" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </where>
+
+    </select>
+    <select id="selectIndexDataListByObjectIdAndIndexId" resultMap="IndexDataResult">
+        <include refid="selectIndexDataVo"/>
+        <where>
+            d.object_id = #{objectId}
+            and d.index_id = #{indexId}
+            and date_format(d.create_time,'%y%m%d') &gt;= date_format(#{startTime},'%y%m%d')
+            and date_format(d.create_time,'%y%m%d') &lt; date_format(#{endTime},'%y%m%d')
+        </where>
+        order by d.create_time asc
+    </select>
+
+
+    <insert id="insertIndexData" parameterType="IndexData" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_index_data
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="objectId != null">object_id,</if>
+            <if test="indexId != null">index_id,</if>
+            <if test="indexDataType != null">index_data_type,</if>
+            <if test="numericValue != null">numeric_value,</if>
+            <if test="binaryValue != null">binary_value,</if>
+            <if test="ordinalValue != null">ordinal_value,</if>
+            <if test="nominalValue != null">nominal_value,</if>
+            <if test="createType != null">create_type,</if>
+            <if test="isAlert != null">is_alert,</if>
+            <if test="measurement != null">measurement,</if>
+            <if test="score != null">score,</if>
+            <if test="valueStr != null">value_str,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="objectId != null">#{objectId},</if>
+            <if test="indexId != null">#{indexId},</if>
+            <if test="indexDataType != null">#{indexDataType},</if>
+            <if test="numericValue != null">#{numericValue},</if>
+            <if test="binaryValue != null">#{binaryValue},</if>
+            <if test="ordinalValue != null">#{ordinalValue},</if>
+            <if test="nominalValue != null">#{nominalValue},</if>
+            <if test="createType != null">#{createType},</if>
+            <if test="isAlert != null">#{isAlert},</if>
+            <if test="measurement != null">#{measurement},</if>
+            <if test="score != null">#{score},</if>
+            <if test="valueStr != null">#{valueStr},</if>
+         </trim>
+    </insert>
+
+    <update id="updateIndexData" parameterType="IndexData">
+        update bm_index_data
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="objectId != null">object_id = #{objectId},</if>
+            <if test="indexId != null">index_id = #{indexId},</if>
+            <if test="indexDataType != null">index_data_type = #{indexDataType},</if>
+            <if test="numericValue != null">numeric_value = #{numericValue},</if>
+            <if test="binaryValue != null">binary_value = #{binaryValue},</if>
+            <if test="ordinalValue != null">ordinal_value = #{ordinalValue},</if>
+            <if test="nominalValue != null">nominal_value = #{nominalValue},</if>
+            <if test="createType != null">create_type = #{createType},</if>
+            <if test="isAlert != null">is_alert = #{isAlert},</if>
+            <if test="measurement != null">measurement = #{measurement},</if>
+            <if test="score != null">score = #{score},</if>
+            <if test="valueStr != null">value_str = #{valueStr},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteIndexDataById" parameterType="Long">
+        delete from bm_index_data where id = #{id}
+    </delete>
+
+    <delete id="deleteIndexDataByIds" parameterType="String">
+        delete from bm_index_data where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

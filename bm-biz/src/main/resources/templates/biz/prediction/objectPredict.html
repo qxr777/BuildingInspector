@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('监测对象评估列表')"/>
+    <th:block th:include="include :: layout-latest-css"/>
+    <th:block th:include="include :: ztree-css"/>
+</head>
+<body class="gray-bg">
+<div class="ui-layout-west">
+    <div class="box box-main">
+        <div class="box-header">
+            <div class="box-title">
+                <i class="fa icon-grid"></i> 监测对象层次
+            </div>
+            <div class="box-tools pull-right">
+                <a type="button" class="btn btn-box-tool" href="#" onclick="object()" title="管理监测对象"><i
+                        class="fa fa-edit"></i></a>
+                <button type="button" class="btn btn-box-tool" id="btnExpand" title="展开" style="display:none;"><i
+                        class="fa fa-chevron-up"></i></button>
+                <button type="button" class="btn btn-box-tool" id="btnCollapse" title="折叠"><i
+                        class="fa fa-chevron-down"></i></button>
+                <button type="button" class="btn btn-box-tool" id="btnRefresh" title="刷新对象"><i
+                        class="fa fa-refresh"></i></button>
+            </div>
+        </div>
+        <div class="ui-layout-content">
+            <div id="tree" class="ztree"></div>
+        </div>
+    </div>
+</div>
+<div class="ui-layout-center">
+    <form id="formId">
+        <input type="hidden" id="objectId" name="objectId" th:value="${objectId}">
+    </form>
+    <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:alert:export">
+        <i class="fa fa-download"></i> 导出
+    </a>
+    <div class="row animated fadeInRight">
+        <div class="ibox float-e-margins">
+            <div id="evaluationlist">
+                <div id="ibox-content" th:fragment="fragment-tasklist">
+                    <div id="vertical-timeline" class="vertical-container dark-timeline" >
+                        <div class="vertical-timeline-block" th:each="evaluation:${evaluations}">
+                            <div class="vertical-timeline-icon blue-bg">
+                                <i class="fa fa-file-text"></i>
+                            </div>
+                            <div class="vertical-timeline-content" th:object="${evaluation}">
+                                <span class="vertical-date">
+                                    <small th:text="*{createDateStr}">2022年2月3日</small>
+                                </span>
+                                <br>
+                                <h2>
+                                    <div th:text="*{object.name}">***地下工程 - 内部环境 - 生活区域</div>
+                                    <span class="label pull-right" th:classappend="*{levelCh=='差' ? 'label-danger': levelCh=='中' ? 'label-warning' : levelCh=='良' ? 'label-success' : levelCh=='优' ? 'label-primary' : ''}" th:text="*{levelCh}">优</span>
+                                </h2>
+                                <p></p>
+                                <div>
+                                    <span>预测健康指数：</span>
+                                    <div class="stat-percent" th:text="*{score}">88.5</div>
+                                    <div class="progress progress-mini">
+                                        <div class="progress-bar" th:style="'width: ' + *{score} + '%;'" ></div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: layout-latest-js" />
+<th:block th:include="include :: ztree-js" />
+<script th:inline="javascript">
+
+    $(function () {
+        var panehHidden = false;
+        if ($(this).width() < 769) {
+            panehHidden = true;
+        }
+        $('body').layout({initClosed: panehHidden, west__size: 205});
+        // 回到顶部绑定
+        if ($.fn.toTop !== undefined) {
+            var opt = {
+                win: $('.ui-layout-center'),
+                doc: $('.ui-layout-center')
+            };
+            $('#scroll-up').toTop(opt);
+        }
+        // 缺省黑色版本
+        // $('#ibox-content').addClass('ibox-content');
+        // $('#vertical-timeline').removeClass('light-timeline');
+        // $('#vertical-timeline').addClass('dark-timeline');
+
+        queryObjectTree();
+    });
+
+    function queryObjectTree() {
+        var url = ctx + "biz/object/treeData";
+        var options = {
+            url: url,
+            expandLevel: 2,
+            onClick: zOnClick
+        };
+        $.tree.init(options);
+
+        function zOnClick(event, treeId, treeNode) {
+            $("#objectId").val(treeNode.id);
+            // $.table.search();
+            refresh();
+        }
+
+    }
+
+    function refresh(){
+        $.ajax({
+            type: "get",
+            url: ctx + "biz/prediction/objectPredict",
+            data: {
+                "objectId": $("#objectId").val(),
+                "fragment":'fragment-tasklist'
+            },
+            success: function(data) {
+                $("#evaluationlist").html(data);
+            }
+        });
+    }
+
+    $('#btnExpand').click(function () {
+        $._tree.expandAll(true);
+        $(this).hide();
+        $('#btnCollapse').show();
+    });
+
+    $('#btnCollapse').click(function () {
+        $._tree.expandAll(false);
+        $(this).hide();
+        $('#btnExpand').show();
+    });
+
+    $('#btnRefresh').click(function () {
+        queryObjectTree();
+    });
+
+    /* 监测对象管理入口 */
+    function object() {
+        var url = ctx + "biz/object";
+        $.modal.openTab("监测对象", url);
+    }
+
+</script>
+</body>
+</html>

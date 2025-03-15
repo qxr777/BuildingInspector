@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.AlertRuleMapper">
+
+    <resultMap type="AlertRule" id="AlertRuleResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="type"    column="type"    />
+        <result property="thresholdValue"    column="threshold_value"    />
+        <result property="correlationDataScore"    column="correlation_data_score"    />
+        <result property="thresholdLower"    column="threshold_lower"    />
+        <result property="thresholdUpper"    column="threshold_upper"    />
+        <result property="relativePreviousPeriod"    column="relative_previous_period"    />
+        <result property="deadmanMissingPeriod"    column="deadman_missing_period"    />
+        <result property="status"    column="status"    />
+        <result property="indexId"    column="index_id"    />
+        <result property="thresholdOperatorType"    column="threshold_operator_type"    />
+        <result property="name"    column="name"    />
+        <result property="relativeChangeType"    column="relative_change_type"    />
+        <result property="relativeOperatorType"    column="relative_operator_type"    />
+        <result property="relativeValue"    column="relative_value"    />
+        <result property="description"    column="description"    />
+        <result property="alertLevel"    column="alert_level"    />
+        <association property="index" javaType="Index" column="index_id">
+            <id property="id" column="index_id" />
+            <result property="name" column="iname" />
+            <result property="unit" column="unit" />
+        </association>
+    </resultMap>
+
+    <sql id="selectAlertRuleVo">
+        select ar.create_time, ar.update_time, ar.id, ar.create_by, ar.update_by, type, threshold_value, correlation_data_score, threshold_lower, threshold_upper, relative_previous_period, deadman_missing_period, ar.status,
+        index_id, i.name as iname, unit,
+        threshold_operator_type, ar.name, relative_change_type, relative_operator_type, relative_value, description, alert_level
+        from bm_alert_rule ar
+        left join bm_index i on ar.index_id = i.id
+    </sql>
+
+    <select id="selectAlertRuleList" parameterType="AlertRule" resultMap="AlertRuleResult">
+        <include refid="selectAlertRuleVo"/>
+        <where>
+            <if test="type != null and type !=''"> and type = #{type}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="indexId != null and indexId !=''"> and index_id = #{indexId}</if>
+            <if test="alertLevel != null and alertLevel !=''"> and alertLevel = #{alertLevel}</if>
+            <if test="name != null  and name != ''"> and ar.name like concat('%', #{name}, '%')</if>
+            <if test="description != null  and description != ''"> and description like concat('%', #{description}, '%')</if>
+        </where>
+        order by ar.update_time desc
+    </select>
+
+    <select id="selectAlertRuleById" parameterType="Long" resultMap="AlertRuleResult">
+        <include refid="selectAlertRuleVo"/>
+        where ar.id = #{id}
+    </select>
+
+    <insert id="insertAlertRule" parameterType="AlertRule" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_alert_rule
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="type != null">type,</if>
+            <if test="thresholdValue != null">threshold_value,</if>
+            <if test="correlationDataScore != null">correlation_data_score,</if>
+            <if test="thresholdLower != null">threshold_lower,</if>
+            <if test="thresholdUpper != null">threshold_upper,</if>
+            <if test="relativePreviousPeriod != null">relative_previous_period,</if>
+            <if test="deadmanMissingPeriod != null">deadman_missing_period,</if>
+            <if test="status != null">status,</if>
+            <if test="indexId != null">index_id,</if>
+            <if test="thresholdOperatorType != null">threshold_operator_type,</if>
+            <if test="name != null">name,</if>
+            <if test="relativeChangeType != null">relative_change_type,</if>
+            <if test="relativeOperatorType != null">relative_operator_type,</if>
+            <if test="relativeValue != null">relative_value,</if>
+            <if test="description != null">description,</if>
+            <if test="alertLevel != null">alert_level,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="type != null">#{type},</if>
+            <if test="thresholdValue != null">#{thresholdValue},</if>
+            <if test="correlationDataScore != null">#{correlationDataScore},</if>
+            <if test="thresholdLower != null">#{thresholdLower},</if>
+            <if test="thresholdUpper != null">#{thresholdUpper},</if>
+            <if test="relativePreviousPeriod != null">#{relativePreviousPeriod},</if>
+            <if test="deadmanMissingPeriod != null">#{deadmanMissingPeriod},</if>
+            <if test="status != null">#{status},</if>
+            <if test="indexId != null">#{indexId},</if>
+            <if test="thresholdOperatorType != null">#{thresholdOperatorType},</if>
+            <if test="name != null">#{name},</if>
+            <if test="relativeChangeType != null">#{relativeChangeType},</if>
+            <if test="relativeOperatorType != null">#{relativeOperatorType},</if>
+            <if test="relativeValue != null">#{relativeValue},</if>
+            <if test="description != null">#{description},</if>
+            <if test="alertLevel != null">#{alertLevel},</if>
+         </trim>
+    </insert>
+
+    <update id="updateAlertRule" parameterType="AlertRule">
+        update bm_alert_rule
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="thresholdValue != null">threshold_value = #{thresholdValue},</if>
+            <if test="correlationDataScore != null">correlation_data_score = #{correlationDataScore},</if>
+            <if test="thresholdLower != null">threshold_lower = #{thresholdLower},</if>
+            <if test="thresholdUpper != null">threshold_upper = #{thresholdUpper},</if>
+            <if test="relativePreviousPeriod != null">relative_previous_period = #{relativePreviousPeriod},</if>
+            <if test="deadmanMissingPeriod != null">deadman_missing_period = #{deadmanMissingPeriod},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="indexId != null">index_id = #{indexId},</if>
+            <if test="thresholdOperatorType != null">threshold_operator_type = #{thresholdOperatorType},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="relativeChangeType != null">relative_change_type = #{relativeChangeType},</if>
+            <if test="relativeOperatorType != null">relative_operator_type = #{relativeOperatorType},</if>
+            <if test="relativeValue != null">relative_value = #{relativeValue},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="alertLevel != null">alert_level = #{alertLevel},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAlertRuleById" parameterType="Long">
+        delete from bm_alert_rule where id = #{id}
+    </delete>
+
+    <delete id="deleteAlertRuleByIds" parameterType="String">
+        delete from bm_alert_rule where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

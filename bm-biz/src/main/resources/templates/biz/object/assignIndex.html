@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('对象关联指标')" />
+</head>
+<body>
+    <div class="main-content">
+        <form id="form-user-add" class="form-horizontal">
+            <input type="hidden" id="objectId" name="objectId" th:value="${object.id}">
+            <h4 class="form-header h4">基本信息</h4>
+            <div class="row">
+            	<div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label is-required">对象名称：</label>
+                        <div class="col-sm-8">
+                            <input name="userName" class="form-control" type="text" disabled th:value="${object.name}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+           
+            <h4 class="form-header h4">关联指标</h4>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="col-sm-12 select-table table-striped">
+					    <table id="bootstrap-table"></table>
+					</div>
+                </div>
+            </div>
+        </form>
+    </div>
+      
+    <div class="row">
+        <div class="col-sm-offset-5 col-sm-10">
+            <button type="button" class="btn btn-sm btn-primary" onclick="submitHandler()"><i class="fa fa-check"></i>保 存</button>&nbsp;
+            <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()"><i class="fa fa-reply-all"></i>关 闭 </button>
+        </div>
+    </div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+	    var prefix = ctx + "biz/object/assignIndex";
+	    var indexes = [[${indexes}]]
+        var dataTypeDatas = [[${@dict.getType('bm_index_data_type')}]];
+	    
+	    $(function() {
+		    var options = {
+		        data: indexes,
+		        sidePagination: "client",
+		        sortName: "id",
+		        showSearch: false,
+                showRefresh: false,
+                showToggle: false,
+                showColumns: false,
+                clickToSelect: true,
+                maintainSelected: true,
+		        columns: [{
+		            checkbox: true,
+		            formatter:function (value, row, index) {
+		            	if($.common.isEmpty(value)) {
+		            		return { checked: row.flag };
+		            	} else {
+		            		return { checked: value }
+		            	}
+		            }
+		        },
+		        {
+		            field: 'id',
+		            title: '指标编号',
+                    sortable: true
+		        },
+		        {
+		            field: 'name',
+		            title: '指标名称'
+		        },
+                    {
+                        field: 'dataType',
+                        title: '数据类型',
+                        formatter: function(value, row, index) {
+                            return $.table.selectDictLabel(dataTypeDatas, value);
+                        }
+                    },
+		        {
+		            field: 'createTime',
+		            title: '创建时间',
+		            sortable: true
+		        }]
+		    };
+		    $.table.init(options);
+		});
+	    
+	    /* 添加对象指标关联-提交 */
+        function submitHandler(index, layero){
+        	var rows = $.table.selectFirstColumns();
+        	var data = { "objectId": $("#objectId").val(), "indexIds": rows.join() };
+			$.operate.saveTab(prefix + "/insertObjectIndex", data);
+        }
+    </script>
+</body>
+</html>

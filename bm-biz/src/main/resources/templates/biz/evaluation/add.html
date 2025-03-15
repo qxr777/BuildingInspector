@@ -1,0 +1,76 @@
+ <!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('新增评估历史数据')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-evaluation-add">
+            <div class="form-group">    
+                <label class="col-sm-3 control-label is-required">监测对象ID：</label>
+                <div class="col-sm-8">
+                    <input name="objectId" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label is-required">评估分：</label>
+                <div class="col-sm-8">
+                    <input name="score" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">评估等级：</label>
+                <div class="col-sm-8">
+                    <select name="level" class="form-control m-b" th:with="type=${@dict.getType('bm_evaluation_level')}">
+                        <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">监测对象数目：</label>
+                <div class="col-sm-8">
+                    <input name="childrenObjectCount" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">监测指标数目：</label>
+                <div class="col-sm-8">
+                    <input name="objectIndexCount" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">异常指标数目：</label>
+                <div class="col-sm-8">
+                    <input name="objectIndexExceptionCount" class="form-control" type="text">
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/evaluation"
+        $("#form-evaluation-add").validate({
+            focusCleanup: true,
+            rules: {
+                objectId: "number",
+                score: {
+                    "required": true,
+                    "number":true,
+                    "range":[0,100]
+                }
+
+            },
+            messages: {
+                objectId : "请输入有效的监控对象ID",
+                score: "评估分数区间0-100"
+            }
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/add", $('#form-evaluation-add').serialize());
+            }
+        }
+    </script>
+</body>
+</html>

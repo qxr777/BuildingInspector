@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.ObjectIndexMapper">
+
+    <resultMap type="ObjectIndex" id="ObjectIndexResult">
+        <result property="id"    column="id"    />
+        <result property="objectId"    column="object_id"    />
+        <result property="indexId"    column="index_id"    />
+        <result property="measurement"    column="measurement"    />
+        <result property="lastIndexDataId"    column="last_index_data_id"    />
+        <result property="weight"    column="weight"    />
+        <result property="countOfRule"    column="count_of_rule"    />
+        <result property="converter"    column="converter"    />
+        <result property="convertParams"    column="convert_params"    />
+        <association property="object"     column="object_id" javaType="BmObject">
+            <id property="id" column="object_id" />
+            <result property="name" column="oname" />
+        </association>
+        <association property="index"     column="index_id" javaType="Index">
+            <id property="id" column="index_id" />
+            <result property="name" column="iname" />
+            <result property="dataType" column="data_type" />
+            <result property="unit" column="unit" />
+            <result property="options" column="options" />
+            <result property="decimalPlace" column="decimal_place" />
+        </association>
+        <association property="indexData" column="last_index_data_id" javaType="IndexData" resultMap="edu.whut.cs.bm.biz.mapper.IndexDataMapper.IndexDataResult">
+        </association>
+    </resultMap>
+
+    <sql id="selectObjectIndexVo">
+        select oi.id, oi.object_id, oi.index_id, oi.measurement, oi.last_index_data_id, oi.weight, oi.converter, oi.convert_params
+             , o.name as oname
+             , i.name as iname, data_type, decimal_place, unit, options
+             , count(oiar.alert_rule_id) as count_of_rule
+             , bid.value_str, bid.score, bid.is_alert, bid.create_time, bid.create_type
+           from bm_object_index oi
+				left join bm_object o on oi.object_id = o.id
+				left join bm_index i on oi.index_id = i.id
+				left join bm_index_data bid on oi.last_index_data_id = bid.id
+                left join bm_object_index_alert_rule oiar on oi.object_id = oiar.object_id and oi.index_id = oiar.index_id
+    </sql>
+
+    <select id="selectObjectIndexList" parameterType="ObjectIndex" resultMap="ObjectIndexResult">
+        <include refid="selectObjectIndexVo"/>
+        <where>
+            <if test="objectId != null ">
+                AND (oi.object_id = #{objectId} OR oi.object_id IN ( SELECT t.id FROM bm_object t WHERE FIND_IN_SET (#{objectId},ancestors)))
+            </if>
+            <if test="indexId != null "> and oi.index_id = #{indexId}</if>
+            <if test="measurement != null  and measurement != ''"> and oi.measurement like concat('%', #{measurement}, '%')</if>
+            <if test="lastIndexDataId != null "> and last_index_data_id = #{lastIndexDataId}</if>
+        </where>
+        group by oi.id
+    </select>
+
+    <select id="selectObjectIndexById" parameterType="Long" resultMap="ObjectIndexResult">
+        <include refid="selectObjectIndexVo"/>
+        where oi.id = #{id}
+    </select>
+
+    <insert id="insertObjectIndex" parameterType="ObjectIndex" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_object_index
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="objectId != null">object_id,</if>
+            <if test="indexId != null">index_id,</if>
+            <if test="measurement != null">measurement,</if>
+            <if test="lastIndexDataId != null">last_index_data_id,</if>
+            <if test="weight != null">weight,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="objectId != null">#{objectId},</if>
+            <if test="indexId != null">#{indexId},</if>
+            <if test="measurement != null">#{measurement},</if>
+            <if test="lastIndexDataId != null">#{lastIndexDataId},</if>
+            <if test="weight != null">#{weight},</if>
+            <if test="converter != null">#{converter},</if>
+            <if test="convertParams != null">#{convert_params},</if>
+         </trim>
+    </insert>
+
+    <insert id="batchObjectIndex">
+        insert into bm_object_index(object_id, index_id) values
+        <foreach item="item" index="index" collection="list" separator=",">
+            (#{item.objectId},#{item.indexId})
+        </foreach>
+    </insert>
+
+    <update id="updateObjectIndex" parameterType="ObjectIndex">
+        update bm_object_index
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="objectId != null">object_id = #{objectId},</if>
+            <if test="indexId != null">index_id = #{indexId},</if>
+            <if test="measurement != null">measurement = #{measurement},</if>
+            <if test="lastIndexDataId != null">last_index_data_id = #{lastIndexDataId},</if>
+            <if test="weight != null">weight = #{weight},</if>
+            <if test="converter != null">converter = #{converter},</if>
+            <if test="convertParams != null">convert_params = #{convertParams},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteObjectIndexById" parameterType="Long">
+        delete from bm_object_index where id = #{id}
+    </delete>
+
+    <delete id="deleteObjectIndexByIds" parameterType="String">
+        delete from bm_object_index where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteObjectIndexByObjectId" parameterType="Long">
+		delete from bm_object_index where object_id = #{objectId}
+	</delete>
+
+</mapper>

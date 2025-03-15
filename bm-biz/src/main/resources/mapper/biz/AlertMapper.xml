@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.AlertMapper">
+
+    <resultMap type="Alert" id="AlertResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="alertRuleId"    column="alert_rule_id"    />
+        <result property="createType"    column="create_type"    />
+        <result property="objectId"    column="object_id"    />
+        <result property="indexId"    column="index_id"    />
+        <result property="measurement"    column="measurement"    />
+        <result property="indexDataId"    column="index_data_id"    />
+        <result property="message"    column="message"    />
+        <result property="status"    column="status"    />
+        <result property="remark"    column="remark"    />
+        <association property="index" javaType="Index" column="index_id">
+            <id property="id" column="index_id" />
+            <result property="name" column="iname" />
+            <result property="unit" column="unit" />
+        </association>
+        <association property="bmObject" javaType="BmObject" column="object_id">
+            <id property="id" column="object_id" />
+            <result property="name" column="oname" />
+            <result property="parentName" column="poname" />
+        </association>
+        <association property="alertRule" javaType="AlertRule" column="alert_rule_id">
+            <id property="id" column="alert_rule_id" />
+            <result property="name" column="arname" />
+            <result property="alertLevel" column="alert_level" />
+            <result property="description" column="description" />
+        </association>
+    </resultMap>
+
+    <sql id="selectAlertVo">
+        select a.create_time, a.update_time, a.id, a.create_by, a.update_by, alert_rule_id, create_type,
+        object_id, o.name as oname, po.name as poname,
+        a.index_id, i.name as iname, unit, ar.name as arname, alert_level, description,
+        a.measurement, index_data_id, message, a.status, a.remark
+        from bm_alert a
+        		left join bm_index i on a.index_id = i.id
+				left join bm_object o	on a.object_id = o.id
+                left join bm_object po	on o.parent_id = po.id
+                left join bm_alert_rule ar	on a.alert_rule_id = ar.id
+    </sql>
+
+    <select id="selectAlertList" parameterType="Alert" resultMap="AlertResult">
+        <include refid="selectAlertVo"/>
+        <where>
+            <if test="alertRuleId != null "> and alert_rule_id = #{alertRuleId}</if>
+            <if test="createType != null  and createType != ''"> and create_type = #{createType}</if>
+            <if test="objectId != null ">
+                AND (object_id = #{objectId} OR object_id IN ( SELECT t.id FROM bm_object t WHERE FIND_IN_SET (#{objectId},ancestors) ))
+            </if>
+            <if test="indexId != null "> and index_id = #{indexId}</if>
+            <if test="measurement != null  and measurement != ''"> and a.measurement = #{measurement}</if>
+            <if test="message != null  and message != ''"> and message like concat('%', #{message}, '%')</if>
+            <if test="status != null  and status != ''"> and a.status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                and date_format(a.create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                and date_format(a.create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+            <if test="params.lastSecond != null and params.lastSecond != ''"><!-- 最近 x 秒检索 -->
+                and a.create_time &gt;= NOW() - interval #{params.lastSecond} second
+            </if>
+        </where>
+        order by a.create_time desc
+    </select>
+
+    <select id="selectAlertById" parameterType="Long" resultMap="AlertResult">
+        <include refid="selectAlertVo"/>
+        where a.id = #{id}
+    </select>
+
+    <insert id="insertAlert" parameterType="Alert" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_alert
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="alertRuleId != null">alert_rule_id,</if>
+            <if test="createType != null">create_type,</if>
+            <if test="objectId != null">object_id,</if>
+            <if test="indexId != null">index_id,</if>
+            <if test="measurement != null">measurement,</if>
+            <if test="indexDataId != null">index_data_id,</if>
+            <if test="message != null">message,</if>
+            <if test="status != null">status,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="alertRuleId != null">#{alertRuleId},</if>
+            <if test="createType != null">#{createType},</if>
+            <if test="objectId != null">#{objectId},</if>
+            <if test="indexId != null">#{indexId},</if>
+            <if test="measurement != null">#{measurement},</if>
+            <if test="indexDataId != null">#{indexDataId},</if>
+            <if test="message != null">#{message},</if>
+            <if test="status != null">#{status},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateAlert" parameterType="Alert">
+        update bm_alert
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="alertRuleId != null">alert_rule_id = #{alertRuleId},</if>
+            <if test="createType != null">create_type = #{createType},</if>
+            <if test="objectId != null">object_id = #{objectId},</if>
+            <if test="indexId != null">object_id = #{indexId},</if>
+            <if test="measurement != null">measurement = #{measurement},</if>
+            <if test="indexDataId != null">index_data_id = #{indexDataId},</if>
+            <if test="message != null">message = #{message},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAlertById" parameterType="Long">
+        delete from bm_alert where id = #{id}
+    </delete>
+
+    <delete id="deleteAlertByIds" parameterType="String">
+        delete from bm_alert where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

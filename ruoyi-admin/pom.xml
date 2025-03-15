@@ -67,6 +67,20 @@
             <artifactId>ruoyi-generator</artifactId>
         </dependency>
 
+        <!-- bm物联网模块-->
+        <dependency>
+            <groupId>edu.whut.cs.bm</groupId>
+            <artifactId>bm-iot</artifactId>
+            <version>${bm.version}</version>
+        </dependency>
+
+        <!-- bm业务模块-->
+        <dependency>
+            <groupId>edu.whut.cs.bm</groupId>
+            <artifactId>bm-biz</artifactId>
+            <version>${bm.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

@@ -1,0 +1,19 @@
+version: '2'
+services:
+    mysql:
+        image: mysql:8.0
+        volumes:
+            - ./data/mysql/conf:/etc/mysql/conf.d
+            - ./data/mysql/data:/var/lib/mysql
+            - ../sql/bi_20250315.sql:/docker-entrypoint-initdb.d/bi_20250315.sql
+#            - ../sql/ry_20240601.sql:/docker-entrypoint-initdb.d/ry_20240601.sql
+            - ../sql/quartz.sql:/docker-entrypoint-initdb.d/quartz.sql
+        environment:
+#            - MYSQL_USER=root
+            - MYSQL_ROOT_PASSWORD=123456
+            - MYSQL_DATABASE=bi
+            - LANG=C.UTF-8
+            - TZ=Asia/Shanghai
+        ports:
+            - 3306:3306
+        command: mysqld  --skip-ssl --character_set_server=utf8mb4 --sql_mode=""

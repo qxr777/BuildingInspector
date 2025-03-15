@@ -1,0 +1,11 @@
+version: '2'
+services:
+  mysql:
+    container_name: bi_mysql
+    extends:
+      file: mysql.yml
+      service: mysql
+    networks:
+      - bi-net
+networks:
+    bi-net:

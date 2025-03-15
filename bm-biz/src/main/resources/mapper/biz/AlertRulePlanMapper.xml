@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.AlertRulePlanMapper">
+    
+    <resultMap type="AlertRulePlan" id="AlertRulePlanResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="alertRuleId"    column="alert_rule_id"    />
+        <result property="planId"    column="plan_id"    />
+    </resultMap>
+
+    <sql id="selectAlertRulePlanVo">
+        select create_time, update_time, id, create_by, update_by, alert_rule_id, plan_id from bm_alert_rule_plan
+    </sql>
+
+    <select id="selectAlertRulePlanList" parameterType="AlertRulePlan" resultMap="AlertRulePlanResult">
+        <include refid="selectAlertRulePlanVo"/>
+        <where>  
+            <if test="alertRuleId != null "> and alert_rule_id = #{alertRuleId}</if>
+            <if test="planId != null "> and plan_id = #{planId}</if>
+        </where>
+    </select>
+    
+    <select id="selectAlertRulePlanById" parameterType="Long" resultMap="AlertRulePlanResult">
+        <include refid="selectAlertRulePlanVo"/>
+        where id = #{id}
+    </select>
+        
+    <insert id="insertAlertRulePlan" parameterType="AlertRulePlan" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_alert_rule_plan
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="alertRuleId != null">alert_rule_id,</if>
+            <if test="planId != null">plan_id,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="alertRuleId != null">#{alertRuleId},</if>
+            <if test="planId != null">#{planId},</if>
+         </trim>
+    </insert>
+
+    <update id="updateAlertRulePlan" parameterType="AlertRulePlan">
+        update bm_alert_rule_plan
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="alertRuleId != null">alert_rule_id = #{alertRuleId},</if>
+            <if test="planId != null">plan_id = #{planId},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAlertRulePlanById" parameterType="Long">
+        delete from bm_alert_rule_plan where id = #{id}
+    </delete>
+
+    <delete id="deleteAlertRulePlanByIds" parameterType="String">
+        delete from bm_alert_rule_plan where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteByAlertRuleId">
+        delete from bm_alert_rule_plan where alert_rule_id = #{alertRuleId}
+    </delete>
+
+</mapper>

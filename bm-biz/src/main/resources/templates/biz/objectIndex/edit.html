@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('修改监测对象评估')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-objectIndex-edit" th:object="${objectIndex}">
+            <input name="id" th:field="*{id}" type="hidden">
+            <div class="form-group">
+                <label class="col-sm-3 control-label">对象：</label>
+                <div class="col-sm-8">
+                    <input name="objectId" th:field="*{objectId}" class="form-control" type="hidden">
+                    <input name="objectName" th:field="*{object.name}" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">指标：</label>
+                <div class="col-sm-8">
+                    <input name="indexId" th:field="*{indexId}" class="form-control" type="hidden">
+                    <input name="indexId" th:field="*{index.name}" class="form-control" type="text" readonly>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">测点表达式：</label>
+                <div class="col-sm-8">
+                    <input name="measurement" th:field="*{measurement}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">原始数据转换器：</label>
+                <div class="col-sm-8">
+                    <input name="converter" th:field="*{converter}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">数据转换参数：</label>
+                <div class="col-sm-8">
+                    <input name="convertParams" th:field="*{convertParams}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">评估权重值：</label>
+                <div class="col-sm-8">
+<!--                    <select name="weight" class="form-control m-b" th:with="type=${@dict.getType('bm_object_index_weight')}" required>-->
+<!--                        <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="*{weight}"></option>-->
+<!--                    </select>-->
+                    <input name="weight" th:field="*{weight}" class="form-control" type="text">
+                    <span class="help-block m-b-none"><i class="fa fa-info-circle"></i> 评估权重大于等于0，小于等于1！</span>
+                </div>
+            </div>
+<!--            <div class="form-group">    -->
+<!--                <label class="col-sm-3 control-label">最近指标数据id：</label>-->
+<!--                <div class="col-sm-8">-->
+<!--                    <input name="lastIndexDataId" th:field="*{lastIndexDataId}" class="form-control" type="text">-->
+<!--                </div>-->
+<!--            </div>-->
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/objectIndex";
+        $("#form-objectIndex-edit").validate({
+            focusCleanup: true,
+            rules: {
+                weight: {
+                    "required": true,
+                    "number":true,
+                    "range":[0,1]
+                }
+            },
+            messages: {
+                score: "评估权重区间[0, 1]"
+            }
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/edit", $('#form-objectIndex-edit').serialize());
+            }
+        }
+    </script>
+</body>
+</html>

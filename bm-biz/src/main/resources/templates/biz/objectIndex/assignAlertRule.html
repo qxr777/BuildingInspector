@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('对象指标关联预警规则')" />
+</head>
+<body>
+    <div class="main-content">
+        <form id="form-user-add" class="form-horizontal">
+            <input type="hidden" id="objectId" name="objectId" th:value="${object.id}">
+            <input type="hidden" id="indexId" name="indexId" th:value="${index.id}">
+            <h4 class="form-header h4">基本信息</h4>
+            <div class="row">
+            	<div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label is-required">监测对象：</label>
+                        <div class="col-sm-8">
+                            <input name="objectName" class="form-control" type="text" disabled th:value="${object.name}">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label is-required">监测指标：</label>
+                        <div class="col-sm-8">
+                            <input name="indexName" class="form-control" type="text" disabled th:value="${index.name}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+           
+            <h4 class="form-header h4">关联预警规则</h4>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="col-sm-12 select-table table-striped">
+					    <table id="bootstrap-table"></table>
+					</div>
+                </div>
+            </div>
+        </form>
+    </div>
+      
+    <div class="row">
+        <div class="col-sm-offset-5 col-sm-10">
+            <button type="button" class="btn btn-sm btn-primary" onclick="submitHandler()"><i class="fa fa-check"></i>保 存</button>&nbsp;
+            <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()"><i class="fa fa-reply-all"></i>关 闭 </button>
+        </div>
+    </div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+	    var prefix = ctx + "biz/objectIndex/assignAlertRule";
+	    var alertRules = [[${alertRules}]]
+        var typeDatas = [[${@dict.getType('bm_alert_rule_type')}]];
+        var statusDatas = [[${@dict.getType('sys_job_status')}]];
+        var alertLevels = [[${@dict.getType('bm_alert_level')}]];
+	    
+	    $(function() {
+		    var options = {
+		        data: alertRules,
+		        sidePagination: "client",
+		        sortName: "id",
+		        showSearch: false,
+                showRefresh: false,
+                showToggle: false,
+                showColumns: false,
+                clickToSelect: true,
+                maintainSelected: true,
+		        columns: [{
+		            checkbox: true,
+		            formatter:function (value, row, index) {
+		            	if($.common.isEmpty(value)) {
+		            		return { checked: row.flag };
+		            	} else {
+		            		return { checked: value }
+		            	}
+		            }
+		        },
+                    {
+                        field: 'id',
+                        title: '',
+                        visible: false
+                    },
+                    {
+                        field: 'type',
+                        title: '规则类型',
+                        formatter: function(value, row, index) {
+                            return $.table.selectDictLabel(typeDatas, value);
+                        }
+                    },
+                    {
+                        field: 'status',
+                        title: '状态',
+                        formatter: function(value, row, index) {
+                            return $.table.selectDictLabel(statusDatas, value);
+                        }
+                    },
+                    {
+                        field: 'alertLevel',
+                        title: '级别',
+                        formatter: function(value, row, index) {
+                            return $.table.selectDictLabel(alertLevels, value);
+                        }
+                    },
+                    {
+                        field: 'name',
+                        title: '预警规则名称'
+                    },
+                    {
+                        field: 'description',
+                        title: '规则描述'
+                    }]
+		    };
+		    $.table.init(options);
+		});
+	    
+	    /* 添加对象指标关联-提交 */
+        function submitHandler(index, layero){
+        	var rows = $.table.selectFirstColumns();
+        	var data = { "objectId": $("#objectId").val(),"indexId": $("#indexId").val(), "alertRuleIds": rows.join() };
+			$.operate.saveTab(prefix + "/insertObjectIndexAlertRule", data);
+        }
+    </script>
+</body>
+</html>

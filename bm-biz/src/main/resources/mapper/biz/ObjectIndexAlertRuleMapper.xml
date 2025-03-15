@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.ObjectIndexAlertRuleMapper">
+    
+    <resultMap type="ObjectIndexAlertRule" id="ObjectIndexAlertRuleResult">
+        <result property="id"    column="id"    />
+        <result property="objectId"    column="object_id"    />
+        <result property="indexId"    column="index_id"    />
+        <result property="alertRuleId"    column="alert_rule_id"    />
+        <association property="alertRule" javaType="AlertRule" column="alert_rule_id">
+            <id property="id" column="alert_rule_id" />
+            <result property="name" column="ar_name" />
+            <result property="type" column="ar_type" />
+            <result property="status" column="ar_status" />
+            <result property="deadmanMissingPeriod" column="ar_deadman_missing_period" />
+            <result property="description" column="ar_description" />
+        </association>
+    </resultMap>
+
+    <sql id="selectObjectIndexAlertRuleVo">
+        select oiar.id, oiar.object_id, oiar.index_id, oiar.alert_rule_id,
+               ar.name as ar_name, ar.type as ar_type, ar.status as ar_status,
+               ar.deadman_missing_period as ar_deadman_missing_period, ar.description as ar_description
+        from bm_object_index_alert_rule oiar
+                 left join bm_alert_rule ar on oiar.alert_rule_id = ar.id
+    </sql>
+
+    <select id="selectObjectIndexAlertRuleList" parameterType="ObjectIndexAlertRule" resultMap="ObjectIndexAlertRuleResult">
+        <include refid="selectObjectIndexAlertRuleVo"/>
+        <where>  
+            <if test="objectId != null "> and oiar.object_id = #{objectId}</if>
+            <if test="indexId != null "> and oiar.index_id = #{indexId}</if>
+            <if test="alertRuleId != null "> and alert_rule_id = #{alertRuleId}</if>
+            <if test="alertRule != null and alertRule.type != null "> and ar.type = #{alertRule.type}</if>
+            <if test="alertRule != null and alertRule.status != null "> and ar.status = #{alertRule.status}</if>
+        </where>
+    </select>
+    
+    <select id="selectObjectIndexAlertRuleById" parameterType="Long" resultMap="ObjectIndexAlertRuleResult">
+        <include refid="selectObjectIndexAlertRuleVo"/>
+        where oiar.id = #{id}
+    </select>
+        
+    <insert id="insertObjectIndexAlertRule" parameterType="ObjectIndexAlertRule" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_object_index_alert_rule
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="objectId != null">object_id,</if>
+            <if test="indexId != null">index_id,</if>
+            <if test="alertRuleId != null">alert_rule_id,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="objectId != null">#{objectId},</if>
+            <if test="indexId != null">#{indexId},</if>
+            <if test="alertRuleId != null">#{alertRuleId},</if>
+         </trim>
+    </insert>
+
+    <update id="updateObjectIndexAlertRule" parameterType="ObjectIndexAlertRule">
+        update bm_object_index_alert_rule
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="objectId != null">object_id = #{objectId},</if>
+            <if test="indexId != null">index_id = #{indexId},</if>
+            <if test="alertRuleId != null">alert_rule_id = #{alertRuleId},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteObjectIndexAlertRuleById" parameterType="Long">
+        delete from bm_object_index_alert_rule where id = #{id}
+    </delete>
+
+    <delete id="deleteObjectIndexAlertRuleByIds" parameterType="String">
+        delete from bm_object_index_alert_rule where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteByObjectIdAndIndexId">
+		delete from bm_object_index_alert_rule where object_id = #{objectId} and index_id = #{indexId}
+	</delete>
+
+</mapper>

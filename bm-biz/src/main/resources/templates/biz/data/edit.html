@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('修改监测数据')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-data-edit" th:object="${indexData}">
+            <input name="id" th:field="*{id}" type="hidden">
+            <div class="form-group">
+                <label class="col-sm-3 control-label">对象：</label>
+                <div class="col-sm-8">
+                    <input name="objectId" th:field="*{bmObject.name}" class="form-control" type="text" readonly>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">指标：</label>
+                <div class="col-sm-8">
+                    <input name="indexId" th:field="*{index.name}" class="form-control" type="text" readonly>
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">指标数据类型：</label>
+                <div class="col-sm-8">
+                    <select name="indexDataType" class="form-control m-b" th:with="type=${@dict.getType('bm_index_data_type')}" disabled="disabled">
+                        <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="*{indexDataType}"></option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">创建类型：</label>
+                <div class="col-sm-8">
+                    <select name="createType" class="form-control m-b" th:with="type=${@dict.getType('bm_create_type')}" disabled="disabled">
+                        <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="*{createType}"></option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">数值属性值：</label>
+                <div class="col-sm-8">
+                    <input name="numericValue" th:field="*{numericValue}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">二元属性值：</label>
+                <div class="col-sm-8">
+                    <input name="binaryValue" th:field="*{binaryValue}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">序数属性值：</label>
+                <div class="col-sm-8">
+                    <input name="ordinalValue" th:field="*{ordinalValue}" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label">标称属性值：</label>
+                <div class="col-sm-8">
+                    <input name="nominalValue" th:field="*{nominalValue}" class="form-control" type="text">
+                </div>
+            </div>
+
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/data";
+        $("#form-data-edit").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/edit", $('#form-data-edit').serialize());
+            }
+        }
+    </script>
+</body>
+</html>

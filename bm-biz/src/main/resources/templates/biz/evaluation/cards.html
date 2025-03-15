@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+	<th:block th:include="include :: header('卡片列表')" />
+</head>
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-4" th:each="evaluation:${evaluations}">
+                <div class="ibox" th:object="${evaluation}">
+                    <div class="ibox-title">
+                        <span class="label pull-right" th:classappend="*{levelCh=='差' ? 'label-danger': levelCh=='中' ? 'label-warning' : levelCh=='良' ? 'label-success' : levelCh=='优' ? 'label-primary' : ''}" th:text="*{levelCh}">优</span>
+                        <a href="javascript:void(0)" onclick="openObjectIndexList()">
+                            <h5 th:text="*{object.name}"></h5>
+                        </a>
+                    </div>
+                    <div class="ibox-content">
+                        <h4>简介</h4>
+                        <p th:text="*{object.remark}">
+                            监测对象的简单介绍。
+                        </p>
+                        <div>
+                            <span>评估指数：</span>
+                            <div class="stat-percent" th:text="*{score}">88</div>
+                            <div class="progress progress-mini">
+                                <div class="progress-bar" th:style="'width: ' + *{score} + '%;'" ></div>
+                            </div>
+                        </div>
+                        <div class="row  m-t-sm">
+                            <div class="col-sm-4">
+                                <div class="font-bold">监测对象</div>
+                                <p th:text="*{childrenObjectCount}">12</p>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="font-bold">监测指标</div>
+                                <p th:text="*{objectIndexCount}">12</p>
+                            </div>
+                            <div class="col-sm-4 text-right">
+                                <div class="font-bold">异常指标</div>
+                                <p th:text="*{objectIndexExceptionCount}">12</p>
+<!--                                <i class="fa fa-level-up text-navy"></i>-->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+    var prefix = ctx + "biz/objectIndex";
+
+    $(function () {
+
+    });
+
+    /* 打开监测对象评估 */
+    function openObjectIndexList() {
+        var url = prefix + '';
+        $.modal.openTab("监测对象评估", url);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<th:block th:include="include :: header('百度ECharts')" />
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap-combined.min.css"/>
+		<link rel="stylesheet" type="text/css" href="/css/layoutit.css"/>
+		<script src="/js/jquery-2.0.0.min.js" type="text/javascript" charset="utf-8"></script>
+		<script src="/js/bootstrap.min.js" type="text/javascript" charset="utf-8"></script>
+		<script src="/js/jquery-ui.js" type="text/javascript" charset="utf-8"></script>
+		<script src="/js/jquery.ui.touch-punch.min.js" type="text/javascript" charset="utf-8"></script>
+		<script src="/js/jquery.htmlClean.js" type="text/javascript" charset="utf-8"></script>
+		<link rel="stylesheet" type="text/css" href="/css/editor.css"/>
+		<script src="/js/echarts.min.js" type="text/javascript" charset="utf-8"></script>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+	<style type="text/css">
+		body, html,#allmap {width: 100%;height: 100%;overflow: hidden;margin:0;font-family:"微软雅黑";}
+		#allmap label{max-width:none;}
+	</style>
+<!--        <script type="text/javascript" src="/baidumap/map_load.js"></script>-->
+		<script type="text/javascript" src="//api.map.baidu.com/api?v=3.0&ak=H6Iw8GhalU6w8LzfOpCte5xv6OpZ8fQW"></script>
+	</head>
+    <body class="gray-bg" style="padding: 0px">
+        <!-- <div class="container-fluid">
+        	<th:block th:include="include :: datatotal" />
+        	<div id="windpower_map" style="width: 1500px;height: 843px;">
+        	<img src="/img/windpower_map.gif">
+        	</div>
+        </div> -->
+        <div id="allmap"></div>
+		<th:block th:include="include :: footer" />
+		<script type="text/javascript">
+		var map = new BMap.Map("allmap",{mapType:BMAP_HYBRID_MAP});
+		var point = new BMap.Point(114.34, 30.51);
+		map.centerAndZoom(point, 10);
+		
+		// 为地图添加控件
+		// 新增混合和地图选项
+		map.addControl(new BMap.MapTypeControl({
+				mapTypes:[
+					BMAP_HYBRID_MAP,
+		            BMAP_NORMAL_MAP
+		        ]}));
+		map.addControl(new BMap.OverviewMapControl());          //添加默认缩略地图控件
+		map.addControl(new BMap.ScaleControl({anchor: BMAP_ANCHOR_TOP_LEFT}));
+		map.addControl(new BMap.NavigationControl());
+
+		//TODO:解决移动端 click事件点击无效
+		map.addEventListener("touchmove", function (e) {
+			map.enableDragging();
+		});
+		// TODO: 触摸结束时触发次此事件  此时开启禁止拖动
+		map.addEventListener("touchend", function (e) {
+			map.disableDragging();
+		});
+
+		// 初始化地图 禁止拖动   注：虽禁止拖动，但是可以出发拖动事件
+		// map.disableDragging();
+
+
+		//  创建对象
+		$(document).ready(function(){
+			$.ajax({
+				url:"fullmap/objectList",
+				Type:"post",
+				async:false,
+				dataType:"json",
+				success:function(data){
+					for(var i=0;i<data.length;i++){
+						var longitude = data[i].longitude;
+						var latitude = data[i].latitude
+						var imgStr = "";
+						var statusStr = "";
+						var colorStr = "black";
+						if(data[i].status == 1 || data[i].status == 0){
+							imgStr = "/img/fanMapItem.gif";
+							if(data[i].status == 1){
+								statusStr = "启用中<i class='fa fa-lightbulb-o' style='color:#30b60e;'></i><a href='javascript:void(0);' onclick='openObjectInfo("+ data[i].id+ ")'>详情</a><a href='javascript:void(0);' onclick='openObjectVideo("+ data[i].id+ ")'>视频</a>";
+								colorStr = "green";
+							}else if(data[i].status == 0){
+								statusStr = "关闭<i class='fa fa-lightbulb-o' style='color:black;'></i><a href='javascript:void(0);' onclick='openObjectInfo("+ data[i].id+ ")'>详情</a><a href='javascript:void(0);' onclick='openObjectVideo("+ data[i].id+ ")'>视频</a>";
+							}
+						}else if(data[i].status == 2){
+							imgStr = "/img/fan_fail_lucency.png";
+							statusStr = "异常<i class='fa fa-lightbulb-o' style='color:red;'></i><a href='javascript:void(0);' onclick='openObjectInfo("+ data[i].id+ ")'>详情</a>";
+							colorStr = "red";
+ 						}
+						// 将对象加入到地图中
+						var pt = new BMap.Point(longitude,latitude);
+						map.centerAndZoom(pt, 16);
+						var myIcon = new BMap.Icon(imgStr, new BMap.Size(100,120));
+						// 创建标注
+						var marker = new BMap.Marker(pt,{icon:myIcon});
+						// 将标注添加到地图中
+						map.addOverlay(marker);
+						var label = new BMap.Label("[对象:"+data[i].name+":"+statusStr+"]",{offset:new BMap.Size(20,-10)});
+						label.setStyle({
+							 color : colorStr,
+							 fontSize : "10px",
+							 height : "25px",
+							 lineHeight : "20px",
+							 fontFamily:"微软雅黑"
+						 });
+						marker.setLabel(label);
+					}
+				}
+			})
+		})
+
+		function openObjectInfo(objectId) {
+			var url = '/biz/objectIndex?objectId=' + objectId;
+			$.modal.open("监测对象详情", url, 750, 500);
+		}
+
+		function openObjectVideo(objectId) {
+			var url = '/biz/object/video/' + objectId;
+			$.modal.open("监测对象视频", url, 420, 500);
+		}
+		</script>
+	</body>
+</html>

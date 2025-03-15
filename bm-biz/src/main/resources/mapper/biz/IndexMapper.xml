@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.IndexMapper">
+
+    <resultMap type="Index" id="IndexResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="name"    column="name"    />
+        <result property="dataType"    column="data_type"    />
+        <result property="options"    column="options"    />
+        <result property="min"    column="min"    />
+        <result property="max"    column="max"    />
+        <result property="precisionDemand"    column="precision_demand"    />
+        <result property="resolutionDemand"    column="resolution_demand"    />
+        <result property="unit"    column="unit"    />
+        <result property="decimalPlace"    column="decimal_place"    />
+    </resultMap>
+
+    <sql id="selectIndexVo">
+        select create_time, update_time, id, create_by, update_by, name, data_type, options, min, max, precision_demand, resolution_demand, unit, decimal_place from bm_index
+    </sql>
+
+    <sql id="selectIndexObjectVo">
+        select distinct i.id, i.name,
+            i.create_time, i.create_by, i.precision_demand, i.data_type, i.update_by, i.resolution_demand
+        from bm_index i
+	        left join bm_object_index oi on oi.index_id = i.id
+	        left join bm_object o on i.id = oi.object_id
+    </sql>
+
+    <select id="selectIndexesByObjectId" parameterType="Long" resultMap="IndexResult">
+        <include refid="selectIndexObjectVo"/>
+        WHERE oi.object_id = #{objectId}
+        order by i.create_time desc
+    </select>
+
+    <select id="selectIndexesByMeasurement" parameterType="String" resultMap="IndexResult">
+        <include refid="selectIndexObjectVo"/>
+        WHERE oi.measurement = #{measurement}
+    </select>
+
+    <select id="selectIndexList" parameterType="Index" resultMap="IndexResult">
+        <include refid="selectIndexVo"/>
+        <where>
+            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="dataType != null "> and data_type = #{dataType}</if>
+            <if test="precisionDemand != null  and precisionDemand != ''"> and precision_demand = #{precisionDemand}</if>
+            <if test="resolutionDemand != null  and resolutionDemand != ''"> and resolution_demand = #{resolutionDemand}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectIndexById" parameterType="Long" resultMap="IndexResult">
+        <include refid="selectIndexVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertIndex" parameterType="Index" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_index
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="name != null">name,</if>
+            <if test="dataType != null">data_type,</if>
+            <if test="options != null">options,</if>
+            <if test="min != null">min,</if>
+            <if test="max != null">max,</if>
+            <if test="precisionDemand != null">precision_demand,</if>
+            <if test="resolutionDemand != null">resolution_demand,</if>
+            <if test="unit != null">unit,</if>
+            <if test="decimalPlace != null">decimal_place,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="name != null">#{name},</if>
+            <if test="dataType != null">#{dataType},</if>
+            <if test="options != null">#{options},</if>
+            <if test="min != null">#{min},</if>
+            <if test="max != null">#{max},</if>
+            <if test="precisionDemand != null">#{precisionDemand},</if>
+            <if test="resolutionDemand != null">#{resolutionDemand},</if>
+            <if test="unit != null">#{unit},</if>
+            <if test="decimalPlace != null">#{decimalPlace},</if>
+         </trim>
+    </insert>
+
+    <update id="updateIndex" parameterType="Index">
+        update bm_index
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="dataType != null">data_type = #{dataType},</if>
+            <if test="options != null">options = #{options},</if>
+            <if test="min != null">min = #{min},</if>
+            <if test="max != null">max = #{max},</if>
+            <if test="precisionDemand != null">precision_demand = #{precisionDemand},</if>
+            <if test="resolutionDemand != null">resolution_demand = #{resolutionDemand},</if>
+            <if test="unit != null">unit = #{unit},</if>
+            <if test="decimalPlace != null">decimal_place = #{decimalPlace},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteIndexById" parameterType="Long">
+        delete from bm_index where id = #{id}
+    </delete>
+
+    <delete id="deleteIndexByIds" parameterType="String">
+        delete from bm_index where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

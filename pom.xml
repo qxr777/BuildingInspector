@@ -15,7 +15,7 @@
         <ruoyi.version>4.8.0</ruoyi.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
+        <java.version>17</java.version>
         <maven-jar-plugin.version>3.1.1</maven-jar-plugin.version>
         <spring-boot.version>2.5.15</spring-boot.version>
         <shiro.version>1.13.0</shiro.version>
@@ -34,6 +34,7 @@
         <tomcat.version>9.0.98</tomcat.version>
         <logback.version>1.2.13</logback.version>
         <spring-framework.version>5.3.39</spring-framework.version>
+        <bm.version>1.0.0</bm.version>
     </properties>
 
     <!-- 依赖声明 -->
@@ -239,6 +240,9 @@
         <module>ruoyi-quartz</module>
         <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
+        <module>bm-iot</module>
+        <module>bm-common</module>
+        <module>bm-biz</module>
     </modules>
     <packaging>pom</packaging>
 

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.iot.mapper.DeviceMapper">
+
+    <resultMap type="Device" id="DeviceResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="sn"    column="sn"    />
+        <result property="address"    column="address"    />
+        <result property="imgUrl"    column="img_url"    />
+        <result property="productId"    column="product_id"    />
+        <result property="productName"    column="product_name"    />
+        <result property="status"    column="status"    />
+        <result property="connected"    column="connected"    />
+        <result property="connectedAt"    column="connectedAt"    />
+        <result property="disconnectedAt"    column="disconnectedAt"    />
+        <result property="lastStatusUpdateAt"    column="lastStatusUpdateAt"    />
+        <result property="deviceStatus"    column="deviceStatus"    />
+        <result property="longitude"    column="longitude"    />
+        <result property="latitude"    column="latitude"    />
+        <result property="altitude"    column="altitude"    />
+        <result property="secret"    column="secret"    />
+    </resultMap>
+
+    <sql id="selectDeviceVo">
+        select d.create_time, d.update_time, d.id, d.name, sn, address, d.img_url, product_id, p.name as product_name, status, connected, connectedAt, disconnectedAt, lastStatusUpdateAt, deviceStatus, longitude, latitude, altitude, secret
+        from bm_device d
+        left join bm_product p on d.product_id = p.id
+    </sql>
+
+    <select id="selectDeviceList" parameterType="Device" resultMap="DeviceResult">
+        <include refid="selectDeviceVo"/>
+        <where>
+            <if test="name != null  and name != ''"> and d.name like concat('%', #{name}, '%')</if>
+            <if test="sn != null  and sn != ''"> and sn like concat('%', #{sn}, '%')</if>
+            <if test="address != null  and address != ''"> and address like concat('%', #{address}, '%')</if>
+            <if test="imgUrl != null  and imgUrl != ''"> and img_url = #{imgUrl}</if>
+            <if test="productId != null "> and product_id = #{productId}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="connected != null "> and connected = #{connected}</if>
+            <if test="secret != null  and secret != ''"> and secret = #{secret}</if>
+        </where>
+    </select>
+
+    <select id="selectDeviceById" parameterType="Long" resultMap="DeviceResult">
+        <include refid="selectDeviceVo"/>
+        where d.id = #{id}
+    </select>
+
+    <insert id="insertDevice" parameterType="Device" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_device
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="name != null">name,</if>
+            <if test="sn != null">sn,</if>
+            <if test="address != null">address,</if>
+            <if test="imgUrl != null">img_url,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="status != null">status,</if>
+            <if test="connected != null">connected,</if>
+            <if test="connectedAt != null">connectedAt,</if>
+            <if test="disconnectedAt != null">disconnectedAt,</if>
+            <if test="lastStatusUpdateAt != null">lastStatusUpdateAt,</if>
+            <if test="deviceStatus != null">deviceStatus,</if>
+            <if test="longitude != null">longitude,</if>
+            <if test="latitude != null">latitude,</if>
+            <if test="altitude != null">altitude,</if>
+            <if test="secret != null">secret,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="name != null">#{name},</if>
+            <if test="sn != null">#{sn},</if>
+            <if test="address != null">#{address},</if>
+            <if test="imgUrl != null">#{imgUrl},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="status != null">#{status},</if>
+            <if test="connected != null">#{connected},</if>
+            <if test="connectedAt != null">#{connectedAt},</if>
+            <if test="disconnectedAt != null">#{disconnectedAt},</if>
+            <if test="lastStatusUpdateAt != null">#{lastStatusUpdateAt},</if>
+            <if test="deviceStatus != null">#{deviceStatus},</if>
+            <if test="longitude != null">#{longitude},</if>
+            <if test="latitude != null">#{latitude},</if>
+            <if test="altitude != null">#{altitude},</if>
+            <if test="secret != null">#{secret},</if>
+         </trim>
+    </insert>
+
+    <update id="updateDevice" parameterType="Device">
+        update bm_device
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="sn != null">sn = #{sn},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="imgUrl != null">img_url = #{imgUrl},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="connected != null">connected = #{connected},</if>
+            <if test="connectedAt != null">connectedAt = #{connectedAt},</if>
+            <if test="disconnectedAt != null">disconnectedAt = #{disconnectedAt},</if>
+            <if test="lastStatusUpdateAt != null">lastStatusUpdateAt = #{lastStatusUpdateAt},</if>
+            <if test="deviceStatus != null">deviceStatus = #{deviceStatus},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="altitude != null">altitude = #{altitude},</if>
+            <if test="secret != null">secret = #{secret},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteDeviceById" parameterType="Long">
+        delete from bm_device where id = #{id}
+    </delete>
+
+    <delete id="deleteDeviceByIds" parameterType="String">
+        delete from bm_device where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

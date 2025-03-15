@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.iot.mapper.ProductMapper">
+    
+    <resultMap type="Product" id="ProductResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="model"    column="model"    />
+        <result property="imgUrl"    column="img_url"    />
+    </resultMap>
+
+    <resultMap id="ProductChannelResult" type="Product" extends="ProductResult">
+        <collection property="channelList" notNullColumn="sub_name" javaType="java.util.List" resultMap="ChannelResult" />
+    </resultMap>
+
+    <resultMap type="Channel" id="ChannelResult">
+        <result property="name"    column="sub_name"    />
+        <result property="type"    column="sub_type"    />
+        <result property="unit"    column="sub_unit"    />
+        <result property="productId"    column="sub_product_id"    />
+    </resultMap>
+
+    <sql id="selectProductVo">
+        select create_time, update_time, id, name, model, img_url from bm_product
+    </sql>
+
+    <select id="selectProductList" parameterType="Product" resultMap="ProductResult">
+        <include refid="selectProductVo"/>
+        <where>  
+            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="model != null  and model != ''"> and model = #{model}</if>
+        </where>
+    </select>
+    
+    <select id="selectProductById" parameterType="Long" resultMap="ProductChannelResult">
+        select a.create_time, a.update_time, a.id, a.name, a.model, a.img_url,
+            b.name as sub_name, b.type as sub_type, b.unit as sub_unit, b.product_id as sub_product_id
+        from bm_product a
+        left join bm_channel b on b.product_id = a.id
+        where a.id = #{id}
+    </select>
+        
+    <insert id="insertProduct" parameterType="Product" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_product
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="name != null">name,</if>
+            <if test="model != null">model,</if>
+            <if test="imgUrl != null">img_url,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="name != null">#{name},</if>
+            <if test="model != null">#{model},</if>
+            <if test="imgUrl != null">#{imgUrl},</if>
+         </trim>
+    </insert>
+
+    <update id="updateProduct" parameterType="Product">
+        update bm_product
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="model != null">model = #{model},</if>
+            <if test="imgUrl != null">img_url = #{imgUrl},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteProductById" parameterType="Long">
+        delete from bm_product where id = #{id}
+    </delete>
+
+    <delete id="deleteProductByIds" parameterType="String">
+        delete from bm_product where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+    <delete id="deleteChannelByProductIds" parameterType="String">
+        delete from bm_channel where product_id in 
+        <foreach item="productId" collection="array" open="(" separator="," close=")">
+            #{productId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteChannelByProductId" parameterType="Long">
+        delete from bm_channel where product_id = #{productId}
+    </delete>
+
+    <insert id="batchChannel">
+        insert into bm_channel( name, type, unit, product_id) values
+		<foreach item="item" index="index" collection="list" separator=",">
+            ( #{item.name}, #{item.type}, #{item.unit}, #{item.productId})
+        </foreach>
+    </insert>
+
+</mapper>

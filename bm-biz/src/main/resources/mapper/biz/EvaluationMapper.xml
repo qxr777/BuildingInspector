@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bm.biz.mapper.EvaluationMapper">
+
+    <resultMap type="Evaluation" id="EvaluationResult">
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="id"    column="id"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="objectId"    column="object_id"    />
+        <result property="score"    column="score"    />
+        <result property="level"    column="level"    />
+        <result property="childrenObjectCount"    column="children_object_count"    />
+        <result property="objectIndexCount"    column="object_index_count"    />
+        <result property="objectIndexExceptionCount"    column="object_index_exception_count"    />
+        <association property="object"     column="object_id" javaType="BmObject">
+            <id property="id" column="object_id" />
+            <result property="name" column="oname" />
+            <result property="remark" column="oremark" />
+            <result property="parentName" column="poname" />
+        </association>
+    </resultMap>
+
+    <sql id="selectEvaluationVo">
+        select e.create_time, e.update_time, e.id, e.create_by, e.update_by, e.object_id, score, level, children_object_count,
+               object_index_count, object_index_exception_count, o.name as oname, po.name as poname, o.remark oremark
+        from bm_evaluation e
+              left join bm_object o	on e.object_id = o.id
+              left join bm_object po on o.parent_id = po.id
+    </sql>
+
+    <sql id="selectEvaluationVo_COUNT">
+        select count(0)
+        from bm_evaluation e
+    </sql>
+    <select id="selectEvaluationList_COUNT" parameterType="Evaluation" resultType="Long">
+        <include refid="selectEvaluationVo_COUNT"/>
+        <where>
+            <if test="objectId != null "> and object_id = #{objectId}</if>
+            <!--            <if test="objectId != null ">-->
+            <!--                AND (object_id = #{objectId} OR object_id IN ( SELECT t.id FROM bm_object t WHERE FIND_IN_SET (#{objectId},ancestors) ))-->
+            <!--            </if>-->
+            <if test="score != null "> and score = #{score}</if>
+            <if test="level != null  and level != ''"> and level = #{level}</if>
+            <if test="childrenObjectCount != null "> and children_object_count = #{childrenObjectCount}</if>
+            <if test="objectIndexCount != null "> and object_index_count = #{objectIndexCount}</if>
+            <if test="objectIndexExceptionCount != null "> and object_index_exception_count = #{objectIndexExceptionCount}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                and date_format(e.create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                and date_format(e.create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+        </where>
+    </select>
+
+    <select id="selectEvaluationList" parameterType="Evaluation" resultMap="EvaluationResult">
+        <include refid="selectEvaluationVo"/>
+        <where>
+            <if test="objectId != null "> and object_id = #{objectId}</if>
+<!--            <if test="objectId != null ">-->
+<!--                AND (object_id = #{objectId} OR object_id IN ( SELECT t.id FROM bm_object t WHERE FIND_IN_SET (#{objectId},ancestors) ))-->
+<!--            </if>-->
+            <if test="score != null "> and score = #{score}</if>
+            <if test="level != null  and level != ''"> and level = #{level}</if>
+            <if test="childrenObjectCount != null "> and children_object_count = #{childrenObjectCount}</if>
+            <if test="objectIndexCount != null "> and object_index_count = #{objectIndexCount}</if>
+            <if test="objectIndexExceptionCount != null "> and object_index_exception_count = #{objectIndexExceptionCount}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                and date_format(e.create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                and date_format(e.create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+        </where>
+        order by e.create_time desc
+    </select>
+
+    <select id="selectEvaluationById" parameterType="Long" resultMap="EvaluationResult">
+        <include refid="selectEvaluationVo"/>
+        where e.id = #{id}
+    </select>
+
+    <insert id="insertEvaluation" parameterType="Evaluation" useGeneratedKeys="true" keyProperty="id">
+        insert into bm_evaluation
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="objectId != null">object_id,</if>
+            <if test="score != null">score,</if>
+            <if test="level != null">level,</if>
+            <if test="childrenObjectCount != null">children_object_count,</if>
+            <if test="objectIndexCount != null">object_index_count,</if>
+            <if test="objectIndexExceptionCount != null">object_index_exception_count,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="objectId != null">#{objectId},</if>
+            <if test="score != null">#{score},</if>
+            <if test="level != null">#{level},</if>
+            <if test="childrenObjectCount != null">#{childrenObjectCount},</if>
+            <if test="objectIndexCount != null">#{objectIndexCount},</if>
+            <if test="objectIndexExceptionCount != null">#{objectIndexExceptionCount},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEvaluation" parameterType="Evaluation">
+        update bm_evaluation
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="objectId != null">object_id = #{objectId},</if>
+            <if test="score != null">score = #{score},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="childrenObjectCount != null">children_object_count = #{childrenObjectCount},</if>
+            <if test="objectIndexCount != null">object_index_count = #{objectIndexCount},</if>
+            <if test="objectIndexExceptionCount != null">object_index_exception_count = #{objectIndexExceptionCount},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteEvaluationById" parameterType="Long">
+        delete from bm_evaluation where id = #{id}
+    </delete>
+
+    <delete id="deleteEvaluationByIds" parameterType="String">
+        delete from bm_evaluation where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

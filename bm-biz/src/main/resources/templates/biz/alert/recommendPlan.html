@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+	<th:block th:include="include :: header('推荐抢修抢建方案')" />
+</head>
+<body>
+    <div class="main-content">
+        <form id="form-user-add" class="form-horizontal">
+            <h4 class="form-header h4">预警信息</h4>
+            <div class="row">
+                <div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">监测对象：</label>
+                        <div class="col-sm-8">
+                            <input name="objectName" class="form-control" type="text" disabled th:value="${alert.bmObject.name}">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">监测指标：</label>
+                        <div class="col-sm-8">
+                            <input name="indexName" class="form-control" type="text" disabled th:value="${alert.index.name}">
+                        </div>
+                    </div>
+                </div>
+            	<div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">预警规则：</label>
+                        <div class="col-sm-8">
+                            <input name="alertRuleName" class="form-control" type="text" disabled th:value="${alert.alertRule.name}">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="form-group">
+                        <label class="col-sm-4 control-label">消息内容：</label>
+                        <div class="col-sm-8">
+                            <input name="message" class="form-control" type="text" disabled th:value="${alert.message}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+           
+            <h4 class="form-header h4">推荐抢修抢建方案</h4>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="col-sm-12 select-table table-striped">
+					    <table id="bootstrap-table"></table>
+					</div>
+                </div>
+            </div>
+        </form>
+    </div>
+      
+    <div class="row">
+        <div class="col-sm-offset-5 col-sm-10">
+<!--            <button type="button" class="btn btn-sm btn-primary" onclick="submitHandler()"><i class="fa fa-check"></i>保 存</button>&nbsp;-->
+            <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()"><i class="fa fa-reply-all"></i>关 闭 </button>
+        </div>
+    </div>
+	<th:block th:include="include :: footer" />
+	<script th:inline="javascript">
+	    var prefix = ctx + "biz/alert";
+	    var plans = [[${plans}]]
+	    
+	    $(function() {
+		    var options = {
+		        data: plans,
+		        sidePagination: "client",
+		        sortName: "id",
+		        showSearch: false,
+                showRefresh: false,
+                showToggle: false,
+                showColumns: false,
+                clickToSelect: true,
+                maintainSelected: true,
+		        columns: [
+                    /*{
+                        field: 'id',
+                        title: '',
+                        visible: false
+                    },*/
+                    {
+                        field: 'title',
+                        title: '方案标题'
+                    },
+                    {
+                        field: 'createTime',
+                        title: '创建时间',
+                        visible: false
+                    },
+                    {
+                        field: 'updateTime',
+                        title: '修改时间'
+                    },{
+                        field: 'createBy',
+                        title: '创建人',
+                        visible: false
+                    },
+                    {
+                        field: 'updateBy',
+                        title: '修改人'
+                    },
+                    {
+                        title: '操作',
+                        align: 'center',
+                        formatter: function(value, row, index) {
+                            var actions = [];
+                            actions.push('<a class="btn btn-success btn-xs " href="javascript:void(0)" onclick="showPlan(\'' + row.id + '\')"><i class="fa fa-edit"></i>详情</a> ');
+                            return actions.join('');
+                        }
+                    }
+                    ]
+		    };
+		    $.table.init(options);
+		});
+        /* 显示抢修抢建方案详情 */
+        function showPlan(planId) {
+            var url = prefix + '/showPlan/' + planId;
+            $.modal.open("抢修抢建方案", url);
+        }
+    </script>
+</body>
+</html>
