@@ -10,6 +10,10 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 public class Task extends BaseEntity {
     // 关联的建筑
     private Building building;
+    private Long buildingId;
+    // 关联的项目
+    private Project project;
+    private Long projectId;
     // 负责的检查人员
     private SysUser inspector;
     // 任务状态

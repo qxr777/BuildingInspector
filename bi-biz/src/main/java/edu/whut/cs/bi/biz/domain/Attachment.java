@@ -13,11 +13,42 @@ public class Attachment extends BaseEntity{
     private String name;
     /** 关联主体id */
     private Long subjectId;
-    /** 附件类型（1为病害附件，2为设备附件） */
+    /** 附件类型（null为病害附件，2为设备附件） */
     private Integer type;
 
     /**
      * TODO: 附件存储在MinIO 中
      */
 
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Long getSubjectId() {
+        return subjectId;
+    }
+
+    public void setSubjectId(Long subjectId) {
+        this.subjectId = subjectId;
+    }
+
+    public Integer getType() {
+        return type;
+    }
+
+    public void setType(Integer type) {
+        this.type = type;
+    }
 }

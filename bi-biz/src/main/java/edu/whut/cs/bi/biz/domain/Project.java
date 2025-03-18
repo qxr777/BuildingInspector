@@ -1,5 +1,7 @@
 package edu.whut.cs.bi.biz.domain;
 
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.core.domain.BaseEntity;
 import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.core.domain.entity.SysUser;
 
@@ -9,13 +11,18 @@ import java.util.List;
  * @author QiXin
  * @date 2025/3/17
  */
-public class Project {
+public class Project extends BaseEntity {
     // 项目唯一标识符
     private Long id;
     // 项目名称
     private String name;
     // 项目年份
     private Integer year;
+    /** 项目状态（0正常 1停用） */
+    @Excel(name = "项目状态", readConverterExp = "0=正常,1=停用")
+    private String status;
+    /** 删除标志（0代表存在 2代表删除） */
+    private String delFlag;
     // 项目受托部门
     private SysDept dept;
     // 项目受托部门id

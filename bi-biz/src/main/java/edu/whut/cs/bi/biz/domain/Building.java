@@ -23,9 +23,6 @@ public class Building extends BaseEntity {
     @Length(message = "建筑名称不能超过20个字符", max = 20)
     private String name;
 
-    /** 祖级列表 */
-    private String ancestors;
-
     /** 建筑状态（0正常 1停用） */
     @Excel(name = "建筑状态", readConverterExp = "0=正常,1=停用")
     private String status;
@@ -84,15 +81,7 @@ public class Building extends BaseEntity {
     {
         return name;
     }
-    public void setAncestors(String ancestors)
-    {
-        this.ancestors = ancestors;
-    }
 
-    public String getAncestors()
-    {
-        return ancestors;
-    }
     public void setStatus(String status)
     {
         this.status = status;
@@ -208,7 +197,6 @@ public class Building extends BaseEntity {
                 .append("name", getName())
                 .append("createBy", getCreateBy())
                 .append("updateBy", getUpdateBy())
-                .append("ancestors", getAncestors())
                 .append("status", getStatus())
                 .append("delFlag", getDelFlag())
                 .append("longitude", getLongitude())
