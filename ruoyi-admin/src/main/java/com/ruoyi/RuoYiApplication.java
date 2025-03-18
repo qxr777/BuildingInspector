@@ -12,8 +12,8 @@ import org.springframework.web.client.RestTemplate;
  * 
  * @author ruoyi
  */
-@SpringBootApplication(exclude = { DataSourceAutoConfiguration.class }, scanBasePackages={"com.ruoyi", "edu.whut.cs.bm"})  //, "edu.whut.cs.bm.iot"
-@MapperScan({"edu.whut.cs.bm.*.mapper"})
+@SpringBootApplication(exclude = { DataSourceAutoConfiguration.class }, scanBasePackages={"com.ruoyi", "edu.whut.cs.bm", "edu.whut.cs.bi"})
+@MapperScan({"edu.whut.cs.bm.*.mapper", "edu.whut.cs.bi.*.mapper"})
 public class RuoYiApplication
 {
     public static void main(String[] args)
