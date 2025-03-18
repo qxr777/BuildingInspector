@@ -95,12 +95,14 @@ CREATE TABLE `bi_device` (
                              `name` varchar(100) NOT NULL COMMENT '设备名称',
                              `model` varchar(100) DEFAULT NULL COMMENT '设备型号',
                              `purpose` varchar(200) DEFAULT NULL COMMENT '设备用途',
+                             `dept_id` bigint DEFAULT NULL COMMENT '所属部门ID',
                              `remark` varchar(500) DEFAULT NULL COMMENT '备注',
                              `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                              `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
                              `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                             PRIMARY KEY (`id`)
+                             PRIMARY KEY (`id`),
+                             KEY `idx_dept_id` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
 
 -- 附件表
@@ -200,4 +202,24 @@ CREATE TABLE `bi_disease_attachment` (
                                          KEY `idx_attachment_id` (`attachment_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='病害附件关联表';
 
+-- 项目标准关联表
+CREATE TABLE `bi_project_standard` (
+                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
+                                       `project_id` bigint NOT NULL COMMENT '项目ID',
+                                       `standard_id` bigint NOT NULL COMMENT '标准ID',
+                                       `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                       PRIMARY KEY (`id`),
+                                       UNIQUE KEY `uk_project_standard` (`project_id`,`standard_id`),
+                                       KEY `idx_standard_id` (`standard_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目标准关联表';
 
+-- 项目设备关联表
+CREATE TABLE `bi_project_device` (
+                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
+                                     `project_id` bigint NOT NULL COMMENT '项目ID',
+                                     `device_id` bigint NOT NULL COMMENT '设备ID',
+                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                     PRIMARY KEY (`id`),
+                                     UNIQUE KEY `uk_project_device` (`project_id`,`device_id`),
+                                     KEY `idx_device_id` (`device_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目设备关联表';
