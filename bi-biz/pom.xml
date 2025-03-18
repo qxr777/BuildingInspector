@@ -2,28 +2,20 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>ruoyi</artifactId>
         <groupId>com.ruoyi</groupId>
+        <artifactId>ruoyi</artifactId>
         <version>4.8.0</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
-    <groupId>edu.whut.cs.bm</groupId>
-    <artifactId>bm-biz</artifactId>
-    <version>1.0.0</version>
+    <artifactId>bi-biz</artifactId>
 
-    <repositories>
-        <repository>
-            <id>maven-repo-github</id>
-            <!-- /用户名/仓库名/分支名/-->
-            <url>https://github.com/qxr777/maven-repository/main</url>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-            </snapshots>
-        </repository>
-    </repositories>
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -67,4 +59,5 @@
         </dependency>
 
     </dependencies>
+
 </project>

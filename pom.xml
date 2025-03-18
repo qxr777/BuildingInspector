@@ -243,6 +243,7 @@
         <module>bm-iot</module>
         <module>bm-common</module>
         <module>bm-biz</module>
+        <module>bi-biz</module>
     </modules>
     <packaging>pom</packaging>
 
