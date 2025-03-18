@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.core.domain.BaseEntity;
+import com.ruoyi.common.core.domain.entity.SysDept;
 
 /**
  * @author QiXin
@@ -15,6 +16,10 @@ public class Device extends BaseEntity {
     private String model;
     // 设备用途
     private String purpose;
+    // 所属部门
+    private SysDept dept;
+    // 所属部门id
+    private Long deptId;
 
     public Long getId() {
         return id;

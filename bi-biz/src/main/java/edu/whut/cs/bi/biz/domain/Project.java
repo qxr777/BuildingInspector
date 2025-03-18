@@ -43,6 +43,10 @@ public class Project extends BaseEntity {
     private List<Building> buildings;
     // 关联的任务列表
     private List<Task> tasks;
+    // 关联的标准列表
+    private List<Standard> standards;
+    // 关联的设备列表
+    private List<Device> devices;
 
 
 }
