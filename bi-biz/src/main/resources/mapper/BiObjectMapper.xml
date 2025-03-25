@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BiObjectMapper">
+
+    <resultMap type="BiObject" id="BiObjectResult">
+        <id     property="id"        column="id"         />
+        <result property="name"      column="name"       />
+        <result property="parentId"  column="parent_id"  />
+        <result property="ancestors" column="ancestors"   />
+        <result property="orderNum"  column="order_num"  />
+        <result property="status"    column="status"     />
+        <result property="delFlag"   column="del_flag"   />
+        <result property="longitude" column="longitude"  />
+        <result property="latitude"  column="latitude"   />
+        <result property="altitude"  column="altitude"   />
+        <result property="position"  column="position"   />
+        <result property="area"      column="area"       />
+        <result property="adminDept" column="admin_dept" />
+        <result property="weight"    column="weight"     />
+        <result property="videoFeed" column="video_feed" />
+        <result property="createBy"  column="create_by"  />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy"   column="update_by"  />
+        <result property="updateTime" column="update_time" />
+        <result property="remark"     column="remark"     />
+        <result property="parentName" column="parent_name" />
+    </resultMap>
+
+    <sql id="selectBiObjectVo">
+        select id, name, parent_id, ancestors, order_num, status, del_flag, longitude, latitude,
+               altitude, position, area, admin_dept, weight, video_feed, create_by, create_time, update_by,
+               update_time, remark
+        from bi_object
+    </sql>
+
+    <select id="selectBiObjectList" parameterType="BiObject" resultMap="BiObjectResult">
+        <include refid="selectBiObjectVo"/>
+        <where>
+            <if test="name != null and name != ''">
+                AND name like concat('%', #{name}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="parentId != null">
+                AND parent_id = #{parentId}
+            </if>
+            AND del_flag = '0'
+        </where>
+        order by parent_id, order_num
+    </select>
+
+    <select id="selectBiObjectById" parameterType="Long" resultMap="BiObjectResult">
+        select t.*, p.name as parent_name
+        from bi_object t
+                 left join bi_object p on p.id = t.parent_id
+        where t.id = #{id}
+    </select>
+
+    <select id="selectChildrenByParentId" parameterType="Long" resultMap="BiObjectResult">
+        <include refid="selectBiObjectVo"/>
+        where parent_id = #{parentId} AND del_flag = '0' order by parent_id, order_num
+    </select>
+
+    <select id="selectChildrenById" parameterType="Long" resultMap="BiObjectResult">
+        <include refid="selectBiObjectVo"/>
+        where FIND_IN_SET(#{id}, ancestors) AND del_flag = '0'
+    </select>
+
+    <select id="selectParentById" parameterType="Long" resultMap="BiObjectResult">
+        <include refid="selectBiObjectVo"/>
+        where id in (
+        select regexp_substr(ancestors, '[^,]+', 1, level)
+        from (select ancestors from bi_object where id = #{id}) t
+        connect by regexp_substr(ancestors, '[^,]+', 1, level) is not null
+        )
+    </select>
+
+    <insert id="insertBiObject" parameterType="BiObject" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_object(
+        <if test="id != null">id,</if>
+        <if test="name != null and name != ''">name,</if>
+        <if test="parentId != null">parent_id,</if>
+        <if test="ancestors != null and ancestors != ''">ancestors,</if>
+        <if test="orderNum != null">order_num,</if>
+        <if test="status != null">status,</if>
+        <if test="longitude != null">longitude,</if>
+        <if test="latitude != null">latitude,</if>
+        <if test="altitude != null">altitude,</if>
+        <if test="position != null">position,</if>
+        <if test="area != null">area,</if>
+        <if test="adminDept != null">admin_dept,</if>
+        <if test="weight != null">weight,</if>
+        <if test="videoFeed != null">video_feed,</if>
+        <if test="remark != null">remark,</if>
+        <if test="createBy != null">create_by,</if>
+        create_time
+        )values(
+        <if test="id != null">#{id},</if>
+        <if test="name != null and name != ''">#{name},</if>
+        <if test="parentId != null">#{parentId},</if>
+        <if test="ancestors != null and ancestors != ''">#{ancestors},</if>
+        <if test="orderNum != null">#{orderNum},</if>
+        <if test="status != null">#{status},</if>
+        <if test="longitude != null">#{longitude},</if>
+        <if test="latitude != null">#{latitude},</if>
+        <if test="altitude != null">#{altitude},</if>
+        <if test="position != null">#{position},</if>
+        <if test="area != null">#{area},</if>
+        <if test="adminDept != null">#{adminDept},</if>
+        <if test="weight != null">#{weight},</if>
+        <if test="videoFeed != null">#{videoFeed},</if>
+        <if test="remark != null">#{remark},</if>
+        <if test="createBy != null">#{createBy},</if>
+        sysdate()
+        )
+    </insert>
+
+    <update id="updateBiObject" parameterType="BiObject">
+        update bi_object
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="ancestors != null and ancestors != ''">ancestors = #{ancestors},</if>
+            <if test="orderNum != null">order_num = #{orderNum},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="altitude != null">altitude = #{altitude},</if>
+            <if test="position != null">position = #{position},</if>
+            <if test="area != null">area = #{area},</if>
+            <if test="adminDept != null">admin_dept = #{adminDept},</if>
+            <if test="weight != null">weight = #{weight},</if>
+            <if test="videoFeed != null">video_feed = #{videoFeed},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <update id="updateBiObjects" parameterType="java.util.List">
+        update bi_object
+        <trim prefix="set" suffixOverrides=",">
+            <trim prefix="ancestors =case" suffix="end,">
+                <foreach collection="biObjects" item="item">
+                    when id = #{item.id} then #{item.ancestors}
+                </foreach>
+            </trim>
+        </trim>
+        where id in
+        <foreach collection="biObjects" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <delete id="deleteBiObjectById" parameterType="Long">
+        update bi_object set del_flag = '1' where id = #{id}
+    </delete>
+
+    <delete id="deleteBiObjectByIds" parameterType="Long">
+        update bi_object set del_flag = '1' where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="selectBridges" resultMap="BiObjectResult">
+        select * from bi_object where parent_id = 0 and del_flag = '0' order by parent_id, order_num
+    </select>
+
+    <select id="selectComponentsByBridgeId" parameterType="Long" resultMap="BiObjectResult">
+        select * from bi_object where FIND_IN_SET(#{bridgeId}, ancestors) and del_flag = '0' order by parent_id, order_num
+    </select>
+
+</mapper>

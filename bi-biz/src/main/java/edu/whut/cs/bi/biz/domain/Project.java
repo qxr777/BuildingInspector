@@ -46,7 +46,7 @@ public class Project extends BaseEntity {
     // 关联的标准列表
     private List<Standard> standards;
     // 关联的设备列表
-    private List<Device> devices;
+    private List<BiDevice> biDevices;
 
 
 }

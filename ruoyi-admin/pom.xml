@@ -81,6 +81,12 @@
             <version>${bm.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>bi-biz</artifactId>
+            <version>4.8.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

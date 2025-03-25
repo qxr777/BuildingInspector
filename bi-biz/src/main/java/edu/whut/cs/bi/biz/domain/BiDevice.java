@@ -7,7 +7,7 @@ import com.ruoyi.common.core.domain.entity.SysDept;
  * @author QiXin
  * @date 2025/3/17
  */
-public class Device extends BaseEntity {
+public class BiDevice extends BaseEntity {
     // 设备唯一标识符
     private Long id;
     // 设备名称

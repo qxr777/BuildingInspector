@@ -8,6 +8,8 @@ import org.hibernate.validator.constraints.Length;
 
 import javax.validation.constraints.NotBlank;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author QiXin
@@ -61,6 +63,21 @@ public class BiObject extends TreeEntity {
     /** 视频流来源 */
     @Excel(name = "视频流来源")
     private String videoFeed;
+
+    /** 子对象 */
+    private List<BiObject> children = new ArrayList<BiObject>();
+
+    public void setArea(String area) {
+        this.area = area;
+    }
+
+    public List<BiObject> getChildren() {
+        return children;
+    }
+
+    public void setChildren(List<BiObject> children) {
+        this.children = children;
+    }
 
     public void setId(Long id)
     {
