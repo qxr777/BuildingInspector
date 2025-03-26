@@ -28,4 +28,11 @@ public class Property extends TreeEntity {
         this.value = value;
     }
 
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 }

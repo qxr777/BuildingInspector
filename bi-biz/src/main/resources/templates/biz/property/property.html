@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('桥梁基础信息列表')" />
+    <th:block th:include="include :: layout-latest-css" />
+</head>
+<body class="gray-bg">
+     <div class="container-div">
+        <div class="row">
+            <div class="col-sm-12 search-collapse">
+                <form id="formId">
+                    <div class="select-list">
+                        <ul>
+                            <li>
+                                <label>属性名称：</label>
+                                <input type="text" name="name"/>
+                            </li>
+                            <li>
+                                <a class="btn btn-primary btn-rounded btn-sm" onclick="$.treeTable.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                            </li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+
+            <div class="btn-group-sm" id="toolbar" role="group">
+                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:property:add">
+                    <i class="fa fa-plus"></i> 新增
+                </a>
+                <!-- 新增JSON上传按钮 -->
+                <a class="btn btn-warning" shiro:hasPermission="biz:property:add" onclick="importJson()">
+                    <i class="fa fa-upload"></i> 导入JSON
+                </a>
+                <a class="btn btn-primary" onclick="$.operate.edit()" shiro:hasPermission="biz:property:edit">
+                    <i class="fa fa-edit"></i> 修改
+                </a>
+                <a class="btn btn-info" id="expandAllBtn">
+                    <i class="fa fa-exchange"></i> 展开/折叠
+                </a>
+            </div>
+            <div class="col-sm-12 select-table table-striped">
+                <table id="bootstrap-tree-table"></table>
+            </div>
+        </div>
+    </div>
+    <th:block th:include="include :: footer" />
+     <th:block th:include="include :: layout-latest-js" />
+    <script th:inline="javascript">
+        var addFlag = [[${@permission.hasPermi('biz:property:add')}]];
+        var editFlag = [[${@permission.hasPermi('biz:property:edit')}]];
+        var removeFlag = [[${@permission.hasPermi('biz:property:remove')}]];
+        var prefix = ctx + "biz/property";
+
+        $(function() {
+            var options = {
+                code: "id",
+                parentCode: "parentId",
+                expandColumn: "1",
+                uniqueId: "id",
+                url: prefix + "/list",
+                createUrl: prefix + "/add/{id}",
+                updateUrl: prefix + "/edit/{id}",
+                removeUrl: prefix + "/remove/{id}",
+                exportUrl: prefix + "/export",
+                modalName: "桥梁基础信息",
+                expandAll: false, // 默认不展开所有节点
+                expandFirst: false,
+                // pagination: true, // 默认不显示分页，因为分页会导致无法展示树形结构
+                columns: [{
+                    field: 'selectItem',
+                    radio: true
+                },
+                {
+                    field: 'name',
+                    title: '属性名',
+                    align: 'left',
+                },
+                {
+                    field: 'orderNum',
+                    title: '显示顺序',
+                    align: 'left',
+                },
+                {
+                    field: 'value',
+                    title: '属性值',
+                    align: 'left',
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    align: 'left',
+                    formatter: function(value, row, index) {
+                        var actions = [];
+                        actions.push('<a class="btn btn-info  btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="$.operate.add(\'' + row.id + '\')"><i class="fa fa-plus"></i>新增</a> ');
+                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a>');
+                        // var more = [];
+                        // actions.push('<a tabindex="0" class="btn btn-info btn-xs" role="button" data-container="body" data-placement="left" data-toggle="popover" data-html="true" data-trigger="hover" data-content="' + more.join('') + '"><i class="fa fa-chevron-circle-right"></i>更多操作</a>');
+                        return actions.join('');
+                    }
+                }]
+            };
+            $.treeTable.init(options);
+
+        });
+
+        function importJson() {
+            var options = {
+                title: 'JSON数据导入',
+                width: "500",
+                url: ctx + "biz/property/readJson",
+                callBack: function(index, layero){
+                    var iframe = layero.find('iframe')[0];
+                    iframe.contentWindow.submitHandler(function() {
+                        $.treeTable.refresh();  // 确保在数据提交后刷新
+                    });
+
+                }
+            };
+            $.modal.openOptions(options);
+        }
+    </script>
+</body>
+
+<!--<style>-->
+<!--    /* 设置表格列的宽度 */-->
+<!--    #bootstrap-tree-table th:nth-child(1),-->
+<!--    #bootstrap-tree-table td:nth-child(1) {-->
+<!--        width: 3% !important; /* 第一列宽度 */-->
+<!--    }-->
+
+<!--    #bootstrap-tree-table th:nth-child(2),-->
+<!--    #bootstrap-tree-table td:nth-child(2) {-->
+<!--        width: 15% !important; /* 第二列宽度 */-->
+<!--    }-->
+
+<!--    #bootstrap-tree-table th:nth-child(3),-->
+<!--    #bootstrap-tree-table td:nth-child(3) {-->
+<!--        width: 5% !important; /* 第三列宽度 */-->
+<!--    }-->
+
+<!--    #bootstrap-tree-table th:nth-child(4),-->
+<!--    #bootstrap-tree-table td:nth-child(4) {-->
+<!--        width: 60% !important; /* 第四列宽度 */-->
+<!--    }-->
+
+<!--    #bootstrap-tree-table th:nth-child(5),-->
+<!--    #bootstrap-tree-table td:nth-child(5) {-->
+<!--        width: 17% !important; /* 第五列宽度 */-->
+<!--    }-->
+<!--</style>-->
+</html>
