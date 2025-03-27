@@ -1,109 +1,77 @@
 package edu.whut.cs.bi.biz.service;
 
-import edu.whut.cs.bi.biz.domain.BiObject;
-
 import java.util.List;
+import edu.whut.cs.bi.biz.domain.BiObject;
+import com.ruoyi.common.core.domain.Ztree;
 
 /**
- * @Author:wanzheng
- * @Date:2025/3/20 22:21
- * @Description:
- **/
+ * 对象Service接口
+ *
+ * @author ruoyi
+ * @date 2025-03-27
+ */
 public interface IBiObjectService
 {
     /**
-     * 查询桥梁构件
+     * 查询对象
      *
-     * @param id 桥梁构件主键
-     * @return 桥梁构件
+     * @param id 对象主键
+     * @return 对象
      */
     public BiObject selectBiObjectById(Long id);
 
     /**
-     * 查询桥梁构件列表
+     * 查询对象列表
      *
-     * @param biObject 桥梁构件
-     * @return 桥梁构件集合
+     * @param biObject 对象
+     * @return 对象集合
      */
     public List<BiObject> selectBiObjectList(BiObject biObject);
 
     /**
-     * 查询桥梁列表（顶级节点）
+     * 新增对象
      *
-     * @return 桥梁列表
-     */
-    public List<BiObject> selectBridges();
-
-    /**
-     * 查询桥梁下的所有构件
-     *
-     * @param bridgeId 桥梁ID
-     * @return 构件列表
-     */
-    public List<BiObject> selectComponentsByBridgeId(Long bridgeId);
-
-    /**
-     * 新增桥梁构件
-     *
-     * @param biObject 桥梁构件
+     * @param biObject 对象
      * @return 结果
      */
     public int insertBiObject(BiObject biObject);
 
     /**
-     * 修改桥梁构件
+     * 修改对象
      *
-     * @param biObject 桥梁构件
+     * @param biObject 对象
      * @return 结果
      */
     public int updateBiObject(BiObject biObject);
 
     /**
-     * 批量删除桥梁构件
+     * 批量删除对象
      *
-     * @param ids 需要删除的桥梁构件主键集合
+     * @param ids 需要删除的对象主键集合
      * @return 结果
      */
     public int deleteBiObjectByIds(String ids);
 
     /**
-     * 删除桥梁构件信息
+     * 删除对象信息
      *
-     * @param id 桥梁构件主键
+     * @param id 对象主键
      * @return 结果
      */
     public int deleteBiObjectById(Long id);
 
     /**
-     * 导入桥梁构件数据
+     * 查询对象树列表
      *
-     * @param jsonData JSON格式数据
-     * @param updateSupport 是否更新支持，如果已存在，则进行更新数据
-     * @param operName 操作用户
-     * @return 结果
+     * @return 所有对象信息
      */
-    public String importData(String jsonData, boolean updateSupport, String operName) throws Exception;
+    public List<Ztree> selectBiObjectTree();
 
     /**
-     * 导出桥梁构件数据
+     * 查询根节点及其所有子节点
      *
-     * @param id 桥梁构件ID
-     * @return JSON格式数据
+     * @param rootId 根节点ID
+     * @return 根节点及其所有子节点列表
      */
-    public String exportData(Long id) throws Exception;
-
-    /**
-     * 导入Excel数据
-     *
-     * @param biObjectList Excel数据列表
-     * @param updateSupport 是否更新支持，如果已存在，则进行更新数据
-     * @param operName 操作用户
-     * @return 结果
-     */
-    public String importExcelData(List<BiObject> biObjectList, boolean updateSupport, String operName);
-
-    /**
-     * 构建树结构
-     */
-    List<BiObject> buildTree(List<BiObject> list);
+    public List<BiObject> selectBiObjectAndChildren(Long rootId);
 }

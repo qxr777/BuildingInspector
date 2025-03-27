@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BuildingMapper">
+    
+    <resultMap type="Building" id="BuildingResult">
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="status"    column="status"    />
+        <result property="delFlag"    column="del_flag"    />
+        <result property="longitude"    column="longitude"    />
+        <result property="latitude"    column="latitude"    />
+        <result property="altitude"    column="altitude"    />
+        <result property="address"    column="address"    />
+        <result property="area"    column="area"    />
+        <result property="line"    column="line"    />
+        <result property="adminDept"    column="admin_dept"    />
+        <result property="weight"    column="weight"    />
+        <result property="videoFeed"    column="video_feed"    />
+        <result property="rootObjectId"    column="root_object_id"    />
+        <result property="rootPropertyId"    column="root_property_id"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectBuildingVo">
+        select id, name, status, del_flag, longitude, latitude, altitude, address, area, line, admin_dept, weight, video_feed, root_object_id, root_property_id, remark, create_by, create_time, update_by, update_time from bi_building
+    </sql>
+
+    <select id="selectBuildingList" parameterType="Building" resultMap="BuildingResult">
+        <include refid="selectBuildingVo"/>
+        <where>  
+            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="area != null  and area != ''"> and area = #{area}</if>
+            <if test="line != null  and line != ''"> and line = #{line}</if>
+            <if test="adminDept != null  and adminDept != ''"> and admin_dept = #{adminDept}</if>
+        </where>
+    </select>
+    
+    <select id="selectBuildingById" parameterType="Long" resultMap="BuildingResult">
+        <include refid="selectBuildingVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertBuilding" parameterType="Building" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_building
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="longitude != null">longitude,</if>
+            <if test="latitude != null">latitude,</if>
+            <if test="altitude != null">altitude,</if>
+            <if test="address != null">address,</if>
+            <if test="area != null and area != ''">area,</if>
+            <if test="line != null and line != ''">line,</if>
+            <if test="adminDept != null">admin_dept,</if>
+            <if test="weight != null">weight,</if>
+            <if test="videoFeed != null">video_feed,</if>
+            <if test="rootObjectId != null">root_object_id,</if>
+            <if test="rootPropertyId != null">root_property_id,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="longitude != null">#{longitude},</if>
+            <if test="latitude != null">#{latitude},</if>
+            <if test="altitude != null">#{altitude},</if>
+            <if test="address != null">#{address},</if>
+            <if test="area != null and area != ''">#{area},</if>
+            <if test="line != null and line != ''">#{line},</if>
+            <if test="adminDept != null">#{adminDept},</if>
+            <if test="weight != null">#{weight},</if>
+            <if test="videoFeed != null">#{videoFeed},</if>
+            <if test="rootObjectId != null">#{rootObjectId},</if>
+            <if test="rootPropertyId != null">#{rootPropertyId},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBuilding" parameterType="Building">
+        update bi_building
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="longitude != null">longitude = #{longitude},</if>
+            <if test="latitude != null">latitude = #{latitude},</if>
+            <if test="altitude != null">altitude = #{altitude},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="area != null and area != ''">area = #{area},</if>
+            <if test="line != null and line != ''">line = #{line},</if>
+            <if test="adminDept != null">admin_dept = #{adminDept},</if>
+            <if test="weight != null">weight = #{weight},</if>
+            <if test="videoFeed != null">video_feed = #{videoFeed},</if>
+            <if test="rootObjectId != null">root_object_id = #{rootObjectId},</if>
+            <if test="rootPropertyId != null">root_property_id = #{rootPropertyId},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBuildingById" parameterType="Long">
+        delete from bi_building where id = #{id}
+    </delete>
+
+    <delete id="deleteBuildingByIds" parameterType="String">
+        delete from bi_building where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>
