@@ -99,6 +99,9 @@ public class Building extends BaseEntity {
 
     private Property rootProperty;
 
+    /** 父BuildingID */
+    private Long parentId;
+
     public void setId(Long id)
     {
         this.id = id;
@@ -222,6 +225,14 @@ public class Building extends BaseEntity {
 
     public void setRootProperty(Property rootProperty) {
         this.rootProperty = rootProperty;
+    }
+
+    public Long getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
     }
 
     @Override
