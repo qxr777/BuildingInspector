@@ -47,6 +47,30 @@ public class Building extends BaseEntity {
     @Excel(name = "区域")
     private String area;
 
+    public String getLine() {
+        return line;
+    }
+
+    public void setLine(String line) {
+        this.line = line;
+    }
+
+    public String getRootObjectId() {
+        return rootObjectId;
+    }
+
+    public void setRootObjectId(String rootObjectId) {
+        this.rootObjectId = rootObjectId;
+    }
+
+    public String getRootPropertyId() {
+        return rootPropertyId;
+    }
+
+    public void setRootPropertyId(String rootPropertyId) {
+        this.rootPropertyId = rootPropertyId;
+    }
+
     /** 管理部门 */
     @Excel(name = "管理部门")
     private String adminDept;
@@ -59,9 +83,24 @@ public class Building extends BaseEntity {
     @Excel(name = "视频流来源")
     private String videoFeed;
 
+    /** 线路 */
+    @Excel(name = "线路")
+    private String line;
+
+    /** 根对象ID */
+    @Excel(name = "根对象ID")
+    private String rootObjectId;
+
+    /** 根属性ID */
+    @Excel(name = "根属性ID")
+    private String rootPropertyId;
+
     private BiObject rootObject;
 
     private Property rootProperty;
+
+    /** 父BuildingID */
+    private Long parentId;
 
     public void setId(Long id)
     {
@@ -186,6 +225,14 @@ public class Building extends BaseEntity {
 
     public void setRootProperty(Property rootProperty) {
         this.rootProperty = rootProperty;
+    }
+
+    public Long getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
     }
 
     @Override

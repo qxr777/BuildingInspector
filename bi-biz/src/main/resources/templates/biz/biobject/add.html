@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" >
 <head>
-    <th:block th:include="include :: header('新增桥梁构件')" />
+    <th:block th:include="include :: header('新增构件')" />
 </head>
 <body class="white-bg">
 <div class="wrapper wrapper-content animated fadeInRight ibox-content">
     <form class="form-horizontal m" id="form-biobject-add">
-        <input id="treeId" name="parentId" type="hidden" th:value="${biObject?.parentId}"/>
-        <div class="form-group" th:if="${biObject?.parentId != -1}">
+        <input id="treeId" name="parentId" type="hidden" th:value="${biObject?.id}"/>
+        <div class="form-group">
             <label class="col-sm-3 control-label">上级构件：</label>
             <div class="col-sm-8">
                 <div class="input-group">
@@ -29,25 +29,27 @@
             </div>
         </div>
         <div class="form-group">
-            <label class="col-sm-3 control-label">构件状态：</label>
+            <label class="col-sm-3 control-label">状态：</label>
             <div class="col-sm-8">
-                <div class="radio-box" th:each="dict : ${@dict.getType('sys_normal_disable')}">
-                    <input type="radio" th:id="${dict.dictCode}" name="status" th:value="${dict.dictValue}" th:checked="${dict.default}">
-                    <label th:for="${dict.dictCode}" th:text="${dict.dictLabel}"></label>
+                <div class="radio-box">
+                    <input type="radio" name="status" value="0" checked> 正常
+                </div>
+                <div class="radio-box">
+                    <input type="radio" name="status" value="1"> 停用
                 </div>
             </div>
         </div>
         <div class="form-group">
-            <label class="col-sm-3 control-label">管理部门：</label>
+            <label class="col-sm-3 control-label">备注：</label>
             <div class="col-sm-8">
-                <input class="form-control" type="text" name="adminDept">
+                <input name="remark" class="form-control" type="text">
             </div>
         </div>
     </form>
 </div>
 <th:block th:include="include :: footer" />
 <script type="text/javascript">
-    var prefix = ctx + "system/biobject";
+    var prefix = ctx + "biz/biobject";
 
     $("#form-biobject-add").validate({
         focusCleanup: true
@@ -59,23 +61,31 @@
         }
     }
 
-    /*桥梁构件-新增-选择父构件树*/
     function selectBiObjectTree() {
+        var treeId = $("#treeId").val();
+        var url = prefix + "/selectObjectTree/" + (treeId > 0 ? treeId : "");
         var options = {
-            title: '桥梁构件选择',
+            title: '选择上级构件',
             width: "380",
-            url: prefix + "/selectBiObjectTree/" + $("#treeId").val() + "?bridgeId=[[${bridgeId}]]",
+            url: url,
             callBack: doSubmit
         };
         $.modal.openOptions(options);
     }
 
-    function doSubmit(index, layero){
-        var body = $.modal.getChildFrame(index);
-        $("#treeId").val(body.find('#treeId').val());
-        $("#treeName").val(body.find('#treeName').val());
-        $.modal.close(index);
+    function doSubmit(index, layero) {
+        var body = layero.find('iframe').contents().find('body'); // 修正获取body的方式
+        var treeId = body.find('#treeId').val();
+        var treeName = body.find('#treeName').val();
+
+        if (treeId && treeName) {
+            $("#treeId").val(treeId);
+            $("#treeName").val(treeName);
+            $.modal.close(index);  // 使用框架自带的关闭方法
+        } else {
+            console.log("未选择有效节点");
+        }
     }
 </script>
 </body>
-</html> 
+</html>
