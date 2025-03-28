@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('桥梁信息列表')"/>
+    <th:block th:include="include :: layout-latest-css"/>
+    <th:block th:include="include :: ztree-css"/>
+</head>
+<body class="gray-bg">
+<div class="ui-layout-west">
+    <div class="box box-main">
+        <div class="box-header">
+            <div class="box-title">
+                <i class="fa icon-grid"></i> 桥梁信息层次
+            </div>
+            <div class="box-tools pull-right">
+                <a type="button" class="btn btn-box-tool" href="#" onclick="property()" title="管理桥梁信息"><i
+                        class="fa fa-edit"></i></a>
+                <button type="button" class="btn btn-box-tool" id="btnExpand" title="展开" style="display:none;"><i
+                        class="fa fa-chevron-up"></i></button>
+                <button type="button" class="btn btn-box-tool" id="btnCollapse" title="折叠"><i
+                        class="fa fa-chevron-down"></i></button>
+                <button type="button" class="btn btn-box-tool" id="btnRefresh" title="刷新对象"><i
+                        class="fa fa-refresh"></i></button>
+            </div>
+        </div>
+        <!-- 新增的name搜索框 -->
+        <div class="search-collapse" style="padding: 10px;">
+            <form id="searchForm">
+                <!-- 隐藏的 id 字段（用于树节点点击） -->
+                <input type="hidden" id="search_id" name="id">
+
+                <div class="form-group">
+                    <input type="text" class="form-control" name="name" placeholder="输入名称搜索桥梁..." style="margin-bottom: 5px;">
+                </div>
+                <div class="form-group" style="text-align: center;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="searchByName()" style="margin-right: 10px;">
+                        <i class="fa fa-search"></i> 搜索
+                    </button>
+                    <button type="button" class="btn btn-default btn-sm" onclick="resetSearch()">
+                        <i class="fa fa-refresh"></i> 重置
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="ui-layout-content">
+            <div id="tree" class="ztree"></div>
+            <div class="search-tip" style="margin-bottom: 12px; padding: 8px 12px; background: #f0f9ff; border-left: 3px solid #1890ff; border-radius: 0 4px 4px 0; display: flex; align-items: center;">
+                <svg style="width: 16px; height: 16px; margin-right: 8px; color: #1890ff;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span style="color: #1d39c4; font-size: 13px;">提示：更多数据请使用<span style="font-weight: 600;">顶部搜索框</span></span>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="ui-layout-center">
+    <div class="container-div">
+        <div class="row">
+<!--            <div class="col-sm-12 search-collapse">-->
+                <form id="formId">
+                    <input type="hidden" id="id" name="id" th:value="${id}">
+                    <input type="hidden" id="parentId" name="parentId">
+                </form>
+<!--            </div>-->
+
+            <div class="btn-group-sm" id="toolbar" role="group">
+<!--                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:property:add">-->
+<!--                    <i class="fa fa-plus"></i> 添加-->
+<!--                </a>-->
+                <a class="btn btn-primary single disabled" onclick="$.operate.edit()"
+                   shiro:hasPermission="biz:property:edit">
+                    <i class="fa fa-edit"></i> 修改
+                </a>
+                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()"
+                   shiro:hasPermission="biz:property:remove">
+                    <i class="fa fa-remove"></i> 删除
+                </a>
+<!--                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:property:export">-->
+<!--                    <i class="fa fa-download"></i> 导出-->
+<!--                </a>-->
+            </div>
+            <div class="col-sm-12 select-table table-striped">
+                <table id="bootstrap-table"></table>
+            </div>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: layout-latest-js" />
+<th:block th:include="include :: ztree-js" />
+<script th:inline="javascript">
+    var addFlag = [[${@permission.hasPermi('biz:property:add')}]];
+    var editFlag = [[${@permission.hasPermi('biz:property:edit')}]];
+    var removeFlag = [[${@permission.hasPermi('biz:property:remove')}]];
+    var prefix = ctx + "biz/propertyIndex";
+
+    $(function () {
+        var panehHidden = false;
+        if ($(this).width() < 769) {
+            panehHidden = true;
+        }
+        $('body').layout({initClosed: panehHidden, west__size: 205});
+        // 回到顶部绑定
+        if ($.fn.toTop !== undefined) {
+            var opt = {
+                win: $('.ui-layout-center'),
+                doc: $('.ui-layout-center')
+            };
+            $('#scroll-up').toTop(opt);
+        }
+        queryPropertyList();
+        queryPropertyTree();
+    });
+
+    function queryPropertyList() {
+        var options = {
+            url: prefix + "/list",
+            createUrl: prefix + "/add/{id}",
+            updateUrl: prefix + "/edit/{id}",
+            removeUrl: prefix + "/remove",
+            exportUrl: prefix + "/export",
+            modalName: "桥梁信息",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'id',
+                    title: 'id',
+                    visible: false
+                },
+                {
+                    field: 'name',
+                    title: '属性名称'
+                },
+                {
+                    field: 'value',
+                    title: '属性值'
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    formatter: function (value, row, index) {
+                        var actions = [];
+                        actions.push('<a class="btn btn-info  btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="$.operate.add(\'' + row.id + '\')"><i class="fa fa-plus"></i>新增</a> ');
+                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a>');
+                        return actions.join('');
+                    }
+                }]
+        };
+        $.table.init(options);
+    }
+
+    function queryPropertyTree() {
+        var url = ctx + "biz/propertyIndex/treeData";
+        var options = {
+            url: url,
+            expandLevel: 0,
+            onClick: zOnClick
+        };
+        $.tree.init(options);
+
+    }
+    function zOnClick(event, treeId, treeNode) {
+        $("input[name='name']").val('');
+        $("#search_id").val(treeNode.id);
+        $.table.search();
+    }
+
+    function searchByName() {
+        var name = $("input[name='name']").val();
+        var url = ctx + "biz/propertyIndex/treeData?name=" + name;
+
+        $.modal.loading("正在搜索桥梁数据...");
+
+        var options = {
+            url: url,
+            expandLevel: 0,
+            onClick: zOnClick,
+            callBack: function(tree) {
+                $.modal.closeLoading();
+                $.table.search();
+            }
+        };
+
+        $.tree.init(options);
+    }
+
+    // 重置搜索
+    function resetSearch() {
+        $("input[name='name']").val('');
+        // 重置后可能需要重新加载原始数据
+        queryPropertyTree();
+    }
+
+
+    $('#btnExpand').click(function () {
+        $._tree.expandAll(true);
+        $(this).hide();
+        $('#btnCollapse').show();
+    });
+
+    $('#btnCollapse').click(function () {
+        $._tree.expandAll(false);
+        $(this).hide();
+        $('#btnExpand').show();
+    });
+
+    $('#btnRefresh').click(function () {
+        queryPropertyTree();
+    });
+
+    /* 桥梁信息管理入口 */
+    function property() {
+        var url = ctx + "biz/property";
+        $.modal.openTab("桥梁信息", url);
+    }
+
+</script>
+</body>
+</html>

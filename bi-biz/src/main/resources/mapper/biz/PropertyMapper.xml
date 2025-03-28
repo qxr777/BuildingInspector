@@ -24,10 +24,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectPropertyList" parameterType="Property" resultMap="PropertyResult">
         <include refid="selectProperty"/>
-        <where>  
+        <where>
+            <if test="id != null and id > 0"> id = #{id} or find_in_set(#{id}, ancestors)</if>
             <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
         </where>
-        order by parent_id
     </select>
     
     <select id="selectPropertyById" parameterType="Long" resultMap="PropertyResult">
@@ -46,6 +46,27 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="getParentIdIsNullNum" resultType="java.lang.Integer">
         select COUNT(*) from bi_property where parent_id is null
+    </select>
+
+    <select id="selectChildrenByParentId" resultType="edu.whut.cs.bi.biz.domain.Property">
+        select * from bi_property
+        where
+        <choose>
+            <when test="parentId == null or parentId == 0">
+                parent_id IS NULL
+            </when>
+            <otherwise>
+                parent_id = #{parentId}
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectPropertyByName" parameterType="Property" resultMap="PropertyResult">
+        <include refid="selectProperty"/>
+        <where>
+            parent_id IS NULL
+            <if test="name != null  and name != ''"> AND name like concat('%', #{name}, '%')</if>
+        </where>
     </select>
 
     <insert id="insertProperty" parameterType="Property" useGeneratedKeys="true" keyProperty="id">

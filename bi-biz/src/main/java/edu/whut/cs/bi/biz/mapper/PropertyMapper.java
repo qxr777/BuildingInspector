@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Property;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -8,7 +9,8 @@ import java.util.List;
 /**
  * 属性Mapper接口
  */
-public interface PropertyMapper {
+@Mapper
+public interface PropertyMapper  {
     /**
      * 查询属性
      *
@@ -99,4 +101,20 @@ public interface PropertyMapper {
      * @return
      */
     int getParentIdIsNullNum();
+
+    /**
+     * 根据父节点id查询子节点
+     *
+     * @param parentId
+     * @return
+     */
+    List<Property> selectChildrenByParentId(Long parentId);
+
+    /**
+     * 根据名称查询桥梁
+     *
+     * @param pt
+     * @return
+     */
+    List<Property> selectPropertyByName(Property pt);
 }
