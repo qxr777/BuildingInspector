@@ -73,7 +73,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService
         }
 
         // 使用PageHelper分页，查询第一页的10条记录
-        PageHelper.startPage(1, 2);
+        PageHelper.startPage(1, 10);
         List<Property> ps = propertyMapper.selectPropertyByName(query);
         PageHelper.clearPage();  // 清除分页设置，防止影响后续查询
 

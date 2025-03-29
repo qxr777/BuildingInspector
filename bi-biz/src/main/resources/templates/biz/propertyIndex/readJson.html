@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('JSON数据导入')" />
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+    <form class="form-horizontal m" id="form-upload-json">
+        <div class="form-group">
+            <label class="col-sm-3 control-label is-required">选择文件：</label>
+            <div class="col-sm-8">
+                <input type="file" name="jsonFile" class="form-control" accept=".json" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">操作说明：</label>
+            <div class="col-sm-8">
+                <span class="help-block"><i class="fa fa-info-circle"></i> 仅支持标准JSON格式文件</span>
+            </div>
+        </div>
+    </form>
+</div>
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    var prefix = ctx + "biz/property";
+
+    // 添加自定义验证方法
+    $.validator.addMethod("fileExtension", function(value, element) {
+        return this.optional(element) || value.split('.').pop().toLowerCase() === 'json';
+    }, "请选择JSON格式文件");
+
+    $(function() {
+        $("#form-upload-json").validate({
+            rules: {
+                jsonFile: {
+                    required: true,
+                    fileExtension: true
+                }
+            },
+            errorPlacement: function(error, element) {
+                error.insertAfter(element.parent());
+            }
+        });
+    });
+
+    function submitHandler(callback) {
+        console.log("submitHandler")
+        if ($("#form-upload-json").valid()) {
+            var fileInput = $('input[name="jsonFile"]')[0];
+            if (fileInput.files.length > 0) {
+                var formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                $.operate.submitJsonFile(prefix + "/readJson", formData, function(result) {
+                    if (result) {
+                        if (callback) callback();  // 调用回调函数
+                    }
+                });
+                // $.modal.loading("正在处理中，请稍候...");
+                //
+                // // 直接使用$.ajax发送请求
+                // $.ajax({
+                //     url: prefix + "/readJson",
+                //     type: 'POST',
+                //     data: formData,
+                //     processData: false,  // 必须设置
+                //     contentType: false,  // 必须设置
+                //     success: function(result) {
+                //         // result 返回为 true/false
+                //         if (result) {
+                //             $.modal.closeLoading();
+                //             $.modal.msgSuccess("导入成功");
+                //             // 刷新父窗口
+                //             $.modal.close();
+                //         } else {
+                //             $.modal.alertError(result.msg);
+                //         }
+                //     }
+                // });
+            }
+        }
+    }
+</script>
+</body>
+</html>

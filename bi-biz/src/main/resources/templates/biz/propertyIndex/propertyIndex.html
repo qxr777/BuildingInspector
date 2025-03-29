@@ -57,17 +57,16 @@
 <div class="ui-layout-center">
     <div class="container-div">
         <div class="row">
-<!--            <div class="col-sm-12 search-collapse">-->
                 <form id="formId">
                     <input type="hidden" id="id" name="id" th:value="${id}">
                     <input type="hidden" id="parentId" name="parentId">
                 </form>
-<!--            </div>-->
 
             <div class="btn-group-sm" id="toolbar" role="group">
 <!--                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:property:add">-->
 <!--                    <i class="fa fa-plus"></i> 添加-->
 <!--                </a>-->
+
                 <a class="btn btn-primary single disabled" onclick="$.operate.edit()"
                    shiro:hasPermission="biz:property:edit">
                     <i class="fa fa-edit"></i> 修改
@@ -75,6 +74,10 @@
                 <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()"
                    shiro:hasPermission="biz:property:remove">
                     <i class="fa fa-remove"></i> 删除
+                </a>
+                <!-- 新增JSON上传按钮 -->
+                <a class="btn btn-warning" shiro:hasPermission="biz:property:add" onclick="importJson()">
+                    <i class="fa fa-upload"></i> 导入JSON
                 </a>
 <!--                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:property:export">-->
 <!--                    <i class="fa fa-download"></i> 导出-->
@@ -217,6 +220,22 @@
         $.modal.openTab("桥梁信息", url);
     }
 
+    function importJson() {
+        var options = {
+            title: 'JSON数据导入',
+            width: "500",
+            url: ctx + "biz/property/readJson",
+            callBack: function(index, layero){
+                var iframe = layero.find('iframe')[0];
+                iframe.contentWindow.submitHandler(function() {
+                    $.modal.msgSuccess("导入成功");
+                    // $.tree.refresh();  // 确保在数据提交后刷新
+                });
+
+            }
+        };
+        $.modal.openOptions(options);
+    }
 </script>
 </body>
 </html>

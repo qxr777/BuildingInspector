@@ -67,6 +67,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             parent_id IS NULL
             <if test="name != null  and name != ''"> AND name like concat('%', #{name}, '%')</if>
         </where>
+        order by create_time desc
     </select>
 
     <insert id="insertProperty" parameterType="Property" useGeneratedKeys="true" keyProperty="id">

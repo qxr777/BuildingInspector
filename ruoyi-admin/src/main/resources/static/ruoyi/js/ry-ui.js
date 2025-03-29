@@ -1242,6 +1242,29 @@ var table = {
                 };
                 $.ajax(config)
             },
+            // 添加新的函数来处理提交JSON文件的请求
+            submitJsonFile : function(url, formData, callback) {
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,  // 必须设置
+                    contentType: false,  // 必须设置
+                    beforeSend: function () {
+                        $.modal.loading("正在处理中，请稍候...");
+                        $.modal.disable();
+                    },
+                    success: function(result) {
+                        if (result) {
+                            $.modal.closeLoading()
+                            $.modal.close();
+                            if (callback) callback(result);  // 调用回调函数
+                        } else {
+                            $.modal.alertError(result.msg);
+                        }
+                    }
+                });
+            },
             // 保存信息 弹出结果提示框
             saveModal: function(url, data, callback) {
                 var config = {
