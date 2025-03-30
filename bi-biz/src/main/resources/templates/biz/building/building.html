@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
 <head>
-    <th:block th:include="include :: header('建筑demo列表')" />
+    <th:block th:include="include :: header('建筑列表')" />
 </head>
 <body class="gray-bg">
 <div class="container-div">
@@ -86,7 +86,7 @@
             updateUrl: prefix + "/edit/{id}",
             removeUrl: prefix + "/remove",
             exportUrl: prefix + "/export",
-            modalName: "建筑demo",
+            modalName: "建筑",
             columns: [{
                 checkbox: true
             },
@@ -131,7 +131,8 @@
                         var actions = [];
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
-                        actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>维护</a>');
+                        actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>维护</a> ');
+                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a>');
                         return actions.join('');
                     }
                 }]
@@ -141,7 +142,7 @@
 
     function maintainObject(rootObjectId) {
         var url = ctx + "biz/biobject?rootObjectId=" + rootObjectId;
-        $.modal.openTab("构件维护", url);
+        $.modal.openTab("部件维护", url);
     }
 
     function importJson() {
@@ -156,6 +157,11 @@
             }
         };
         $.modal.openOptions(options);
+    }
+
+    function showComponentList(rootObjectId) {
+        var url = ctx + "biz/component/list?rootObjectId=" + rootObjectId;
+        $.modal.openTab("构件列表", url);
     }
 </script>
 </body>

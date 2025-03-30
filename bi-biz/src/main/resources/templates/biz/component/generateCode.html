@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('构件编号生成配置')" />
+    <th:block th:include="include :: select2-css" />
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+    <form class="form-horizontal m" id="form-generate-code">
+        <input type="hidden" name="biObjectId" th:value="${biObjectId}"/>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">编号片段：</label>
+            <div class="col-sm-8">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>类型</th>
+                            <th>值</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="segments-container">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center">
+                    <a class="btn btn-success btn-sm" onclick="addSegment()">
+                        <i class="fa fa-plus"></i> 添加片段
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+<th:block th:include="include :: footer" />
+<th:block th:include="include :: select2-js" />
+<script type="text/javascript">
+    var prefix = ctx + "biz/component";
+    var segmentIndex = 0;
+
+    function submitHandler() {
+        if (validateSegments()) {
+            var segments = [];
+            $("#segments-container tr").each(function() {
+                var $tr = $(this);
+                var type = $tr.find(".segment-type").val();
+                var segment = {
+                    type: type === "1" ? 1 : 2
+                };
+
+                if (segment.type === 1) {
+                    segment.value = $tr.find(".segment-value").val();
+                } else {
+                    var range = $tr.find(".segment-value").val().split("-");
+                    segment.minValue = parseInt(range[0]);
+                    segment.maxValue = parseInt(range[1]);
+                }
+                segments.push(segment);
+            });
+
+            var config = {
+                url: prefix + "/generateComponents?biObjectId=" + $("input[name='biObjectId']").val(),
+                type: "post",
+                dataType: "json",
+                contentType: "application/json",
+                data: JSON.stringify(segments),
+                beforeSend: function() {
+                    $.modal.loading("正在生成构件，请稍候...");
+                },
+                success: function(result) {
+                    $.operate.successCallback(result);
+                }
+            };
+            $.ajax(config);
+        }
+    }
+
+    function validateSegments() {
+        var rows = $("#segments-container tr");
+        if (rows.length === 0) {
+            $.modal.alertWarning("请至少添加一个编号片段");
+            return false;
+        }
+
+        var valid = true;
+        rows.each(function() {
+            var $tr = $(this);
+            var type = $tr.find(".segment-type").val();
+            var value = $tr.find(".segment-value").val();
+
+            if (!value) {
+                $.modal.alertWarning("请填写完整的片段值");
+                valid = false;
+                return false;
+            }
+
+            if (type === "2") {
+                if (!/^\d+-\d+$/.test(value)) {
+                    $.modal.alertWarning("序号范围格式不正确，请使用最小值-最大值的格式");
+                    valid = false;
+                    return false;
+                }
+                var range = value.split("-");
+                var min = parseInt(range[0]);
+                var max = parseInt(range[1]);
+                if (min >= max) {
+                    $.modal.alertWarning("最小值必须小于最大值");
+                    valid = false;
+                    return false;
+                }
+            }
+        });
+
+        return valid;
+    }
+
+    function addSegment() {
+        var html = '<tr id="segment-' + segmentIndex + '">' +
+            '<td>' + (segmentIndex + 1) + '</td>' +
+            '<td>' +
+            '<select class="form-control segment-type" onchange="typeChanged(' + segmentIndex + ')">' +
+            '<option value="1">固定值</option>' +
+            '<option value="2">序号</option>' +
+            '</select>' +
+            '</td>' +
+            '<td><input type="text" class="form-control segment-value" placeholder="请输入固定值"></td>' +
+            '<td><a class="btn btn-danger btn-xs" onclick="removeSegment(' + segmentIndex + ')"><i class="fa fa-remove"></i> 删除</a></td>' +
+            '</tr>';
+        $("#segments-container").append(html);
+        segmentIndex++;
+    }
+
+    function removeSegment(index) {
+        $("#segment-" + index).remove();
+        // 重新排序序号
+        $("#segments-container tr").each(function(i) {
+            $(this).find("td:first").text(i + 1);
+        });
+    }
+
+    function typeChanged(index) {
+        var $tr = $("#segment-" + index);
+        var type = $tr.find(".segment-type").val();
+        var $value = $tr.find(".segment-value");
+
+        if (type === "1") {
+            $value.attr("placeholder", "请输入固定值");
+        } else {
+            $value.attr("placeholder", "请输入序号范围，如：1-50");
+        }
+        $value.val("");
+    }
+
+    $(function() {
+        // 添加第一个片段
+        addSegment();
+    });
+</script>
+</body>
+</html>

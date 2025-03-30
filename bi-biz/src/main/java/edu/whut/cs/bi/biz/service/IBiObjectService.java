@@ -65,7 +65,7 @@ public interface IBiObjectService
      *
      * @return 所有对象信息
      */
-    public List<Ztree> selectBiObjectTree();
+    public List<Ztree> selectBiObjectTree(Long rootObjectId);
 
     /**
      * 查询根节点及其所有子节点

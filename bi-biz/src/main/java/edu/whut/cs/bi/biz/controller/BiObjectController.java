@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.ruoyi.common.utils.ShiroUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -31,8 +32,7 @@ import com.ruoyi.common.core.domain.Ztree;
  */
 @Controller
 @RequestMapping("/biz/biobject")
-public class BiObjectController extends BaseController
-{
+public class BiObjectController extends BaseController {
     private String prefix = "biz/biobject";
 
     @Autowired
@@ -40,13 +40,10 @@ public class BiObjectController extends BaseController
 
     @RequiresPermissions("biz:object:view")
     @GetMapping()
-    public String object(Long rootObjectId, ModelMap mmap)
-    {
-        if (rootObjectId != null)
-        {
+    public String object(Long rootObjectId, ModelMap mmap) {
+        if (rootObjectId != null) {
             BiObject rootObject = biObjectService.selectBiObjectById(rootObjectId);
-            if (rootObject != null)
-            {
+            if (rootObject != null) {
                 mmap.put("rootObjectId", rootObjectId);
             }
         }
@@ -59,8 +56,7 @@ public class BiObjectController extends BaseController
     @RequiresPermissions("biz:object:list")
     @PostMapping("/list")
     @ResponseBody
-    public List<BiObject> list(BiObject biObject, Long rootObjectId)
-    {
+    public List<BiObject> list(BiObject biObject, Long rootObjectId) {
         // 查询根节点及其所有子节点
         BiObject rootNode = biObjectService.selectBiObjectById(rootObjectId);
         if (rootNode != null) {
@@ -92,8 +88,7 @@ public class BiObjectController extends BaseController
     @Log(title = "对象", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     @ResponseBody
-    public AjaxResult export(BiObject biObject)
-    {
+    public AjaxResult export(BiObject biObject) {
         List<BiObject> list = biObjectService.selectBiObjectList(biObject);
         ExcelUtil<BiObject> util = new ExcelUtil<BiObject>(BiObject.class);
         return util.exportExcel(list, "对象数据");
@@ -102,11 +97,9 @@ public class BiObjectController extends BaseController
     /**
      * 新增对象
      */
-    @GetMapping(value = { "/add/{id}", "/add/" })
-    public String add(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
-    {
-        if (StringUtils.isNotNull(id))
-        {
+    @GetMapping(value = {"/add/{id}", "/add/"})
+    public String add(@PathVariable(value = "id", required = false) Long id, ModelMap mmap) {
+        if (StringUtils.isNotNull(id)) {
             mmap.put("biObject", biObjectService.selectBiObjectById(id));
         }
         return prefix + "/add";
@@ -119,8 +112,8 @@ public class BiObjectController extends BaseController
     @Log(title = "对象", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
-    public AjaxResult addSave(BiObject biObject)
-    {
+    public AjaxResult addSave(BiObject biObject) {
+        biObject.setCreateBy(ShiroUtils.getLoginName());
         return toAjax(biObjectService.insertBiObject(biObject));
     }
 
@@ -129,8 +122,7 @@ public class BiObjectController extends BaseController
      */
     @RequiresPermissions("biz:object:edit")
     @GetMapping("/edit/{id}")
-    public String edit(@PathVariable("id") Long id, ModelMap mmap)
-    {
+    public String edit(@PathVariable("id") Long id, ModelMap mmap) {
         BiObject biObject = biObjectService.selectBiObjectById(id);
         mmap.put("biObject", biObject);
         return prefix + "/edit";
@@ -143,8 +135,8 @@ public class BiObjectController extends BaseController
     @Log(title = "对象", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
-    public AjaxResult editSave(BiObject biObject)
-    {
+    public AjaxResult editSave(BiObject biObject) {
+        biObject.setUpdateBy(ShiroUtils.getLoginName());
         return toAjax(biObjectService.updateBiObject(biObject));
     }
 
@@ -155,19 +147,16 @@ public class BiObjectController extends BaseController
     @Log(title = "对象", businessType = BusinessType.DELETE)
     @GetMapping("/remove/{id}")
     @ResponseBody
-    public AjaxResult remove(@PathVariable("id") Long id)
-    {
+    public AjaxResult remove(@PathVariable("id") Long id) {
         return toAjax(biObjectService.deleteBiObjectById(id));
     }
 
     /**
      * 选择对象树
      */
-    @GetMapping(value = { "/selectObjectTree/{id}", "/selectObjectTree/" })
-    public String selectObjectTree(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
-    {
-        if (StringUtils.isNotNull(id))
-        {
+    @GetMapping(value = {"/selectObjectTree/{id}", "/selectObjectTree/"})
+    public String selectObjectTree(@PathVariable(value = "id", required = false) Long id, ModelMap mmap) {
+        if (StringUtils.isNotNull(id)) {
             mmap.put("biObject", biObjectService.selectBiObjectById(id));
         }
         return prefix + "/tree";
@@ -178,9 +167,8 @@ public class BiObjectController extends BaseController
      */
     @GetMapping("/treeData")
     @ResponseBody
-    public List<Ztree> treeData()
-    {
-        List<Ztree> ztrees = biObjectService.selectBiObjectTree();
+    public List<Ztree> treeData(Long rootObjectId) {
+        List<Ztree> ztrees = biObjectService.selectBiObjectTree(rootObjectId);
         return ztrees;
     }
 }

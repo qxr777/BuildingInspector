@@ -4,6 +4,7 @@ import java.util.List;
 import java.io.IOException;
 
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.JSONArray;
 
 /**
- * 建筑demoService业务层处理
+ * 建筑Service业务层处理
  *
  * @author wanzheng
  * @date 2025-03-27
@@ -32,10 +33,10 @@ public class BuildingServiceImpl implements IBuildingService {
     private IBiObjectService biObjectService;
 
     /**
-     * 查询建筑demo
+     * 查询建筑
      *
-     * @param id 建筑demo主键
-     * @return 建筑demo
+     * @param id 建筑主键
+     * @return 建筑
      */
     @Override
     public Building selectBuildingById(Long id) {
@@ -43,10 +44,10 @@ public class BuildingServiceImpl implements IBuildingService {
     }
 
     /**
-     * 查询建筑demo列表
+     * 查询建筑列表
      *
-     * @param building 建筑demo
-     * @return 建筑demo
+     * @param building 建筑
+     * @return 建筑
      */
     @Override
     public List<Building> selectBuildingList(Building building) {
@@ -54,9 +55,9 @@ public class BuildingServiceImpl implements IBuildingService {
     }
 
     /**
-     * 新增建筑demo
+     * 新增建筑
      *
-     * @param building 建筑demo
+     * @param building 建筑
      * @return 结果
      */
     @Override
@@ -86,9 +87,9 @@ public class BuildingServiceImpl implements IBuildingService {
     }
 
     /**
-     * 修改建筑demo
+     * 修改建筑
      *
-     * @param building 建筑demo
+     * @param building 建筑
      * @return 结果
      */
     @Override
@@ -98,9 +99,9 @@ public class BuildingServiceImpl implements IBuildingService {
     }
 
     /**
-     * 批量删除建筑demo
+     * 批量删除建筑
      *
-     * @param ids 需要删除的建筑demo主键
+     * @param ids 需要删除的建筑主键
      * @return 结果
      */
     @Override
@@ -109,9 +110,9 @@ public class BuildingServiceImpl implements IBuildingService {
     }
 
     /**
-     * 删除建筑demo信息
+     * 删除建筑信息
      *
-     * @param id 建筑demo主键
+     * @param id 建筑主键
      * @return 结果
      */
     @Override
@@ -167,6 +168,7 @@ public class BuildingServiceImpl implements IBuildingService {
         building.setStatus("0"); // 默认正常状态
         building.setArea("0"); // 默认片区
         building.setLine("0"); // 默认线路
+        building.setCreateBy(ShiroUtils.getLoginName());
         building.setCreateTime(DateUtils.getNowDate());
 
         // 创建Building
@@ -177,6 +179,7 @@ public class BuildingServiceImpl implements IBuildingService {
             rootObject.setName(buildingName);
             rootObject.setParentId(0L);
             rootObject.setAncestors("0");
+            rootObject.setCreateBy(ShiroUtils.getLoginName());
             rootObject.setOrderNum(0); // 根节点序号为0
             rootObject.setStatus("0");
 
@@ -216,6 +219,7 @@ public class BuildingServiceImpl implements IBuildingService {
             BiObject biObject = new BiObject();
             biObject.setName(key);
             biObject.setParentId(parentId);
+            biObject.setCreateBy(ShiroUtils.getLoginName());
             biObject.setAncestors(parentAncestors + "," + parentId);
             biObject.setOrderNum(orderNum); // 直接使用orderNum作为排序号
             biObject.setStatus("0");
@@ -244,6 +248,7 @@ public class BuildingServiceImpl implements IBuildingService {
                         childObject.setAncestors(biObject.getAncestors() + "," + biObject.getId());
                         childObject.setOrderNum(childOrderNum++); // 子节点按顺序编号
                         childObject.setStatus("0");
+                        childObject.setCreateBy(ShiroUtils.getLoginName());
 
                         // 插入子节点
                         biObjectService.insertBiObject(childObject);

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('修改构件')" />
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+    <form class="form-horizontal m" id="form-component-edit" th:object="${component}">
+        <input name="id" type="hidden" th:field="*{id}" />
+        <input type="hidden" name="biObjectId" id="treeId" th:field="*{biObjectId}"/>
+        <div class="form-group">
+            <label class="col-sm-3 control-label is-required">构件名称：</label>
+            <div class="col-sm-8">
+                <input class="form-control" type="text" name="name" th:field="*{name}" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label is-required">构件编号：</label>
+            <div class="col-sm-8">
+                <input class="form-control" type="text" name="code" th:field="*{code}" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">状态：</label>
+            <div class="col-sm-8">
+                <div class="radio-box">
+                    <input type="radio" name="status" value="0" th:field="*{status}">
+                    <label>正常</label>
+                </div>
+                <div class="radio-box">
+                    <input type="radio" name="status" value="1" th:field="*{status}">
+                    <label>停用</label>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">备注：</label>
+            <div class="col-sm-8">
+                <textarea name="remark" class="form-control" th:field="*{remark}"></textarea>
+            </div>
+        </div>
+    </form>
+</div>
+<th:block th:include="include :: footer" />
+<script type="text/javascript">
+    var prefix = ctx + "biz/component";
+
+    $("#form-component-edit").validate({
+        focusCleanup: true
+    });
+
+    function submitHandler() {
+        if ($.validate.form()) {
+            $.operate.save(prefix + "/edit", $('#form-component-edit').serialize());
+        }
+    }
+</script>
+</body>
+</html> 

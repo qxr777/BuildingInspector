@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import java.util.List;
 import java.util.ArrayList;
+
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
@@ -20,8 +21,7 @@ import com.ruoyi.common.core.text.Convert;
  * @date 2025-03-27
  */
 @Service
-public class BiObjectServiceImpl implements IBiObjectService
-{
+public class BiObjectServiceImpl implements IBiObjectService {
     @Autowired
     private BiObjectMapper biObjectMapper;
 
@@ -32,8 +32,7 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 对象
      */
     @Override
-    public BiObject selectBiObjectById(Long id)
-    {
+    public BiObject selectBiObjectById(Long id) {
         return biObjectMapper.selectBiObjectById(id);
     }
 
@@ -44,8 +43,7 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 对象
      */
     @Override
-    public List<BiObject> selectBiObjectList(BiObject biObject)
-    {
+    public List<BiObject> selectBiObjectList(BiObject biObject) {
         return biObjectMapper.selectBiObjectList(biObject);
     }
 
@@ -56,8 +54,7 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 结果
      */
     @Override
-    public int insertBiObject(BiObject biObject)
-    {
+    public int insertBiObject(BiObject biObject) {
         biObject.setCreateTime(DateUtils.getNowDate());
         // 如果parentId为0，说明是根节点
         if (biObject.getParentId() == 0L) {
@@ -80,8 +77,7 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 结果
      */
     @Override
-    public int updateBiObject(BiObject biObject)
-    {
+    public int updateBiObject(BiObject biObject) {
         biObject.setUpdateTime(DateUtils.getNowDate());
         return biObjectMapper.updateBiObject(biObject);
     }
@@ -93,8 +89,7 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 结果
      */
     @Override
-    public int deleteBiObjectByIds(String ids)
-    {
+    public int deleteBiObjectByIds(String ids) {
         return biObjectMapper.deleteBiObjectByIds(Convert.toStrArray(ids));
     }
 
@@ -105,8 +100,7 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 结果
      */
     @Override
-    public int deleteBiObjectById(Long id)
-    {
+    public int deleteBiObjectById(Long id) {
         return biObjectMapper.deleteBiObjectById(id);
     }
 
@@ -116,12 +110,15 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 所有对象信息
      */
     @Override
-    public List<Ztree> selectBiObjectTree()
-    {
-        List<BiObject> biObjectList = biObjectMapper.selectBiObjectList(new BiObject());
+    public List<Ztree> selectBiObjectTree(Long rootObjectId) {
+        List<BiObject> biObjectList;
+        if (rootObjectId != null) {
+            biObjectList = selectBiObjectAndChildren(rootObjectId);
+        } else {
+            biObjectList = biObjectMapper.selectBiObjectList(new BiObject());
+        }
         List<Ztree> ztrees = new ArrayList<Ztree>();
-        for (BiObject biObject : biObjectList)
-        {
+        for (BiObject biObject : biObjectList) {
             Ztree ztree = new Ztree();
             ztree.setId(biObject.getId());
             ztree.setpId(biObject.getParentId());
@@ -139,8 +136,7 @@ public class BiObjectServiceImpl implements IBiObjectService
      * @return 根节点及其所有子节点列表
      */
     @Override
-    public List<BiObject> selectBiObjectAndChildren(Long rootId)
-    {
+    public List<BiObject> selectBiObjectAndChildren(Long rootId) {
         List<BiObject> list = new ArrayList<>();
         // 添加根节点
         BiObject rootNode = selectBiObjectById(rootId);
