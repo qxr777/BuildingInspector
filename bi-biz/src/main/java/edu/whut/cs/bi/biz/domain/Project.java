@@ -37,6 +37,8 @@ public class Project extends BaseEntity {
     // 合同金额，表示该项目的合同总金额
     private BigDecimal contractAmount;
 
+    private List<SysUser> inspectors;
+
     // 项目受托部门
     private SysDept dept;
     // 项目受托部门id
