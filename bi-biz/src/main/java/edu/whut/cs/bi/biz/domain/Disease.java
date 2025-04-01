@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.domain;
 import com.ruoyi.common.core.domain.BaseEntity;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 /**
  * @author QiXin
@@ -17,7 +18,8 @@ public class Disease extends BaseEntity {
     private String position;
 
     /** 病害类型 */
-    private String type;
+    private DiseaseType diseaseType;
+    private Long diseaseTypeId;
 
     /** 病害描述 */
     private String description;
@@ -31,13 +33,45 @@ public class Disease extends BaseEntity {
     /** 病害数量 */
     private int quantity;
 
+    /**
+     * 病害的长度数值
+     * 使用BigDecimal类型保证高精度计算需求
+     */
+    private BigDecimal length;
+
+    /**
+     * 病害的宽度数值
+     * 使用BigDecimal类型保证高精度计算需求
+     */
+    private BigDecimal width;
+
+    /**
+     * 病害的高度/深度数值
+     * 根据病害类型决定是垂直高度还是纵深深度
+     */
+    private BigDecimal heightOrDepth;
+
+    /**
+     * 缝隙/间隙的宽度数值
+     * 用于病害结构中间隙的测量场景
+     */
+    private BigDecimal slitWidth;
+
+    /**
+     * 病害的面积数值
+     * 可能通过病害的长宽等参数计算得出或直接输入
+     */
+    private BigDecimal area;
+
+
+
     /** 关联项目 */
     private Project project;
     private Long projectId;
 
-    /** 关联对象 */
-    private BiObject biObject;
-    private Long biObjectId;
+    /** 关联构建 */
+    private Component component;
+    private Long componentId;
 
     /** 关联建筑 */
     private Building building;
@@ -60,14 +94,6 @@ public class Disease extends BaseEntity {
 
     public void setPosition(String position) {
         this.position = position;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
     }
 
     public String getDescription() {
@@ -110,14 +136,6 @@ public class Disease extends BaseEntity {
         this.project = project;
     }
 
-    public BiObject getBiObject() {
-        return biObject;
-    }
-
-    public void setBiObject(BiObject biObject) {
-        this.biObject = biObject;
-    }
-
     public Building getBuilding() {
         return building;
     }
@@ -133,4 +151,61 @@ public class Disease extends BaseEntity {
     public void setAttachments(List<Attachment> attachments) {
         this.attachments = attachments;
     }
+
+    public BigDecimal getLength() {
+        return length;
+    }
+
+    public void setLength(BigDecimal length) {
+        this.length = length;
+    }
+
+    public BigDecimal getWidth() {
+        return width;
+    }
+
+    public void setWidth(BigDecimal width) {
+        this.width = width;
+    }
+
+    public BigDecimal getHeightOrDepth() {
+        return heightOrDepth;
+    }
+
+    public void setHeightOrDepth(BigDecimal heightOrDepth) {
+        this.heightOrDepth = heightOrDepth;
+    }
+
+    public BigDecimal getSlitWidth() {
+        return slitWidth;
+    }
+
+    public void setSlitWidth(BigDecimal slitWidth) {
+        this.slitWidth = slitWidth;
+    }
+
+    public BigDecimal getArea() {
+        return area;
+    }
+
+    public void setArea(BigDecimal area) {
+        this.area = area;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(Long projectId) {
+        this.projectId = projectId;
+    }
+
+    public Long getBuildingId() {
+        return buildingId;
+    }
+
+    public void setBuildingId(Long buildingId) {
+        this.buildingId = buildingId;
+    }
+
 }

@@ -5,7 +5,9 @@ import com.ruoyi.common.core.domain.BaseEntity;
 import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.core.domain.entity.SysUser;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Date;
 
 /**
  * @author QiXin
@@ -23,6 +25,18 @@ public class Project extends BaseEntity {
     private String status;
     /** 删除标志（0代表存在 2代表删除） */
     private String delFlag;
+
+    // 项目所属部门，表示该项目由哪个部门负责管理
+    private SysDept ownerDept;
+    // 项目编号，用于唯一标识该项目
+    private String code;
+    // 项目开始日期，表示项目的启动时间
+    private Date startDate;
+    // 项目结束日期，表示项目的预计完成时间
+    private Date endDate;
+    // 合同金额，表示该项目的合同总金额
+    private BigDecimal contractAmount;
+
     // 项目受托部门
     private SysDept dept;
     // 项目受托部门id
