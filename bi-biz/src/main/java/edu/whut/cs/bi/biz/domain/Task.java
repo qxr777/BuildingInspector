@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.domain;
 
+import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 import com.ruoyi.common.core.domain.entity.SysUser;
 
@@ -16,8 +17,9 @@ public class Task extends BaseEntity {
     private Long projectId;
     // 负责的检查人员
     private SysUser inspector;
-    // 任务状态
-    private Integer status;
+    /** 项目状态（0正常 1停用） */
+    @Excel(name = "任务状态", readConverterExp = "0=正常,1=停用")
+    private String status;
 
     public Building getBuilding() {
         return building;
@@ -35,11 +37,11 @@ public class Task extends BaseEntity {
         this.inspector = inspector;
     }
 
-    public Integer getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(Integer status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 }
