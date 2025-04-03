@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper">
+
+    <resultMap type="BiTemplateObject" id="BiTemplateObjectResult">
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="parentId"    column="parent_id"    />
+        <result property="ancestors"    column="ancestors"    />
+        <result property="orderNum"    column="order_num"    />
+        <result property="status"    column="status"    />
+        <result property="delFlag"    column="del_flag"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="parentName" column="parent_name" />
+    </resultMap>
+
+    <sql id="selectBiTemplateObjectVo">
+        select id, name, parent_id, ancestors, order_num, status, del_flag, remark, create_by, create_time, update_by, update_time from bi_template_object
+    </sql>
+
+    <select id="selectBiTemplateObjectList" parameterType="BiTemplateObject" resultMap="BiTemplateObjectResult">
+        <include refid="selectBiTemplateObjectVo"/>
+        <where>
+            <if test="name != null and name != ''">
+                AND name like concat('%', #{name}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="parentId != null">
+                AND parent_id = #{parentId}
+            </if>
+            AND del_flag = '0'
+        </where>
+        order by parent_id, order_num
+    </select>
+
+    <select id="selectBiTemplateObjectById" parameterType="Long" resultMap="BiTemplateObjectResult">
+        select t.id, t.name, t.parent_id, t.order_num, t.status, t.del_flag, t.create_by, t.create_time, t.update_by, t.update_time, t.remark, t.ancestors,
+               p.name as parent_name
+        from bi_template_object t
+                 left join bi_template_object p on p.id = t.parent_id
+        where t.id = #{id} and t.del_flag = '0'
+    </select>
+
+    <select id="selectChildrenByParentId" parameterType="Long" resultMap="BiTemplateObjectResult">
+        <include refid="selectBiTemplateObjectVo"/>
+        where parent_id = #{parentId} AND del_flag = '0' order by parent_id, order_num
+    </select>
+
+    <select id="selectChildrenById" parameterType="Long" resultMap="BiTemplateObjectResult">
+        select * from bi_template_object
+        where find_in_set(#{id}, ancestors) and del_flag = '0'
+    </select>
+
+    <select id="selectParentById" parameterType="Long" resultMap="BiTemplateObjectResult">
+        <include refid="selectBiTemplateObjectVo"/>
+        where id in (
+        select regexp_substr(ancestors, '[^,]+', 1, level)
+        from (select ancestors from bi_template_object where id = #{id}) t
+        connect by regexp_substr(ancestors, '[^,]+', 1, level) is not null
+        ) and del_flag = '0'
+    </select>
+
+    <insert id="insertBiTemplateObject" parameterType="BiTemplateObject" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_template_object(
+        <if test="id != null">id,</if>
+        <if test="name != null and name != ''">name,</if>
+        <if test="parentId != null">parent_id,</if>
+        <if test="ancestors != null and ancestors != ''">ancestors,</if>
+        <if test="orderNum != null">order_num,</if>
+        <if test="status != null">status,</if>
+        <if test="delFlag != null">del_flag,</if>
+        <if test="remark != null">remark,</if>
+        <if test="createBy != null">create_by,</if>
+        create_time
+        )values(
+        <if test="id != null">#{id},</if>
+        <if test="name != null and name != ''">#{name},</if>
+        <if test="parentId != null">#{parentId},</if>
+        <if test="ancestors != null and ancestors != ''">#{ancestors},</if>
+        <if test="orderNum != null">#{orderNum},</if>
+        <if test="status != null">#{status},</if>
+        <if test="delFlag != null">#{delFlag},</if>
+        <if test="remark != null">#{remark},</if>
+        <if test="createBy != null">#{createBy},</if>
+        sysdate()
+        )
+    </insert>
+
+    <update id="updateBiTemplateObject" parameterType="BiTemplateObject">
+        update bi_template_object
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="ancestors != null and ancestors != ''">ancestors = #{ancestors},</if>
+            <if test="orderNum != null">order_num = #{orderNum},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id} and del_flag = '0'
+    </update>
+
+    <update id="updateBiTemplateObjects" parameterType="java.util.List">
+        update bi_template_object
+        <trim prefix="set" suffixOverrides=",">
+            <trim prefix="ancestors =case" suffix="end,">
+                <foreach collection="templateObjects" item="item">
+                    when id = #{item.id} then #{item.ancestors}
+                </foreach>
+            </trim>
+        </trim>
+        where id in
+        <foreach collection="templateObjects" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="deleteBiTemplateObjectById" parameterType="Long">
+        update bi_template_object set del_flag = '1' where id = #{id}
+    </update>
+
+    <update id="deleteBiTemplateObjectByIds" parameterType="Long">
+        update bi_template_object set del_flag = '1' where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <select id="hasChildByIds" resultType="Integer">
+        select count(1) from bi_template_object where parent_id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and del_flag = '0'
+    </select>
+
+</mapper>

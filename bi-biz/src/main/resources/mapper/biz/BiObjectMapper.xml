@@ -56,7 +56,7 @@
         select t.*, p.name as parent_name
         from bi_object t
                  left join bi_object p on p.id = t.parent_id
-        where t.id = #{id}
+        where t.id = #{id} AND t.del_flag = '0'
     </select>
 
     <select id="selectChildrenByParentId" parameterType="Long" resultMap="BiObjectResult">

@@ -149,8 +149,7 @@ public class ComponentController extends BaseController {
     @Log(title = "构件", businessType = BusinessType.INSERT)
     @PostMapping("/generateComponents")
     @ResponseBody
-    public AjaxResult generateComponents(@RequestParam("biObjectId") String biObjectId,
-                                         @RequestBody List<CodeSegment> segments) {
+    public AjaxResult generateComponents(@RequestParam("biObjectId") String biObjectId, @RequestBody List<CodeSegment> segments) {
         try {
             int count = componentService.generateComponents(biObjectId, segments);
             return success("成功生成" + count + "个构件");

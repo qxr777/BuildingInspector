@@ -17,6 +17,8 @@ import com.ruoyi.common.core.text.Convert;
 import org.springframework.web.multipart.MultipartFile;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.JSONArray;
+import edu.whut.cs.bi.biz.domain.BiTemplateObject;
+import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
 
 /**
  * 建筑Service业务层处理
@@ -31,6 +33,9 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Autowired
     private IBiObjectService biObjectService;
+
+    @Autowired
+    private IBiTemplateObjectService biTemplateObjectService;
 
     /**
      * 查询建筑
@@ -68,19 +73,31 @@ public class BuildingServiceImpl implements IBuildingService {
 
         // 创建BiObject根节点
         if (rows > 0) {
-            BiObject rootObject = new BiObject();
-            rootObject.setName(building.getName());
-            rootObject.setParentId(0L); // 设置为根节点
-            rootObject.setAncestors("0"); // 根节点的ancestors为"0"
-            rootObject.setOrderNum(0); // 默认排序号
-            rootObject.setStatus("0"); // 默认状态为正常
+            if (building.getTemplateId() != null) {
+                // 获取模版树结构
+                BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
+                if (template != null) {
+                    // 获取模版的所有子节点
+                    List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
+                    // 生成维护树
+                    generateMaintenanceTree(building.getId(), template, children);
+                }
+            } else {
+                BiObject rootObject = new BiObject();
+                rootObject.setName(building.getName());
+                rootObject.setParentId(0L); // 设置为根节点
+                rootObject.setAncestors("0"); // 根节点的ancestors为"0"
+                rootObject.setOrderNum(0); // 默认排序号
+                rootObject.setStatus("0"); // 默认状态为正常
+                rootObject.setCreateBy(ShiroUtils.getLoginName());
 
-            // 插入BiObject根节点
-            biObjectService.insertBiObject(rootObject);
+                // 插入BiObject根节点
+                biObjectService.insertBiObject(rootObject);
 
-            // 更新Building的rootObjectId
-            building.setRootObjectId(rootObject.getId().toString());
-            buildingMapper.updateBuilding(building);
+                // 更新Building的rootObjectId
+                building.setRootObjectId(rootObject.getId().toString());
+                buildingMapper.updateBuilding(building);
+            }
         }
 
         return rows;
@@ -262,6 +279,74 @@ public class BuildingServiceImpl implements IBuildingService {
             }
 
             orderNum++;
+        }
+    }
+
+    /**
+     * 根据模版生成维护树
+     *
+     * @param buildingId 建筑物ID
+     * @param template   模版节点
+     * @param children   子节点列表
+     */
+    private void generateMaintenanceTree(Long buildingId, BiTemplateObject template, List<BiTemplateObject> children) {
+        // 创建根节点
+        BiObject rootObject = new BiObject();
+        rootObject.setName(template.getName());
+        rootObject.setParentId(0L);
+        rootObject.setAncestors("0");
+        rootObject.setOrderNum(template.getOrderNum());
+        rootObject.setStatus("0");
+        rootObject.setCreateBy(ShiroUtils.getLoginName());
+
+        // 插入根节点
+        biObjectService.insertBiObject(rootObject);
+
+        // 更新 Building 的 rootObjectId
+        Building building = new Building();
+        building.setId(buildingId);
+        building.setRootObjectId(rootObject.getId().toString());
+        buildingMapper.updateBuilding(building);
+
+        // 递归创建子节点
+        if (children != null) {
+            for (BiTemplateObject child : children) {
+                // 只处理直接子节点
+                if (child.getParentId().equals(template.getId())) {
+                    createBiObjectFromTemplate(child, rootObject.getId(), rootObject.getAncestors(), children);
+                }
+            }
+        }
+    }
+
+    /**
+     * 递归创建 BiObject 节点
+     *
+     * @param template        模版节点
+     * @param parentId        父节点ID
+     * @param parentAncestors 父节点的祖先字符串
+     * @param allChildren     所有子节点列表
+     */
+    private void createBiObjectFromTemplate(BiTemplateObject template, Long parentId, String parentAncestors, List<BiTemplateObject> allChildren) {
+        BiObject biObject = new BiObject();
+        biObject.setName(template.getName());
+        biObject.setParentId(parentId);
+        biObject.setAncestors(parentAncestors + "," + parentId);
+        biObject.setOrderNum(template.getOrderNum());
+        biObject.setStatus("0");
+        biObject.setCreateBy(ShiroUtils.getLoginName());
+
+        // 插入节点
+        biObjectService.insertBiObject(biObject);
+
+        // 递归处理子节点
+        if (allChildren != null) {
+            for (BiTemplateObject child : allChildren) {
+                // 只处理当前节点的直接子节点
+                if (child.getParentId().equals(template.getId())) {
+                    createBiObjectFromTemplate(child, biObject.getId(), biObject.getAncestors(), allChildren);
+                }
+            }
         }
     }
 }
