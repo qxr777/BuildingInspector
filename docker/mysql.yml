@@ -5,7 +5,7 @@ services:
         volumes:
             - ./data/mysql/conf:/etc/mysql/conf.d
             - ./data/mysql/data:/var/lib/mysql
-            - ../sql/bi_20250318.sql:/docker-entrypoint-initdb.d/bi_20250330.sql
+            - ../sql/bi_20250403.sql:/docker-entrypoint-initdb.d/bi_20250403.sql
 #            - ../sql/bi_20250318.sql:/docker-entrypoint-initdb.d/bi_20250318.sql
 #            - ../sql/ry_20240601.sql:/docker-entrypoint-initdb.d/ry_20240601.sql
             - ../sql/quartz.sql:/docker-entrypoint-initdb.d/quartz.sql
