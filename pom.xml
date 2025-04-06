@@ -244,6 +244,12 @@
                 <version>${ruoyi.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>edu.whut.cs.edu.minio</groupId>
+                <artifactId>bi-file</artifactId>
+                <version>${ruoyi.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -258,6 +264,7 @@
         <module>bm-common</module>
         <module>bm-biz</module>
         <module>bi-biz</module>
+        <module>bi-file</module>
     </modules>
     <packaging>pom</packaging>
 

@@ -14,36 +14,54 @@ import java.math.BigDecimal;
  * @date 2025/3/17
  */
 public class Building extends BaseEntity {
-    /** 建筑id */
+    /**
+     * 建筑id
+     */
     private Long id;
 
-    /** 建筑名称 */
+    /**
+     * 建筑名称
+     */
     @Excel(name = "建筑名称")
     @NotBlank(message = "建筑名称不能为空")
     @Length(message = "建筑名称不能超过20个字符", max = 20)
     private String name;
 
-    /** 建筑状态（0正常 1停用） */
+    /**
+     * 建筑状态（0正常 1停用）
+     */
     @Excel(name = "建筑状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
-    /** 删除标志（0代表存在 2代表删除） */
+    /**
+     * 删除标志（0代表存在 2代表删除）
+     */
     private String delFlag;
 
-    /** 经度 */
+    /**
+     * 经度
+     */
     private BigDecimal longitude;
 
-    /** 纬度 */
+    /**
+     * 纬度
+     */
     private BigDecimal latitude;
 
-    /** 海拔高度 */
+    /**
+     * 海拔高度
+     */
     private BigDecimal altitude;
 
-    /** 地址 */
+    /**
+     * 地址
+     */
     @Excel(name = "地址")
     private String address;
 
-    /** 区域 */
+    /**
+     * 区域
+     */
     @Excel(name = "区域")
     private String area;
 
@@ -71,27 +89,39 @@ public class Building extends BaseEntity {
         this.rootPropertyId = rootPropertyId;
     }
 
-    /** 管理部门 */
+    /**
+     * 管理部门
+     */
     @Excel(name = "管理部门")
     private String adminDept;
 
-    /** 权重 */
+    /**
+     * 权重
+     */
     @Excel(name = "权重")
     private BigDecimal weight;
 
-    /** 视频流来源 */
+    /**
+     * 视频流来源
+     */
     @Excel(name = "视频流来源")
     private String videoFeed;
 
-    /** 线路 */
+    /**
+     * 线路
+     */
     @Excel(name = "线路")
     private String line;
 
-    /** 根对象ID */
+    /**
+     * 根对象ID
+     */
     @Excel(name = "根对象ID")
     private String rootObjectId;
 
-    /** 根属性ID */
+    /**
+     * 根属性ID
+     */
     @Excel(name = "根属性ID")
     private String rootPropertyId;
 
@@ -99,107 +129,102 @@ public class Building extends BaseEntity {
 
     private Property rootProperty;
 
-    /** 父BuildingID */
+    /**
+     * 父BuildingID
+     */
     private Long parentId;
 
-    public void setId(Long id)
-    {
+    /**
+     * 模版ID
+     */
+    @Excel(name = "模版ID")
+    private Long templateId;
+
+    public void setId(Long id) {
         this.id = id;
     }
 
-    public Long getId()
-    {
+    public Long getId() {
         return id;
     }
-    public void setName(String name)
-    {
+
+    public void setName(String name) {
         this.name = name;
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
-    public void setStatus(String status)
-    {
+    public void setStatus(String status) {
         this.status = status;
     }
 
-    public String getStatus()
-    {
+    public String getStatus() {
         return status;
     }
-    public void setDelFlag(String delFlag)
-    {
+
+    public void setDelFlag(String delFlag) {
         this.delFlag = delFlag;
     }
 
-    public String getDelFlag()
-    {
+    public String getDelFlag() {
         return delFlag;
     }
-    public void setLongitude(BigDecimal longitude)
-    {
+
+    public void setLongitude(BigDecimal longitude) {
         this.longitude = longitude;
     }
 
-    public BigDecimal getLongitude()
-    {
+    public BigDecimal getLongitude() {
         return longitude;
     }
-    public void setLatitude(BigDecimal latitude)
-    {
+
+    public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
     }
 
-    public BigDecimal getLatitude()
-    {
+    public BigDecimal getLatitude() {
         return latitude;
     }
-    public void setAltitude(BigDecimal altitude)
-    {
+
+    public void setAltitude(BigDecimal altitude) {
         this.altitude = altitude;
     }
 
-    public BigDecimal getAltitude()
-    {
+    public BigDecimal getAltitude() {
         return altitude;
     }
-    public void setAddress(String address)
-    {
+
+    public void setAddress(String address) {
         this.address = address;
     }
 
-    public String getAddress()
-    {
+    public String getAddress() {
         return address;
     }
-    public void setArea(String area)
-    {
+
+    public void setArea(String area) {
         this.area = area;
     }
 
-    public String getArea()
-    {
+    public String getArea() {
         return area;
     }
-    public void setAdminDept(String adminDept)
-    {
+
+    public void setAdminDept(String adminDept) {
         this.adminDept = adminDept;
     }
 
-    public String getAdminDept()
-    {
+    public String getAdminDept() {
         return adminDept;
     }
-    public void setWeight(BigDecimal weight)
-    {
+
+    public void setWeight(BigDecimal weight) {
         this.weight = weight;
     }
 
-    public BigDecimal getWeight()
-    {
+    public BigDecimal getWeight() {
         return weight;
     }
 
@@ -233,6 +258,14 @@ public class Building extends BaseEntity {
 
     public void setParentId(Long parentId) {
         this.parentId = parentId;
+    }
+
+    public Long getTemplateId() {
+        return templateId;
+    }
+
+    public void setTemplateId(Long templateId) {
+        this.templateId = templateId;
     }
 
     @Override

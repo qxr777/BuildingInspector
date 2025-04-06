@@ -18,6 +18,8 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 import org.springframework.web.multipart.MultipartFile;
+import edu.whut.cs.bi.biz.domain.BiTemplateObject;
+import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
 
 import javax.annotation.Resource;
 import java.io.IOException;
@@ -35,6 +37,9 @@ public class BuildingController extends BaseController {
 
     @Resource
     private IBuildingService buildingService;
+
+    @Autowired
+    private IBiTemplateObjectService biTemplateObjectService;
 
     @RequiresPermissions("biz:building:view")
     @GetMapping()
@@ -84,7 +89,13 @@ public class BuildingController extends BaseController {
      */
     @RequiresPermissions("biz:building:add")
     @GetMapping("/add")
-    public String add() {
+    public String add(ModelMap mmap) {
+        // 查询所有可用的模版
+        BiTemplateObject query = new BiTemplateObject();
+        query.setStatus("0"); // 只查询正常状态的模版
+        query.setParentId(0L); // 只查询根节点模版
+        List<BiTemplateObject> templates = biTemplateObjectService.selectBiTemplateObjectList(query);
+        mmap.put("templates", templates);
         return prefix + "/add";
     }
 

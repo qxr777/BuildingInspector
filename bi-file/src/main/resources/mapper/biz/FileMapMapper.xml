@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.FileMapMapper">
+    
+    <resultMap type="FileMap" id="FileMapResult">
+        <result property="id"    column="id"    />
+        <result property="oldName"    column="oldName"    />
+        <result property="newName"    column="newName"    />
+        <result property="createBy"    column="createBy"    />
+        <result property="createTime"    column="createTime"    />
+        <result property="updateTime"    column="updateTime"    />
+    </resultMap>
+
+    <sql id="selectFileMapVo">
+        select id, oldName, newName, createBy, createTime, updateTime from bi_file_map
+    </sql>
+
+    <select id="selectFileMapList" parameterType="FileMap" resultMap="FileMapResult">
+        <include refid="selectFileMapVo"/>
+        <where>  
+            <if test="id != null "> and id = #{id}</if>
+            <if test="oldName != null  and oldName != ''"> and oldName like concat('%', #{oldName}, '%')</if>
+            <if test="newName != null  and newName != ''"> and newName like concat('%', #{newName}, '%')</if>
+            <if test="createBy != null  and createBy != ''"> and createBy = #{createBy}</if>
+            <if test="createTime != null "> and createTime = #{createTime}</if>
+            <if test="updateTime != null "> and updateTime = #{updateTime}</if>
+        </where>
+    </select>
+    
+    <select id="selectFileMapById" parameterType="Long" resultMap="FileMapResult">
+        <include refid="selectFileMapVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertFileMap" parameterType="FileMap" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_file_map
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="oldName != null and oldName != ''">oldName,</if>
+            <if test="newName != null and newName != ''">newName,</if>
+            <if test="createBy != null">createBy,</if>
+            <if test="createTime != null">createTime,</if>
+            <if test="updateTime != null">updateTime,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="oldName != null and oldName != ''">#{oldName},</if>
+            <if test="newName != null and newName != ''">#{newName},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateFileMap" parameterType="FileMap">
+        update bi_file_map
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="oldName != null and oldName != ''">oldName = #{oldName},</if>
+            <if test="newName != null and newName != ''">newName = #{newName},</if>
+            <if test="createBy != null">createBy = #{createBy},</if>
+            <if test="createTime != null">createTime = #{createTime},</if>
+            <if test="updateTime != null">updateTime = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteFileMapById" parameterType="Long">
+        delete from bi_file_map where id = #{id}
+    </delete>
+
+    <delete id="deleteFileMapByIds" parameterType="String">
+        delete from bi_file_map where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>
