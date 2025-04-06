@@ -27,6 +27,30 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateTime"    column="update_time"    />
     </resultMap>
 
+    <resultMap type="ProjectBuildingVO" id="ProjectBuildingResult">
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="status"    column="status"    />
+        <result property="delFlag"    column="del_flag"    />
+        <result property="longitude"    column="longitude"    />
+        <result property="latitude"    column="latitude"    />
+        <result property="altitude"    column="altitude"    />
+        <result property="address"    column="address"    />
+        <result property="area"    column="area"    />
+        <result property="line"    column="line"    />
+        <result property="adminDept"    column="admin_dept"    />
+        <result property="weight"    column="weight"    />
+        <result property="videoFeed"    column="video_feed"    />
+        <result property="rootObjectId"    column="root_object_id"    />
+        <result property="rootPropertyId"    column="root_property_id"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="isSelected" column="isSelected" />
+    </resultMap>
+
     <sql id="selectBuildingVo">
         select id, name, status, del_flag, longitude, latitude, altitude, address, area, line, admin_dept, weight, video_feed, root_object_id, root_property_id, remark, create_by, create_time, update_by, update_time from bi_building
     </sql>
@@ -45,6 +69,39 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectBuildingById" parameterType="Long" resultMap="BuildingResult">
         <include refid="selectBuildingVo"/>
         where id = #{id}
+    </select>
+
+    <select id="selectProjectBuildingVOList" resultType="ProjectBuildingVO">
+        SELECT
+        b.*,
+        CASE WHEN pb.project_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
+        FROM
+        bi_building b
+        LEFT JOIN
+        bi_project_building pb ON b.id = pb.building_id AND pb.project_id = #{projectId}
+        <where>
+            <!-- 原有建筑查询条件 -->
+            <if test="building.name != null and building.name != ''">
+                AND b.name LIKE CONCAT('%', #{building.name}, '%')
+            </if>
+            <if test="building.status != null and building.status != ''">
+                AND b.status = #{building.status}
+            </if>
+            <if test="building.area != null and building.area != ''">
+                AND b.area = #{building.area}
+            </if>
+            <if test="building.line != null and building.line != ''">
+                AND b.line = #{building.line}
+            </if>
+            <if test="building.adminDept != null and building.adminDept != ''">
+                AND b.admin_dept = #{building.adminDept}
+            </if>
+
+            <!-- 新增isSelected筛选条件 -->
+            <if test="building.isSelected != null">
+                AND (pb.project_id IS NOT NULL) = #{building.isSelected}
+            </if>
+        </where>
     </select>
 
     <insert id="insertBuilding" parameterType="Building" useGeneratedKeys="true" keyProperty="id">

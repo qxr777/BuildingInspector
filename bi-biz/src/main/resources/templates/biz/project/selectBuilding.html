@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('桥梁选择列表')"/>
+</head>
+<body class="gray-bg">
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <input type="hidden" id="projectId" name="projectId" th:value="${projectId}"/>
+                    <input type="hidden" id="isSelected" name="isSelected"/>
+                    <ul>
+                        <li>
+                            <label>桥梁名称：</label>
+                            <input type="text" name="name"/>
+                        </li>
+                        <li>
+                            <label>状态：</label>
+                            <select name="status" th:with="type=${@dict.getType('bi_building_status')}">
+                                <option value="">所有</option>
+                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
+                            <label>片区：</label>
+                            <select name="area" th:with="type=${@dict.getType('bi_building_area')}">
+                                <option value="">所有</option>
+                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
+                            <label>线路：</label>
+                            <select name="line" th:with="type=${@dict.getType('bi_buildeing_line')}">
+                                <option value="">所有</option>
+                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
+                            <label>管理部门：</label>
+                            <input type="text" name="adminDept"/>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
+                                    class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
+                                    class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <div class="btn-group-sm" id="toolbar" role="group">
+            <!-- 添加筛选下拉框 -->
+            <select id="selectStatus" class="form-control" style="width: 150px; display: inline-block; margin-right: 8px;">
+                <option value="">全部桥梁</option>
+                <option value="1">已选桥梁</option>
+                <option value="0">未选桥梁</option>
+            </select>
+            <a class="btn btn-success multiple" onclick="addSelectedBuildings()" shiro:hasPermission="biz:project:edit">
+                <i class="fa fa-plus"></i> 批量添加
+            </a>
+            <a class="btn btn-danger multiple" onclick="removeSelectedBuildings()" shiro:hasPermission="biz:project:edit">
+                <i class="fa fa-minus"></i> 批量取消
+            </a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="bootstrap-table"></table>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<script th:inline="javascript">
+    var statusDatas = [[${@dict.getType('bi_building_status')}]];
+    var areaDatas = [[${@dict.getType('bi_building_area')}]];
+    var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
+    var prefix = ctx + "biz/project";
+    var projectId = [[${projectId}]]
+
+    $(function () {
+        var options = {
+            url: ctx + "biz/building/listVO",
+            modalName: "桥梁",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'id',
+                    title: '建筑ID',
+                    visible: false
+                },
+                {
+                    field: 'name',
+                    title: '名称'
+                },
+                {
+                    field: 'status',
+                    title: '状态',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(statusDatas, value);
+                    }
+                },
+                {
+                    field: 'area',
+                    title: '片区',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(areaDatas, value);
+                    }
+                },
+                {
+                    field: 'line',
+                    title: '线路',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(lineDatas, value);
+                    }
+                },
+                {
+                    field: 'adminDept',
+                    title: '管理部门'
+                },
+                {
+                    field: 'isSelected',
+                    title: '操作',
+                    align: 'center',
+                    formatter: function (value, row, index) {
+                        var actions = [];
+                        if (value) {
+                            actions.push('<a class="btn btn-danger btn-xs" href="javascript:void(0)" onclick="cancelBuilding(\'' + row.id + '\')"><i class="fa fa-remove"></i>取消</a> ');
+                        } else {
+                            actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="addBuilding(\'' + row.id + '\')"><i class="fa fa-plus"></i>添加</a> ');
+                        }
+                        return actions.join('');
+                    }
+                }]
+        };
+        $.table.init(options);
+
+        // 添加选择框变化事件
+        $("#selectStatus").change(function() {
+            var selectStatus = $("#selectStatus").val();
+
+            var selectValue = selectStatus === "1" ? true : false;
+            if (selectStatus === "") {
+                selectValue = "";
+            }
+
+            $("#isSelected").val(selectValue);
+            console.log(selectValue)
+            $.table.search();
+        });
+    });
+
+    /* 添加单个桥梁 */
+    function addBuilding(buildingId) {
+        console.log(projectId)
+        $.ajax({
+            url: prefix + "/addProjectBuilding",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "buildingId": buildingId
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("添加成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 取消单个桥梁 */
+    function cancelBuilding(buildingId) {
+        $.ajax({
+            url: prefix + "/cancelProjectBuilding",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "buildingId": buildingId
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("取消成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 批量添加桥梁 */
+    function addSelectedBuildings() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length === 0) {
+            $.modal.alertWarning("请至少选择一个桥梁");
+            return;
+        }
+        $.ajax({
+            url: prefix + "/batchAddProjectBuilding",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "buildingIds": rows.join(",")
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("批量添加成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 批量取消桥梁 */
+    function removeSelectedBuildings() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length === 0) {
+            $.modal.alertWarning("请至少选择一个桥梁");
+            return;
+        }
+        $.ajax({
+            url: prefix + "/batchCancelProjectBuilding",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "buildingIds": rows.join(",")
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("批量取消成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

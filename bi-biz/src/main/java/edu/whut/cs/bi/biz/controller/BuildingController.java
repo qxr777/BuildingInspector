@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.controller;
 import java.util.List;
 
 import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -18,6 +19,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import java.io.IOException;
 
 /**
@@ -31,7 +33,7 @@ import java.io.IOException;
 public class BuildingController extends BaseController {
     private String prefix = "biz/building";
 
-    @Autowired
+    @Resource
     private IBuildingService buildingService;
 
     @RequiresPermissions("biz:building:view")
@@ -49,6 +51,18 @@ public class BuildingController extends BaseController {
     public TableDataInfo list(Building building) {
         startPage();
         List<Building> list = buildingService.selectBuildingList(building);
+        return getDataTable(list);
+    }
+
+    /**
+     * 查询建筑列表
+     */
+    @RequiresPermissions("biz:building:list")
+    @PostMapping("/listVO")
+    @ResponseBody
+    public TableDataInfo listVO(ProjectBuildingVO building, Long projectId) {
+        startPage();
+        List<ProjectBuildingVO> list = buildingService.selectBuildingVOList(building, projectId);
         return getDataTable(list);
     }
 
@@ -135,4 +149,15 @@ public class BuildingController extends BaseController {
     public AjaxResult readJsonFile(@RequestPart("file") MultipartFile file) throws IOException {
         return toAjax(buildingService.importJson(file));
     }
+
+    /**
+     * 项目选择桥梁
+     */
+    @RequiresPermissions("biz:project:edit")
+    @GetMapping("/list/{projectId}")
+    public String assignUsers(@PathVariable("projectId") String projectId, ModelMap mmap) {
+        mmap.put("projectId", projectId);
+        return "biz/project/selectBuilding";
+    }
+
 }

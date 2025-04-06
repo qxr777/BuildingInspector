@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper">
+
+
+    <insert id="insertProjectBuilding">
+        insert into bi_project_building (project_id, building_id) values (#{projectId}, #{buildingId})
+    </insert>
+
+    <insert id="batchInsertProjectBuilding">
+        insert into bi_project_building (project_id, building_id)
+        values
+        <foreach collection="buildingIds" item="buildingId" separator=",">
+            (#{projectId}, #{buildingId})
+        </foreach>
+    </insert>
+
+    <!-- 单条删除项目建筑关联 -->
+    <delete id="removeProjectBuilding">
+        DELETE FROM bi_project_building
+        WHERE project_id = #{projectId}
+          AND building_id = #{buildingId}
+    </delete>
+
+    <!-- 批量删除项目建筑关联 -->
+    <delete id="batchRemoveProjectBuilding">
+        DELETE FROM bi_project_building
+        WHERE project_id = #{projectId}
+        AND building_id IN
+        <foreach collection="buildingIds" item="buildingId" open="(" separator="," close=")">
+            #{buildingId}
+        </foreach>
+    </delete>
+
+    <select id="countProjectBuilding" resultType="java.lang.Integer">
+        select count(1) from bi_project_building
+        where project_id = #{projectId}
+          and building_id = #{buildingId}
+    </select>
+
+</mapper>

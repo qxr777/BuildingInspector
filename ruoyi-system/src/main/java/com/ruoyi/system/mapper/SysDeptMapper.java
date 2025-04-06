@@ -114,4 +114,19 @@ public interface SysDeptMapper
      * @return 子部门数
      */
     public int selectNormalChildrenDeptById(Long deptId);
+
+    /**
+     * 查询部门根节点
+     *
+     * @return
+     */
+    List<SysDept> selectDeptRoot();
+
+    /**
+     * 根据父节点查询子节点
+     *
+     * @param parentId
+     * @return
+     */
+    List<SysDept> selectDeptListByParentId(Long parentId);
 }

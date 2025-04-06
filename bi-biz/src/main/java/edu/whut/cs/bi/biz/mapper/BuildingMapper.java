@@ -2,6 +2,8 @@ package edu.whut.cs.bi.biz.mapper;
 
 import java.util.List;
 import edu.whut.cs.bi.biz.domain.Building;
+import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 建筑Mapper接口
@@ -26,6 +28,14 @@ public interface BuildingMapper
      * @return 建筑集合
      */
     public List<Building> selectBuildingList(Building building);
+
+    /**
+     * 查询建筑列表
+     *
+     * @param building 建筑
+     * @return 建筑集合
+     */
+    public List<ProjectBuildingVO> selectProjectBuildingVOList(@Param("building") ProjectBuildingVO building, @Param("projectId") Long projectId);
 
     /**
      * 新增建筑
