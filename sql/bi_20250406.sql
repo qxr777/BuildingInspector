@@ -545,7 +545,7 @@ INSERT INTO `bi_object` VALUES (343, '1111', 325, '0,323,324,325', 0, '0', '1', 
 -- Table structure for bi_project
 -- ----------------------------
 DROP TABLE IF EXISTS `bi_project`;
-create table 'bi_project'
+create table `bi_project`
 (
     id              bigint auto_increment comment '项目ID'
         primary key,
@@ -582,8 +582,8 @@ INSERT INTO bi.bi_project (name, year, status, del_flag, owner_dept_id, dept_id,
 -- ----------------------------
 -- Table structure for bi_project_user
 -- ----------------------------
-DROP TABLE IF EXISTS `bi_project_building`;
-create table 'bi_project_user'
+DROP TABLE IF EXISTS `bi_project_user`;
+create table `bi_project_user`
 (
     id          bigint auto_increment
         primary key,
