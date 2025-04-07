@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ProjectMapper">
+    
+    <resultMap type="Project" id="ProjectResult">
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="year"    column="year"    />
+        <result property="status"    column="status"    />
+        <result property="delFlag"    column="del_flag"    />
+        <result property="ownerDeptId"    column="owner_dept_id"    />
+        <result property="deptId"    column="dept_id"    />
+        <result property="code"    column="code"    />
+        <result property="startDate"    column="start_date"    />
+        <result property="endDate"    column="end_date"    />
+        <result property="contractAmount"    column="contract_amount"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectProjectVo">
+        select id,
+               name,
+               year,
+               status,
+               del_flag,
+               owner_dept_id,
+               dept_id,
+               code,
+               start_date,
+               end_date,
+               contract_amount,
+               remark,
+               create_by,
+               create_time,
+               update_by,
+               update_time
+        from bi_project
+    </sql>
+
+    <select id="selectProjectList" resultMap="ProjectResult">
+        <include refid="selectProjectVo"/>
+        <where>
+            del_flag = '0'
+            <if test="currentUserId != null">
+                AND EXISTS (
+                SELECT 1 FROM bi_project_user pu
+                WHERE pu.project_id = bi_project.id
+                AND pu.user_id = #{currentUserId}
+                )
+            </if>
+            <if test="project.name != null and project.name != ''">
+                AND name like concat('%', #{project.name}, '%')
+            </if>
+            <if test="project.year != null">
+                AND year = #{project.year}
+            </if>
+            <if test="project.status != null and project.status != ''">
+                AND status = #{project.status}
+            </if>
+            <if test="project.code != null and project.code != ''">
+                AND code = #{project.code}
+            </if>
+            <if test="project.ownerDeptId != null">
+                AND owner_dept_id = #{project.ownerDeptId}
+            </if>
+            <if test="project.deptId != null">
+                AND dept_id = #{project.deptId}
+            </if>
+            <if test="project.startDate != null">
+                AND start_date &gt;= #{project.startDate}
+            </if>
+            <if test="project.endDate != null">
+                AND end_date &lt;= #{project.endDate}
+            </if>
+        </where>
+    </select>
+    
+    <select id="selectProjectById" parameterType="Long" resultMap="ProjectResult">
+        <include refid="selectProjectVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertProject" parameterType="Project" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_project
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="year != null">year,</if>
+            <if test="status != null">status,</if>
+            <if test="ownerDeptId != null">owner_dept_id,</if>
+            <if test="deptId != null">dept_id,</if>
+            <if test="code != null and code != ''">code,</if>
+            <if test="startDate != null">start_date,</if>
+            <if test="endDate != null">end_date,</if>
+            <if test="contractAmount != null">contract_amount,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="year != null">#{year},</if>
+            <if test="status != null">#{status},</if>
+            <if test="ownerDeptId != null">#{ownerDeptId},</if>
+            <if test="deptId != null">#{deptId},</if>
+            <if test="code != null and code != ''">#{code},</if>
+            <if test="startDate != null">#{startDate},</if>
+            <if test="endDate != null">#{endDate},</if>
+            <if test="contractAmount != null">#{contractAmount},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateProject" parameterType="Project">
+        update bi_project
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="year != null">year = #{year},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="ownerDeptId != null">owner_dept_id = #{ownerDeptId},</if>
+            <if test="deptId != null">dept_id = #{deptId},</if>
+            <if test="code != null and code != ''">code = #{code},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="endDate != null">end_date = #{endDate},</if>
+            <if test="contractAmount != null">contract_amount = #{contractAmount},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id} and del_flag = '0'
+    </update>
+
+
+    <delete id="deleteProjectById" parameterType="Long">
+        update bi_project set del_flag = '1' where id = #{id} and del_flag = '0'
+    </delete>
+
+    <delete id="deleteProjectByIds" parameterType="String">
+        update bi_project set del_flag = '1' where del_flag = '0' and id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

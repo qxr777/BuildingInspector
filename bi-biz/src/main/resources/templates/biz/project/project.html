@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('项目列表')"/>
+</head>
+<body class="gray-bg">
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <ul>
+                        <li>
+                            <label>项目名称：</label>
+                            <input type="text" name="name"/>
+                        </li>
+                        <li>
+                            <label>项目编号：</label>
+                            <input type="text" name="code"/>
+                        </li>
+                        <li>
+                            <label>状态：</label>
+                            <select name="status" th:with="type=${@dict.getType('bi_project_status')}">
+                                <option value="">所有</option>
+                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}"
+                                        th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
+                            <label>承担单位：</label>
+                            <select name="deptId" id="sysDeptSelect">
+                                <option value="">所有</option>
+                            </select>
+                        </li>
+                        <li class="select-time">
+                            <label>项目日期： </label>
+                            <input type="text" class="time-input" id="startTime" placeholder="开始日期" name="startDate"/>
+                            <span>-</span>
+                            <input type="text" class="time-input" id="endTime" placeholder="结束日期" name="endDate"/>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
+                                    class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
+                                    class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <div class="btn-group-sm" id="toolbar" role="group">
+            <a class="btn btn-success" onclick="$.operate.addTab()" shiro:hasPermission="biz:project:add">
+                <i class="fa fa-plus"></i> 添加
+            </a>
+            <a class="btn btn-primary single disabled" onclick="$.operate.editTab()"
+               shiro:hasPermission="biz:project:edit">
+                <i class="fa fa-edit"></i> 修改
+            </a>
+            <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()"
+               shiro:hasPermission="biz:project:remove">
+                <i class="fa fa-remove"></i> 删除
+            </a>
+            <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:project:export">
+                <i class="fa fa-download"></i> 导出
+            </a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="bootstrap-table"></table>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<script th:inline="javascript">
+    var editFlag = [[${@permission.hasPermi('biz:project:edit')}]];
+    var removeFlag = [[${@permission.hasPermi('biz:project:remove')}]];
+    var statusDatas = [[${@dict.getType('bi_project_status')}]];
+    var prefix = ctx + "biz/project";
+
+    $(function () {
+        var options = {
+            url: prefix + "/list",
+            createUrl: prefix + "/add",
+            updateUrl: prefix + "/edit/{id}",
+            removeUrl: prefix + "/remove",
+            exportUrl: prefix + "/export",
+            modalName: "项目",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'id',
+                    title: '项目ID',
+                    visible: false
+                },
+                {
+                    field: 'name',
+                    title: '名称'
+                },
+                {
+                    field: 'year',
+                    title: '年份'
+                },
+                {
+                    field: 'code',
+                    title: '项目编号'
+                },
+                {
+                    field: 'status',
+                    title: '状态',
+                    formatter: function (value, row, index) {
+                        return $.table.selectDictLabel(statusDatas, value);
+                    }
+                },
+                {
+                    field: 'ownerDept.deptName',
+                    title: '所属单位'
+                },
+                {
+                    field: 'dept.deptName',
+                    title: '受托部门'
+                },
+                {
+                    field: 'startDate',
+                    title: '开始时间',
+                    sortable: true,
+                    formatter: function(value) {
+                        return value ? value.substring(0, 10) : ''; // 只取前10位（YYYY-MM-DD）
+                    }
+                },
+                {
+                    field: 'endDate',
+                    title: '结束时间',
+                    sortable: true,
+                    formatter: function(value) {
+                        return value ? value.substring(0, 10) : ''; // 只取前10位（YYYY-MM-DD）
+                    }
+                },
+                {
+                    field: 'contractAmount',
+                    title: '合同金额（万元）'
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    formatter: function (value, row, index) {
+                        var actions = [];
+                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.editTab(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
+                        actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="assignUsers(\'' + row.id + '\')"><i class="fa fa-user-plus"></i>安排人员</a> ');
+                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="selectBuildings(\'' + row.id + '\')"><i class="fa fa-list"></i>选择桥梁</a>');
+                        return actions.join('');
+                    }
+                }]
+        };
+        $.table.init(options);
+
+        // 加载承担单位下拉框数据
+        loadSysDeptData();
+    });
+
+    // 安排人员
+    function assignUsers(projectId) {
+        var url = ctx + "biz/project/assignUsers/" + projectId;
+        $.modal.openTab("安排人员", url);
+    }
+
+    function selectBuildings(projectId) {
+        var url = ctx + "biz/building/list/" + projectId;
+        $.modal.openTab("选择桥梁", url);
+    }
+
+    function loadSysDeptData() {
+        $.ajax({
+            url: ctx + "system/dept/selectList",
+            type: "get",
+            dataType: "json",
+            success: function (data) {
+                var options = $("#sysDeptSelect")
+                options.empty();
+                options.append("<option value=''>所有</option>");
+                $.each(data, function (i, item) {
+                    options.append("<option value='" + item.value + "'>" + item.label + "</option>");
+                });
+            },
+            error: function (data) {
+                $.modal.alertError("加载承担单位数据失败");
+            }
+        });
+
+    }
+</script>
+</body>
+</html>

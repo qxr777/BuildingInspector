@@ -1,6 +1,10 @@
 package com.ruoyi.web.controller.system;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -49,6 +53,23 @@ public class SysDeptController extends BaseController
     {
         List<SysDept> deptList = deptService.selectDeptList(dept);
         return deptList;
+    }
+
+    @GetMapping("selectList")
+    @ResponseBody
+    public List<Map<String, Object>> getDeptList() {
+        // 获取承担单位根节点数据
+        List<SysDept> sysDepts = deptService.selectDeptRoot();
+        List<Map<String, Object>> result = new ArrayList<>();
+        deptService.getSelectData(sysDepts, new StringBuilder(), result);
+
+        // 业主自检
+        result.add(Map.of(
+                "value", -1,
+                "label", "业主自检"
+        ));
+
+        return result;
     }
 
     /**

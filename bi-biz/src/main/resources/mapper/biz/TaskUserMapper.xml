@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.TaskUserMapper">
+
+
+<!--    <select id="selectUserIdsByProjectAndRole" resultType="java.lang.Long">-->
+<!--        SELECT user_id-->
+<!--        FROM bi_project_user-->
+<!--        WHERE project_id = #{projectId}-->
+<!--        and role = #{role}-->
+<!--    </select>-->
+
+<!--    <select id="countProjectUser" resultType="java.lang.Integer">-->
+<!--        select count(1)-->
+<!--        from bi_project_user-->
+<!--        where project_id = #{projectId}-->
+<!--    </select>-->
+
+<!--    <insert id="saveProjectUser">-->
+<!--        insert into bi_project_user (project_id, user_id, role)-->
+<!--        values-->
+<!--        <foreach collection="inspectorIds" item="inspectorId" separator=",">-->
+<!--            (#{projectId}, #{inspectorId}, #{role})-->
+<!--        </foreach>-->
+<!--    </insert>-->
+
+<!--    <delete id="deleteProjectUser">-->
+<!--        delete from bi_project_user where project_id = #{projectId}-->
+<!--    </delete>-->
+
+</mapper>

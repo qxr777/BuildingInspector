@@ -1,7 +1,10 @@
 package com.ruoyi.system.service.impl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,11 @@ public class SysDeptServiceImpl implements ISysDeptService
 {
     @Autowired
     private SysDeptMapper deptMapper;
+
+    @Override
+    public List<SysDept> selectDeptRoot() {
+        return deptMapper.selectDeptRoot();
+    }
 
     /**
      * 查询部门管理数据
@@ -324,5 +332,50 @@ public class SysDeptServiceImpl implements ISysDeptService
                 throw new ServiceException("没有权限访问部门数据！");
             }
         }
+    }
+
+    /**
+     * 通过父部门ID查询子部门集合
+     *
+     * @param parentId 父部门ID
+     * @return
+     */
+    @Override
+    public List<SysDept> selectDeptListByParentId(Long parentId) {
+        return deptMapper.selectDeptListByParentId(parentId);
+    }
+
+    /**
+     * 递归获取下拉框数据
+     *
+     * @param deptList
+     * @param sb
+     * @param result
+     */
+    @Override
+    public void getSelectData(List<SysDept> deptList, StringBuilder sb, List<Map<String, Object>> result) {
+        if (deptList == null || deptList.size() == 0) {
+            return;
+        }
+
+        for (SysDept dept : deptList) {
+            sb.append(dept.getDeptName() + "-");
+            int deptCount = this.selectDeptCount(dept.getDeptId());
+            if (deptCount > 0) {
+                List<SysDept> sysDepts = deptMapper.selectDeptListByParentId(dept.getDeptId());
+                getSelectData(sysDepts, sb, result);
+            } else {
+                // 到根节点
+                Map<String, Object> map = new HashMap<>();
+                map.put("value", dept.getDeptId());
+                // 删除最后一个'-'
+                sb.delete(sb.length() - 1, sb.length());
+                map.put("label", sb.toString());
+                result.add(map);
+            }
+            // 去除最后添加的数据
+            sb.delete(sb.length() - dept.getDeptName().length(), sb.length());
+        }
+
     }
 }

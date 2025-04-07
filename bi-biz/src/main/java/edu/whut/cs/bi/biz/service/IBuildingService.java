@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.service;
 import java.io.IOException;
 import java.util.List;
 import edu.whut.cs.bi.biz.domain.Building;
+import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -68,4 +69,13 @@ public interface IBuildingService
      * @return 结果
      */
     public int importJson(MultipartFile file) throws IOException;
+
+    /**
+     * 查询建筑VO列表
+     *
+     * @param building 建筑
+     * @param projectId 项目ID
+     * @return 结果
+     */
+    List<ProjectBuildingVO> selectBuildingVOList(ProjectBuildingVO building, Long projectId);
 }

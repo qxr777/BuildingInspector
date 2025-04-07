@@ -1,6 +1,8 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
+import java.util.Map;
+
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.core.domain.entity.SysRole;
@@ -12,6 +14,13 @@ import com.ruoyi.common.core.domain.entity.SysRole;
  */
 public interface ISysDeptService
 {
+    /**
+     * 查询部门根节点数据
+     *
+     * @return
+     */
+    public List<SysDept> selectDeptRoot();
+
     /**
      * 查询部门管理数据
      * 
@@ -114,4 +123,31 @@ public interface ISysDeptService
      * @param deptId 部门id
      */
     public void checkDeptDataScope(Long deptId);
+
+
+    /**
+     * 根据父部门ID查询下级部门
+     *
+     * @param parentId 父部门ID
+     * @return 下级部门
+     */
+    public List<SysDept> selectDeptListByParentId(Long parentId);
+
+    /**
+     * 递归获取Map下拉框数据
+     *
+     * @param deptList
+     * @param sb
+     * @param result
+     */
+    public void getSelectData(List<SysDept> deptList, StringBuilder sb, List<Map<String, Object>> result);
+
+
+    /**
+     * 对象转部门树
+     *
+     * @param deptList 部门列表
+     * @return 树结构列表
+     */
+    public List<Ztree> initZtree(List<SysDept> deptList);
 }

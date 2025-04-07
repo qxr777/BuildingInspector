@@ -29,6 +29,10 @@
         <result property="updateTime"    column="update_time"    />
     </resultMap>
 
+    <resultMap type="ProjectBuildingVO" id="ProjectBuildingResult" extends="BuildingResult">
+        <result property="isSelected" column="isSelected"/>
+    </resultMap>
+
     <sql id="selectBuildingVo">
         select b.id, b.name, b.parent_id, b.template_id, t.name as template_name,
                b.status, b.del_flag, b.longitude, b.latitude, b.altitude, b.address, b.area,
@@ -54,6 +58,40 @@
     <select id="selectBuildingById" parameterType="Long" resultMap="BuildingResult">
         <include refid="selectBuildingVo"/>
         where b.id = #{id} and b.del_flag = '0' and (t.del_flag = '0' or t.del_flag is null)
+    </select>
+
+    <select id="selectProjectBuildingVOList" resultType="ProjectBuildingVO">
+        SELECT
+        b.*,
+        CASE WHEN pb.project_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
+        FROM
+        bi_building b
+        LEFT JOIN
+        bi_project_building pb ON b.id = pb.building_id AND pb.project_id = #{projectId}
+        <where>
+            b.del_flag = '0'
+            <!-- 原有建筑查询条件 -->
+            <if test="building.name != null and building.name != ''">
+                AND b.name LIKE CONCAT('%', #{building.name}, '%')
+            </if>
+            <if test="building.status != null and building.status != ''">
+                AND b.status = #{building.status}
+            </if>
+            <if test="building.area != null and building.area != ''">
+                AND b.area = #{building.area}
+            </if>
+            <if test="building.line != null and building.line != ''">
+                AND b.line = #{building.line}
+            </if>
+            <if test="building.adminDept != null and building.adminDept != ''">
+                AND b.admin_dept = #{building.adminDept}
+            </if>
+
+            <!-- 新增isSelected筛选条件 -->
+            <if test="building.isSelected != null">
+                AND (pb.project_id IS NOT NULL) = #{building.isSelected}
+            </if>
+        </where>
     </select>
 
     <insert id="insertBuilding" parameterType="Building" useGeneratedKeys="true" keyProperty="id">

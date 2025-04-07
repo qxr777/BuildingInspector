@@ -2,9 +2,13 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import java.util.List;
 import java.io.IOException;
+import java.util.stream.Collectors;
 
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
+import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +24,8 @@ import com.alibaba.fastjson.JSONArray;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
 
+import javax.annotation.Resource;
+
 /**
  * 建筑Service业务层处理
  *
@@ -33,6 +39,9 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Autowired
     private IBiObjectService biObjectService;
+
+    @Resource
+    private ProjectBuildingMapper projectBuildingMapper;
 
     @Autowired
     private IBiTemplateObjectService biTemplateObjectService;
@@ -166,6 +175,18 @@ public class BuildingServiceImpl implements IBuildingService {
         }
 
         return successCount;
+    }
+
+    /**
+     * 查询建筑VO列表
+     *
+     * @param building 建筑
+     * @param projectId 项目ID
+     * @return
+     */
+    @Override
+    public List<ProjectBuildingVO> selectBuildingVOList(ProjectBuildingVO building, Long projectId) {
+        return buildingMapper.selectProjectBuildingVOList(building, projectId);
     }
 
     /**

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('修改项目')"/>
+    <th:block th:include="include :: select2-css"/>
+</head>
+<body>
+<div class="main-content">
+    <form class="form-horizontal" id="form-project-edit" th:object="${project}">
+        <input name="id" type="hidden" th:field="*{id}"/>
+        <input name="deptId" type="hidden" th:field="*{deptId}" id="treeId"/>
+        <input name="ownerDeptId" type="hidden" th:field="*{ownerDeptId}" id="ownerTreeId"/>
+        <h4 class="form-header h4">基本信息</h4>
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">项目名称：</label>
+                    <div class="col-sm-8">
+                        <input name="name" placeholder="请输入项目名称" class="form-control" type="text" maxlength="30"
+                               th:field="*{name}"
+                               required>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">项目编号：</label>
+                    <div class="col-sm-8">
+                        <input name="code" placeholder="请输入项目编号" class="form-control" type="text" maxlength="15"
+                               th:field="*{code}"
+                               required>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">所属年度：</label>
+                    <div class="col-sm-8">
+                        <input name="year" placeholder="请输入所属年度" class="form-control" type="text" maxlength="4"
+                               th:field="*{year}"
+                               required>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">项目状态：</label>
+                    <div class="col-sm-8">
+                        <select name="status" class="form-control" th:with="type=${@dict.getType('bi_project_status')}"
+                                required>
+                            <option th:each="dict : ${type}" th:text="${dict.dictLabel}"
+                                    th:value="${dict.dictValue}" th:field="*{status}"></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">承担单位：</label>
+                    <div class="col-sm-8">
+                        <div class="input-group">
+                            <input name="deptName" onclick="selectDeptTree()" id="treeName" type="text"
+                                   placeholder="请选择承担单位" class="form-control" th:field="*{dept.deptName}"
+                                   required>
+                            <span class="input-group-addon"><i class="fa fa-search"></i></span>
+                        </div>
+                        <span class="dept-note">（请选择承担单位的正式名称，若不存在请联系管理员）</span>
+                    </div>
+
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">所属单位：</label>
+                    <div class="col-sm-8">
+                        <div class="input-group">
+                            <input name="ownerDeptName" onclick="selectOwnerDeptTree()" id="ownerTreeName" type="text"
+                                   placeholder="请选择所属单位" class="form-control" th:field="*{ownerDept.deptName}"
+                                   required>
+                            <span class="input-group-addon"><i class="fa fa-search"></i></span>
+                        </div>
+                        <span class="dept-note">（请选择所属单位的正式名称，若不存在请联系管理员）</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">开始日期： </label>
+                    <div class="col-sm-8">
+                        <div class="input-group">
+                            <input type="date" placeholder="请输入项目开始日期" class="form-control time-input"
+                                   id="startTime" name="startDate"
+                                   th:value="${project.startDate != null} ? ${#dates.format(project.startDate, 'yyyy-MM-dd')} : ''"
+                                   required/>
+                            <span class="input-group-addon"><i class="fa fa-calendar"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">结束日期： </label>
+                    <div class="col-sm-8">
+                        <div class="input-group">
+                            <input type="text" placeholder="请输入项目结束日期" class="form-control time-input"
+                                   id="endTime"
+                                   name="endDate"
+                                   th:value="${project.endDate != null} ? ${#dates.format(project.endDate, 'yyyy-MM-dd')} : ''"
+                                   required/>
+                            <span class="input-group-addon"><i class="fa fa-calendar"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">合同金额（万元）：</label>
+                    <div class="col-sm-8">
+                        <input name="contractAmount"
+                               placeholder="请输入合同金额"
+                               class="form-control" type="number"
+                               step="0.0001"
+                               min="0"
+                               max="9999999999999999.9999"
+                               oninput="validateNumberInput(this)"
+                               th:field="*{contractAmount}"
+                               required>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <h4 class="form-header h4">其他信息</h4>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="col-xs-2 control-label">备注：</label>
+                    <div class="col-xs-10">
+                        <textarea name="remark" maxlength="500" class="form-control" rows="3"
+                                  th:field="*{remark}"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="row">
+    <div class="col-sm-offset-5 col-sm-10">
+        <button type="button" class="btn btn-sm btn-primary" onclick="submitHandler()"><i class="fa fa-check"></i>保 存
+        </button>&nbsp;
+        <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()"><i class="fa fa-reply-all"></i>关 闭
+        </button>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: select2-js"/>
+<script type="text/javascript">
+    var prefix = ctx + "biz/project";
+
+
+
+    $("#form-project-edit").validate({
+        focusCleanup: true
+    });
+
+    function submitHandler() {
+        if ($.validate.form()) {
+            // 获取表单数据
+            var formData = $("#form-project-edit").serializeArray();
+
+            // 检查日期有效性（开始日期不能大于结束日期）
+            var startDate = new Date($("#startTime").val());
+            var endDate = new Date($("#endTime").val());
+            if (startDate > endDate) {
+                $.modal.alertError("开始日期不能晚于结束日期");
+                return false;
+            }
+
+            // 检查承担单位和所属单位是否已选择
+            if (!$("#treeId").val() || !$("#ownerTreeId").val()) {
+                $.modal.alertError("请选择承担单位和所属单位");
+                return false;
+            }
+
+            // 检查合同金额是否为有效数字
+            var contractAmount = parseFloat($("input[name='contractAmount']").val());
+            if (isNaN(contractAmount) || contractAmount < 0) {
+                $.modal.alertError("请输入有效的合同金额");
+                return false;
+            }
+
+            // 提交数据
+            $.operate.saveTab(prefix + "/edit", formData);
+        }
+    }
+
+    /* 选择承担单位部门树 */
+    function selectDeptTree() {
+        var url = prefix + "/selectDeptTree";
+        var options = {
+            title: '选择单位',
+            width: "380",
+            url: url,
+            callBack: doSubmit
+        };
+        $.modal.openOptions(options);
+    }
+
+    /* 选择所属单位部门树 */
+    function selectOwnerDeptTree() {
+        var url = prefix + "/selectOwnerDeptTree";
+        var options = {
+            title: '选择单位',
+            width: "380",
+            url: url,
+            callBack: doOwnerSubmit
+        };
+        $.modal.openOptions(options);
+    }
+
+    function doSubmit(index, layero) {
+        var body = $.modal.getChildFrame(index);
+        $("#treeId").val(body.find('#treeId').val());
+        $("#treeName").val(body.find('#treeName').val());
+        $.modal.close(index);
+    }
+
+    function doOwnerSubmit(index, layero) {
+        var body = $.modal.getChildFrame(index);
+        $("#ownerTreeId").val(body.find('#treeId').val());
+        $("#ownerTreeName").val(body.find('#treeName').val());
+        $.modal.close(index);
+    }
+
+    function validateNumberInput(input) {
+        if (input.value.includes('.')) {
+            let parts = input.value.split('.');
+            if (parts[1].length > 4) {
+                input.value = parts[0] + '.' + parts[1].substring(0, 4);
+            }
+        }
+    }
+</script>
+</body>
+</html>

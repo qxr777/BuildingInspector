@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('项目人员安排')"/>
+    <th:block th:include="include :: bootstrap-select-css"/>
+</head>
+<body class="gray-bg">
+<div class="wrapper wrapper-content animated fadeInRight">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox">
+                <div class="ibox-content">
+                    <form class="form-horizontal" id="form-assign-users">
+                        <input type="hidden" name="projectId" th:value="${projectId}"/>
+
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">检查员：</label>
+                            <div class="col-sm-8">
+                                <select class="form-control selectpicker" multiple name="inspectorIds" id="inspectorIds" data-live-search="true" data-actions-box="true">
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">编制人：</label>
+                            <div class="col-sm-8">
+                                <select class="form-control" name="authorId" id="authorId">
+                                    <option value="">请选择编制人</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">审核人：</label>
+                            <div class="col-sm-8">
+                                <select class="form-control" name="reviewerId" id="reviewerId">
+                                    <option value="">请选择审核人</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">批准人：</label>
+                            <div class="col-sm-8">
+                                <select class="form-control" name="approverId" id="approverId">
+                                    <option value="">请选择批准人</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="col-sm-12 text-center">
+                                <button type="submit" class="btn btn-primary" id="submit">
+                                    <i class="fa fa-check"></i>&nbsp;保 存
+                                </button>
+                                &nbsp;&nbsp;&nbsp;&nbsp;
+                                <button type="button" class="btn btn-danger" id="close">
+                                    <i class="fa fa-reply-all"></i>&nbsp;取 消
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: bootstrap-select-js"/>
+<script th:inline="javascript">
+    var prefix = ctx + "biz/project";
+
+    $(function() {
+        // 初始化多选下拉框
+        $('.selectpicker').selectpicker({
+            'selectedText': 'cat',
+            'noneSelectedText': '请选择检查员',
+            'deselectAllText': '清空',
+            'selectAllText': '全选',
+            'liveSearch': true,
+            'actionsBox': true
+        });
+
+        // 加载部门用户数据
+        loadDeptUsers();
+
+        // 加载已有的分配数据
+        loadExistingAssignment();
+    });
+
+    function loadDeptUsers() {
+        var projectId = $("input[name='projectId']").val();
+        $.ajax({
+            url: prefix + "/usersList/" + projectId,
+            type: "get",
+            dataType: "json",
+            success: function(users) {
+                var inspectorSelect = $("#inspectorIds");
+                var authorSelect = $("#authorId");
+                var reviewerSelect = $("#reviewerId");
+                var approverSelect = $("#approverId");
+
+                $.each(users, function(i, user) {
+                    inspectorSelect.append('<option value="' + user.userId + '">' + user.userName + '</option>');
+                    authorSelect.append('<option value="' + user.userId + '">' + user.userName + '</option>');
+                    reviewerSelect.append('<option value="' + user.userId + '">' + user.userName + '</option>');
+                    approverSelect.append('<option value="' + user.userId + '">' + user.userName + '</option>');
+                });
+
+                $('.selectpicker').selectpicker('refresh');
+            }
+        });
+    }
+
+    function loadExistingAssignment() {
+        var projectId = $("input[name='projectId']").val();
+        $.ajax({
+            url: prefix + "/getAssignUsers",
+            type: "post",
+            data: {"projectId": projectId},
+            success: function(response) {
+                if (response) {
+                    // 设置检查员（多选）
+                    if (response.inspectorIds && response.inspectorIds.length > 0) {
+                        $("#inspectorIds").selectpicker('val', response.inspectorIds);
+                    }
+
+                    // 设置编制人
+                    if (response.authorId) {
+                        $("#authorId").val(response.authorId);
+                    }
+
+                    // 设置审核人
+                    if (response.reviewerId) {
+                        $("#reviewerId").val(response.reviewerId);
+                    }
+
+                    // 设置批准人
+                    if (response.approverId) {
+                        $("#approverId").val(response.approverId);
+                    }
+                }
+            }
+        });
+    }
+
+    $("#form-assign-users").validate({
+        focusCleanup: true,
+        submitHandler: function(form) {
+            var $btn = $("#submit");
+            $btn.button('loading');
+
+            $.operate.save(prefix + "/saveAssignUsers", $(form).serialize(), function(result) {
+                $btn.button('reset');
+                if (result.code === 0) {
+                    $.modal.msgSuccess("保存成功");
+                    $.modal.closeTab();
+                }
+            });
+        }
+    });
+
+    $("#close").on('click', function() {
+        $.modal.closeTab();
+    });
+</script>
+</body>
+</html>
