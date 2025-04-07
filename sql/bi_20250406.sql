@@ -886,7 +886,6 @@ CREATE TABLE `bi_task`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
   `building_id` bigint NULL DEFAULT NULL COMMENT '关联建筑ID',
   `project_id` bigint NULL DEFAULT NULL COMMENT '关联项目ID',
-  `inspector_id` bigint NULL DEFAULT NULL COMMENT '检查人员ID',
   `status` int NULL DEFAULT 0 COMMENT '任务状态',
   `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注',
   `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '创建者',
@@ -895,12 +894,35 @@ CREATE TABLE `bi_task`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_building_id`(`building_id` ASC) USING BTREE,
-  INDEX `idx_project_id`(`project_id` ASC) USING BTREE,
-  INDEX `idx_inspector_id`(`inspector_id` ASC) USING BTREE
+  INDEX `idx_project_id`(`project_id` ASC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '任务表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of bi_task
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for bi_task_user
+-- ----------------------------
+DROP TABLE IF EXISTS `bi_task_user`;
+create table `bi_task_user`
+(
+    id          bigint auto_increment comment 'ID'
+        primary key,
+    task_id     bigint   not null comment '任务id',
+    user_id     bigint   not null comment '检测人员ID',
+    create_time datetime null comment '创建时间'
+)
+    comment '任务检测人员关联表';
+
+create index bi_task_user_task_id_index
+    on bi_task_user (task_id);
+
+create index bi_task_user_user_id_task_id_index
+    on bi_task_user (user_id, task_id);
+
+-- ----------------------------
+-- Records of bi_task_user
 -- ----------------------------
 
 -- ----------------------------

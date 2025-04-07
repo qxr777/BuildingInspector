@@ -20,6 +20,7 @@ import edu.whut.cs.bi.biz.domain.dto.ProjectUserAssignment;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectUserMapper;
+import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +57,9 @@ public class ProjectServiceImpl implements IProjectService {
 
     @Resource
     private ProjectBuildingMapper projectBuildingMapper;
+
+    @Resource
+    private TaskMapper taskMapper;
     /**
      * 查询项目
      *
@@ -331,12 +335,22 @@ public class ProjectServiceImpl implements IProjectService {
      * @param buildingId
      * @return
      */
+    @Transactional
     @Override
     public int insertProjectBuilding(Long projectId, Long buildingId) {
         if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingId)) {
             throw new ServiceException("传入的参数不能为空");
         }
-        return projectBuildingMapper.insertProjectBuilding(projectId, buildingId);
+        int row = projectBuildingMapper.insertProjectBuilding(projectId, buildingId);
+
+        // 创建任务 一个桥梁对应一个任务
+        Task task = new Task();
+        task.setProjectId(projectId);
+        task.setBuildingId(buildingId);
+        task.setCreateBy(ShiroUtils.getLoginName());
+        taskMapper.insertTask(task);
+
+        return row;
     }
 
     /**
@@ -346,13 +360,17 @@ public class ProjectServiceImpl implements IProjectService {
      * @param buildingIds
      * @return
      */
+    @Transactional
     @Override
     public int batchInsertProjectBuilding(Long projectId, List<Long> buildingIds) {
         if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingIds)) {
             throw new ServiceException("传入的参数不能为空");
         }
+        int row = projectBuildingMapper.batchInsertProjectBuilding(projectId, buildingIds);
 
-        return projectBuildingMapper.batchInsertProjectBuilding(projectId, buildingIds);
+        taskMapper.batchInsertTask(projectId, buildingIds, ShiroUtils.getLoginName());
+
+        return row;
     }
 
     /**
@@ -362,13 +380,17 @@ public class ProjectServiceImpl implements IProjectService {
      * @param buildingId
      * @return
      */
+    @Transactional
     @Override
     public int removeProjectBuilding(Long projectId, Long buildingId) {
         if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingId)) {
             throw new ServiceException("传入的参数不能为空");
         }
+        int row = projectBuildingMapper.removeProjectBuilding(projectId, buildingId);
 
-        return projectBuildingMapper.removeProjectBuilding(projectId, buildingId);
+        taskMapper.deleteTaskByProjectIdAndBuildingId(projectId, buildingId);
+
+        return row;
     }
 
     /**
@@ -378,13 +400,18 @@ public class ProjectServiceImpl implements IProjectService {
      * @param buildingIds
      * @return
      */
+    @Transactional
     @Override
     public int batchRemoveProjectBuilding(Long projectId, List<Long> buildingIds) {
         if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingIds)) {
             throw new ServiceException("传入的参数不能为空");
         }
 
-        return projectBuildingMapper.batchRemoveProjectBuilding(projectId, buildingIds);
+        int row = projectBuildingMapper.batchRemoveProjectBuilding(projectId, buildingIds);
+
+        taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
+
+        return row;
     }
 
 
