@@ -301,7 +301,23 @@
 
         // 下载文件
         function downloadFile(fileId) {
-            window.location.href = prefix + "/download/" + fileId;
+            // 获取文件信息
+            $.ajax({
+                url: prefix + "/get/" + fileId,
+                type: "GET",
+                dataType: "json",
+                success: function(result) {
+                    if (result.code == 0) {
+                        // 使用newName下载文件
+                        window.location.href = prefix + "/download/" + result.data.newName;
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $.modal.alertError("获取文件信息失败: " + error);
+                }
+            });
         }
         
         // 复制文件

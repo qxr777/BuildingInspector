@@ -143,10 +143,8 @@ public class FileMapServiceImpl implements IFileMapService {
 
             // 使用UUID作为新文件名
             String uuid = UUID.randomUUID().toString().replace("-", "");
-            // 使用UUID前两位作为子文件夹
-            String folderPrefix = uuid.substring(0, 2);
             // 构建新的文件名，包含路径
-            String objectName = folderPrefix + "/" + uuid + "." + extension;
+            String objectName =  uuid + "." + extension;
 
             // 获取输入流并确保它会被关闭
             fileInputStream = file.getInputStream();
@@ -154,7 +152,7 @@ public class FileMapServiceImpl implements IFileMapService {
             // 上传文件到MinIO
             minioClient.putObject(PutObjectArgs.builder()
                     .bucket(minioConfig.getBucketName())
-                    .object(objectName)
+                    .object(objectName.substring(0,2)+"/"+objectName)
                     .stream(fileInputStream, file.getSize(), -1)
                     .contentType(file.getContentType())
                     .build());
@@ -234,7 +232,7 @@ public class FileMapServiceImpl implements IFileMapService {
                 // 从MinIO获取文件并确保流被关闭
                 try (InputStream stream = minioClient.getObject(GetObjectArgs.builder()
                         .bucket(minioConfig.getBucketName())
-                        .object(fileMap.getNewName())
+                        .object(fileMap.getNewName().substring(0,2)+"/"+ fileMap.getNewName())
                         .build())) {
 
                     // 添加到ZIP
@@ -270,7 +268,7 @@ public class FileMapServiceImpl implements IFileMapService {
             // 从MinIO获取源文件
             sourceStream = minioClient.getObject(GetObjectArgs.builder()
                     .bucket(minioConfig.getBucketName())
-                    .object(sourceFile.getNewName())
+                    .object(sourceFile.getNewName().substring(0,2)+"/"+sourceFile.getNewName())
                     .build());
 
             // 准备新文件信息
@@ -283,15 +281,14 @@ public class FileMapServiceImpl implements IFileMapService {
 
             // 使用新的UUID作为复制文件的文件名
             String uuid = UUID.randomUUID().toString().replace("-", "");
-            // 使用UUID前两位作为子文件夹
-            String folderPrefix = uuid.substring(0, 2);
+
             // 构建新的文件名，包含路径
-            String newObjectName = folderPrefix + "/" + uuid + "." + extension;
+            String newObjectName = uuid + "." + extension;
 
             // 上传复制的文件到MinIO
             minioClient.putObject(PutObjectArgs.builder()
                     .bucket(minioConfig.getBucketName())
-                    .object(newObjectName)
+                    .object(newObjectName.substring(0,2)+"/"+uuid+"."+extension)
                     .stream(sourceStream, -1, 10485760)
                     .contentType("application/octet-stream")
                     .build());
@@ -330,7 +327,7 @@ public class FileMapServiceImpl implements IFileMapService {
         try (
                 InputStream stream = minioClient.getObject(GetObjectArgs.builder()
                         .bucket(minioConfig.getBucketName())
-                        .object(newName)
+                        .object(newName.substring(0,2)+"/" + newName)
                         .build());
                 ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
             // 将InputStream转换为byte数组
