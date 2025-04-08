@@ -2869,6 +2869,12 @@ INSERT INTO `sys_dict_data` VALUES (107, 0, '暂无', '0', 'bi_building_area', N
 INSERT INTO `sys_dict_data` VALUES (108, 0, '暂无', '0', 'bi_buildeing_line', NULL, NULL, 'Y', '0', 'admin', '2025-03-27 12:52:41', '', NULL, NULL);
 INSERT INTO `sys_dict_data` VALUES (109, 0, '正常', '0', 'bi_template_object_status', NULL, 'success', 'Y', '0', 'admin', '2025-04-02 19:50:13', '', NULL, NULL);
 INSERT INTO `sys_dict_data` VALUES (110, 1, '停用', '1', 'bi_template_object_status', NULL, 'danger', 'Y', '0', 'admin', '2025-04-02 19:50:28', '', NULL, NULL);
+INSERT INTO `sys_dict_data` VALUES (111, 1, '检测人员', 'inspector', 'bi_project_user', NULL, NULL, 'Y', '0', 'admin', '2025-04-08 13:56:59', 'admin', '2025-03-27 12:52:18', '');
+INSERT INTO `sys_dict_data` VALUES (112, 2, '报告编写人员', 'author', 'bi_project_user', NULL, NULL, 'Y', '0', 'admin', '2025-04-08 13:56:59', 'admin', NULL, NULL);
+INSERT INTO `sys_dict_data` VALUES (113, 3, '报告审核人员', 'reviewer', 'bi_project_user', NULL, NULL, 'Y', '0', 'admin', '2025-04-08 13:56:59', 'admin', NULL, NULL);
+INSERT INTO `sys_dict_data` VALUES (114, 4, '报告批准人员', 'approver', 'bi_project_user', NULL, NULL, 'Y', '0', 'admin', '2025-04-08 13:56:59', 'admin', NULL, NULL);
+INSERT INTO `sys_dict_data` VALUES (115, 1, '正常', '0', 'bi_project_status', NULL, 'success', 'Y', '0', 'admin', '2025-04-08 13:56:59', 'admin', NULL, NULL);
+INSERT INTO `sys_dict_data` VALUES (116, 2, '停止', '1', 'bi_project_status', NULL, 'danger', 'Y', '0', 'admin', '2025-04-08 13:56:59', 'admin', NULL, NULL);
 
 -- ----------------------------
 -- Table structure for sys_dict_type
@@ -2922,6 +2928,8 @@ INSERT INTO `sys_dict_type` VALUES (28, '片区', 'bi_building_area', '0', 'admi
 INSERT INTO `sys_dict_type` VALUES (29, '线路', 'bi_buildeing_line', '0', 'admin', '2025-03-27 10:57:15', '', NULL, NULL);
 INSERT INTO `sys_dict_type` VALUES (30, '对象状态', 'bi_object_status', '0', 'admin', '2025-03-27 12:50:10', '', NULL, NULL);
 INSERT INTO `sys_dict_type` VALUES (31, '模板节点状态', 'bi_template_object_status', '0', 'admin', '2025-04-02 19:49:51', '', NULL, NULL);
+INSERT INTO `sys_dict_type` VALUES (32, '项目人员角色', 'bi_project_user', '0', 'admin', '2025-04-07 12:50:10', '', NULL, NULL);
+INSERT INTO `sys_dict_type` VALUES (33, '项目状态', 'bi_project_status', '0', 'admin', '2025-04-07 19:49:51', '', NULL, NULL);
 
 -- ----------------------------
 -- Table structure for sys_job
