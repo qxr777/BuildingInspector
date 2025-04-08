@@ -120,25 +120,17 @@
             data: {"projectId": projectId},
             success: function(response) {
                 if (response) {
-                    // 设置检查员（多选）
-                    if (response.inspectorIds && response.inspectorIds.length > 0) {
-                        $("#inspectorIds").selectpicker('val', response.inspectorIds);
-                    }
+                    // 设置多选检查员
+                    $("#inspectorIds").selectpicker('val', response.inspectorIds || []);
 
-                    // 设置编制人
-                    if (response.authorId) {
-                        $("#authorId").val(response.authorId);
-                    }
+                    // 设置单选框
+                    $("#authorId").val(response.authorId || "");
+                    $("#reviewerId").val(response.reviewerId || "");
+                    $("#approverId").val(response.approverId || "");
 
-                    // 设置审核人
-                    if (response.reviewerId) {
-                        $("#reviewerId").val(response.reviewerId);
-                    }
+                    // 关键：强制刷新所有下拉框
+                    $('.selectpicker').selectpicker('refresh');
 
-                    // 设置批准人
-                    if (response.approverId) {
-                        $("#approverId").val(response.approverId);
-                    }
                 }
             }
         });
