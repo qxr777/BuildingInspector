@@ -311,9 +311,13 @@ public class BuildingServiceImpl implements IBuildingService {
      * @param children   子节点列表
      */
     private void generateMaintenanceTree(Long buildingId, BiTemplateObject template, List<BiTemplateObject> children) {
+        // 获取建筑物信息
+        Building building = buildingMapper.selectBuildingById(buildingId);
+
         // 创建根节点
         BiObject rootObject = new BiObject();
-        rootObject.setName(template.getName());
+        // 设置根节点名称为建筑物名称加上模板名称
+        rootObject.setName(building.getName() + "（" + template.getName() + "）");
         rootObject.setParentId(0L);
         rootObject.setAncestors("0");
         rootObject.setOrderNum(template.getOrderNum());
@@ -324,8 +328,6 @@ public class BuildingServiceImpl implements IBuildingService {
         biObjectService.insertBiObject(rootObject);
 
         // 更新 Building 的 rootObjectId
-        Building building = new Building();
-        building.setId(buildingId);
         building.setRootObjectId(rootObject.getId().toString());
         buildingMapper.updateBuilding(building);
 
