@@ -7,5 +7,12 @@ services:
       service: mysql
     networks:
       - bi-net
+  minio:
+    container_name: bi_minio
+    extends:
+      file: minio.yml
+      service: minio
+    networks:
+      - bi-net
 networks:
-    bi-net:
+  bi-net:

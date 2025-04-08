@@ -306,4 +306,17 @@ public class FileMapController extends BaseController {
             return error(e.getMessage());
         }
     }
+
+    /**
+     * 获取文件信息
+     */
+    @GetMapping("/get/{id}")
+    @ResponseBody
+    public AjaxResult getFileInfo(@PathVariable("id") Long id) {
+        FileMap fileMap = fileMapService.selectFileMapById(id);
+        if (fileMap == null) {
+            return AjaxResult.error("文件不存在");
+        }
+        return AjaxResult.success(fileMap);
+    }
 }
