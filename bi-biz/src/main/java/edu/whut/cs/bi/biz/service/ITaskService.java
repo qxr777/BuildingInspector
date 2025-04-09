@@ -29,13 +29,6 @@ public interface ITaskService
      */
     public List<Task> selectTaskList(Task task);
 
-    /**
-     * 新增任务
-     *
-     * @param task 任务
-     * @return 结果
-     */
-    public int insertTask(Task task);
 
     /**
      * 修改任务
@@ -61,6 +54,39 @@ public interface ITaskService
      */
     public int deleteTaskById(Long id);
 
+    /**
+     * 新增任务
+     *
+     * @param task 任务
+     * @return 结果
+     */
+    public int insertTask(Task task);
 
+
+    /**
+     * 批量保存任务
+     *
+     * @param projectId
+     * @param buildingIds
+     * @return
+     */
+    int batchInsertTasks(Long projectId, List<Long> buildingIds);
+
+    /**
+     * 删除任务
+     *
+     * @param projectId
+     * @param buildingId
+     */
+    int removeTask(Long projectId, Long buildingId);
+
+    /**
+     * 批量删除任务
+     *
+     * @param projectId
+     * @param buildingIds
+     * @return
+     */
+    int batchRemoveTasks(Long projectId, List<Long> buildingIds);
 
 }

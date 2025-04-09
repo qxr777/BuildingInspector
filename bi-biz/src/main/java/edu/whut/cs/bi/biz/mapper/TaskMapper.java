@@ -86,5 +86,5 @@ public interface TaskMapper
      * @param projectId
      * @param buildingIds
      */
-    void batchDeleteTaskByProjectIdAndBuildingIds(@Param("projectId") Long projectId, @Param("buildingIds") List<Long> buildingIds);
+    int batchDeleteTaskByProjectIdAndBuildingIds(@Param("projectId") Long projectId, @Param("buildingIds") List<Long> buildingIds);
 }
