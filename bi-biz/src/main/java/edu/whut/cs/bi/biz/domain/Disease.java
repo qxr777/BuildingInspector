@@ -1,6 +1,8 @@
 package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 import java.math.BigDecimal;
@@ -9,6 +11,8 @@ import java.math.BigDecimal;
  * @author QiXin
  * @date 2025/3/17
  */
+@EqualsAndHashCode(callSuper = true)
+@Data
 public class Disease extends BaseEntity {
 
     /** 病害id */
@@ -63,7 +67,12 @@ public class Disease extends BaseEntity {
      */
     private BigDecimal area;
 
+    /** 病害类型 */
+    private String type;
 
+    /** 关联对象 */
+    private Long biObjectId;
+    private BiObject biObject;
 
     /** 关联项目 */
     private Project project;
@@ -79,133 +88,5 @@ public class Disease extends BaseEntity {
 
     /** 附件列表 */
     private List<Attachment> attachments;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getPosition() {
-        return position;
-    }
-
-    public void setPosition(String position) {
-        this.position = position;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getTrend() {
-        return trend;
-    }
-
-    public void setTrend(String trend) {
-        this.trend = trend;
-    }
-
-    public int getLevel() {
-        return level;
-    }
-
-    public void setLevel(int level) {
-        this.level = level;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-    }
-
-    public Project getProject() {
-        return project;
-    }
-
-    public void setProject(Project project) {
-        this.project = project;
-    }
-
-    public Building getBuilding() {
-        return building;
-    }
-
-    public void setBuilding(Building building) {
-        this.building = building;
-    }
-
-    public List<Attachment> getAttachments() {
-        return attachments;
-    }
-
-    public void setAttachments(List<Attachment> attachments) {
-        this.attachments = attachments;
-    }
-
-    public BigDecimal getLength() {
-        return length;
-    }
-
-    public void setLength(BigDecimal length) {
-        this.length = length;
-    }
-
-    public BigDecimal getWidth() {
-        return width;
-    }
-
-    public void setWidth(BigDecimal width) {
-        this.width = width;
-    }
-
-    public BigDecimal getHeightOrDepth() {
-        return heightOrDepth;
-    }
-
-    public void setHeightOrDepth(BigDecimal heightOrDepth) {
-        this.heightOrDepth = heightOrDepth;
-    }
-
-    public BigDecimal getSlitWidth() {
-        return slitWidth;
-    }
-
-    public void setSlitWidth(BigDecimal slitWidth) {
-        this.slitWidth = slitWidth;
-    }
-
-    public BigDecimal getArea() {
-        return area;
-    }
-
-    public void setArea(BigDecimal area) {
-        this.area = area;
-    }
-
-    public Long getProjectId() {
-        return projectId;
-    }
-
-    public void setProjectId(Long projectId) {
-        this.projectId = projectId;
-    }
-
-    public Long getBuildingId() {
-        return buildingId;
-    }
-
-    public void setBuildingId(Long buildingId) {
-        this.buildingId = buildingId;
-    }
 
 }
