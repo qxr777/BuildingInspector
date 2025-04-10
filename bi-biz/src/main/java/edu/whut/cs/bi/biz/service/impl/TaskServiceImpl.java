@@ -1,8 +1,10 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import cn.hutool.core.util.ObjUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.BiObject;
@@ -101,4 +103,53 @@ public class TaskServiceImpl implements ITaskService {
     public int deleteTaskById(Long id) {
         return taskMapper.deleteTaskById(id);
     }
+
+    /**
+     * 批量保存任务
+     *
+     * @param projectId
+     * @param buildingIds
+     * @return
+     */
+    @Override
+    public int batchInsertTasks(Long projectId, List<Long> buildingIds) {
+        if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingIds)) {
+            throw new ServiceException("传入的参数不能为空");
+        }
+
+        return taskMapper.batchInsertTask(projectId, buildingIds, ShiroUtils.getLoginName());
+    }
+
+    /**
+     * 删除任务
+     *
+     * @param projectId
+     * @param buildingId
+     * @return
+     */
+    @Override
+    public int removeTask(Long projectId, Long buildingId) {
+        if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingId)) {
+            throw new ServiceException("传入的参数不能为空");
+        }
+
+        return taskMapper.deleteTaskByProjectIdAndBuildingId(projectId, buildingId);
+    }
+
+    /**
+     * 批量删除项目关联建筑信息
+     *
+     * @param projectId
+     * @param buildingIds
+     * @return
+     */
+    @Override
+    public int batchRemoveTasks(Long projectId, List<Long> buildingIds) {
+        if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingIds)) {
+            throw new ServiceException("传入的参数不能为空");
+        }
+
+        return taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
+    }
+
 }

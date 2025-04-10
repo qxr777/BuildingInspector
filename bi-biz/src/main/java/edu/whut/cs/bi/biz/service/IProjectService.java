@@ -114,39 +114,4 @@ public interface IProjectService
      */
     int saveProjectUserAssignments(ProjectUserAssignment assignment);
 
-    /**
-     * 保存项目建筑信息
-     *
-     * @param projectId
-     * @param buildingId
-     * @return
-     */
-    int insertProjectBuilding(Long projectId, Long buildingId);
-
-    /**
-     * 批量保存项目建筑信息
-     *
-     * @param projectId
-     * @param buildingIds
-     * @return
-     */
-    int batchInsertProjectBuilding(Long projectId, List<Long> buildingIds);
-
-    /**
-     * 删除项目建筑信息
-     *
-     * @param projectId
-     * @param buildingId
-     * @return
-     */
-    int removeProjectBuilding(Long projectId, Long buildingId);
-
-    /**
-     * 批量删除项目建筑信息
-     *
-     * @param projectId
-     * @param buildingIds
-     * @return
-     */
-    int batchRemoveProjectBuilding(Long projectId, List<Long> buildingIds);
 }

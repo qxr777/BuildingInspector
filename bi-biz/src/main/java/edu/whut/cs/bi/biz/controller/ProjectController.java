@@ -18,10 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.List;
 
 /**
@@ -213,51 +209,4 @@ public class ProjectController extends BaseController {
         return toAjax(projectService.saveProjectUserAssignments(assignment));
     }
 
-    /**
-     * 新增项目桥梁
-     */
-    @RequiresPermissions("biz:project:edit")
-    @Log(title = "项目桥梁", businessType = BusinessType.INSERT)
-    @PostMapping("/addProjectBuilding")
-    @ResponseBody
-    public AjaxResult addProjectBuilding(Long projectId, Long buildingId) {
-
-        return toAjax(projectService.insertProjectBuilding(projectId, buildingId));
-    }
-
-    /**
-     * 批量新增项目桥梁
-     */
-    @RequiresPermissions("biz:project:edit")
-    @Log(title = "项目桥梁", businessType = BusinessType.INSERT)
-    @PostMapping("/batchAddProjectBuilding")
-    @ResponseBody
-    public AjaxResult batchAddProjectBuilding(Long projectId, @RequestParam List<Long> buildingIds) {
-
-        return toAjax(projectService.batchInsertProjectBuilding(projectId, buildingIds));
-    }
-
-    /**
-     * 删除项目桥梁
-     */
-    @RequiresPermissions("biz:project:remove")
-    @Log(title = "项目桥梁", businessType = BusinessType.DELETE)
-    @PostMapping("/cancelProjectBuilding")
-    @ResponseBody
-    public AjaxResult cancelProjectBuilding(Long projectId, Long buildingId) {
-
-        return toAjax(projectService.removeProjectBuilding(projectId, buildingId));
-    }
-
-    /**
-     * 批量新增项目桥梁
-     */
-    @RequiresPermissions("biz:project:remove")
-    @Log(title = "项目桥梁", businessType = BusinessType.DELETE)
-    @PostMapping("/batchCancelProjectBuilding")
-    @ResponseBody
-    public AjaxResult batchCancelProjectBuilding(Long projectId, @RequestParam List<Long> buildingIds) {
-
-        return toAjax(projectService.batchRemoveProjectBuilding(projectId, buildingIds));
-    }
 }

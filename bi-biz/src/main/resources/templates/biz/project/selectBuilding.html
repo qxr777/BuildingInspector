@@ -76,7 +76,7 @@
     var statusDatas = [[${@dict.getType('bi_building_status')}]];
     var areaDatas = [[${@dict.getType('bi_building_area')}]];
     var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
-    var prefix = ctx + "biz/project";
+    var prefix = ctx + "biz/task";
     var projectId = [[${projectId}]]
 
     $(function () {
@@ -147,7 +147,7 @@
             }
 
             $("#isSelected").val(selectValue);
-            console.log(selectValue)
+
             $.table.search();
         });
     });
