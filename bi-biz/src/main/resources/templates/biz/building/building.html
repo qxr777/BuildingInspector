@@ -77,6 +77,7 @@
     var statusDatas = [[${@dict.getType('bi_building_status')}]];
     var areaDatas = [[${@dict.getType('bi_building_area')}]];
     var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
+    var isLeafDatas = [[${@dict.getType('bi_building_is_leaf')}]];
     var prefix = ctx + "biz/building";
 
     $(function() {
@@ -98,6 +99,13 @@
                 {
                     field: 'name',
                     title: '名称'
+                },
+                {
+                    field: 'isLeaf',
+                    title: '类型',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(isLeafDatas, value);
+                    }
                 },
                 {
                     field: 'status',
@@ -130,14 +138,51 @@
                     formatter: function(value, row, index) {
                         var actions = [];
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
-                        actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>维护</a> ');
+                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="deleteBuilding(\'' + row.id + '\', \'' + row.isLeaf + '\', \'' + row.name + '\')"><i class="fa fa-remove"></i>删除</a> ');
+                        if (row.isLeaf === "1") {
+                            actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>维护</a> ');
+                        }
                         actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a>');
                         return actions.join('');
                     }
                 }]
         };
         $.table.init(options);
+
+        // 重写删除方法，处理多选删除
+        table.set('operateDelete', function(obj) {
+            var ids = $.common.isEmpty(table.options.uniqueId) ? $.table.selectFirstColumns() : $.table.selectColumns(table.options.uniqueId);
+            if (ids.length == 0) {
+                $.modal.alertWarning("请至少选择一条记录");
+                return;
+            }
+
+            var rows = $.common.isEmpty(table.options.uniqueId) ? $.table.selectFirstColumns() : $.table.selectColumns(table.options.uniqueId);
+            var data = { "ids": ids.join() };
+
+            // 获取选择的行数据
+            var selectedRows = $('#bootstrap-table').bootstrapTable('getSelections');
+
+            // 检查是否包含组合桥
+            var hasComposite = false;
+            for (var i = 0; i < selectedRows.length; i++) {
+                if (selectedRows[i].isLeaf === "0") {
+                    hasComposite = true;
+                    break;
+                }
+            }
+
+            // 根据是否包含组合桥显示不同提示
+            if (hasComposite) {
+                $.modal.confirm("确定删除所选中的" + rows.length + "条数据吗？<br><span style='color:red;font-weight:bold;'>注意：删除组合桥时将同时删除其下所有子桥及部件！</span>", function() {
+                    $.operate.post(table.options.removeUrl, data);
+                });
+            } else {
+                $.modal.confirm("确定删除所选中的" + rows.length + "条数据吗？<br><span style='color:red;'>删除后将同时删除相关部件数据！</span>", function() {
+                    $.operate.post(table.options.removeUrl, data);
+                });
+            }
+        });
     });
 
     function maintainObject(rootObjectId) {
@@ -162,6 +207,20 @@
     function showComponentList(rootObjectId) {
         var url = ctx + "biz/component/list?rootObjectId=" + rootObjectId;
         $.modal.openTab("构件列表", url);
+    }
+
+    function deleteBuilding(id, isLeaf, name) {
+        if (isLeaf === "0") {
+            // 组合桥删除确认
+            $.modal.confirm("确定要删除组合桥 <strong>" + name + "</strong> 吗？<br><span style='color:red;font-weight:bold;'>注意：删除后将同时删除该组合桥下的所有子桥及部件！</span>", function() {
+                $.operate.post(prefix + "/remove", { "ids": id });
+            });
+        } else {
+            // 桥幅删除确认
+            $.modal.confirm("确定要删除桥幅 <strong>" + name + "</strong> 吗？<br><span style='color:red;'>删除后将同时删除相关部件数据！</span>", function() {
+                $.operate.post(prefix + "/remove", { "ids": id });
+            });
+        }
     }
 </script>
 </body>

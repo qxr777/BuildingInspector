@@ -6,6 +6,18 @@
 <body class="white-bg">
 <div class="wrapper wrapper-content animated fadeInRight ibox-content">
     <form class="form-horizontal m" id="form-building-add">
+        <div class="form-group" id="parentBridgeDiv" style="display: none;">
+            <label class="col-sm-3 control-label">父桥：</label>
+            <div class="col-sm-8">
+                <select name="parentId" class="form-control" id="parentId">
+                    <option value="">请选择</option>
+                    <option th:each="parent : ${parents}"
+                            th:value="${parent.id}"
+                            th:text="${parent.name}">
+                    </option>
+                </select>
+            </div>
+        </div>
         <div class="col-xs-12">
             <div class="form-group">
                 <label class="col-sm-3 control-label is-required">名称：</label>
@@ -78,13 +90,24 @@
         </div>
         <div class="col-xs-12">
             <div class="form-group">
-                <label class="col-sm-3 control-label">桥梁类型模版：</label>
+                <label class="col-sm-3 control-label is-required">类型：</label>
                 <div class="col-sm-8">
-                    <select name="templateId" class="form-control">
-                        <option value="">请选择</option>
-                        <option th:each="template : ${templates}" th:text="${template.name}" th:value="${template.id}"></option>
+                    <select name="isLeaf" class="form-control" th:with="type=${@dict.getType('bi_building_is_leaf')}" required onchange="handleTypeChange(this)">
+                        <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
                     </select>
                 </div>
+            </div>
+        </div>
+        <div class="form-group" id="templateDiv" style="display: none;">
+            <label class="col-sm-3 control-label is-required">桥梁类型模板：</label>
+            <div class="col-sm-8">
+                <select id="templateId" name="templateId" class="form-control" required>
+                    <option value="">请选择</option>
+                    <option th:each="template : ${templates}"
+                            th:value="${template.id}"
+                            th:text="${template.name}">
+                    </option>
+                </select>
             </div>
         </div>
         <div class="col-xs-12">
@@ -133,6 +156,32 @@
             $.operate.save(prefix + "/add", $('#form-building-add').serialize());
         }
     }
+
+    function handleTypeChange(select) {
+        var typeValue = $(select).val();
+        var parentBridgeDiv = $("#parentBridgeDiv");
+        var templateDiv = $("#templateDiv");
+        var parentId = $("#parentId");
+        var templateId = $("#templateId");
+
+        if (typeValue === "1") {  // 桥幅
+            parentBridgeDiv.show();
+            templateDiv.show();
+            parentId.attr("required", "required");
+            templateId.attr("required", "required");
+        } else if (typeValue === "0") {  // 组合桥
+            parentBridgeDiv.show(); // 组合桥也显示父桥选项，但不是必填
+            templateDiv.hide();
+            parentId.removeAttr("required"); // 组合桥的父桥不是必填项
+            templateId.removeAttr("required");
+            templateId.val("");
+        }
+    }
+
+    $(function() {
+        // 页面加载时初始化显示状态
+        handleTypeChange($("select[name='isLeaf']"));
+    });
 </script>
 </body>
 </html>

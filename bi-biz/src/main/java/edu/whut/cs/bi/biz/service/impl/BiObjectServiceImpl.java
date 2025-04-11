@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.Property;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -79,7 +80,33 @@ public class BiObjectServiceImpl implements IBiObjectService {
     @Override
     public int updateBiObject(BiObject biObject) {
         biObject.setUpdateTime(DateUtils.getNowDate());
+        BiObject newParentObject = biObjectMapper.selectBiObjectById(biObject.getParentId());
+        BiObject oldBiObject = biObjectMapper.selectBiObjectById(biObject.getId());
+        if (StringUtils.isNotNull(newParentObject) && StringUtils.isNotNull(oldBiObject)) {
+            // 这里要判断一下其是否存在祖先节点, 否则存储到数据库中的值会出现 null,1 这样情况
+            String newAncestors = (newParentObject.getAncestors() != null ? newParentObject.getAncestors() : "") + "," + newParentObject.getId();
+            String oldAncestors = oldBiObject.getAncestors();
+            biObject.setAncestors(newAncestors);
+            updateObjectChildren(biObject.getId(), newAncestors, oldAncestors);
+        }
         return biObjectMapper.updateBiObject(biObject);
+    }
+
+    /**
+     * 修改子元素关系
+     *
+     * @param objectId     被修改的对象ID
+     * @param newAncestors 新的父ID集合
+     * @param oldAncestors 旧的父ID集合
+     */
+    public void updateObjectChildren(Long objectId, String newAncestors, String oldAncestors) {
+        List<BiObject> children = biObjectMapper.selectChildrenById(objectId);
+        for (BiObject child : children) {
+            child.setAncestors(child.getAncestors().replaceFirst(oldAncestors, newAncestors));
+        }
+        if (children.size() > 0) {
+            biObjectMapper.updateObjectChildren(children);
+        }
     }
 
     /**
@@ -146,5 +173,44 @@ public class BiObjectServiceImpl implements IBiObjectService {
             list.addAll(biObjectMapper.selectChildrenById(rootId));
         }
         return list;
+    }
+
+    /**
+     * 根据根节点ID逻辑删除对象及其所有子节点
+     *
+     * @param rootObjectId 根节点ID
+     * @param updateBy     更新人
+     * @return 结果
+     */
+    @Override
+    public int logicDeleteByRootObjectId(Long rootObjectId, String updateBy) {
+        return biObjectMapper.logicDeleteByRootObjectId(rootObjectId, updateBy);
+    }
+
+    /**
+     * 更新子节点的ancestors
+     *
+     * @param parentId  父节点ID
+     * @param ancestors 父节点的ancestors
+     * @return 结果
+     */
+    @Override
+    public int updateChildrenAncestors(Long parentId, String ancestors) {
+        // 查询所有直接子节点
+        BiObject query = new BiObject();
+        query.setParentId(parentId);
+        List<BiObject> children = biObjectMapper.selectBiObjectList(query);
+
+        int count = 0;
+        for (BiObject child : children) {
+            // 设置新的ancestors
+            child.setAncestors(ancestors + "," + parentId);
+            // 更新子节点
+            count += biObjectMapper.updateBiObject(child);
+            // 递归更新子节点的子节点
+            count += updateChildrenAncestors(child.getId(), child.getAncestors());
+        }
+
+        return count;
     }
 }
