@@ -46,6 +46,14 @@ public interface TaskMapper
     public int updateTask(Task task);
 
     /**
+     * 修改任务状态
+     *
+     * @param task 任务
+     * @return 结果
+     */
+    public int updateTaskStatus(Task task);
+
+    /**
      * 删除任务
      * 
      * @param id 任务主键

@@ -22,7 +22,7 @@
 </div>
 <th:block th:include="include :: footer" />
 <script th:inline="javascript">
-    var prefix = ctx + "biz/property";
+    var prefix = ctx + "biz/diseaseType";
 
     // 添加自定义验证方法
     $.validator.addMethod("fileExtension", function(value, element) {
@@ -44,7 +44,6 @@
     });
 
     function submitHandler(callback) {
-        console.log("submitHandler")
         if ($("#form-upload-json").valid()) {
             var fileInput = $('input[name="jsonFile"]')[0];
             if (fileInput.files.length > 0) {
@@ -57,9 +56,8 @@
                     } else {
                         if (callback) callback();  // 调用回调函数
                     }
-                })
+                });
             }
-
         }
     }
 </script>

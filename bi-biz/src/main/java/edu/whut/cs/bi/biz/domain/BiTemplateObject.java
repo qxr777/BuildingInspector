@@ -6,6 +6,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.TreeEntity;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +40,12 @@ public class BiTemplateObject extends TreeEntity {
      * 删除标志（0存在 2删除）
      */
     private String delFlag;
+
+    /**
+     * 表示部件的标准H21中的权重。
+     * 该属性使用BigDecimal类型来存储权重值，以确保高精度的计算和表示。
+     */
+    private BigDecimal weight;
 
     /**
      * 子模板对象
@@ -85,6 +92,25 @@ public class BiTemplateObject extends TreeEntity {
         return delFlag;
     }
 
+    /**
+     * 获取部件的标准权重。
+     *
+     * @return 部件的标准权重
+     */
+    public BigDecimal getWeight() {
+        return weight;
+    }
+
+    /**
+     * 设置部件的标准权重。
+     *
+     * @param weight 部件的标准权重
+     */
+    public void setWeight(BigDecimal weight) {
+        this.weight = weight;
+    }
+
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
@@ -95,6 +121,7 @@ public class BiTemplateObject extends TreeEntity {
                 .append("orderNum", getOrderNum())
                 .append("status", getStatus())
                 .append("delFlag", getDelFlag())
+                .append("weight", getWeight()) // 添加 weight 属性
                 .append("remark", getRemark())
                 .append("createBy", getCreateBy())
                 .append("createTime", getCreateTime())
@@ -102,4 +129,5 @@ public class BiTemplateObject extends TreeEntity {
                 .append("updateTime", getUpdateTime())
                 .toString();
     }
+
 }
