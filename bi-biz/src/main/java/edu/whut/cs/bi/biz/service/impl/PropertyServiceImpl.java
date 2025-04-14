@@ -1,6 +1,5 @@
 package edu.whut.cs.bi.biz.service.impl;
 
-
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
@@ -31,8 +30,7 @@ import java.util.stream.Collectors;
  *
  */
 @Service
-public class PropertyServiceImpl implements IPropertyService
-{
+public class PropertyServiceImpl implements IPropertyService {
     @Autowired
     private PropertyMapper propertyMapper;
 
@@ -43,8 +41,7 @@ public class PropertyServiceImpl implements IPropertyService
      * @return 属性
      */
     @Override
-    public Property selectPropertyById(Long id)
-    {
+    public Property selectPropertyById(Long id) {
         return propertyMapper.selectPropertyById(id);
     }
 
@@ -59,7 +56,7 @@ public class PropertyServiceImpl implements IPropertyService
             // 将文件内容转化成字符串
             String json = new String(file.getBytes(), "UTF-8");
             // 解析json数据
-            JSONObject jsonObject = JSONUtil.parseObj(json,false);
+            JSONObject jsonObject = JSONUtil.parseObj(json, false);
             buildTree(jsonObject, property);
 
         } catch (IOException e) {
@@ -75,7 +72,8 @@ public class PropertyServiceImpl implements IPropertyService
         Long oldId = oldProperty.getId();
         String ancestors;
         if (oldId != null) {
-            ancestors = (oldProperty.getAncestors() != null ? oldProperty.getAncestors() : "") + "," + oldProperty.getId();
+            ancestors = (oldProperty.getAncestors() != null ? oldProperty.getAncestors() : "") + ","
+                    + oldProperty.getId();
         } else {
             ancestors = null;
         }
@@ -91,7 +89,6 @@ public class PropertyServiceImpl implements IPropertyService
         if (count > 1) {
             orderNum.set(count + 1);
         }
-
 
         Set<Map.Entry<String, Object>> entries = jsonObject.entrySet();
         entries.forEach(entry -> {
@@ -159,13 +156,12 @@ public class PropertyServiceImpl implements IPropertyService
      * @return 属性
      */
     @Override
-    public List<Property> selectPropertyList(Property property)
-    {
+    public List<Property> selectPropertyList(Property property) {
         // 这里是根据属性名称查找的，应将其子属性也全都查找出来
         List<Property> properties = propertyMapper.selectPropertyList(property);
-//        if (ReflectionUtils.isAllFieldsNull(property)) {
-//            return properties;
-//        }
+        // if (ReflectionUtils.isAllFieldsNull(property)) {
+        // return properties;
+        // }
         if (property.getName() == null || property.getName().equals("")) {
             return properties;
         }
@@ -184,14 +180,12 @@ public class PropertyServiceImpl implements IPropertyService
      * @return 结果
      */
     @Override
-    public int insertProperty(Property property)
-    {
+    public int insertProperty(Property property) {
         property.setCreateTime(DateUtils.getNowDate());
 
         Property info = propertyMapper.selectPropertyById(property.getParentId());
         // 如果父节点不存在，则不允许新增
-        if (info == null)
-        {
+        if (info == null) {
             throw new ServiceException("父节点不存在，不允许新增");
         }
         property.setAncestors(info.getAncestors() + "," + property.getParentId());
@@ -209,14 +203,13 @@ public class PropertyServiceImpl implements IPropertyService
      * @return 结果
      */
     @Override
-    public int updateProperty(Property property)
-    {
+    public int updateProperty(Property property) {
         Property newParentObject = propertyMapper.selectPropertyById(property.getParentId());
         Property oldObject = propertyMapper.selectPropertyById(property.getId());
-        if (StringUtils.isNotNull(newParentObject) && StringUtils.isNotNull(oldObject))
-        {
+        if (StringUtils.isNotNull(newParentObject) && StringUtils.isNotNull(oldObject)) {
             // 这里要判断一下其是否存在祖先节点, 否则存储到数据库中的值会出现 null,1 这样情况
-            String newAncestors = (newParentObject.getAncestors() != null ? newParentObject.getAncestors() : "") + "," + newParentObject.getId();
+            String newAncestors = (newParentObject.getAncestors() != null ? newParentObject.getAncestors() : "") + ","
+                    + newParentObject.getId();
             String oldAncestors = oldObject.getAncestors();
             property.setAncestors(newAncestors);
             updateObjectChildren(property.getId(), newAncestors, oldAncestors);
@@ -229,19 +222,16 @@ public class PropertyServiceImpl implements IPropertyService
     /**
      * 修改子元素关系
      *
-     * @param objectId 被修改的对象ID
+     * @param objectId     被修改的对象ID
      * @param newAncestors 新的父ID集合
      * @param oldAncestors 旧的父ID集合
      */
-    public void updateObjectChildren(Long objectId, String newAncestors, String oldAncestors)
-    {
+    public void updateObjectChildren(Long objectId, String newAncestors, String oldAncestors) {
         List<Property> children = propertyMapper.selectChildrenObjectById(objectId);
-        for (Property child : children)
-        {
+        for (Property child : children) {
             child.setAncestors(child.getAncestors().replaceFirst(oldAncestors, newAncestors));
         }
-        if (children.size() > 0)
-        {
+        if (children.size() > 0) {
             propertyMapper.updateObjectChildren(children);
         }
     }
@@ -254,8 +244,7 @@ public class PropertyServiceImpl implements IPropertyService
      */
     @Override
     @Transactional
-    public int deletePropertyByIds(String ids)
-    {
+    public int deletePropertyByIds(String ids) {
         String[] idArray = Convert.toStrArray(ids);
         propertyMapper.deleteObjectChildrenByIds(idArray);
 
@@ -270,8 +259,7 @@ public class PropertyServiceImpl implements IPropertyService
      */
     @Override
     @Transactional
-    public int deletePropertyById(Long id)
-    {
+    public int deletePropertyById(Long id) {
         // 删除逻辑怎么可能这么简单，直接删除会导致其子节点的父节点置空！
 
         Property property = propertyMapper.selectPropertyById(id);
@@ -290,12 +278,10 @@ public class PropertyServiceImpl implements IPropertyService
      * @return 所有属性信息
      */
     @Override
-    public List<Ztree> selectPropertyTree()
-    {
+    public List<Ztree> selectPropertyTree() {
         List<Property> propertyList = propertyMapper.selectPropertyList(new Property());
         List<Ztree> ztrees = new ArrayList<>();
-        for (Property property : propertyList)
-        {
+        for (Property property : propertyList) {
             Ztree ztree = new Ztree();
             ztree.setId(property.getId());
             ztree.setpId(property.getParentId());
@@ -325,6 +311,16 @@ public class PropertyServiceImpl implements IPropertyService
             }
         }
         return result;
+    }
+
+    @Override
+    public Property selectRootPropertyByBuildingId(Long buildingId) {
+        return propertyMapper.selectRootPropertyByBuildingId(buildingId);
+    }
+
+    @Override
+    public List<Property> selectPropertyTreeById(Long propertyId) {
+        return propertyMapper.selectPropertyTreeById(propertyId);
     }
 
 }
