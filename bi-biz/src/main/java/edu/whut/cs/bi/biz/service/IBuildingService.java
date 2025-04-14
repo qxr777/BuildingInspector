@@ -78,4 +78,21 @@ public interface IBuildingService
      * @return 结果
      */
     List<ProjectBuildingVO> selectBuildingVOList(ProjectBuildingVO building, Long projectId);
+
+
+    /**
+     * 获取指定组合桥下的所有子桥ID（包括直接子桥和间接子桥）
+     *
+     * @param buildingId 组合桥ID
+     * @return 所有子桥ID列表
+     */
+    public List<Long> selectChildBuildingIds(Long buildingId);
+
+    /**
+     * 查询建筑及其父桥关系信息
+     *
+     * @param id 建筑主键
+     * @return 带有父桥信息的建筑
+     */
+    public Building selectBuildingWithParentInfo(Long id);
 }

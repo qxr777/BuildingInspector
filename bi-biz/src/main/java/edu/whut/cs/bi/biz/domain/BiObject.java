@@ -22,7 +22,7 @@ public class BiObject extends TreeEntity {
     /** 对象名称 */
     @Excel(name = "对象名称")
     @NotBlank(message = "对象名称不能为空")
-    @Length(message = "对象名称不能超过20个字符", max = 20)
+    @Length(message = "对象名称不能超过20个字符", max = 100)
     private String name;
 
     /** 祖级列表 */
@@ -63,6 +63,9 @@ public class BiObject extends TreeEntity {
     /** 视频流来源 */
     @Excel(name = "视频流来源")
     private String videoFeed;
+
+    /** 对应的模板对象ID */
+    private Long templateObjectId;
 
     /** 子对象 */
     private List<BiObject> children = new ArrayList<BiObject>();
@@ -191,6 +194,16 @@ public class BiObject extends TreeEntity {
         this.videoFeed = videoFeed;
     }
 
+    public Long getTemplateObjectId()
+    {
+        return templateObjectId;
+    }
+
+    public void setTemplateObjectId(Long templateObjectId)
+    {
+        this.templateObjectId = templateObjectId;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
@@ -214,6 +227,7 @@ public class BiObject extends TreeEntity {
                 .append("adminDept", getAdminDept())
                 .append("videoFeed", getVideoFeed())
                 .append("weight", getWeight())
+                .append("templateObjectId", getTemplateObjectId())
                 .toString();
     }
 }

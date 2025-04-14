@@ -74,4 +74,22 @@ public interface IBiObjectService
      * @return 根节点及其所有子节点列表
      */
     public List<BiObject> selectBiObjectAndChildren(Long rootId);
+
+    /**
+     * 根据根节点ID逻辑删除对象及其所有子节点
+     *
+     * @param rootObjectId 根节点ID
+     * @param updateBy 更新人
+     * @return 结果
+     */
+    public int logicDeleteByRootObjectId(Long rootObjectId, String updateBy);
+
+    /**
+     * 更新子节点的ancestors
+     *
+     * @param parentId 父节点ID
+     * @param ancestors 父节点的ancestors
+     * @return 结果
+     */
+    public int updateChildrenAncestors(Long parentId, String ancestors);
 }

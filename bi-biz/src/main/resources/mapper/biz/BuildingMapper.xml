@@ -7,8 +7,7 @@
     <resultMap type="Building" id="BuildingResult">
         <result property="id"    column="id"    />
         <result property="name"    column="name"    />
-        <result property="parentId"    column="parent_id"    />
-        <result property="templateId"    column="template_id"    />
+        <result property="isLeaf"    column="is_leaf"    />
         <result property="status"    column="status"    />
         <result property="delFlag"    column="del_flag"    />
         <result property="longitude"    column="longitude"    />
@@ -33,13 +32,18 @@
         <result property="isSelected" column="isSelected"/>
     </resultMap>
 
+    <resultMap type="Building" id="BuildingWithParentResult" extends="BuildingResult">
+        <result property="parentId"       column="parent_id"        />
+        <result property="parentName"     column="parent_name"      />
+        <result property="parentObjectId" column="parent_object_id" />
+    </resultMap>
+
     <sql id="selectBuildingVo">
-        select b.id, b.name, b.parent_id, b.template_id, t.name as template_name,
-               b.status, b.del_flag, b.longitude, b.latitude, b.altitude, b.address, b.area,
+        select b.id, b.name,
+               b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude, b.address, b.area,
                b.line, b.admin_dept, b.weight, b.video_feed, b.root_object_id, b.root_property_id,
                b.remark, b.create_by, b.create_time, b.update_by, b.update_time
         from bi_building b
-                 left join bi_template_object t on b.template_id = t.id
     </sql>
 
     <select id="selectBuildingList" parameterType="Building" resultMap="BuildingResult">
@@ -51,13 +55,13 @@
             <if test="area != null  and area != ''"> and b.area = #{area}</if>
             <if test="line != null  and line != ''"> and b.line = #{line}</if>
             <if test="adminDept != null  and adminDept != ''"> and b.admin_dept = #{adminDept}</if>
-            and (t.del_flag = '0' or t.del_flag is null)
+            <if test="isLeaf != null  and isLeaf != ''"> and b.is_leaf = #{isLeaf}</if>
         </where>
     </select>
 
     <select id="selectBuildingById" parameterType="Long" resultMap="BuildingResult">
         <include refid="selectBuildingVo"/>
-        where b.id = #{id} and b.del_flag = '0' and (t.del_flag = '0' or t.del_flag is null)
+        where b.id = #{id} and b.del_flag = '0'
     </select>
 
     <select id="selectProjectBuildingVOList" resultType="ProjectBuildingVO">
@@ -100,8 +104,7 @@
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="id != null">id,</if>
             <if test="name != null">name,</if>
-            <if test="parentId != null">parent_id,</if>
-            <if test="templateId != null">template_id,</if>
+            <if test="isLeaf != null">is_leaf,</if>
             <if test="status != null">status,</if>
             <if test="delFlag != null">del_flag,</if>
             <if test="longitude != null">longitude,</if>
@@ -124,8 +127,7 @@
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="id != null">#{id},</if>
             <if test="name != null">#{name},</if>
-            <if test="parentId != null">#{parentId},</if>
-            <if test="templateId != null">#{templateId},</if>
+            <if test="isLeaf != null">#{isLeaf},</if>
             <if test="status != null">#{status},</if>
             <if test="delFlag != null">#{delFlag},</if>
             <if test="longitude != null">#{longitude},</if>
@@ -151,8 +153,7 @@
         update bi_building
         <trim prefix="SET" suffixOverrides=",">
             <if test="name != null and name != ''">name = #{name},</if>
-            <if test="parentId != null">parent_id = #{parentId},</if>
-            <if test="templateId != null">template_id = #{templateId},</if>
+            <if test="isLeaf != null">is_leaf = #{isLeaf},</if>
             <if test="status != null and status != ''">status = #{status},</if>
             <if test="delFlag != null">del_flag = #{delFlag},</if>
             <if test="longitude != null">longitude = #{longitude},</if>
@@ -186,4 +187,53 @@
         </foreach>
     </delete>
 
+    <!-- 获取指定根节点下的直接子桥（一级子桥） -->
+    <select id="selectDirectChildrenById" resultType="java.util.Map" parameterType="java.lang.Long">
+        SELECT b.id, b.name, b.root_object_id
+        FROM building b
+                 JOIN bi_object o ON b.root_object_id = o.id
+        WHERE o.parent_id = #{rootObjectId}
+          AND b.del_flag = '0'
+          AND o.del_flag = '0'
+    </select>
+
+    <!-- 查询组合桥下所有层级的子桥，包括直接子桥和间接子桥 -->
+    <select id="selectAllChildBridges" resultType="edu.whut.cs.bi.biz.domain.Building" parameterType="java.lang.Long">
+        WITH RECURSIVE bridge_hierarchy AS (
+            /* 基本查询：直接子桥 */
+            SELECT b.id, b.name, b.root_object_id, b.status, b.create_time, b.is_leaf, 1 AS level
+            FROM  bi_building b
+                     JOIN bi_object o ON b.root_object_id = o.id
+            WHERE o.parent_id = #{rootObjectId}
+              AND b.del_flag = '0'
+              AND o.del_flag = '0'
+
+            UNION ALL
+
+            /* 递归查询：间接子桥 */
+            SELECT b.id, b.name, b.root_object_id, b.status, b.create_time, b.is_leaf, h.level + 1
+            FROM bi_building b
+                     JOIN bi_object o ON b.root_object_id = o.id
+                     JOIN bridge_hierarchy h ON o.parent_id = h.root_object_id
+            WHERE b.del_flag = '0'
+              AND o.del_flag = '0'
+        )
+        SELECT DISTINCT id, name, root_object_id as rootObjectId, status, create_time as createTime, is_leaf as isLeaf
+        FROM bridge_hierarchy
+        ORDER BY level
+    </select>
+
+    <!-- 查询建筑及其父桥关系信息 -->
+    <select id="selectBuildingWithParentInfo" parameterType="Long" resultMap="BuildingWithParentResult">
+        SELECT b.id, b.name, b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude,
+               b.address, b.area, b.line, b.admin_dept, b.weight, b.video_feed, b.root_object_id,
+               b.root_property_id, b.remark, b.create_by, b.create_time, b.update_by, b.update_time,
+               o.parent_id as parent_object_id,
+               pb.id as parent_id, pb.name as parent_name
+        FROM bi_building b
+                 LEFT JOIN bi_object o ON b.root_object_id = o.id
+                 LEFT JOIN bi_building pb ON pb.root_object_id = o.parent_id
+        WHERE b.id = #{id}
+          AND b.del_flag = '0'
+    </select>
 </mapper>

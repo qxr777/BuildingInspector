@@ -3,12 +3,19 @@ package edu.whut.cs.bi.biz.service.impl;
 import java.util.List;
 import java.io.IOException;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.Queue;
+import java.util.Map;
+import java.util.HashSet;
 
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
-import org.springframework.beans.BeanUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +41,7 @@ import javax.annotation.Resource;
  */
 @Service
 public class BuildingServiceImpl implements IBuildingService {
+    private static final Logger log = LoggerFactory.getLogger(BuildingServiceImpl.class);
     @Autowired
     private BuildingMapper buildingMapper;
 
@@ -82,20 +90,34 @@ public class BuildingServiceImpl implements IBuildingService {
 
         // 创建BiObject根节点
         if (rows > 0) {
-            if (building.getTemplateId() != null) {
-                // 获取模版树结构
-                BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
-                if (template != null) {
-                    // 获取模版的所有子节点
-                    List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
-                    // 生成维护树
-                    generateMaintenanceTree(building.getId(), template, children);
-                }
-            } else {
+            if ("0".equals(building.getIsLeaf())) {
+                // 组合桥
                 BiObject rootObject = new BiObject();
                 rootObject.setName(building.getName());
-                rootObject.setParentId(0L); // 设置为根节点
-                rootObject.setAncestors("0"); // 根节点的ancestors为"0"
+
+                // 检查是否有父桥（组合桥也可以有父桥）
+                if (building.getParentId() != null) {
+                    // 有父桥，获取父桥的根节点ID
+                    Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+                    if (parentBridge != null && parentBridge.getRootObjectId() != null) {
+                        Long parentRootObjectId = Long.valueOf(parentBridge.getRootObjectId());
+                        // 挂载到父桥的根节点下
+                        rootObject.setParentId(parentRootObjectId);
+
+                        // 获取父节点的ancestors
+                        BiObject parentObject = biObjectService.selectBiObjectById(parentRootObjectId);
+                        if (parentObject != null) {
+                            rootObject.setAncestors(parentObject.getAncestors() + "," + parentRootObjectId);
+                        } else {
+                            rootObject.setAncestors("0," + parentRootObjectId);
+                        }
+                    }
+                } else {
+                    // 无父桥，设置为顶级节点
+                    rootObject.setParentId(0L);
+                    rootObject.setAncestors("0");
+                }
+
                 rootObject.setOrderNum(0); // 默认排序号
                 rootObject.setStatus("0"); // 默认状态为正常
                 rootObject.setCreateBy(ShiroUtils.getLoginName());
@@ -104,8 +126,27 @@ public class BuildingServiceImpl implements IBuildingService {
                 biObjectService.insertBiObject(rootObject);
 
                 // 更新Building的rootObjectId
-                building.setRootObjectId(rootObject.getId().toString());
+                building.setRootObjectId(rootObject.getId());
                 buildingMapper.updateBuilding(building);
+            } else if ("1".equals(building.getIsLeaf())) {
+                // 桥幅：必须选择一个父桥（组合桥）和模板
+                // 根据父桥确定父节点ID，根据模板生成部件树
+                if (building.getParentId() != null && building.getTemplateId() != null) {
+                    // 获取父桥的根节点ID
+                    Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+                    if (parentBridge != null && parentBridge.getRootObjectId() != null) {
+                        Long parentRootObjectId = Long.valueOf(parentBridge.getRootObjectId());
+
+                        // 获取模版树结构
+                        BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
+                        if (template != null) {
+                            // 获取模版的所有子节点
+                            List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
+                            // 生成维护树并挂载到父桥根节点下
+                            generateMaintenanceTree(building.getId(), template, children, parentRootObjectId);
+                        }
+                    }
+                }
             }
         }
 
@@ -119,8 +160,94 @@ public class BuildingServiceImpl implements IBuildingService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int updateBuilding(Building building) {
         building.setUpdateTime(DateUtils.getNowDate());
+
+        // 获取原始记录
+        Building oldBuilding = selectBuildingWithParentInfo(building.getId());
+
+        // 检查父桥ID是否发生变化
+        boolean parentBridgeChanged = !StringUtils.equals(String.valueOf(oldBuilding.getParentId()), String.valueOf(building.getParentId()));
+
+        // 如果父桥ID发生变化，并且有根节点对象，则需要迁移部件树
+        if (parentBridgeChanged && oldBuilding.getRootObjectId() != null) {
+            Long rootObjectId = Long.valueOf(oldBuilding.getRootObjectId());
+            BiObject rootObject = biObjectService.selectBiObjectById(rootObjectId);
+
+            if (rootObject != null) {
+                Long newParentId;
+                String newAncestors;
+
+                // 确定新的父节点ID和ancestors
+                if (building.getParentId() != null) {
+                    // 有父桥，获取父桥的根节点ID
+                    Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+                    if (parentBridge != null && parentBridge.getRootObjectId() != null) {
+                        // 获取新父桥的根节点ID作为新的父节点ID
+                        Long parentRootObjectId = parentBridge.getRootObjectId();
+                        newParentId = parentRootObjectId;
+
+                        // 获取新父节点的ancestors
+                        BiObject parentObject = biObjectService.selectBiObjectById(parentRootObjectId);
+                        if (parentObject != null) {
+                            newAncestors = parentObject.getAncestors() + "," + parentRootObjectId;
+                        } else {
+                            newAncestors = "0," + parentRootObjectId;
+                        }
+                    } else {
+                        // 父桥不存在或无根节点，设为顶级节点
+                        newParentId = 0L;
+                        newAncestors = "0";
+                    }
+                } else {
+                    // 无父桥，设置为顶级节点
+                    newParentId = 0L;
+                    newAncestors = "0";
+                }
+
+                // 记录原始的parent_id和ancestors
+                Long oldParentId = rootObject.getParentId();
+                String oldAncestors = rootObject.getAncestors();
+
+                // 更新根节点对象的parent_id和ancestors
+                rootObject.setParentId(newParentId);
+                rootObject.setAncestors(newAncestors);
+                biObjectService.updateBiObject(rootObject);
+
+                // 计算新旧ancestors的差异前缀
+                String oldAncestorsPrefix = oldAncestors + "," + rootObjectId;
+                String newAncestorsPrefix = newAncestors + "," + rootObjectId;
+
+                // 批量更新所有子节点的ancestors
+                // 注意：这里需要替换ancestors中的前缀部分
+                List<BiObject> childrenList = biObjectService.selectBiObjectAndChildren(rootObjectId);
+                if (childrenList != null && !childrenList.isEmpty()) {
+                    for (BiObject child : childrenList) {
+                        // 跳过根节点自身
+                        if (child.getId().equals(rootObjectId)) {
+                            continue;
+                        }
+
+                        // 替换ancestors前缀
+                        if (child.getAncestors().startsWith(oldAncestorsPrefix)) {
+                            String newChildAncestors = child.getAncestors().replace(oldAncestorsPrefix, newAncestorsPrefix);
+                            child.setAncestors(newChildAncestors);
+                            child.setUpdateTime(DateUtils.getNowDate());
+                            biObjectService.updateBiObject(child);
+                        }
+                    }
+                }
+            }
+        }
+        if(StringUtils.isNotEmpty(building.getName())) {
+            BiObject biObject = new BiObject();
+            biObject.setId(oldBuilding.getRootObjectId());
+            biObject.setName(building.getName());
+            biObject.setUpdateBy(ShiroUtils.getLoginName());
+            biObject.setUpdateTime(DateUtils.getNowDate());
+            biObjectService.updateBiObject(biObject);
+        }
         return buildingMapper.updateBuilding(building);
     }
 
@@ -131,19 +258,88 @@ public class BuildingServiceImpl implements IBuildingService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteBuildingByIds(String ids) {
-        return buildingMapper.deleteBuildingByIds(Convert.toStrArray(ids));
+        String[] idArray = Convert.toStrArray(ids);
+        int rows = 0;
+
+        for (String id : idArray) {
+            // 删除单个建筑及其部件树
+            rows += deleteBuildingById(Long.valueOf(id));
+        }
+
+        return rows;
     }
 
     /**
      * 删除建筑信息
+     * 高性能版本：基于优化的子桥查询，减少数据库交互
      *
      * @param id 建筑主键
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteBuildingById(Long id) {
-        return buildingMapper.deleteBuildingById(id);
+        int rows = 0;
+
+        // 1. 获取要删除的建筑
+        Building building = buildingMapper.selectBuildingById(id);
+        if (building == null) {
+            return 0;
+        }
+
+        // 2. 如果不是组合桥或没有根节点，直接删除当前建筑
+        if (!"0".equals(building.getIsLeaf()) || building.getRootObjectId() == null) {
+            // 删除部件树（如果有）
+            if (building.getRootObjectId() != null) {
+                biObjectService.logicDeleteByRootObjectId(building.getRootObjectId(),
+                        ShiroUtils.getLoginName());
+            }
+
+            // 删除建筑记录
+            return buildingMapper.deleteBuildingById(id);
+        }
+
+        // 3. 处理组合桥情况：先查询所有子桥，然后批量删除
+        try {
+            Long rootObjectId = building.getRootObjectId();
+
+            // 使用优化后的方法查询所有子桥
+            List<Building> childBridges = buildingMapper.selectAllChildBridges(rootObjectId);
+
+            // 删除所有子桥
+            if (childBridges != null && !childBridges.isEmpty()) {
+                // 收集所有需要删除的根对象ID
+                List<String> buildingList = new ArrayList<>();
+                for (Building child : childBridges) {
+                    buildingList.add(child.getId().toString());
+                }
+                String[] array = buildingList.toArray(new String[buildingList.size()]);
+                buildingMapper.deleteBuildingByIds(array);
+            }
+
+            // 删除当前建筑的部件树
+            biObjectService.logicDeleteByRootObjectId(rootObjectId, ShiroUtils.getLoginName());
+
+            // 删除当前建筑记录
+            int result = buildingMapper.deleteBuildingById(id);
+            if (result > 0) {
+                rows += result;
+            }
+
+            return rows;
+        } catch (Exception e) {
+            log.info(e.getMessage());
+            throw new RuntimeException("删除建筑失败", e);
+        }
+    }
+
+    /**
+     * 批量删除接口，用于支持批量根对象删除
+     */
+    private interface BatchDeletable {
+        int batchLogicDeleteByRootObjectIds(List<Long> rootObjectIds, String updateBy);
     }
 
     @Override
@@ -180,7 +376,7 @@ public class BuildingServiceImpl implements IBuildingService {
     /**
      * 查询建筑VO列表
      *
-     * @param building 建筑
+     * @param building  建筑
      * @param projectId 项目ID
      * @return
      */
@@ -225,7 +421,7 @@ public class BuildingServiceImpl implements IBuildingService {
             biObjectService.insertBiObject(rootObject);
 
             // 更新Building的rootObjectId
-            building.setRootObjectId(rootObject.getId().toString());
+            building.setRootObjectId(rootObject.getId());
             buildingMapper.updateBuilding(building);
 
             // 递归创建子节点
@@ -304,53 +500,68 @@ public class BuildingServiceImpl implements IBuildingService {
     }
 
     /**
-     * 根据模版生成维护树
+     * 根据模版生成维护树，并挂载到父桥根节点下
      *
-     * @param buildingId 建筑物ID
-     * @param template   模版节点
-     * @param children   子节点列表
+     * @param buildingId         建筑物ID
+     * @param template           模版节点
+     * @param children           所有子节点列表
+     * @param parentRootObjectId 父桥根节点ID
      */
-    private void generateMaintenanceTree(Long buildingId, BiTemplateObject template, List<BiTemplateObject> children) {
+    private void generateMaintenanceTree(Long buildingId, BiTemplateObject template, List<BiTemplateObject> children, Long parentRootObjectId) {
         // 获取建筑物信息
         Building building = buildingMapper.selectBuildingById(buildingId);
 
-        // 创建根节点
+        // 创建根节点，挂载到父桥的根节点下
         BiObject rootObject = new BiObject();
-        // 设置根节点名称为建筑物名称加上模板名称
-        rootObject.setName(building.getName() + "（" + template.getName() + "）");
-        rootObject.setParentId(0L);
-        rootObject.setAncestors("0");
-        rootObject.setOrderNum(template.getOrderNum());
+        rootObject.setName(building.getName()+"(" + template.getName() + ")");
+        rootObject.setParentId(parentRootObjectId); // 挂载到父桥的根节点下
+
+        // 获取父节点的ancestors
+        BiObject parentObject = biObjectService.selectBiObjectById(parentRootObjectId);
+        String ancestors = "0";
+        if (parentObject != null) {
+            ancestors = parentObject.getAncestors() + "," + parentRootObjectId;
+        }
+        rootObject.setAncestors(ancestors);
+
+        rootObject.setOrderNum(0);
         rootObject.setStatus("0");
         rootObject.setCreateBy(ShiroUtils.getLoginName());
+        rootObject.setTemplateObjectId(template.getId()); // 设置对应的模板ID
 
         // 插入根节点
         biObjectService.insertBiObject(rootObject);
 
         // 更新 Building 的 rootObjectId
-        building.setRootObjectId(rootObject.getId().toString());
+        building.setRootObjectId(rootObject.getId());
         buildingMapper.updateBuilding(building);
 
         // 递归创建子节点
         if (children != null) {
+            // 创建一个映射，记录模板ID到对象的映射关系
+            java.util.Map<Long, BiObject> templateIdToObjectMap = new java.util.HashMap<>();
+            templateIdToObjectMap.put(template.getId(), rootObject);
+
+            // 递归处理所有子节点
             for (BiTemplateObject child : children) {
-                // 只处理直接子节点
-                if (child.getParentId().equals(template.getId())) {
-                    createBiObjectFromTemplate(child, rootObject.getId(), rootObject.getAncestors(), children);
+                    BiObject parentObj = templateIdToObjectMap.get(child.getParentId());
+                    if (parentObj != null) {
+                        createBiObjectFromTemplate(child, parentObj.getId(), parentObj.getAncestors(), templateIdToObjectMap);
                 }
             }
         }
     }
 
     /**
-     * 递归创建 BiObject 节点
+     * 根据模版创建BiObject节点
      *
-     * @param template        模版节点
-     * @param parentId        父节点ID
-     * @param parentAncestors 父节点的祖先字符串
-     * @param allChildren     所有子节点列表
+     * @param template              模版节点
+     * @param parentId              父节点ID
+     * @param parentAncestors       父节点的祖先字符串
+     * @param templateIdToObjectMap 模板ID到对象的映射关系
      */
-    private void createBiObjectFromTemplate(BiTemplateObject template, Long parentId, String parentAncestors, List<BiTemplateObject> allChildren) {
+    private void createBiObjectFromTemplate(BiTemplateObject template, Long parentId, String parentAncestors,
+                                            java.util.Map<Long, BiObject> templateIdToObjectMap) {
         BiObject biObject = new BiObject();
         biObject.setName(template.getName());
         biObject.setParentId(parentId);
@@ -358,18 +569,60 @@ public class BuildingServiceImpl implements IBuildingService {
         biObject.setOrderNum(template.getOrderNum());
         biObject.setStatus("0");
         biObject.setCreateBy(ShiroUtils.getLoginName());
+        biObject.setTemplateObjectId(template.getId()); // 设置对应的模板ID
 
         // 插入节点
         biObjectService.insertBiObject(biObject);
 
-        // 递归处理子节点
-        if (allChildren != null) {
-            for (BiTemplateObject child : allChildren) {
-                // 只处理当前节点的直接子节点
-                if (child.getParentId().equals(template.getId())) {
-                    createBiObjectFromTemplate(child, biObject.getId(), biObject.getAncestors(), allChildren);
-                }
-            }
+        // 添加到映射中
+        templateIdToObjectMap.put(template.getId(), biObject);
+    }
+
+    /**
+     * 获取指定组合桥下的所有子桥ID（包括直接子桥和间接子桥）
+     * 高性能版本：使用数据库递归查询
+     *
+     * @param buildingId 组合桥ID
+     * @return 所有子桥ID列表
+     */
+    @Override
+    public List<Long> selectChildBuildingIds(Long buildingId) {
+        List<Long> childIds = new ArrayList<>();
+
+        // 获取当前组合桥
+        Building building = buildingMapper.selectBuildingById(buildingId);
+        if (building == null || building.getRootObjectId() == null) {
+            return childIds;
         }
+
+        try {
+            Long rootObjectId = Long.valueOf(building.getRootObjectId());
+
+            // 尝试使用递归CTE SQL查询所有子桥
+            List<Building> allChildBridges = buildingMapper.selectAllChildBridges(rootObjectId);
+
+            // 提取所有子桥ID
+            if (allChildBridges != null && !allChildBridges.isEmpty()) {
+                for (Building childBridge : allChildBridges) {
+                    childIds.add(childBridge.getId());
+                }
+                return childIds;
+            }
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+        return childIds;
+    }
+
+    /**
+     * 查询建筑及其父桥关系信息
+     *
+     * @param id 建筑主键
+     * @return 带有父桥信息的建筑
+     */
+    @Override
+    public Building selectBuildingWithParentInfo(Long id) {
+        return buildingMapper.selectBuildingWithParentInfo(id);
     }
 }
+

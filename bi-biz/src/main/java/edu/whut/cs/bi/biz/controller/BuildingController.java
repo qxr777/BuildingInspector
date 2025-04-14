@@ -1,9 +1,12 @@
 package edu.whut.cs.bi.biz.controller;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
+import edu.whut.cs.bi.biz.service.IBiObjectService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -40,6 +43,9 @@ public class BuildingController extends BaseController {
 
     @Autowired
     private IBiTemplateObjectService biTemplateObjectService;
+
+    @Autowired
+    private IBiObjectService biObjectService;
 
     @RequiresPermissions("biz:building:view")
     @GetMapping()
@@ -89,13 +95,22 @@ public class BuildingController extends BaseController {
      */
     @RequiresPermissions("biz:building:add")
     @GetMapping("/add")
-    public String add(ModelMap mmap) {
-        // 查询所有可用的模版
-        BiTemplateObject query = new BiTemplateObject();
-        query.setStatus("0"); // 只查询正常状态的模版
-        query.setParentId(0L); // 只查询根节点模版
-        List<BiTemplateObject> templates = biTemplateObjectService.selectBiTemplateObjectList(query);
+    public String add(ModelMap mmap)
+    {
+        // 获取所有可用的模板（状态为正常的根节点模板）
+        BiTemplateObject templateQuery = new BiTemplateObject();
+        templateQuery.setParentId(0L);
+        templateQuery.setStatus("0");
+        List<BiTemplateObject> templates = biTemplateObjectService.selectBiTemplateObjectList(templateQuery);
         mmap.put("templates", templates);
+
+        // 获取所有可选的父桥（组合桥）
+        Building parentQuery = new Building();
+        parentQuery.setIsLeaf("0");
+        parentQuery.setStatus("0");
+        List<Building> parentBuildings = buildingService.selectBuildingList(parentQuery);
+        mmap.put("parents", parentBuildings);
+
         return prefix + "/add";
     }
 
@@ -116,9 +131,37 @@ public class BuildingController extends BaseController {
      */
     @RequiresPermissions("biz:building:edit")
     @GetMapping("/edit/{id}")
-    public String edit(@PathVariable("id") Long id, ModelMap mmap) {
-        Building building = buildingService.selectBuildingById(id);
+    public String edit(@PathVariable("id") Long id, ModelMap mmap)
+    {
+        // 使用带有父桥信息的查询
+        Building building = buildingService.selectBuildingWithParentInfo(id);
         mmap.put("building", building);
+
+        // 获取所有可选的父桥（组合桥）
+        Building parentQuery = new Building();
+        parentQuery.setIsLeaf("0");
+        parentQuery.setStatus("0");
+        List<Building> allParentBuildings = buildingService.selectBuildingList(parentQuery);
+
+        // 获取当前桥梁的所有子桥（如果是组合桥）
+        List<Long> excludeIds = new ArrayList<>();
+        excludeIds.add(id); // 添加自身ID，避免自选
+
+        if ("0".equals(building.getIsLeaf())) {
+            // 获取所有子桥的ID
+            List<Long> childIds = buildingService.selectChildBuildingIds(id);
+            if (childIds != null && !childIds.isEmpty()) {
+                excludeIds.addAll(childIds);
+            }
+        }
+
+        // 排除当前桥梁及其所有子桥，避免循环依赖
+        List<Building> parentBuildings = allParentBuildings.stream()
+                .filter(parent -> !excludeIds.contains(parent.getId()))
+                .collect(Collectors.toList());
+
+        mmap.put("parents", parentBuildings);
+
         return prefix + "/edit";
     }
 
@@ -129,8 +172,8 @@ public class BuildingController extends BaseController {
     @Log(title = "建筑", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
-    public AjaxResult editSave(Building building) {
-        building.setUpdateBy(ShiroUtils.getLoginName());
+    public AjaxResult editSave(Building building)
+    {
         return toAjax(buildingService.updateBuilding(building));
     }
 

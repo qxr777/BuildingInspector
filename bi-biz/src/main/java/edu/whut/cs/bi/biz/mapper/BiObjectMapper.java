@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.mapper;
 
 import java.util.List;
 import edu.whut.cs.bi.biz.domain.BiObject;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 对象Mapper接口
@@ -66,4 +67,21 @@ public interface BiObjectMapper
      * @return 所有子节点
      */
     public List<BiObject> selectChildrenById(Long id);
+
+    /**
+     * 根据根节点ID逻辑删除对象及其所有子节点
+     *
+     * @param rootObjectId 根节点ID
+     * @param updateBy 更新人
+     * @return 结果
+     */
+    public int logicDeleteByRootObjectId(@Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
+
+    /**
+     * 修改子元素关系
+     *
+     * @param objects 子元素
+     * @return 结果
+     */
+    int updateObjectChildren(@Param("objects") List<BiObject> objects);
 }

@@ -28,9 +28,25 @@ public class Building extends BaseEntity {
     private String name;
 
     /**
-     * 建筑状态（0正常 1停用）
+     * 类型（0组合桥 1桥幅）
      */
-    @Excel(name = "建筑状态", readConverterExp = "0=正常,1=停用")
+    @Excel(name = "类型", readConverterExp = "0=组合桥,1=桥幅")
+    private String isLeaf;
+
+    /**
+     * 模板ID
+     */
+    private Long templateId;
+
+    /**
+     * 根对象ID
+     */
+    private Long rootObjectId;
+
+    /**
+     * 状态（0正常 1停用）
+     */
+    @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
     /**
@@ -65,30 +81,6 @@ public class Building extends BaseEntity {
     @Excel(name = "区域")
     private String area;
 
-    public String getLine() {
-        return line;
-    }
-
-    public void setLine(String line) {
-        this.line = line;
-    }
-
-    public String getRootObjectId() {
-        return rootObjectId;
-    }
-
-    public void setRootObjectId(String rootObjectId) {
-        this.rootObjectId = rootObjectId;
-    }
-
-    public String getRootPropertyId() {
-        return rootPropertyId;
-    }
-
-    public void setRootPropertyId(String rootPropertyId) {
-        this.rootPropertyId = rootPropertyId;
-    }
-
     /**
      * 管理部门
      */
@@ -114,16 +106,10 @@ public class Building extends BaseEntity {
     private String line;
 
     /**
-     * 根对象ID
-     */
-    @Excel(name = "根对象ID")
-    private String rootObjectId;
-
-    /**
      * 根属性ID
      */
     @Excel(name = "根属性ID")
-    private String rootPropertyId;
+    private Long rootPropertyId;
 
     private BiObject rootObject;
 
@@ -134,11 +120,35 @@ public class Building extends BaseEntity {
      */
     private Long parentId;
 
-    /**
-     * 模版ID
-     */
-    @Excel(name = "模版ID")
-    private Long templateId;
+    /** 父桥名称 */
+    private String parentName;
+
+    /** 父对象ID (BiObject的parent_id) */
+    private Long parentObjectId;
+
+    public Long getRootObjectId() {
+        return rootObjectId;
+    }
+
+    public void setRootObjectId(Long rootObjectId) {
+        this.rootObjectId = rootObjectId;
+    }
+
+    public Long getRootPropertyId() {
+        return rootPropertyId;
+    }
+
+    public void setRootPropertyId(Long rootPropertyId) {
+        this.rootPropertyId = rootPropertyId;
+    }
+
+    public String getLine() {
+        return line;
+    }
+
+    public void setLine(String line) {
+        this.line = line;
+    }
 
     public void setId(Long id) {
         this.id = id;
@@ -266,6 +276,30 @@ public class Building extends BaseEntity {
 
     public void setTemplateId(Long templateId) {
         this.templateId = templateId;
+    }
+
+    public String getIsLeaf() {
+        return isLeaf;
+    }
+
+    public void setIsLeaf(String isLeaf) {
+        this.isLeaf = isLeaf;
+    }
+
+    public String getParentName() {
+        return parentName;
+    }
+
+    public void setParentName(String parentName) {
+        this.parentName = parentName;
+    }
+
+    public Long getParentObjectId() {
+        return parentObjectId;
+    }
+
+    public void setParentObjectId(Long parentObjectId) {
+        this.parentObjectId = parentObjectId;
     }
 
     @Override
