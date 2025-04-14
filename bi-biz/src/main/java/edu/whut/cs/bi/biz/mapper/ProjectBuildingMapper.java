@@ -10,7 +10,7 @@ import java.util.List;
  * 
  * @author: chenwenqi
  * @date: 2025-04-02
- * @deprecated 此接口已废弃
+ * @deprecated 此接口已废弃 对应xml也要删除 （和bi_task冲突）
  */
 public interface ProjectBuildingMapper
 {

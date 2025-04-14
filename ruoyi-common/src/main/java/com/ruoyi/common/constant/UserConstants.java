@@ -36,6 +36,9 @@ public class UserConstants
     /** 字典正常状态 */
     public static final String DICT_NORMAL = "0";
 
+    /** 字典正常状态 */
+    public static final String DISEASE_NORMAL = "0";
+
     /** 是否为系统默认（是） */
     public static final String YES = "Y";
     
