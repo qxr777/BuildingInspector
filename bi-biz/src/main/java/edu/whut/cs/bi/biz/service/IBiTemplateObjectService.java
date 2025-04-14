@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service;
 
 import java.util.List;
+
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import com.ruoyi.common.core.domain.Ztree;
 
@@ -10,8 +11,7 @@ import com.ruoyi.common.core.domain.Ztree;
  * @author wanzheng
  * @date 2025-04-02
  */
-public interface IBiTemplateObjectService
-{
+public interface IBiTemplateObjectService {
     /**
      * 查询桥梁构件模版
      *

@@ -95,8 +95,7 @@ public class BuildingController extends BaseController {
      */
     @RequiresPermissions("biz:building:add")
     @GetMapping("/add")
-    public String add(ModelMap mmap)
-    {
+    public String add(ModelMap mmap) {
         // 获取所有可用的模板（状态为正常的根节点模板）
         BiTemplateObject templateQuery = new BiTemplateObject();
         templateQuery.setParentId(0L);
@@ -131,8 +130,7 @@ public class BuildingController extends BaseController {
      */
     @RequiresPermissions("biz:building:edit")
     @GetMapping("/edit/{id}")
-    public String edit(@PathVariable("id") Long id, ModelMap mmap)
-    {
+    public String edit(@PathVariable("id") Long id, ModelMap mmap) {
         // 使用带有父桥信息的查询
         Building building = buildingService.selectBuildingWithParentInfo(id);
         mmap.put("building", building);
@@ -141,6 +139,7 @@ public class BuildingController extends BaseController {
         Building parentQuery = new Building();
         parentQuery.setIsLeaf("0");
         parentQuery.setStatus("0");
+        parentQuery.setDelFlag("0");
         List<Building> allParentBuildings = buildingService.selectBuildingList(parentQuery);
 
         // 获取当前桥梁的所有子桥（如果是组合桥）
@@ -172,8 +171,7 @@ public class BuildingController extends BaseController {
     @Log(title = "建筑", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
-    public AjaxResult editSave(Building building)
-    {
+    public AjaxResult editSave(Building building) {
         return toAjax(buildingService.updateBuilding(building));
     }
 

@@ -14,8 +14,7 @@ import org.apache.ibatis.annotations.Param;
  * @author wanzheng
  * @date 2025-03-27
  */
-public interface BuildingMapper
-{
+public interface BuildingMapper {
     /**
      * 查询建筑
      *
