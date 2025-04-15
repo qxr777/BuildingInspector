@@ -18,7 +18,7 @@ public class Task extends BaseEntity {
     /**
      * 任务ID
      */
-    Long id;
+    private Long id;
 
     // 关联的建筑
     private Building building;

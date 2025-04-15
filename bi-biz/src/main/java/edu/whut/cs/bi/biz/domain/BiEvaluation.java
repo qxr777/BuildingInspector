@@ -1,72 +1,85 @@
 package edu.whut.cs.bi.biz.domain;
 
+import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
+
 import java.math.BigDecimal;
 
 /**
- *
+ *  桥幅的技术状况评定
  */
-public class BiEvaluation {
+@Data
+public class BiEvaluation extends BaseEntity {
 
-
+    /**
+     * 实体的唯一标识符，用于唯一标识该实体。
+     */
+    private Long Id;
     /**
      * 上部结构的等级，用于表示上部结构的评估等级。
      */
-    public Integer superstructureLevel;
+    private Integer superstructureLevel;
 
     /**
      * 上部结构的评分，用于表示上部结构的评估得分。
      */
-    public BigDecimal superstructureScore;
+    private BigDecimal superstructureScore;
 
     /**
      * 下部结构的等级，用于表示下部结构的评估等级。
      */
-    public Integer substructureLevel;
+    private Integer substructureLevel;
 
     /**
      * 下部结构的评分，用于表示下部结构的评估得分。
      */
-    public BigDecimal substructureScore;
+    private BigDecimal substructureScore;
 
     /**
-     * 甲板系统的等级，用于表示甲板系统的评估等级。
+     * 桥面系统的等级，用于表示甲板系统的评估等级。
      */
-    public Integer deckSystemLevel;
+    private Integer deckSystemLevel;
 
     /**
-     * 甲板系统的评分，用于表示甲板系统的评估得分。
+     * 桥面系统的评分，用于表示甲板系统的评估得分。
      */
-    public BigDecimal deckSystemScore;
+    private BigDecimal deckSystemScore;
 
     /**
      * 系统评分，用于表示整体系统的评估得分。
      */
-    public BigDecimal systemScore;
+    private BigDecimal systemScore;
 
     /**
      * 最差部分的等级，用于表示评估中最差部分的等级。
      */
-    public Integer worstPartLevel;
+    private Integer worstPartLevel;
 
     /**
      * 整体等级，用于表示整体评估的等级。
      */
-    public Integer level;
+    private Integer level;
 
     /**
      * 系统等级，用于表示系统评估的等级。
      */
-    public Integer systemLevel;
+    private Integer systemLevel;
 
     /**
      * 单一控制值，用于表示单一控制的评估结果。
      */
-    public Integer singleControl;
+    private Integer singleControl;
 
     /**
      * 人为因素的等级，用于表示人为因素的评估等级。
      */
-    public Integer manmadeLevel;
+    private Integer manmadeLevel;
 
+    /**
+     * 表示当前任务对象的引用。
+     * 该变量用于存储和管理与当前任务相关的数据和操作。
+     */
+    private Task task;
+    private Long taskId;
 
 }
