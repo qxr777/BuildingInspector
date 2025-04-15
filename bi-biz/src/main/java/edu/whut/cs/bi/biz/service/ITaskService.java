@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service;
 
+import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
 
 import java.io.IOException;
@@ -88,5 +89,6 @@ public interface ITaskService
      * @return
      */
     int batchRemoveTasks(Long projectId, List<Long> buildingIds);
+
 
 }

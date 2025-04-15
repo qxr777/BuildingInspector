@@ -240,7 +240,7 @@ public class BuildingServiceImpl implements IBuildingService {
                 }
             }
         }
-        if(StringUtils.isNotEmpty(building.getName())) {
+        if (StringUtils.isNotEmpty(building.getName())) {
             BiObject biObject = new BiObject();
             biObject.setId(oldBuilding.getRootObjectId());
             biObject.setName(building.getName());
@@ -513,7 +513,7 @@ public class BuildingServiceImpl implements IBuildingService {
 
         // 创建根节点，挂载到父桥的根节点下
         BiObject rootObject = new BiObject();
-        rootObject.setName(building.getName()+"(" + template.getName() + ")");
+        rootObject.setName(building.getName() + "(" + template.getName() + ")");
         rootObject.setParentId(parentRootObjectId); // 挂载到父桥的根节点下
 
         // 获取父节点的ancestors
@@ -544,9 +544,9 @@ public class BuildingServiceImpl implements IBuildingService {
 
             // 递归处理所有子节点
             for (BiTemplateObject child : children) {
-                    BiObject parentObj = templateIdToObjectMap.get(child.getParentId());
-                    if (parentObj != null) {
-                        createBiObjectFromTemplate(child, parentObj.getId(), parentObj.getAncestors(), templateIdToObjectMap);
+                BiObject parentObj = templateIdToObjectMap.get(child.getParentId());
+                if (parentObj != null) {
+                    createBiObjectFromTemplate(child, parentObj.getId(), parentObj.getAncestors(), templateIdToObjectMap);
                 }
             }
         }

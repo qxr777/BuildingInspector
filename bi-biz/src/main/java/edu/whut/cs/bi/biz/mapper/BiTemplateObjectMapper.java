@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import java.util.List;
+
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 
 /**
@@ -9,8 +10,7 @@ import edu.whut.cs.bi.biz.domain.BiTemplateObject;
  * @author wanzheng
  * @date 2025-04-02
  */
-public interface BiTemplateObjectMapper
-{
+public interface BiTemplateObjectMapper {
     /**
      * 查询桥梁构件模版
      *

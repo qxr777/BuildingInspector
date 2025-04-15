@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper">
+
+    <resultMap type="DiseaseType" id="DiseaseTypeResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="code" column="code"/>
+        <result property="maxScale" column="max_scale"/>
+        <result property="minScale" column="min_scale"/>
+        <result property="status" column="status"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectDiseaseTypeVo">
+        select id,
+               name,
+               code,
+               max_scale,
+               min_scale,
+               status,
+               create_by,
+               create_time,
+               update_by,
+               update_time,
+               remark
+        from bi_disease_type
+    </sql>
+
+    <select id="selectDiseaseTypeList" parameterType="DiseaseType" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+        <where>
+            <if test="name != null and name != ''">
+                AND name like concat('%', #{name}, '%')
+            </if>
+            <if test="code != null and code != ''">
+                AND code = #{code}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
+            </if>
+        </where>
+    </select>
+
+    <select id="selectDiseaseTypeAll" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+    </select>
+
+    <select id="selectDiseaseTypeById" parameterType="Long" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectDiseaseTypeByCode" parameterType="String" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+        where code = #{code}
+    </select>
+
+    <select id="checkDiseaseTypeUnique" parameterType="String" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+        where code = #{code} limit 1
+    </select>
+
+    <delete id="deleteDiseaseTypeById" parameterType="Long">
+        delete
+        from bi_disease_type
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteDiseaseTypeByIds" parameterType="Long">
+        delete from bi_disease_type where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <update id="updateDiseaseType" parameterType="DiseaseType">
+        update bi_disease_type
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="code != null and code != ''">code = #{code},</if>
+            <if test="maxScale != null">max_scale = #{maxScale},</if>
+            <if test="minScale != null">min_scale = #{minScale},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <update id="updateMaxScale">
+        update bi_disease_type
+        set max_scale = #{scale}
+        where id = #{id}
+    </update>
+
+    <insert id="insertDiseaseType" parameterType="DiseaseType" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_disease_type
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="code != null and code != ''">code,</if>
+            <if test="maxScale != null">max_scale,</if>
+            <if test="minScale != null">min_scale,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+        </trim>
+        values
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="code != null and code != ''">#{code},</if>
+            <if test="maxScale != null">#{maxScale},</if>
+            <if test="minScale != null">#{minScale},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+        </trim>
+    </insert>
+
+</mapper>

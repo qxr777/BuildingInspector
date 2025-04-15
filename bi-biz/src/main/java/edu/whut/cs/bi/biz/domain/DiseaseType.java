@@ -1,12 +1,19 @@
 package edu.whut.cs.bi.biz.domain;
 
+import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.*;
 
 /**
- * 
+ * 病害类型
+ *
+ * @author: chenwenqi
  */
+@EqualsAndHashCode(callSuper = true)
+@Data
 public class DiseaseType extends BaseEntity {
 
     /**
@@ -37,6 +44,11 @@ public class DiseaseType extends BaseEntity {
      * 该值用于定义病害的严重程度范围，通常与病害的评估标准相关。
      */
     private Integer minScale;
+
+    /**
+     * 病害类型状态（0正常 1停用）
+     */
+    private String status;
 
     // 关联的病害标度
     private List<DiseaseScale> diseaseScales;

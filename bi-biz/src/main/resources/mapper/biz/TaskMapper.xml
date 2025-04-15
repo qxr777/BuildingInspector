@@ -14,37 +14,93 @@
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
+
+        <!-- 关联建筑对象 -->
+        <association property="building" javaType="Building">
+            <id     property="id"      column="building_id"/>
+            <result property="name"    column="building_name"/>
+            <result property="rootObjectId" column="root_object_id"/>
+            <result property="rootPropertyId" column="root_property_id"/>
+        </association>
+
+        <!-- 关联项目对象 -->
+        <association property="project" javaType="Project">
+            <id     property="id"       column="project_id"/>
+            <result property="name" column="project_name"/>
+            <result property="code" column="project_code"/>
+            <result property="startDate" column="project_start_date"/>
+            <result property="endDate" column="project_end_date"/>
+            <result property="year" column="project_year"/>
+        </association>
     </resultMap>
 
     <sql id="selectTaskVo">
         select
-            id,
-            project_id,
-            building_id,
-            status,
-            remark,
-            create_by,
-            create_time,
-            update_by,
-            update_time
-        from bi_task
+            t.id,
+            t.project_id,
+            t.building_id,
+            t.status,
+            t.remark,
+            t.create_by,
+            t.create_time,
+            t.update_by,
+            t.update_time,
+            <!-- 建筑表字段 -->
+            b.id as building_id,
+            b.name as building_name,
+            b.root_object_id as root_object_id,
+            b.root_property_id as root_property_id,
+            <!-- 项目表字段 -->
+            p.id as project_id,
+            p.name as project_name,
+            p.code as project_code,
+            p.year as project_year,
+            p.start_date as project_start_date,
+            p.end_date as project_end_date
+        from bi_task t
+        left join bi_building b on t.building_id = b.id
+        left join bi_project p on t.project_id = p.id
     </sql>
 
 
     <select id="selectTaskList" parameterType="Task" resultMap="TaskResult">
         <include refid="selectTaskVo"/>
         <where>
-            <if test="buildingId != null"> and building_id = #{buildingId}</if>
-            <if test="projectId != null"> and project_id = #{projectId}</if>
-            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="buildingId != null"> and t.building_id = #{buildingId}</if>
+            <if test="projectId != null"> and t.project_id = #{projectId}</if>
+            <if test="status != null and status != ''"> and t.status = #{status}</if>
 
+            <!-- 建筑表条件 -->
+            <if test="building != null">
+                <if test="building.name != null and building.name != ''">
+                    and b.name like concat('%', #{building.name}, '%')
+                </if>
+            </if>
 
+            <!-- 项目表条件 -->
+            <if test="project != null">
+                <if test="project.name != null and project.name != ''">
+                    and p.name like concat('%', #{project.name}, '%')
+                </if>
+                <if test="project.code != null and project.code != ''">
+                    and p.code = #{project.code}
+                </if>
+                <if test="project.year != null">
+                    and p.year = #{project.year}
+                </if>
+                <if test="project.startDate != null">
+                    and p.start_date &gt;= #{project.startDate}
+                </if>
+                <if test="project.endDate != null">
+                    and p.end_date &lt;= #{project.endDate}
+                </if>
+            </if>
         </where>
     </select>
 
     <select id="selectTaskById" parameterType="Long" resultMap="TaskResult">
         <include refid="selectTaskVo"/>
-        where id = #{id}
+        where t.id = #{id}
     </select>
 
     <insert id="insertTask" parameterType="Task" useGeneratedKeys="true" keyProperty="id">
@@ -91,6 +147,18 @@
         <trim prefix="SET" suffixOverrides=",">
             <if test="projectId != null">project_id = #{projectId},</if>
             <if test="buildingId != null">building_id = #{buildingId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <update id="updateTaskStatus" parameterType="Task">
+        update bi_task
+        <trim prefix="SET" suffixOverrides=",">
+
             <if test="status != null">status = #{status},</if>
             <if test="remark != null and remark != ''">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.DiseaseMapper">
+
+    <resultMap type="Disease" id="DiseaseResult">
+        <result property="id" column="id"/>
+        <result property="position" column="position"/>
+        <result property="type" column="type"/>
+        <result property="description" column="description"/>
+        <result property="trend" column="trend"/>
+        <result property="level" column="level"/>
+        <result property="quantity" column="quantity"/>
+        <result property="projectId" column="project_id"/>
+        <result property="biObjectId" column="bi_object_id"/>
+        <result property="buildingId" column="building_id"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectDiseaseVo">
+        select id, position, type, description, trend, level, quantity,
+               project_id, bi_object_id, building_id, remark,
+               create_by, create_time, update_by, update_time
+        from bi_disease
+    </sql>
+
+    <select id="selectDiseaseList" parameterType="Disease" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        <where>
+            <if test="position != null and position != ''"> and position like concat('%', #{position}, '%')</if>
+            <if test="type != null and type != ''"> and type = #{type}</if>
+            <if test="trend != null and trend != ''"> and trend = #{trend}</if>
+            <if test="level != null"> and level = #{level}</if>
+            <if test="projectId != null"> and project_id = #{projectId}</if>
+            <if test="biObjectId != null"> and bi_object_id = #{biObjectId}</if>
+            <if test="buildingId != null"> and building_id = #{buildingId}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectDiseaseById" parameterType="Long" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        where id = #{id}
+    </select>
+
+
+    <insert id="insertDisease" parameterType="Disease" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_disease
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="position != null">position,</if>
+            <if test="type != null">type,</if>
+            <if test="description != null">description,</if>
+            <if test="trend != null">trend,</if>
+            <if test="level != null">level,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="projectId != null">project_id,</if>
+            <if test="biObjectId != null">bi_object_id,</if>
+            <if test="buildingId != null">building_id,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="position != null">#{position},</if>
+            <if test="type != null">#{type},</if>
+            <if test="description != null">#{description},</if>
+            <if test="trend != null">#{trend},</if>
+            <if test="level != null">#{level},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="projectId != null">#{projectId},</if>
+            <if test="biObjectId != null">#{biObjectId},</if>
+            <if test="buildingId != null">#{buildingId},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateDisease" parameterType="Disease">
+        update bi_disease
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="position != null">position = #{position},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="trend != null">trend = #{trend},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="projectId != null">project_id = #{projectId},</if>
+            <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
+            <if test="buildingId != null">building_id = #{buildingId},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+
+    <delete id="deleteDiseaseById" parameterType="Long">
+        delete from bi_disease where id = #{id}
+    </delete>
+
+    <delete id="deleteDiseaseByIds" parameterType="String">
+        delete from bi_disease where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

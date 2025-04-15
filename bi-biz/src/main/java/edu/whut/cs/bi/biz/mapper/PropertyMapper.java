@@ -10,7 +10,7 @@ import java.util.List;
  * 属性Mapper接口
  */
 @Mapper
-public interface PropertyMapper  {
+public interface PropertyMapper {
     /**
      * 查询属性
      *
@@ -25,7 +25,7 @@ public interface PropertyMapper  {
      * @param property 属性
      * @return 属性集合
      */
-     List<Property> selectPropertyList(Property property);
+    List<Property> selectPropertyList(Property property);
 
     /**
      * 根据ID查询所有子对象
@@ -33,7 +33,7 @@ public interface PropertyMapper  {
      * @param objectId 对象ID
      * @return 对象列表
      */
-     List<Property> selectChildrenObjectById(Long objectId);
+    List<Property> selectChildrenObjectById(Long objectId);
 
     /**
      * 新增属性
@@ -56,7 +56,7 @@ public interface PropertyMapper  {
      * @param property 属性
      * @return 结果
      */
-     int updateProperty(Property property);
+    int updateProperty(Property property);
 
     /**
      * 修改子元素关系
@@ -64,7 +64,7 @@ public interface PropertyMapper  {
      * @param objects 子元素
      * @return 结果
      */
-     int updateObjectChildren(@Param("objects") List<Property> objects);
+    int updateObjectChildren(@Param("objects") List<Property> objects);
 
     /**
      * 删除属性
@@ -72,10 +72,11 @@ public interface PropertyMapper  {
      * @param id 属性ID
      * @return 结果
      */
-     int deletePropertyById(Long id);
+    int deletePropertyById(Long id);
 
     /**
      * 通过id删除其子对象
+     * 
      * @param objectId
      */
     void deleteObjectChildren(Long objectId);
@@ -93,7 +94,7 @@ public interface PropertyMapper  {
      * @param ids 需要删除的数据ID
      * @return 结果
      */
-     int deletePropertyByIds(String[] ids);
+    int deletePropertyByIds(String[] ids);
 
     /**
      * 获取父节点为空的节点个数
@@ -117,4 +118,28 @@ public interface PropertyMapper  {
      * @return
      */
     List<Property> selectPropertyByName(Property pt);
+
+    /**
+     * 根据建筑ID查询根属性节点
+     *
+     * @param buildingId 建筑ID
+     * @return 根属性节点
+     */
+    public Property selectRootPropertyByBuildingId(Long buildingId);
+
+    /**
+     * 根据属性ID查询所有子节点（包括子节点的子节点）
+     *
+     * @param id 属性ID
+     * @return 所有子节点列表
+     */
+    public List<Property> selectAllChildrenById(Long id);
+
+    /**
+     * 根据属性ID查询完整的属性树（包括根节点和所有子节点）
+     *
+     * @param id 属性ID
+     * @return 完整的属性树列表
+     */
+    public List<Property> selectPropertyTreeById(Long id);
 }

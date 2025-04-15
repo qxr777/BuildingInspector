@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import java.util.List;
+
 import edu.whut.cs.bi.biz.domain.BiObject;
 import org.apache.ibatis.annotations.Param;
 
@@ -10,8 +11,7 @@ import org.apache.ibatis.annotations.Param;
  * @author ruoyi
  * @date 2025-03-27
  */
-public interface BiObjectMapper
-{
+public interface BiObjectMapper {
     /**
      * 查询对象
      *
@@ -72,7 +72,7 @@ public interface BiObjectMapper
      * 根据根节点ID逻辑删除对象及其所有子节点
      *
      * @param rootObjectId 根节点ID
-     * @param updateBy 更新人
+     * @param updateBy     更新人
      * @return 结果
      */
     public int logicDeleteByRootObjectId(@Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
