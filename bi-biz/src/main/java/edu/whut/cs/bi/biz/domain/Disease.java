@@ -68,7 +68,7 @@ public class Disease extends BaseEntity {
     private BigDecimal area;
 
     /** 病害类型 */
-    private String type;
+//    private String type;   与对象属性diseaseType重复
 
     /** 关联对象 */
     private Long biObjectId;
@@ -81,6 +81,10 @@ public class Disease extends BaseEntity {
     /** 关联构建 */
     private Component component;
     private Long componentId;
+
+    /** 关联检测任务 */
+    private Task task;
+    private Long taskId;
 
     /** 关联建筑 */
     private Building building;
