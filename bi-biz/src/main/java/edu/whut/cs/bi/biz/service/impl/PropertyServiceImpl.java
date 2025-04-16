@@ -7,8 +7,11 @@ import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Property;
+import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.service.IPropertyService;
 import org.springframework.beans.BeanUtils;
@@ -17,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,8 +35,11 @@ import java.util.stream.Collectors;
  */
 @Service
 public class PropertyServiceImpl implements IPropertyService {
-    @Autowired
+    @Resource
     private PropertyMapper propertyMapper;
+
+    @Resource
+    private BuildingMapper buildingMapper;
 
     /**
      * 查询属性
@@ -47,17 +54,29 @@ public class PropertyServiceImpl implements IPropertyService {
 
     @Override
     @Transactional
-    public Boolean readJsonFile(MultipartFile file, Property property) {
+    public Boolean readJsonFile(MultipartFile file, Property property, Long buildingId) {
         if (file.isEmpty()) {
             throw new ServiceException("文件不能为空");
         }
 
         try {
+            // 先删除原本的属性树
+            Building bd = buildingMapper.selectBuildingById(buildingId);
+            Long oldRootId = bd.getRootPropertyId();
+            if (oldRootId != null) {
+                this.deletePropertyById(oldRootId);
+            }
             // 将文件内容转化成字符串
             String json = new String(file.getBytes(), "UTF-8");
             // 解析json数据
             JSONObject jsonObject = JSONUtil.parseObj(json, false);
-            buildTree(jsonObject, property);
+            Long rootId = buildTree(jsonObject, property);
+            // 更新建筑的root_property_id
+            Building building = new Building();
+            building.setId(buildingId);
+            building.setRootPropertyId(rootId);
+            building.setUpdateBy(ShiroUtils.getLoginName());
+            buildingMapper.updateBuilding(building);
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -66,11 +85,12 @@ public class PropertyServiceImpl implements IPropertyService {
         return true;
     }
 
-    public void buildTree(JSONObject jsonObject, Property oldProperty) {
+    public Long buildTree(JSONObject jsonObject, Property oldProperty) {
         // 用于显示顺序， 只需要查找一轮数据库找到相同祖先的属性实体
         AtomicInteger orderNum = new AtomicInteger(1);
         Long oldId = oldProperty.getId();
         String ancestors;
+        final Long[] rootId = new Long[1];
         if (oldId != null) {
             ancestors = (oldProperty.getAncestors() != null ? oldProperty.getAncestors() : "") + ","
                     + oldProperty.getId();
@@ -111,6 +131,7 @@ public class PropertyServiceImpl implements IPropertyService {
             if (value instanceof JSONObject) {
                 // 不存value值
                 propertyMapper.insertProperty(property);
+                rootId[0] = property.getId();
                 buildTree((JSONObject) value, property);
             } else if (value instanceof JSONArray) {
                 // json值，这里需要将时间属性作为父节点
@@ -147,6 +168,7 @@ public class PropertyServiceImpl implements IPropertyService {
             }
 
         });
+        return rootId[0];
     }
 
     /**

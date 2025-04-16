@@ -25,9 +25,11 @@ public interface IPropertyService {
      * 读取json文件, 并保存到数据库中
      *
      * @param file
+     * @param property
+     * @param buildingId
      * @return
      */
-    Boolean readJsonFile(MultipartFile file, Property property);
+    Boolean readJsonFile(MultipartFile file, Property property, Long buildingId);
 
     /**
      * 查询属性列表

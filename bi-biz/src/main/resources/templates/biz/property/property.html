@@ -28,10 +28,6 @@
                 <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:property:add">
                     <i class="fa fa-plus"></i> 新增
                 </a>
-                <!-- 新增JSON上传按钮 -->
-                <a class="btn btn-warning" shiro:hasPermission="biz:property:add" onclick="importJson()">
-                    <i class="fa fa-upload"></i> 导入JSON
-                </a>
                 <a class="btn btn-primary" onclick="$.operate.edit()" shiro:hasPermission="biz:property:edit">
                     <i class="fa fa-edit"></i> 修改
                 </a>
@@ -105,49 +101,7 @@
 
         });
 
-        function importJson() {
-            var options = {
-                title: 'JSON数据导入',
-                width: "500",
-                url: ctx + "biz/property/readJson",
-                callBack: function(index, layero){
-                    var iframe = layero.find('iframe')[0];
-                    iframe.contentWindow.submitHandler(function() {
-                        $.treeTable.refresh();  // 确保在数据提交后刷新
-                    });
 
-                }
-            };
-            $.modal.openOptions(options);
-        }
     </script>
 </body>
-
-<!--<style>-->
-<!--    /* 设置表格列的宽度 */-->
-<!--    #bootstrap-tree-table th:nth-child(1),-->
-<!--    #bootstrap-tree-table td:nth-child(1) {-->
-<!--        width: 3% !important; /* 第一列宽度 */-->
-<!--    }-->
-
-<!--    #bootstrap-tree-table th:nth-child(2),-->
-<!--    #bootstrap-tree-table td:nth-child(2) {-->
-<!--        width: 15% !important; /* 第二列宽度 */-->
-<!--    }-->
-
-<!--    #bootstrap-tree-table th:nth-child(3),-->
-<!--    #bootstrap-tree-table td:nth-child(3) {-->
-<!--        width: 5% !important; /* 第三列宽度 */-->
-<!--    }-->
-
-<!--    #bootstrap-tree-table th:nth-child(4),-->
-<!--    #bootstrap-tree-table td:nth-child(4) {-->
-<!--        width: 60% !important; /* 第四列宽度 */-->
-<!--    }-->
-
-<!--    #bootstrap-tree-table th:nth-child(5),-->
-<!--    #bootstrap-tree-table td:nth-child(5) {-->
-<!--        width: 17% !important; /* 第五列宽度 */-->
-<!--    }-->
-<!--</style>-->
 </html>

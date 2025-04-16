@@ -39,9 +39,12 @@ public class PropertyController extends BaseController
         return prefix + "/property";
     }
 
-    @GetMapping("/readJson")
-    public String readJson()
+    @GetMapping("/readJson/{id}")
+    public String readJson(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
     {
+        if (id != null) {
+            mmap.put("buildingId", id);
+        }
         return prefix + "/readJson";
     }
 
@@ -52,12 +55,12 @@ public class PropertyController extends BaseController
     @ResponseBody
     @RequiresPermissions("bi:property:add")
     @Log(title = "读取属性json文件", businessType = BusinessType.INSERT)
-    public Boolean readJsonFile(@RequestPart("file") MultipartFile file)
+    public Boolean readJsonFile(@RequestPart("file") MultipartFile file, Long buildingId)
     {
         Property property = new Property();
         property.setCreateBy(ShiroUtils.getLoginName());
         property.setUpdateBy(ShiroUtils.getLoginName());
-        return propertyService.readJsonFile(file, property);
+        return propertyService.readJsonFile(file, property, buildingId);
     }
 
 

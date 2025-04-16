@@ -23,6 +23,7 @@
 <th:block th:include="include :: footer" />
 <script th:inline="javascript">
     var prefix = ctx + "biz/property";
+    var buildingId = [[${buildingId}]];
 
     // 添加自定义验证方法
     $.validator.addMethod("fileExtension", function(value, element) {
@@ -49,33 +50,14 @@
             if (fileInput.files.length > 0) {
                 var formData = new FormData();
                 formData.append('file', fileInput.files[0]);
-
+                formData.append('buildingId', buildingId);
                 $.operate.submitJsonFile(prefix + "/readJson", formData, function(result) {
-                    if (result) {
+                    if (result && result.code) {
+                        $.modal.alertWarning("系统错误，导入失败！");
+                    } else {
                         if (callback) callback();  // 调用回调函数
                     }
                 });
-                // $.modal.loading("正在处理中，请稍候...");
-                //
-                // // 直接使用$.ajax发送请求
-                // $.ajax({
-                //     url: prefix + "/readJson",
-                //     type: 'POST',
-                //     data: formData,
-                //     processData: false,  // 必须设置
-                //     contentType: false,  // 必须设置
-                //     success: function(result) {
-                //         // result 返回为 true/false
-                //         if (result) {
-                //             $.modal.closeLoading();
-                //             $.modal.msgSuccess("导入成功");
-                //             // 刷新父窗口
-                //             $.modal.close();
-                //         } else {
-                //             $.modal.alertError(result.msg);
-                //         }
-                //     }
-                // });
             }
         }
     }
