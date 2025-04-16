@@ -4,13 +4,16 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
+import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -24,6 +27,9 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Resource
     private DiseaseMapper diseaseMapper;
 
+    @Resource
+    private DiseaseTypeMapper diseaseTypeMapper;
+
     /**
      * 查询病害
      *
@@ -33,7 +39,14 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Override
     public Disease selectDiseaseById(Long id)
     {
-        return diseaseMapper.selectDiseaseById(id);
+        Disease disease = diseaseMapper.selectDiseaseById(id);
+        // 关联查询其它属性
+        Long diseaseTypeId = disease.getDiseaseTypeId();
+
+
+        disease.setDiseaseType(diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId));
+
+        return disease;
     }
 
     /**
@@ -45,7 +58,9 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Override
     public List<Disease> selectDiseaseList(Disease disease)
     {
-        return diseaseMapper.selectDiseaseList(disease);
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+
+        return diseases;
     }
 
     /**
