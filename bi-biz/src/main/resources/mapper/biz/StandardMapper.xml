@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.StandardMapper">
+
+    <resultMap type="Standard" id="StandardResult">
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="standardNo"    column="standard_no"    />
+        <result property="year"    column="year"    />
+        <result property="publisher"    column="publisher"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <association property="attachment" javaType="edu.whut.cs.bi.biz.domain.Attachment" >
+            <id property="id" column="attachment_id" />
+            <result property="name" column="name" />
+            <result property="subjectId" column="id" />
+        </association>
+    </resultMap>
+
+    <sql id="selectStandardVo">
+        select id, name, standard_no, year, publisher, attachment_id, remark, create_by, create_time, update_by, update_time from bi_standard
+    </sql>
+
+    <select id="selectStandardList" parameterType="Standard" resultMap="StandardResult">
+        <include refid="selectStandardVo"/>
+        <where>
+            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="standardNo != null  and standardNo != ''"> and standard_no = #{standardNo}</if>
+            <if test="params.beginYear != null and params.beginYear != '' and params.endYear != null and params.endYear != ''"> and year between #{params.beginYear} and #{params.endYear}</if>
+            <if test="publisher != null  and publisher != ''"> and publisher = #{publisher}</if>
+        </where>
+    </select>
+
+    <select id="selectStandardById" parameterType="Long" resultMap="StandardResult">
+        <include refid="selectStandardVo"/>
+        where id = #{id}
+    </select>
+    <select id="selectAttachmentIdById" resultType="java.lang.Long">
+        select attachment_id from bi_standard where id = #{id}
+    </select>
+    <select id="selectAttachmentIds" parameterType="String" >
+        select CAST(attachment_id as CHAR) from bi_standard where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <insert id="insertStandard" parameterType="Standard" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_standard
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="standardNo != null and standardNo != ''">standard_no,</if>
+            <if test="year != null">year,</if>
+            <if test="publisher != null and publisher != ''">publisher,</if>
+            <if test="attachment != null and attachment.id != null">attachment_id,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="standardNo != null and standardNo != ''">#{standardNo},</if>
+            <if test="year != null">#{year},</if>
+            <if test="publisher != null and publisher != ''">#{publisher},</if>
+            <if test="attachment != null and attachment.id != null">#{attachment.id},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateStandard" parameterType="Standard">
+        update bi_standard
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="standardNo != null and standardNo != ''">standard_no = #{standardNo},</if>
+            <if test="year != null">year = #{year},</if>
+            <if test="publisher != null and publisher != ''">publisher = #{publisher},</if>
+            <if test="attachment != null and attachment.id != null">attachment_id = #{attachment.id},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+    <update id="setAttachmentId">
+        update bi_standard set attachment_id = #{AttachmentId} where id = #{StandardId}
+    </update>
+
+    <delete id="deleteStandardById" parameterType="Long">
+        delete from bi_standard where id = #{id}
+    </delete>
+
+    <delete id="deleteStandardByIds" parameterType="String">
+        delete from bi_standard where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

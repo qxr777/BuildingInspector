@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.AttachmentMapper">
+
+    <resultMap type="Attachment" id="AttachmentResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="subjectId" column="subject_id"/>
+        <result property="minioId" column="minio_id"/>
+        <result property="type" column="type"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectAttachmentVo">
+        select id, name, type, minio_id, subject_id, create_by, create_time, update_by, update_time from bi_attachment
+    </sql>
+
+    <select id="selectAll" resultMap="AttachmentResult">
+        <include refid="selectAttachmentVo"/>
+    </select>
+
+    <select id="selectById" parameterType="Long" resultMap="AttachmentResult">
+        <include refid="selectAttachmentVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectBySubjectId" parameterType="Long" resultMap="AttachmentResult">
+        <include refid="selectAttachmentVo"/>
+        where subject_id = #{id}
+    </select>
+    <select id="getMinioId" >
+        select minio_id from bi_attachment where id = #{id}
+    </select>
+    <select id="selectMinioIdsByIds" parameterType="String">
+        select CAST(minio_id AS CHAR) from bi_attachment where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+
+    </select>
+
+    <insert id="insert" parameterType="Attachment" useGeneratedKeys="true" keyProperty="id"> <!-- 添加: useGeneratedKeys 和 keyProperty -->
+        insert into bi_attachment
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="subjectId != null">subject_id,</if>
+            <if test="type != null">type,</if>
+            <if test="minioId != null">minio_id,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="subjectId != null">#{subjectId},</if>
+            <if test="type != null">#{type},</if>
+            <if test="minioId != null">#{minioId},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="Attachment">
+        update bi_attachment
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="subjectId != null">subject_id = #{subjectId},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from bi_attachment where id = #{id}
+    </delete>
+    <delete id="deleteByIds" parameterType="String">
+        delete from bi_attachment where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

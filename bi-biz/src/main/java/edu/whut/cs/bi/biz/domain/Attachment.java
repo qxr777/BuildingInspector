@@ -13,8 +13,12 @@ public class Attachment extends BaseEntity{
     private String name;
     /** 关联主体id */
     private Long subjectId;
-    /** 附件类型（null为病害附件，2为设备附件） */
+    /** 附件类型（null为病害附件，2为设备附件 , 5 为标准文档） */
     private Integer type;
+    /** minio 的文件唯一标识 */
+    private Long minioId;
+
+
 
     /**
      * TODO: 附件存储在MinIO 中
@@ -50,5 +54,13 @@ public class Attachment extends BaseEntity{
 
     public void setType(Integer type) {
         this.type = type;
+    }
+
+    public Long getMinioId() {
+        return minioId;
+    }
+
+    public void setMinioId(Long minioId) {
+        this.minioId = minioId;
     }
 }
