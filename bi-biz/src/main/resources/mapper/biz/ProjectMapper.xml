@@ -15,7 +15,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="code"    column="code"    />
         <result property="startDate"    column="start_date"    />
         <result property="endDate"    column="end_date"    />
-        <result property="contractAmount"    column="contract_amount"    />
+        <result property="contractAmount"    column="contract_amount" javaType="BigDecimal" jdbcType="DECIMAL"/>
         <result property="remark"    column="remark"    />
         <result property="createBy"    column="create_by"    />
         <result property="createTime"    column="create_time"    />
