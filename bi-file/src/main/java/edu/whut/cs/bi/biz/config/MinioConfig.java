@@ -1,9 +1,16 @@
 package edu.whut.cs.bi.biz.config;
 
+import io.minio.BucketExistsArgs;
+import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
+import io.minio.errors.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 @Configuration
 public class MinioConfig {
@@ -21,11 +28,23 @@ public class MinioConfig {
   private String bucketName;
 
   @Bean
-  public MinioClient minioClient() {
-    return MinioClient.builder()
+  public MinioClient minioClient()
+      throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException,
+      InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+
+    MinioClient build = MinioClient.builder()
         .endpoint(endpoint)
         .credentials(accessKey, secretKey)
+        .region("cn-north-1")
         .build();
+    boolean isExist = build.bucketExists(
+        BucketExistsArgs.builder().bucket(bucketName).build());
+    System.out.println("------------------------");
+    System.out.println(isExist);
+    if (!isExist) {
+      build.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+    }
+    return build;
   }
 
   public String getEndpoint() {
