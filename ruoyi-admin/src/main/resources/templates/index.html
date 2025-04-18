@@ -15,10 +15,239 @@
     <link th:href="@{/css/style.min.css}" rel="stylesheet"/>
     <link th:href="@{/css/skins.css}" rel="stylesheet"/>
     <link th:href="@{/ruoyi/css/ry-ui.css?v=4.6.2}" rel="stylesheet"/>
+	<!--聊天机器人 css-->
+	<style>
+		.floating-button {
+			position: fixed;
+			bottom: 20px;
+			right: 20px;
+			width: 60px;
+			height: 60px;
+			border-radius: 50%;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			cursor: grab;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+			z-index: 1000;
+			background-color: white;
+			overflow: hidden;
+		}
+
+		.robot-image {
+			width: 85%;
+			height: 85%;
+			object-fit: contain;
+			border-radius: 50%;
+		}
+
+		.chat-container {
+			position: fixed;
+			bottom: 117px;
+			right: 20px;
+			width: 380px;
+			height: 680px;
+			background-color: white;
+			border-radius: 10px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+			z-index: 1001;
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.chat-header {
+			background-color: white;
+			color: #333;
+			padding: 15px;
+			display: flex;
+			height: 40px;
+			justify-content: space-between;
+			align-items: center;
+			border-radius: 10px 10px 0 0;
+			border-bottom: 1px solid #eee;
+		}
+
+		.chat-header h3 {
+			margin: 0;
+			font-size: 16px;
+			display: flex;
+			align-items: center;
+		}
+
+		.chat-header h3 img {
+			width: 20px;
+			height: 20px;
+			margin-right: 8px;
+		}
+
+		.chat-header .header-actions {
+			display: flex;
+			align-items: center;
+		}
+
+		.chat-header .header-btn {
+			background: none;
+			border: none;
+			cursor: pointer;
+			margin-left: 10px;
+			font-size: 16px;
+			color: #555;
+		}
+
+		.close-button {
+			cursor: pointer;
+			font-size: 20px;
+		}
+
+		.chat-agent-info {
+			padding: 10px;
+			text-align: center;
+			border-bottom: 1px solid #f0f0f0;
+		}
+
+		.agent-avatar {
+			width: 50px;
+			height: 50px;
+			margin-bottom: 5px;
+		}
+
+		.agent-name {
+			font-size: 14px;
+			font-weight: bold;
+			margin-bottom: 3px;
+			color: #333;
+		}
+
+		.chat-messages {
+			height: 320px;
+			padding: 10px;
+			overflow-y: auto;
+			background-color: #f8f9fa;
+			flex: 1;
+		}
+
+		.quick-questions {
+			padding: 6px;
+		}
+
+		.quick-question-btn {
+			display: block;
+			width: 100%;
+			padding: 6px 10px;
+			margin-bottom: 6px;
+			background-color: white;
+			border: 1px solid #e0e0e0;
+			border-radius: 18px;
+			text-align: left;
+			font-size: 13px;
+			cursor: pointer;
+			transition: background-color 0.2s;
+		}
+
+		.quick-question-btn:hover {
+			background-color: #f0f0f0;
+		}
+
+		.chat-input {
+			display: flex;
+			padding: 10px 10px 15px 10px;
+			border-top: 1px solid #eee;
+			background-color: white;
+			align-items: center;
+			min-height: 60px;
+			box-sizing: border-box;
+		}
+
+		.chat-input input {
+			flex: 1;
+			padding: 8px 15px;
+			border: 1px solid #ddd;
+			border-radius: 20px;
+			margin-right: 5px;
+			background-color: #f5f5f5;
+			height: 36px;
+			min-width: 160px;
+			outline: none;
+		}
+
+		.chat-input .functions-btn {
+			width: 36px;
+			height: 36px;
+			min-width: 36px;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			background: none;
+			border: none;
+			cursor: pointer;
+			font-size: 20px;
+			color: #555;
+			margin-right: 5px;
+		}
+
+		.chat-input button#sendMessage {
+			width: 36px;
+			height: 36px;
+			min-width: 36px;
+			border-radius: 50%;
+			background-color: #4CAF50;
+			color: white;
+			border: none;
+			cursor: pointer;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+		.chat-input button:hover { /* 新增悬停样式 */
+			background-color: #45a049; /* 颜色加深 */
+		}
+
+		.message {
+			margin-bottom: 10px;
+			padding: 10px 15px;
+			border-radius: 18px;
+			max-width: 80%;
+			word-wrap: break-word;
+		}
+
+		.sent {
+			background-color: #e3f2fd;
+			text-align: right;
+			margin-left: auto;
+			border-bottom-right-radius: 5px;
+		}
+
+		.received {
+			background-color: #f5f5f5;
+			text-align: left;
+			margin-right: auto;
+			border-bottom-left-radius: 5px;
+		}
+
+		.chat-footer {
+			padding: 5px 10px;
+			text-align: center;
+			font-size: 12px;
+			color: #999;
+			border-top: 1px solid #f0f0f0;
+		}
+
+		/* 适配移动设备 */
+		@media screen and (max-width: 600px) {
+			.chat-container {
+				width: 100%;
+				height: 100%;
+				bottom: 0;
+				right: 0;
+				border-radius: 0;
+			}
+		}
+	</style>
 </head>
 <body class="fixed-sidebar full-height-layout gray-bg" style="overflow: hidden">
 <!-- Install SDK -->
-<script src="https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.1.0-beta.1/libs/cn/index.js"></script>
+<!--<script src="https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.1.0-beta.1/libs/cn/index.js"></script>-->
 <script src="./index.js"></script>
 <div id="wrapper">
 
@@ -260,6 +489,42 @@
     </div>
     <!--右侧部分结束-->
 </div>
+
+
+
+<!-- 悬浮聊天助手 -->
+<div class="floating-button" id="chatButton">
+	<img th:src="@{/img/robot.jpeg}" alt="聊天助手" class="robot-image" draggable="false">
+</div>
+<div class="chat-container" id="chatContainer" style="display:none;">
+	<div class="chat-header">
+		<h3><img th:src="@{/img/robot.jpeg}" alt="业务助理图标"> 业务助理</h3>
+		<div class="header-actions">
+			<span class="close-button" id="closeChat">×</span>
+		</div>
+	</div>
+	<div class="chat-agent-info">
+		<img th:src="@{/img/bridge-road.jpeg}" alt="Agent Avatar" class="agent-avatar">
+		<div class="agent-name">湖北交投智能检测Agent</div>
+	</div>
+	<div class="chat-messages" id="chatMessages">
+		<!-- 消息将通过JS动态添加 -->
+	</div>
+	<div class="quick-questions">
+		<button class="quick-question-btn" data-question="公司有哪些突出的业务领域？">公司有哪些突出的业务领域？</button>
+		<button class="quick-question-btn" data-question="公司获得过哪些荣誉？">公司获得过哪些荣誉？</button>
+		<button class="quick-question-btn" data-question="公司未来有怎样的发展规划？">公司未来有怎样的发展规划？</button>
+	</div>
+	<div class="chat-input">
+		<input type="text" id="messageInput" placeholder="输入消息...">
+		<label for="fileInput" class="functions-btn" title="上传文件"><i class="fa fa-file"></i></label>
+		<input type="file" id="fileInput" style="display: none;">
+		<button id="sendMessage"><i class="fa fa-paper-plane"></i></button>
+	</div>
+	<div class="chat-footer">
+		Powered by 湖北交投
+	</div>
+</div>
 <!-- 全局js -->
 <script th:src="@{/js/jquery.min.js}"></script>
 <script th:src="@{/js/bootstrap.min.js}"></script>
@@ -377,6 +642,236 @@ $(function() {
 		});
 	}
 	$("[data-toggle='tooltip']").tooltip();
+});
+
+
+// 聊天机器人 js
+
+async function getUserId() {
+	try {
+		// 暂定的url
+		const userIdUrl = 'http://localhost:80/biz/chat/getUserId';
+		const response = await fetch(userIdUrl);
+		if (!response.ok) throw new Error('获取userId失败');
+		const userId = await response.json();
+		return userId;
+	} catch (error) {
+		console.error('获取userId失败:', error);
+		return null;
+	}
+}
+// 获取元素引用
+const chatButton = document.getElementById('chatButton');
+const chatContainer = document.getElementById('chatContainer');
+const closeChat = document.getElementById('closeChat');
+const messageInput = document.getElementById('messageInput');
+const sendMessageButton = document.getElementById('sendMessage');
+const chatMessages = document.getElementById('chatMessages');
+
+
+
+
+// 发送消息函数
+async function sendMessage() {
+	const message = messageInput.value.trim();
+	if (!message) return;
+
+	// 添加用户消息
+	addMessage(message, 'sent');
+	messageInput.value = '';
+
+	try {
+		const userId = await getUserId();
+		if (userId === null) {
+			addMessage('无法获取用户ID，请稍后再试', 'received');
+			return;
+		}
+		// 调用API, url 暂定
+		const url = 'http://localhost:8081/api/dialog';
+		const response = await fetch(url+`?message=${encodeURIComponent(message)}&userId=${encodeURIComponent(userId)}`);
+		if (!response.ok) throw new Error('请求失败');
+		const content = await response.text();
+
+		// 添加机器人回复
+		addMessage(content, 'received');
+	} catch (error) {
+		addMessage('服务暂时不可用，请稍后再试', 'received');
+		console.error('API请求错误:', error);
+	}
+}
+
+// 添加消息到聊天窗口
+function addMessage(content, type) {
+	const messageDiv = document.createElement('div');
+	messageDiv.className = `message ${type}`;
+	messageDiv.textContent = content;
+	chatMessages.appendChild(messageDiv);
+	chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 事件监听 (发送按钮和输入框)
+sendMessageButton.addEventListener('click', sendMessage);
+messageInput.addEventListener('keypress', (e) => {
+	if (e.key === 'Enter') sendMessage();
+});
+
+
+// 拖动功能
+let isDragging = false;
+let hasMoved = false;
+let isMouseDown = false;
+let offsetX, offsetY;
+let startX, startY;
+const DRAG_THRESHOLD = 5; // 拖动阈值
+
+function makeDraggable(element) {
+
+	function onMouseDown(e) {
+		e.preventDefault();
+		isDragging = false;
+		hasMoved = false;
+		isMouseDown = true;
+		startX = e.clientX;
+		startY = e.clientY;
+		offsetX = e.clientX - element.getBoundingClientRect().left;
+		offsetY = e.clientY - element.getBoundingClientRect().top;
+	}
+
+	function onMouseMove(e) {
+		if(isMouseDown){
+			const deltaX = Math.abs(e.clientX - startX);
+			const deltaY = Math.abs(e.clientY - startY);
+
+			if (deltaX > 0 || deltaY > 0) {
+				hasMoved = true;
+			}
+			if (!isDragging && (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD)) {
+				isDragging = true;
+				element.style.cursor = 'grabbing';
+			}
+			if (!isDragging) return;
+			const x = e.clientX - offsetX;
+			const y = e.clientY - offsetY;
+			const maxX = window.innerWidth - element.offsetWidth;
+			const maxY = window.innerHeight - element.offsetHeight;
+			const newX = Math.max(0, Math.min(x, maxX));
+			const newY = Math.max(0, Math.min(y, maxY));
+			element.style.left = newX + 'px';
+			element.style.right = 'auto';
+			element.style.top = newY + 'px';
+			element.style.bottom = 'auto';
+		}
+
+	}
+
+	element.addEventListener('mousedown', onMouseDown);
+	document.addEventListener('mousemove', onMouseMove);
+}
+function onMouseUp(e) {
+
+	// 只有在没有拖动的情况下才触发点击事件
+	if (!isDragging && e.target.closest('#chatButton')) {
+		toggleChatContainer();
+	}
+	isDragging = false;
+	hasMoved = false;
+	isMouseDown = false;
+}
+document.addEventListener('mouseup', onMouseUp);
+
+// 更新聊天窗口位置
+function updateChatContainerPosition() {
+	const buttonRect = chatButton.getBoundingClientRect();
+	const chatX = buttonRect.left;
+	const chatY = buttonRect.top - chatContainer.offsetHeight - 10; // 10px 间距
+	const maxX = window.innerWidth - chatContainer.offsetWidth;
+	const newX = Math.max(0, Math.min(chatX, maxX));
+	let newY = chatY;
+	if (newY < 0) {
+		newY = buttonRect.top;
+		// 尝试放在右侧
+		if (buttonRect.left + buttonRect.width + chatContainer.offsetWidth < window.innerWidth) {
+			chatContainer.style.left = (buttonRect.left + buttonRect.width + 10) + 'px';
+		}
+		// 否则放在左侧
+		else if (buttonRect.left - chatContainer.offsetWidth > 0) {
+			chatContainer.style.left = (buttonRect.left - chatContainer.offsetWidth - 10) + 'px';
+		}
+		// 如果左右都不行，就放在按钮下方
+		else {
+			newY = buttonRect.top + buttonRect.height + 10;
+			chatContainer.style.left = newX + 'px';
+		}
+	} else {
+		chatContainer.style.left = newX + 'px';
+	}
+	chatContainer.style.top = newY + 'px';
+	chatContainer.style.right = 'auto';
+	chatContainer.style.bottom = 'auto';
+}
+
+// 切换聊天窗口显示状态
+function toggleChatContainer() {
+	if (chatContainer.style.display === 'none') {
+		chatContainer.style.display = 'block';
+		updateChatContainerPosition();
+	} else {
+		chatContainer.style.display = 'none';
+	}
+}
+// 添加拖动功能
+makeDraggable(chatButton);
+// 关闭按钮的点击事件
+closeChat.addEventListener('click', function(e) {
+	chatContainer.style.display = 'none';
+});
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+	// 添加欢迎消息
+	setTimeout(function() {
+		addMessage("嗨，你好！我专注于为你提供精准的企业信息服务，助力你深入了解。", 'received');
+	}, 500);
+
+	// 为预设问题按钮添加点击事件
+	document.querySelectorAll('.quick-question-btn').forEach(function(button) {
+		button.addEventListener('click', function() {
+			const question = this.getAttribute('data-question');
+			// 添加用户消息
+			addMessage(question, 'sent');
+			// 触发发送消息流程
+			getUserId().then(userId => {
+				if (userId === null) {
+					addMessage('无法获取用户ID，请稍后再试', 'received');
+					return;
+				}
+				fetch(`http://localhost:8081/api/dialog?message=${encodeURIComponent(question)}&userId=${encodeURIComponent(userId)}`)
+						.then(response => {
+							if (!response.ok) throw new Error('请求失败');
+							return response.text();
+						})
+						.then(content => {
+							// 添加机器人回复
+							addMessage(content, 'received');
+						})
+						.catch(error => {
+							addMessage('服务暂时不可用，请稍后再试', 'received');
+							console.error('API请求错误:', error);
+						});
+			});
+		});
+	});
+
+	// 文件上传按钮点击事件
+	document.getElementById('fileInput').addEventListener('change', function() {
+		if (this.files && this.files.length > 0) {
+			const fileName = this.files[0].name;
+			addMessage(`已选择文件: ${fileName}`, 'sent');
+			addMessage('文件上传功能正在开发中，暂不支持将文件作为上下文处理', 'received');
+			// 清空选择，允许重复选择相同文件
+			this.value = '';
+		}
+	});
 });
 </script>
 </body>
