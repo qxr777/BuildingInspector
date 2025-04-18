@@ -12,9 +12,15 @@ import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.StandardService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
@@ -42,6 +48,8 @@ public class StandardController extends BaseController
 
     @Autowired
     private IFileMapService fileMapService;
+    @Autowired
+    private RestTemplate restTemplate;
 
     @RequiresPermissions("biz:standard:view")
     @GetMapping()
@@ -98,6 +106,10 @@ public class StandardController extends BaseController
     {
         // 处理文件上传
         if (!file.isEmpty()) {
+
+                // 上传到 milvus 向量数据库
+                uploadFileToExternalService(file);
+
                 FileMap fileMap = fileMapService.handleFileUpload(file);
                 Attachment attachment = null;
                 standard.setAttachment(attachment);
@@ -115,6 +127,45 @@ public class StandardController extends BaseController
         }
         return toAjax(0);
     }
+    // 私有方法：调用外部文件上传服务
+    private String uploadFileToExternalService(MultipartFile file) {
+        try {
+            // 暂定的url
+            String url = "http://localhost:8081/api/upload";
+            // 创建请求的文件资源
+
+            byte[] fileContent = file.getBytes();
+            String fileName = file.getOriginalFilename();
+            Resource fileResource = new ByteArrayResource(fileContent) {
+                @Override
+                public String getFilename() {
+                    return fileName;
+                }
+            };
+            MultiValueMap<String, Object> map = new LinkedMultiValueMap<>();
+            map.add("file", fileResource);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(map, headers);
+
+            // 调用外部文件上传接口
+            ResponseEntity<String> response = restTemplate.postForEntity( url, requestEntity, String.class);
+
+            if (response.getStatusCode() == HttpStatus.OK) {
+                // 返回外部接口的响应内容
+                return response.getBody();
+            } else {
+                throw new RuntimeException("External file upload failed with status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error during external file upload", e);
+        }
+    }
+
+
 
     /**
      * 修改标准
