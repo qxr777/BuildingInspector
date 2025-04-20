@@ -31,7 +31,7 @@ public interface IComponentService {
      * @param biObjectId 部件ID
      * @return 构件集合
      */
-    public List<Component> selectComponentsByBiObjectId(String biObjectId);
+    public List<Component> selectComponentsByBiObjectId(Long biObjectId);
 
     /**
      * 查询部件及其子部件下的构件列表
@@ -39,7 +39,7 @@ public interface IComponentService {
      * @param biObjectId 部件ID
      * @return 构件集合
      */
-    public List<Component> selectComponentsByBiObjectIdAndChildren(String biObjectId);
+    public List<Component> selectComponentsByBiObjectIdAndChildren(Long biObjectId);
 
     /**
      * 新增构件
@@ -77,8 +77,8 @@ public interface IComponentService {
      * 批量生成构件
      *
      * @param biObjectId 部件ID
-     * @param segments 编号片段列表
+     * @param segments   编号片段列表
      * @return 结果
      */
-    public int generateComponents(String biObjectId, List<CodeSegment> segments);
+    public int generateComponents(Long biObjectId, List<CodeSegment> segments);
 }

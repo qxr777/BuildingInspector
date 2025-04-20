@@ -56,7 +56,7 @@ public class ComponentController extends BaseController {
     public TableDataInfo list(Component component) {
         startPage();
         List<Component> list;
-        if (component.getBiObjectId() != null && !component.getBiObjectId().isEmpty()) {
+        if (component.getBiObjectId() != null) {
             list = componentService.selectComponentsByBiObjectIdAndChildren(component.getBiObjectId());
         } else {
             list = new ArrayList<>();
@@ -159,7 +159,7 @@ public class ComponentController extends BaseController {
     @Log(title = "构件", businessType = BusinessType.INSERT)
     @PostMapping("/generateComponents")
     @ResponseBody
-    public AjaxResult generateComponents(@RequestParam("biObjectId") String biObjectId, @RequestBody List<CodeSegment> segments) {
+    public AjaxResult generateComponents(@RequestParam("biObjectId") Long biObjectId, @RequestBody List<CodeSegment> segments) {
         try {
             int count = componentService.generateComponents(biObjectId, segments);
             return success("成功生成" + count + "个构件");

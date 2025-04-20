@@ -35,7 +35,7 @@ public class Component extends BaseEntity {
      * 关联对象对象ID
      */
     @Excel(name = "关联对象ID")
-    private String biObjectId;
+    private Long biObjectId;
 
     /**
      * 对象状态（0正常 1停用）
@@ -72,11 +72,11 @@ public class Component extends BaseEntity {
         this.delFlag = delFlag;
     }
 
-    public String getBiObjectId() {
+    public Long getBiObjectId() {
         return biObjectId;
     }
 
-    public void setBiObjectId(String biObjectId) {
+    public void setBiObjectId(Long biObjectId) {
         this.biObjectId = biObjectId;
     }
 

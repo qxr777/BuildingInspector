@@ -76,6 +76,7 @@
     var editFlag = [[${@permission.hasPermi('biz:task:edit')}]];
     var statusDatas = [[${@dict.getType('bi_task_status')}]];
     var prefix = ctx + "biz/task";
+    var evaluationPrefix = ctx + "biz/bievaluation";
 
     $(function () {
         var options = {
@@ -120,18 +121,39 @@
                         var actions = [];
                         actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                         actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="inspect(\'' + row.id + '\')"><i class="fa fa-search"></i>检查</a> ');
+                        actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="doEvaluate(\'' + row.id + '\', \'' + row.building.rootObjectId + '\')"><i class="fa fa-calculator"></i>评定</a> ');
                         return actions.join('');
                     }
                 }]
         };
 
         $.table.init(options);
-
     });
 
     function inspect(taskId) {
         var url = prefix + "/inspect/" + taskId;
         $.modal.openTab("任务检查", url);
+    }
+
+    function doEvaluate(taskId, rootObjectId) {
+        $.modal.loading("正在计算评定结果，请稍候...");
+        $.ajax({
+            type: "GET",
+            url: evaluationPrefix + "/calculate/" + taskId + "/" + rootObjectId,
+            success: function(result) {
+                $.modal.closeLoading();
+                if (result.code == 0) {
+                    var url = evaluationPrefix + "/detail/" + taskId;
+                    $.modal.openTab("技术状况评定", url);
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            },
+            error: function() {
+                $.modal.closeLoading();
+                $.modal.alertError("系统错误");
+            }
+        });
     }
 </script>
 </body>

@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service;
 
 import java.util.List;
+
 import edu.whut.cs.bi.biz.domain.BiObject;
 import com.ruoyi.common.core.domain.Ztree;
 
@@ -10,8 +11,7 @@ import com.ruoyi.common.core.domain.Ztree;
  * @author ruoyi
  * @date 2025-03-27
  */
-public interface IBiObjectService
-{
+public interface IBiObjectService {
     /**
      * 查询对象
      *
@@ -79,7 +79,7 @@ public interface IBiObjectService
      * 根据根节点ID逻辑删除对象及其所有子节点
      *
      * @param rootObjectId 根节点ID
-     * @param updateBy 更新人
+     * @param updateBy     更新人
      * @return 结果
      */
     public int logicDeleteByRootObjectId(Long rootObjectId, String updateBy);
@@ -87,9 +87,33 @@ public interface IBiObjectService
     /**
      * 更新子节点的ancestors
      *
-     * @param parentId 父节点ID
+     * @param parentId  父节点ID
      * @param ancestors 父节点的ancestors
      * @return 结果
      */
     public int updateChildrenAncestors(Long parentId, String ancestors);
+
+    /**
+     * 查询指定部件树下的所有叶子节点
+     *
+     * @param rootId 根节点ID
+     * @return 叶子节点列表
+     */
+    public List<BiObject> selectLeafNodes(Long rootId);
+
+    /**
+     * 查询指定节点下的所有孩子节点
+     *
+     * @param parentId 根节点ID
+     * @return 叶子节点列表
+     */
+    public List<BiObject> selectDirectChildrenByParentId(Long parentId);
+
+    /**
+     * 查询指定节点的直接父节点
+     *
+     * @param id 根节点ID
+     * @return BiObject
+     */
+    public BiObject selectDirectParentById(Long id);
 }

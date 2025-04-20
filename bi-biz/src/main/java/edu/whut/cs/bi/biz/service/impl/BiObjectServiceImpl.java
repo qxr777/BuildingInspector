@@ -213,4 +213,19 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
         return count;
     }
+
+    @Override
+    public List<BiObject> selectLeafNodes(Long rootId) {
+        return biObjectMapper.selectLeafNodes(rootId);
+    }
+
+    @Override
+    public List<BiObject> selectDirectChildrenByParentId(Long parentId) {
+        return biObjectMapper.selectChildrenByParentId(parentId);
+    }
+
+    @Override
+    public BiObject selectDirectParentById(Long id) {
+        return biObjectMapper.selectDirectParentById(id);
+    }
 }

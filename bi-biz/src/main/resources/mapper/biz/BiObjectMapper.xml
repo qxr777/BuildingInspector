@@ -26,13 +26,14 @@
         <result property="updateTime" column="update_time" />
         <result property="remark"     column="remark"     />
         <result property="parentName" column="parent_name" />
+        <result property="count" column="count" />
         <result property="templateObjectId" column="template_object_id" />
     </resultMap>
 
     <sql id="selectBiObjectVo">
         select id, name, parent_id, ancestors, order_num, status, del_flag, longitude, latitude,
                altitude, position, area, admin_dept, weight, video_feed, create_by, create_time, update_by,
-               update_time, remark, template_object_id
+               update_time, remark, template_object_id,count
         from bi_object
     </sql>
 
@@ -151,6 +152,7 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="count != null">count = #{count},</if>
             <if test="templateObjectId != null">template_object_id = #{templateObjectId},</if>
         </trim>
         where id = #{id}
@@ -211,5 +213,44 @@
             #{item.id}
         </foreach>
     </update>
+
+
+    <select id="selectLeafNodes" parameterType="Long" resultMap="BiObjectResult">
+        WITH RECURSIVE tree AS (
+            -- 初始查询，获取根节点
+            SELECT id, parent_id, name, weight, order_num, status, create_by, create_time,
+                   update_by, update_time, remark, del_flag
+            FROM bi_object
+            WHERE id = #{rootId}
+
+            UNION ALL
+
+            -- 递归查询子节点
+            SELECT c.id, c.parent_id, c.name, c.weight, c.order_num, c.status, c.create_by,
+                   c.create_time, c.update_by, c.update_time, c.remark, c.del_flag
+            FROM bi_object c
+                     INNER JOIN tree p ON c.parent_id = p.id
+            WHERE c.del_flag = '0'
+        )
+        SELECT DISTINCT t.*
+        FROM tree t
+        WHERE NOT EXISTS (
+            -- 查找没有子节点的节点（即叶子节点）
+            SELECT 1
+            FROM bi_object c
+            WHERE c.parent_id = t.id
+              AND c.del_flag = '0'
+        )
+          AND t.del_flag = '0'
+        ORDER BY t.order_num;
+    </select>
+
+    <select id="selectDirectParentById" parameterType="Long" resultMap="BiObjectResult">
+        select p.*
+        from bi_object c
+                 join bi_object p on c.parent_id = p.id
+        where c.id = #{id}
+          and p.del_flag = '0'
+    </select>
 
 </mapper>

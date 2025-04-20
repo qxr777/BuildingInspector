@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ConditionMapper">
+
+    <resultMap type="Condition" id="ConditionResult">
+        <result property="id" column="id"/>
+        <result property="score" column="score"/>
+        <result property="level" column="level"/>
+        <result property="componentsCount" column="components_count"/>
+        <result property="biObjectId" column="bi_object_id"/>
+        <result property="biEvaluationId" column="bi_evaluation_id"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+        <association property="biObject" javaType="BiObject">
+            <id property="id" column="bi_object_id"/>
+            <result property="name" column="bi_object_name"/>
+            <result property="parentId" column="bi_object_parent_id"/>
+            <result property="ancestors" column="bi_object_ancestors"/>
+            <result property="weight" column="bi_object_weight"/>
+        </association>
+    </resultMap>
+
+    <sql id="selectConditionVo">
+        select c.id, c.score, c.level, c.components_count, c.bi_object_id, c.bi_evaluation_id,
+               c.create_by, c.create_time, c.update_by, c.update_time, c.remark,
+               o.name as bi_object_name, o.parent_id as bi_object_parent_id,
+               o.ancestors as bi_object_ancestors, o.weight as bi_object_weight
+        from bi_condition c
+                 left join bi_object o on c.bi_object_id = o.id
+    </sql>
+
+    <select id="selectConditionById" parameterType="Long" resultMap="ConditionResult">
+        <include refid="selectConditionVo"/>
+        where c.id = #{id}
+    </select>
+
+    <select id="selectConditionList" parameterType="Condition" resultMap="ConditionResult">
+        <include refid="selectConditionVo"/>
+        <where>
+            <if test="id != null">
+                and c.id = #{id}
+            </if>
+            <if test="score != null">
+                and c.score = #{score}
+            </if>
+            <if test="level != null">
+                and c.level = #{level}
+            </if>
+            <if test="componentsCount != null">
+                and c.components_count = #{componentsCount}
+            </if>
+            <if test="biObjectId != null">
+                and c.bi_object_id = #{biObjectId}
+            </if>
+            <if test="biEvaluationId != null">
+                and c.bi_evaluation_id = #{biEvaluationId}
+            </if>
+            <if test="biObject != null and biObject.name != null and biObject.name != ''">
+                and o.name like concat('%', #{biObject.name}, '%')
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertCondition" parameterType="Condition" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_condition
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="score != null">score,</if>
+            <if test="level != null">level,</if>
+            <if test="componentsCount != null">components_count,</if>
+            <if test="biObjectId != null">bi_object_id,</if>
+            <if test="biEvaluationId != null">bi_evaluation_id,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+            <if test="weight != null">weight,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="score != null">#{score},</if>
+            <if test="level != null">#{level},</if>
+            <if test="componentsCount != null">#{componentsCount},</if>
+            <if test="biObjectId != null">#{biObjectId},</if>
+            <if test="biEvaluationId != null">#{biEvaluationId},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="weight != null">#{weight},</if>
+        </trim>
+    </insert>
+
+    <update id="updateCondition" parameterType="Condition">
+        update bi_condition
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="score != null">score = #{score},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="componentsCount != null">components_count = #{componentsCount},</if>
+            <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
+            <if test="biEvaluationId != null">bi_evaluation_id = #{biEvaluationId},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteConditionById" parameterType="Long">
+        delete from bi_condition where id = #{id}
+    </delete>
+
+    <delete id="deleteConditionByIds" parameterType="String">
+        delete from bi_condition where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Component;
+
 import java.util.List;
 
 /**
@@ -29,7 +30,7 @@ public interface ComponentMapper {
      * @param biObjectId 部件ID
      * @return 构件集合
      */
-    public List<Component> selectComponentsByBiObjectId(String biObjectId);
+    public List<Component> selectComponentsByBiObjectId(Long biObjectId);
 
     /**
      * 查询部件及其子部件下的构件列表
@@ -37,7 +38,7 @@ public interface ComponentMapper {
      * @param biObjectId 部件ID
      * @return 构件集合
      */
-    public List<Component> selectComponentsByBiObjectIdAndChildren(String biObjectId);
+    public List<Component> selectComponentsByBiObjectIdAndChildren(Long biObjectId);
 
     /**
      * 新增构件

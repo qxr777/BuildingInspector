@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('桥梁技术状况评定')" />
+    <style>
+        .evaluation-header {
+            background-color: #f5f5f5;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            border-left: 3px solid #1ab394;
+        }
+        .evaluation-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 8px;
+            margin-bottom: 20px;
+            table-layout: fixed;
+        }
+        .evaluation-table tr {
+            margin-bottom: 10px;
+        }
+        .evaluation-table td {
+            padding: 0;
+            height: 40px;
+            border: 1px solid #e7e7e7;
+            background-color: #f9f9f9;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .component-cell {
+            background-color: #f5f5f5 !important;
+            padding: 8px !important;
+            width: 180px;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .label-value-cell {
+            display: flex;
+            height: 100%;
+        }
+        .cell-label {
+            width: 80px;
+            padding: 8px;
+            text-align: center;
+            background-color: #fff;
+            border-right: 1px solid #e7e7e7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cell-value {
+            flex-grow: 1;
+            padding: 8px;
+            background-color: #f5f5f5;
+            display: flex;
+            align-items: center;
+        }
+        .score-button {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            color: black;
+            text-align: center;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            line-height: 40px;
+        }
+        .score-button:hover {
+            background-color: #18a689;
+            color: white;
+            text-decoration: none;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100%;
+            background: #fff;
+            border-left: 1px solid #ddd;
+            transition: right 0.3s;
+            z-index: 1002;
+            padding: 20px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+        }
+        .sidebar.active {
+            right: 0;
+        }
+        .sidebar-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+        .section-container {
+            margin-bottom: 20px;
+        }
+        .value-cell {
+            width: calc(100% - 80px);
+        }
+        /* 遮罩层样式 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1001;
+            display: none;
+        }
+        .overlay.active {
+            display: block;
+        }
+        /* 侧边栏内容样式 */
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .score-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .score-table th, .score-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .score-table th {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+    <div class="evaluation-result">
+        <h3>评定结果</h3>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label>总体评定等级：</label>
+                    <span th:text="${evaluation.level}"></span>
+                    <label>（系统评定等级：</label>
+                    <span th:text="${evaluation.systemLevel}"></span>
+                    <label>，得分：</label>
+                    <span th:text="${evaluation.systemScore}"></span>
+                    <label>）</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 上部结构 -->
+        <div class="section-container">
+            <div class="evaluation-header">
+                上部构造结构——评定等级：<span th:text="${evaluation.superstructureLevel}"></span>，
+                得分：<span th:text="${evaluation.superstructureScore}"></span>
+            </div>
+
+            <table class="evaluation-table">
+                <colgroup>
+                    <col style="width: 180px;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                </colgroup>
+                <tbody>
+                <tr th:each="condition : ${superConditions}">
+                    <td class="component-cell" th:text="${condition.biObject.name}"></td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">等级</div>
+                            <div class="cell-value" th:text="${condition.level}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">得分</div>
+                            <div class="cell-value" th:text="${condition.score}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">权重</div>
+                            <div class="cell-value" th:text="${condition.biObject.weight}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">构件数量</div>
+                            <div class="cell-value" th:text="${condition.componentsCount}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <a class="score-button show-scores" href="javascript:void(0)"
+                           th:data-id="${condition.id}"
+                           th:data-name="${condition.biObject.name}">
+                            构件得分
+                        </a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 下部结构 -->
+        <div class="section-container">
+            <div class="evaluation-header">
+                下部构造结构——评定等级：<span th:text="${evaluation.substructureLevel}"></span>，
+                得分：<span th:text="${evaluation.substructureScore}"></span>
+            </div>
+
+            <table class="evaluation-table">
+                <colgroup>
+                    <col style="width: 180px;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                </colgroup>
+                <tbody>
+                <tr th:each="condition : ${subConditions}">
+                    <td class="component-cell" th:text="${condition.biObject.name}"></td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">等级</div>
+                            <div class="cell-value" th:text="${condition.level}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">得分</div>
+                            <div class="cell-value" th:text="${condition.score}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">权重</div>
+                            <div class="cell-value" th:text="${condition.biObject.weight}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">构件数量</div>
+                            <div class="cell-value" th:text="${condition.componentsCount}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <a class="score-button show-scores" href="javascript:void(0)"
+                           th:data-id="${condition.id}"
+                           th:data-name="${condition.biObject.name}">
+                            构件得分
+                        </a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 桥面系统 -->
+        <div class="section-container">
+            <div class="evaluation-header">
+                桥面构造结构——评定等级：<span th:text="${evaluation.deckSystemLevel}"></span>，
+                得分：<span th:text="${evaluation.deckSystemScore}"></span>
+            </div>
+
+            <table class="evaluation-table">
+                <colgroup>
+                    <col style="width: 180px;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                    <col style="width: 16%;">
+                </colgroup>
+                <tbody>
+                <tr th:each="condition : ${deckConditions}">
+                    <td class="component-cell" th:text="${condition.biObject.name}"></td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">等级</div>
+                            <div class="cell-value" th:text="${condition.level}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">得分</div>
+                            <div class="cell-value" th:text="${condition.score}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">权重</div>
+                            <div class="cell-value" th:text="${condition.biObject.weight}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="label-value-cell">
+                            <div class="cell-label">构件数量</div>
+                            <div class="cell-value" th:text="${condition.componentsCount}"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <a class="score-button show-scores" href="javascript:void(0)"
+                           th:data-id="${condition.id}"
+                           th:data-name="${condition.biObject.name}">
+                            构件得分
+                        </a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 遮罩层 -->
+<div id="overlay" class="overlay"></div>
+
+<!-- 侧边栏 -->
+<div id="scoreSidebar" class="sidebar">
+    <div class="sidebar-close" onclick="closeSidebar()">×</div>
+    <div class="sidebar-title" id="componentTitle"></div>
+    <div id="scoreTable"></div>
+</div>
+
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    $(function() {
+        $('.show-scores').on('click', function() {
+            var id = $(this).data('id');
+            var name = $(this).data('name');
+            showComponentScores(id, name);
+        });
+
+        // 点击遮罩层关闭侧边栏
+        $('#overlay').on('click', function() {
+            closeSidebar();
+        });
+    });
+
+    function showComponentScores(conditionId, componentName) {
+        var prefix = ctx + "biz/bievaluation";
+        $("#componentTitle").text(componentName + "构件得分");
+
+        // 显示遮罩层和侧边栏
+        $("#overlay").addClass("active");
+        $("#scoreSidebar").addClass("active");
+
+        $.ajax({
+            url: prefix + "/score/list",
+            type: "GET",
+            data: {
+                conditionId: conditionId
+            },
+            success: function(result) {
+                var scores = result.rows;
+                var html = '<table class="score-table">' +
+                    '<thead><tr><th>构件编号</th><th>得分</th></tr></thead>' +
+                    '<tbody>';
+
+                for (var i = 0; i < scores.length; i++) {
+                    html += '<tr>' +
+                        '<td>' + scores[i].component.code + '</td>' +
+                        '<td>' + scores[i].score + '</td>' +
+                        '</tr>';
+                }
+
+                html += '</tbody></table>';
+                $("#scoreTable").html(html);
+            }
+        });
+    }
+
+    function closeSidebar() {
+        $("#overlay").removeClass("active");
+        $("#scoreSidebar").removeClass("active");
+    }
+</script>
+</body>
+</html>

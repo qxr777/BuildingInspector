@@ -16,59 +16,103 @@ import java.util.List;
  * @date 2025/3/17
  */
 public class BiObject extends TreeEntity {
-    /** 对象id */
+    /**
+     * 对象id
+     */
     private Long id;
 
-    /** 对象名称 */
+    /**
+     * 对象名称
+     */
     @Excel(name = "对象名称")
     @NotBlank(message = "对象名称不能为空")
     @Length(message = "对象名称不能超过20个字符", max = 100)
     private String name;
 
-    /** 祖级列表 */
+    /**
+     * 祖级列表
+     */
     private String ancestors;
 
-    /** 对象状态（0正常 1停用） */
+    /**
+     * 对象状态（0正常 1停用）
+     */
     @Excel(name = "对象状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
-    /** 删除标志（0代表存在 2代表删除） */
+    /**
+     * 删除标志（0代表存在 2代表删除）
+     */
     private String delFlag;
 
-    /** 经度 */
+    /**
+     * 经度
+     */
     private BigDecimal longitude;
 
-    /** 纬度 */
+    /**
+     * 纬度
+     */
     private BigDecimal latitude;
 
-    /** 海拔高度 */
+    /**
+     * 海拔高度
+     */
     private BigDecimal altitude;
 
-    /** 位置 */
+    /**
+     * 位置
+     */
     @Excel(name = "位置")
     private String position;
 
-    /** 区域 */
+    /**
+     * 区域
+     */
     @Excel(name = "区域")
     private String area;
 
-    /** 管理部门 */
+    /**
+     * 管理部门
+     */
     @Excel(name = "管理部门")
     private String adminDept;
 
-    /** 权重 */
+    /**
+     * 权重
+     */
     @Excel(name = "权重")
     private BigDecimal weight;
 
-    /** 视频流来源 */
+    /**
+     * 视频流来源
+     */
     @Excel(name = "视频流来源")
     private String videoFeed;
 
-    /** 对应的模板对象ID */
+    /**
+     * 对应的模板对象ID
+     */
     private Long templateObjectId;
 
-    /** 子对象 */
+    /**
+     * 子对象
+     */
     private List<BiObject> children = new ArrayList<BiObject>();
+
+    /**
+     * 构件数量
+     */
+    @Excel(name = "构件数量")
+    private int count;
+
+    public int getCount() {
+        return count;
+    }
+
+    public void setCount(int count) {
+        this.count = count;
+    }
 
     public void setArea(String area) {
         this.area = area;
@@ -82,76 +126,67 @@ public class BiObject extends TreeEntity {
         this.children = children;
     }
 
-    public void setId(Long id)
-    {
+    public void setId(Long id) {
         this.id = id;
     }
 
-    public Long getId()
-    {
+    public Long getId() {
         return id;
     }
-    public void setName(String name)
-    {
+
+    public void setName(String name) {
         this.name = name;
     }
 
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
-    public void setAncestors(String ancestors)
-    {
+
+    public void setAncestors(String ancestors) {
         this.ancestors = ancestors;
     }
 
-    public String getAncestors()
-    {
+    public String getAncestors() {
         return ancestors;
     }
-    public void setStatus(String status)
-    {
+
+    public void setStatus(String status) {
         this.status = status;
     }
 
-    public String getStatus()
-    {
+    public String getStatus() {
         return status;
     }
-    public void setDelFlag(String delFlag)
-    {
+
+    public void setDelFlag(String delFlag) {
         this.delFlag = delFlag;
     }
 
-    public String getDelFlag()
-    {
+    public String getDelFlag() {
         return delFlag;
     }
-    public void setLongitude(BigDecimal longitude)
-    {
+
+    public void setLongitude(BigDecimal longitude) {
         this.longitude = longitude;
     }
 
-    public BigDecimal getLongitude()
-    {
+    public BigDecimal getLongitude() {
         return longitude;
     }
-    public void setLatitude(BigDecimal latitude)
-    {
+
+    public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
     }
 
-    public BigDecimal getLatitude()
-    {
+    public BigDecimal getLatitude() {
         return latitude;
     }
-    public void setAltitude(BigDecimal altitude)
-    {
+
+    public void setAltitude(BigDecimal altitude) {
         this.altitude = altitude;
     }
 
-    public BigDecimal getAltitude()
-    {
+    public BigDecimal getAltitude() {
         return altitude;
     }
 
@@ -163,26 +198,23 @@ public class BiObject extends TreeEntity {
         return position;
     }
 
-    public String getArea()
-    {
+    public String getArea() {
         return area;
     }
-    public void setAdminDept(String adminDept)
-    {
+
+    public void setAdminDept(String adminDept) {
         this.adminDept = adminDept;
     }
 
-    public String getAdminDept()
-    {
+    public String getAdminDept() {
         return adminDept;
     }
-    public void setWeight(BigDecimal weight)
-    {
+
+    public void setWeight(BigDecimal weight) {
         this.weight = weight;
     }
 
-    public BigDecimal getWeight()
-    {
+    public BigDecimal getWeight() {
         return weight;
     }
 
@@ -194,13 +226,11 @@ public class BiObject extends TreeEntity {
         this.videoFeed = videoFeed;
     }
 
-    public Long getTemplateObjectId()
-    {
+    public Long getTemplateObjectId() {
         return templateObjectId;
     }
 
-    public void setTemplateObjectId(Long templateObjectId)
-    {
+    public void setTemplateObjectId(Long templateObjectId) {
         this.templateObjectId = templateObjectId;
     }
 

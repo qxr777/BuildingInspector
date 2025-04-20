@@ -10,6 +10,7 @@ import java.math.BigDecimal;
  */
 @Data
 public class Score extends BaseEntity {
+    private Long id;
 
     private BigDecimal score;
 

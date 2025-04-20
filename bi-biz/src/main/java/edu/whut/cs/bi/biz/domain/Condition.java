@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -9,6 +10,7 @@ import java.util.Map;
 /**
  * 部件的技术状况评定
  */
+@Data
 public class Condition extends BaseEntity {
 
     static Map<Integer, Double> tMap = new LinkedHashMap<>();
@@ -64,9 +66,9 @@ public class Condition extends BaseEntity {
         if (componentsCount >= 200) {
             return tMap.get(200);
         }
-        
+
         if (tMap.get(componentsCount) == null) {
-            int key =0, key1 = 0;
+            int key = 0, key1 = 0;
             for (int i = 0; i < tMap.size(); i++) {
                 if (componentsCount > (Integer) tMap.keySet().toArray()[i]
                         && componentsCount < (Integer) tMap.keySet().toArray()[i + 1]) {
