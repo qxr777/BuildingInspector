@@ -107,6 +107,13 @@
                     }
                 },
                 {
+                    field: 'createTime',
+                    title: '创建时间',
+                    formatter: function(value) {
+                        return value ? $.common.dateFormat(value) : '-';
+                    }
+                },
+                {
                     title: '操作',
                     align: 'center',
                     formatter: function (value, row, index) {

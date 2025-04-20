@@ -73,6 +73,15 @@
         where code = #{code} limit 1
     </select>
 
+    <select id="selectDiseaseTypeListByIds" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and status = '0'
+    </select>
+
     <delete id="deleteDiseaseTypeById" parameterType="Long">
         delete
         from bi_disease_type

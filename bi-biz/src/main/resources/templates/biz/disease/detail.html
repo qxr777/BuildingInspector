@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('病害信息详情')"/>
+    <style>
+        .detail-view .form-control {
+            background-color: #f8f9fa;
+            border: none;
+            box-shadow: none;
+            cursor: default;
+        }
+        .detail-view .form-group {
+            margin-bottom: 15px;
+        }
+        .detail-view .form-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .detail-view .select2-container--disabled .select2-selection {
+            background-color: #f8f9fa;
+            cursor: default;
+        }
+    </style>
+</head>
+<body class="detail-view">
+<div class="main-content">
+    <div class="form-horizontal m">
+        <input type="hidden" th:value="${disease.id}"/>
+
+        <h4 class="form-header h4">基本信息</h4>
+        <!-- 病害基本信息 -->
+        <div class="row mb-4">
+            <div class="col-sm-3">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">部件类型：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${biObject.name}" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">构件：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${disease.component.name}" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">病害类型：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${disease.diseaseType.name}" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">数量：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${disease.quantity}" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4" style="margin-top: 20px;">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">病害位置：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${disease.position}" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">病害描述：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${disease.description}" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4" style="margin-top: 20px;">
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <div class="row">
+                        <div class="col-sm-2">
+                            <label class="control-label">长度(m)</label>
+                            <input class="form-control" type="text" th:value="${disease.length}" readonly>
+                        </div>
+                        <div class="col-sm-2">
+                            <label class="control-label">宽度(m)</label>
+                            <input class="form-control" type="text" th:value="${disease.width}" readonly>
+                        </div>
+                        <div class="col-sm-2">
+                            <label class="control-label">缝宽(mm)</label>
+                            <input class="form-control" type="text" th:value="${disease.slitWidth}" readonly>
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="control-label">高度/深度(m)</label>
+                            <input class="form-control" type="text" th:value="${disease.heightOrDepth}" readonly>
+                        </div>
+                        <div class="col-sm-2">
+                            <label class="control-label">面积(㎡)</label>
+                            <input class="form-control" type="text" th:value="${disease.area}" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-1">
+                <div class="form-group">
+                    <label class="control-label">评定标度：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${disease.level}" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-1">
+                <div class="form-group">
+                    <label class="control-label">发展趋势：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${disease.trend}" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-2">
+            </div>
+        </div>
+
+        <h4 class="form-header h4">其它信息</h4>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="control-label">备注：</label>
+                    <textarea class="form-control" rows="3" readonly th:text="${disease.remark}"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-offset-5 col-sm-10" style="margin-top: 20px;">
+                <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()">
+                    <i class="fa fa-reply-all"></i> 返 回
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+
+<script th:inline="javascript">
+    function closeItem() {
+        $.modal.close();
+    }
+</script>
+</body>
+</html>

@@ -1150,6 +1150,11 @@ var table = {
                 table.set();
                 $.modal.openTab("添加" + table.options.modalName, $.operate.addUrl(id));
             },
+            // 添加信息，以tab页展现
+            addTable: function (url) {
+                table.set();
+                $.modal.openTab("添加" + table.options.modalName, url);
+            },
             // 添加信息 全屏
             addFull: function(id) {
                 table.set();
@@ -1233,6 +1238,22 @@ var table = {
                         $.modal.loading("正在处理中，请稍候...");
                         $.modal.disable();
                     },
+                    success: function(result) {
+                        if (typeof callback == "function") {
+                            callback(result);
+                        }
+                        $.operate.successCallback(result);
+                    }
+                };
+                $.ajax(config)
+            },
+            list: function(url, data, callback) {
+                var config = {
+                    title: '选择构件',
+                    url: url,
+                    type: "post",
+                    dataType: "json",
+                    data: data,
                     success: function(result) {
                         if (typeof callback == "function") {
                             callback(result);

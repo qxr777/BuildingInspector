@@ -10,10 +10,12 @@ import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
+import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,9 @@ public class TaskServiceImpl implements ITaskService {
     @Resource
     private TaskMapper taskMapper;
 
+    @Resource
+    private BuildingMapper buildingMapper;
+
     /**
      * 查询任务
      *
@@ -43,7 +48,11 @@ public class TaskServiceImpl implements ITaskService {
      */
     @Override
     public Task selectTaskById(Long id) {
-        return taskMapper.selectTaskById(id);
+        Task task = taskMapper.selectTaskById(id);
+        if (ObjUtil.isNotEmpty(task)) {
+            task.setBuilding(buildingMapper.selectBuildingById(task.getBuildingId()));
+        }
+        return task;
     }
 
     /**

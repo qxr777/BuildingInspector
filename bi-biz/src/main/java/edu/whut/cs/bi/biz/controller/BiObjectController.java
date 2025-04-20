@@ -50,6 +50,18 @@ public class BiObjectController extends BaseController {
         return prefix + "/object";
     }
 
+    @RequiresPermissions("biz:object:list")
+    @GetMapping("/isCanAddDisease/{biObjectId}")
+    @ResponseBody
+    public Boolean isCanAddDisease(@PathVariable("biObjectId") Long biObjectId) {
+        BiObject biObject = biObjectService.selectBiObjectById(biObjectId);
+
+        if (biObject != null && biObject.getTemplateObjectId() != null) {
+            return true;
+        }
+        return false;
+    }
+
     /**
      * 查询对象树列表
      */

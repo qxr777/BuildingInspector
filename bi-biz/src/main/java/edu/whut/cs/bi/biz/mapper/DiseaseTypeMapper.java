@@ -31,10 +31,10 @@ public interface DiseaseTypeMapper
     /**
      * 根据病害类型ID查询信息
      * 
-     * @param dictId 病害类型ID
+     * @param id 病害类型ID
      * @return 病害类型
      */
-    public DiseaseType selectDiseaseTypeById(Long dictId);
+    public DiseaseType selectDiseaseTypeById(Long id);
 
     /**
      * 根据病害类型查询信息
@@ -47,10 +47,10 @@ public interface DiseaseTypeMapper
     /**
      * 通过病害ID删除病害信息
      * 
-     * @param dictId 病害ID
+     * @param id 病害ID
      * @return 结果
      */
-    public int deleteDiseaseTypeById(Long dictId);
+    public int deleteDiseaseTypeById(Long id);
 
     /**
      * 批量删除病害类型
@@ -59,6 +59,14 @@ public interface DiseaseTypeMapper
      * @return 结果
      */
     public int deleteDiseaseTypeByIds(Long[] ids);
+
+    /**
+     * 查询病害类型
+     *
+     * @param ids 需要删除的数据
+     * @return 结果
+     */
+    public List<DiseaseType> selectDiseaseTypeListByIds(@Param("ids") List<Long> ids);
 
     /**
      * 新增病害类型信息

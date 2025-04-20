@@ -3,8 +3,10 @@ package edu.whut.cs.bi.biz.service.impl;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import edu.whut.cs.bi.biz.domain.Disease;
-import edu.whut.cs.bi.biz.domain.Disease;
+
 import edu.whut.cs.bi.biz.domain.DiseaseType;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
@@ -12,8 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 
@@ -30,6 +30,11 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Resource
     private DiseaseTypeMapper diseaseTypeMapper;
 
+    @Resource
+    private ComponentMapper componentMapper;
+
+    @Resource
+    private BiObjectMapper biObjectMapper;
     /**
      * 查询病害
      *
@@ -41,10 +46,14 @@ public class DiseaseServiceImpl implements IDiseaseService
     {
         Disease disease = diseaseMapper.selectDiseaseById(id);
         // 关联查询其它属性
-        Long diseaseTypeId = disease.getDiseaseTypeId();
-
-
-        disease.setDiseaseType(diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId));
+        Long componentId = disease.getComponentId();
+        Long biObjectId = disease.getBiObjectId();
+        if (biObjectId != null) {
+            disease.setBiObject(biObjectMapper.selectBiObjectById(biObjectId));
+        }
+        if (componentId != null) {
+            disease.setComponent(componentMapper.selectComponentById(componentId));
+        }
 
         return disease;
     }
@@ -60,6 +69,13 @@ public class DiseaseServiceImpl implements IDiseaseService
     {
         List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
 
+        diseases.forEach(ds -> {
+            Long componentId = ds.getComponentId();
+
+            if (componentId != null) {
+                ds.setComponent(componentMapper.selectComponentById(componentId));
+            }
+        });
         return diseases;
     }
 
@@ -73,7 +89,9 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Transactional
     public int insertDisease(Disease disease) {
         disease.setCreateTime(DateUtils.getNowDate());
-
+        Long diseaseTypeId = disease.getDiseaseTypeId();
+        DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
+        disease.setType(diseaseType.getName());
         return diseaseMapper.insertDisease(disease);
     }
 

@@ -10,7 +10,10 @@ import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
+import edu.whut.cs.bi.biz.service.ITaskService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -35,6 +38,12 @@ public class DiseaseController extends BaseController
     @Resource
     private IDiseaseService diseaseService;
 
+    @Resource
+    private ITaskService taskService;
+
+    @Resource
+    private IBiObjectService biObjectService;
+
     @RequiresPermissions("biz:disease:view")
     @GetMapping()
     public String disease()
@@ -43,7 +52,7 @@ public class DiseaseController extends BaseController
     }
 
     /**
-     * 查询病害树列表
+     * 查询病害列表
      */
     @RequiresPermissions("bi:disease:list")
     @PostMapping("/list")
@@ -72,13 +81,16 @@ public class DiseaseController extends BaseController
     /**
      * 新增病害
      */
-    @GetMapping(value = { "/add/{id}", "/add" })
-    public String add(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
+    @GetMapping(value = { "/add/{taskId}/{biObjectId}" })
+    public String add(@PathVariable("taskId") Long taskId, @PathVariable("biObjectId") Long biObjectId, ModelMap mmap)
     {
-        if (StringUtils.isNotNull(id))
-        {
-            mmap.put("disease", diseaseService.selectDiseaseById(id));
+        if (taskId != null) {
+            mmap.put("task", taskService.selectTaskById(taskId));
         }
+        if (biObjectId != null) {
+            mmap.put("biObject", biObjectService.selectBiObjectById(biObjectId));
+        }
+
         return prefix + "/add";
     }
 
@@ -99,12 +111,13 @@ public class DiseaseController extends BaseController
     /**
      * 修改病害
      */
+    @RequiresPermissions("bi:disease:edit")
     @GetMapping("/edit/{id}")
     public String edit(@PathVariable("id") Long id, ModelMap mmap)
     {
         Disease disease = diseaseService.selectDiseaseById(id);
-
         mmap.put("disease", disease);
+        mmap.put("biObject", disease.getBiObject());
         return prefix + "/edit";
     }
 
@@ -131,5 +144,19 @@ public class DiseaseController extends BaseController
     public AjaxResult remove(String ids)
     {
         return toAjax(diseaseService.deleteDiseaseByIds(ids));
+    }
+
+    /**
+     * 修改病害
+     */
+    @RequiresPermissions("bi:disease:list")
+    @GetMapping("/showDiseaseDetail/{id}")
+    public String showDiseaseDetail(@PathVariable("id") Long id, ModelMap mmap)
+    {
+        Disease disease = diseaseService.selectDiseaseById(id);
+        mmap.put("disease", disease);
+        mmap.put("biObject", disease.getBiObject());
+
+        return prefix + "/detail";
     }
 }

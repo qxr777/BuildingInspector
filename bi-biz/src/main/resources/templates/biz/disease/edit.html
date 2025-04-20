@@ -1,82 +1,381 @@
 <!DOCTYPE html>
-<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <th:block th:include="include :: header('修改桥梁基本信息')" />
+    <th:block th:include="include :: header('修改病害信息')"/>
+    <th:block th:include="include :: select2-css"/>
+
 </head>
-<body class="white-bg">
-    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
-        <form class="form-horizontal m" id="form-property-edit" th:object="${property}">
-            <input name="id" th:field="*{id}" type="hidden">
-            <input id="treeId" name="parentId" type="hidden" th:field="*{parentId}" />
-            <div class="form-group">
-                <label class="col-sm-3 control-label">父对象：</label>
-                <div class="col-sm-8">
-                    <div class="input-group">
-                        <input class="form-control" type="text" id="treeName" onclick="selectObjectTree()" readonly="true" th:field="*{parentName}">
-                        <span class="input-group-addon"><i class="fa fa-search"></i></span>
+<body>
+<div class="main-content">
+    <form class="form-horizontal m" id="form-disease-edit" th:object="${disease}">
+        <input name="id" type="hidden" th:field="*{id}"/>
+        <input name="projectId" type="hidden" th:field="*{projectId}"/>
+        <input name="buildingId" type="hidden" th:field="*{buildingId}"/>
+
+        <h4 class="form-header h4">基本信息</h4>
+        <!-- 病害基本信息 -->
+        <div class="row mb-4">
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label is-required">部件类型：</label>
+                    <div class="col-sm-8">
+                        <input class="form-control" type="text" th:value="${biObject.name}" readonly required>
+                        <input type="hidden" name="biObjectId" th:value="${biObject.id}">
                     </div>
                 </div>
             </div>
-            <div class="form-group">    
-                <label class="col-sm-3 control-label is-required">属性名：</label>
-                <div class="col-sm-8">
-                    <input name="name" th:field="*{name}" class="form-control" type="text" required>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label is-required">构件：</label>
+                    <div class="col-sm-8">
+                        <select class="form-control select2" name="componentId" id="componentId"
+                                required th:field="*{componentId}">
+                            <option value="">请选择构件</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-            <div class="form-group">    
-                <label class="col-sm-3 control-label">显示顺序：</label>
-                <div class="col-sm-8">
-                    <input name="orderNum" th:field="*{orderNum}" class="form-control" type="text">
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label is-required">病害类型：</label>
+                    <div class="col-sm-8">
+                        <select class="form-control select2" name="diseaseTypeId" id="diseaseTypeId"
+                                required th:field="*{diseaseTypeId}">
+                            <option value="">请选择病害类型</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-            <div class="form-group">
-                <label class="col-sm-3 control-label">属性值：</label>
-                <div class="col-sm-8">
-                    <input name="name" th:field="*{value}" class="form-control" type="text">
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label is-required">数量：</label>
+                    <div class="col-sm-8">
+                        <div class="input-group">
+                            <input name="quantity"
+                                   id="quantityInput"
+                                   class="form-control"
+                                   type="number"
+                                   min="1"
+                                   max="9999"
+                                   step="1"
+                                   required
+                                   th:field="*{quantity}"
+                                   oninput="validateQuantity(this)"
+                                   onblur="formatQuantity(this)">
+                            <div id="quantityError" class="invalid-feedback" style="display: none; color: red;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </form>
-    </div>
-    <th:block th:include="include :: footer" />
-    <script th:inline="javascript">
-        var prefix = ctx + "biz/property";
-        $("#form-property-edit").validate({
-            focusCleanup: true,
-            rules: {
-                name: "required"
+        </div>
+        <div class="row mb-4" style="margin-top: 20px;">
+            <div class="col-sm-6">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label">病害位置：</label>
+                    <div class="col-sm-8">
+                        <input name="position" class="form-control" type="text"
+                               placeholder="请输入病害具体位置" th:field="*{position}">
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label is-required">病害描述(性质、范围、程度等）：</label>
+                    <div class="col-sm-8">
+                        <select class="form-control select2" name="description" id="description"
+                                required th:field="*{description}">
+                            <option value=""></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-4" style="margin-top: 20px;">
+            <div class="col-sm-6">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <div class="row">
+                        <div class="col-sm-2">
+                            <label class="control-label">长度(m)</label>
+                            <input name="length" class="form-control" type="number" step="0.01" th:field="*{length}">
+                        </div>
+                        <div class="col-sm-2">
+                            <label class="control-label">宽度(m)</label>
+                            <input name="width" class="form-control" type="number" step="0.01" th:field="*{width}">
+                        </div>
+                        <div class="col-sm-2">
+                            <label class="control-label">缝宽(mm)</label>
+                            <input name="slitWidth" class="form-control" type="number" step="0.0001" th:field="*{slitWidth}">
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="control-label">高度/深度(m)</label>
+                            <input name="heightOrDepth" class="form-control" type="number" step="0.01" th:field="*{heightOrDepth}">
+                        </div>
+                        <div class="col-sm-2">
+                            <label class="control-label">面积(㎡)</label>
+                            <input name="area" class="form-control" type="number" step="0.01" th:field="*{area}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="control-label is-required">评定标度：</label>
+                    <div class="btn-group" id="levelGroup" data-toggle="buttons">
+                        <!-- 选项将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-2">
+                <div class="col-sm-8">
+                    <label class="control-label">发展趋势：</label>
+                    <select class="form-control select2" name="trend" th:field="*{trend}">
+                        <option value="">请选择</option>
+                        <option value="稳定">稳定</option>
+                        <option value="新增">新增</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-sm-1">
+            </div>
+        </div>
+        <h4 class="form-header h4">其它信息</h4>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="control-label">备注：</label>
+                    <textarea name="remark" maxlength="500" class="form-control" rows="3" th:field="*{remark}"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-offset-5 col-sm-10" style="margin-top: 20px;">
+                <button type="button" class="btn btn-sm btn-primary" onclick="submitHandler()"><i class="fa fa-check"></i>保 存</button>&nbsp;
+                <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()"><i class="fa fa-reply-all"></i>关 闭</button>
+            </div>
+        </div>
+    </form>
+</div>
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: select2-js"/>
+<!-- bootstrap-select -->
+<script th:src="@{/js/bootstrap-select.min.js}"></script>
+<script th:src="@{/js/i18n/defaults-zh_CN.min.js}"></script>
+<script th:inline="javascript">
+    var prefix = ctx + "biz/disease"
+    var disease = [[${disease}]];
+    var biObject = [[${biObject}]];
+    var diseaseTypes;
+
+    $(function () {
+        // 初始化select2
+        $('.select2').select2({
+            placeholder: "请选择",
+            allowClear: true
+        });
+
+        // 初始化病害类型下拉框
+        loadDiseaseTypes();
+
+        // 初始化构件列表
+        selectComponent();
+
+        // 初始化评定标度
+        updateLevelGroup();
+
+
+        // 监听病害类型选择变化
+        $("#diseaseTypeId").on('change', function() {
+            var selectedId = $(this).val();
+            if (selectedId) {
+                updateLevelGroup(selectedId);
+                var selectedType = diseaseTypes.find(function(item) {
+                    return item.id == selectedId;
+                });
+                if (selectedType) {
+                    loadDiseaseScales(selectedType.code, selectedType.maxScale);
+                } else {
+                    // 清空描述选项
+                    $("#description").empty().append('<option value=""></option>').trigger('change');
+                }
+            } else {
+                // 清空描述选项
+                $("#description").empty().append('<option value=""></option>').trigger('change');
+                updateLevelGroup();
             }
         });
 
-        function submitHandler() {
-            if ($.validate.form()) {
-                $.operate.save(prefix + "/edit", $('#form-property-edit').serialize());
+        // 表单验证
+        $("#form-disease-edit").validate({
+            rules: {
+                componentId: "required",
+                diseaseTypeId: "required",
+                level: "required"
+            },
+            focusCleanup: true
+        });
+
+
+    });
+
+    // 选择构件
+    function selectComponent() {
+        $.operate.list(ctx + "biz/component/selectList", {
+            biObjectId: biObject.id
+        }, function (result) {
+            var options = '<option value="">请选择构件</option>';
+            $.each(result, function (i, item) {
+                options += '<option value="' + item.id + '">' + item.code + ' - ' + (item.name || '') + '</option>';
+            });
+            $("#componentId").html(options).trigger('change');
+
+            // 如果是编辑模式，设置选中值
+            if (disease && disease.componentId) {
+                $("#componentId").val(disease.componentId).trigger('change');
             }
-        }
+        });
+    }
 
-        /*桥梁基本信息-编辑-选择父桥梁属性树*/
-        function selectObjectTree() {
-            var options = {
-                title: '桥梁属性树选择',
-                width: "380",
-                url: prefix + "/selectObjectTree/" + $("#treeId").val(),
-                callBack: doSubmit
-            };
-            $.modal.openOptions(options);
-        }
+    // 加载病害类型
+    function loadDiseaseTypes() {
+        $.operate.list(ctx + "biz/diseaseType/selectList", {
+            templateObjectId: biObject.templateObjectId
+        }, function (result) {
+            diseaseTypes = result;
+            var options = '<option value="">请选择病害类型</option>';
+            $.each(result, function (i, item) {
+                options += '<option value="' + item.id + '">' + item.name + '</option>';
+            });
+            $("#diseaseTypeId").html(options).trigger('change');
 
-        function doSubmit(index, layero){
-            var body = layero.find('iframe').contents().find('body'); // 修正获取body的方式
-            var treeId = body.find('#treeId').val();
-            var treeName = body.find('#treeName').val();
-
-            if (treeId && treeName) {
-                $("#treeId").val(treeId);
-                $("#treeName").val(treeName);
-                $.modal.close(index);  // 使用框架自带的关闭方法
-            } else {
-                console.log("未选择有效节点");
+            // 如果是编辑模式，设置选中值并触发change事件
+            if (disease && disease.diseaseTypeId) {
+                $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
             }
+        });
+    }
+
+    // 加载病害描述和标度
+    function loadDiseaseScales(diseaseTypeCode, maxScale) {
+        $.operate.list(ctx + "biz/diseaseScale/list", {
+            typeCode: diseaseTypeCode
+        }, function(result) {
+            var options = '<option value=""></option>';
+            if (result && result.total > 0) {
+                result.rows.forEach(function(item) {
+                    options += '<option value="' + item.qualitativeDescription + '，' + item.quantitativeDescription + '">' + item.qualitativeDescription + ',' + item.quantitativeDescription  + '</option>';
+                });
+            }
+            $("#description").html(options).trigger('change');
+
+            // 如果是编辑模式，设置选中值
+            if (disease && disease.description) {
+                $("#description").val(disease.description).trigger('change');
+            }
+        });
+    }
+
+    // 数量输入验证
+    function validateQuantity(input) {
+        const value = input.value;
+        const errorElement = document.getElementById('quantityError');
+
+        // 验证非空
+        if (!value) {
+            errorElement.textContent = '数量不能为空';
+            errorElement.style.display = 'block';
+            return false;
         }
-    </script>
+
+        // 验证是否为整数
+        if (!/^\d+$/.test(value)) {
+            errorElement.textContent = '请输入整数';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        // 验证范围
+        const num = parseInt(value);
+        if (num < 1 || num > 9999) {
+            errorElement.textContent = '请输入1-9999之间的数值';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        errorElement.style.display = 'none';
+        return true;
+    }
+
+    // 格式化数量（失去焦点时处理）
+    function formatQuantity(input) {
+        if (!input.value) {
+            input.value = 1;
+        } else {
+            input.value = Math.max(1, Math.min(9999, parseInt(input.value) || 1));
+        }
+        validateQuantity(input);
+    }
+
+    // 表单提交时最终验证
+    function validateForm() {
+        return validateQuantity(document.getElementById('quantityInput'));
+    }
+
+    // 初始化等级选择按钮组
+    function initLevelGroup(maxScale) {
+        var levelGroup = $("#levelGroup");
+        levelGroup.empty();
+
+        for (var i = 1; i <= maxScale; i++) {
+            var label = $('<label class="btn btn-default">' +
+                '<input type="radio" required name="level" value="' + i + '"> ' + i + '</label>');
+            levelGroup.append(label);
+        }
+
+        // 如果是编辑模式，设置选中值
+        if (disease && disease.level) {
+            levelGroup.find('input[value="' + disease.level + '"]').prop('checked', true)
+                .closest('label').addClass('active');
+        } else {
+            // 默认选中第一个选项
+            levelGroup.find('label:first').addClass('active')
+                .find('input[type="radio"]').prop('checked', true);
+        }
+
+        // 监听评定标度选择变化，自动选择对应的描述
+        levelGroup.find('input[type="radio"]').off('change').on('change', function() {
+            var selectedScale = $(this).val();
+            var $description = $("#description");
+            var $option = $description.find('option[value="' + selectedScale + '"]');
+            if ($option.length) {
+                $description.val(selectedScale).trigger('change');
+            }
+        });
+    }
+
+    // 更新等级选择按钮组
+    function updateLevelGroup(diseaseTypeId) {
+        if (!diseaseTypeId) {
+            initLevelGroup(5); // 默认最大值为5
+            return;
+        }
+
+        var selectedDiseaseType = diseaseTypes.find(function(item) {
+            return item.id == diseaseTypeId;
+        });
+
+        if (selectedDiseaseType && selectedDiseaseType.maxScale) {
+            initLevelGroup(selectedDiseaseType.maxScale);
+        } else {
+            initLevelGroup(5); // 如果没有找到对应的maxScale，使用默认值5
+        }
+    }
+
+    function submitHandler() {
+        if ($.validate.form() && validateForm()) {
+            $.operate.saveTab(prefix + "/edit", $('#form-disease-edit').serialize());
+        }
+    }
+</script>
 </body>
 </html>

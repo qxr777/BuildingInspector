@@ -100,4 +100,12 @@ public interface IDiseaseTypeService
      * @return
      */
     Boolean readJsonFile(MultipartFile file, DiseaseType diseaseType);
+
+    /**
+     * 通过模板对象id查询病害类型
+     *
+     * @param templateObjectId
+     * @return
+     */
+    List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long templateObjectId);
 }
