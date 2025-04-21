@@ -1,7 +1,10 @@
 package edu.whut.cs.bi.biz.mapper;
 
+import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Disease;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
 import java.util.List;
 
 /**
@@ -26,7 +29,7 @@ public interface DiseaseMapper {
      * @param disease 病害
      * @return 病害集合
      */
-     List<Disease> selectDiseaseList(Disease disease);
+    List<Disease> selectDiseaseList(Disease disease);
 
     /**
      * 新增病害
@@ -43,7 +46,7 @@ public interface DiseaseMapper {
      * @param disease 病害
      * @return 结果
      */
-     int updateDisease(Disease disease);
+    int updateDisease(Disease disease);
 
     /**
      * 删除病害
@@ -51,7 +54,7 @@ public interface DiseaseMapper {
      * @param id 病害ID
      * @return 结果
      */
-     int deleteDiseaseById(Long id);
+    int deleteDiseaseById(Long id);
 
 
     /**
@@ -60,5 +63,13 @@ public interface DiseaseMapper {
      * @param ids 需要删除的数据ID
      * @return 结果
      */
-     int deleteDiseaseByIds(String[] ids);
+    int deleteDiseaseByIds(String[] ids);
+
+    /**
+     * 根据biObjectId查询病害
+     *
+     * @param biObjectIds
+     * @return
+     */
+    List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds);
 }

@@ -71,6 +71,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where d.id = #{id}
     </select>
 
+    <select id="selectDiseaseListByBiObjectIds" parameterType="java.util.List" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        where d.bi_object_id in
+        <foreach item="biObjectIds" collection="list" open="(" separator="," close=")">
+            #{biObjectId}
+        </foreach>
+        order by d.create_time desc
+    </select>
+
 
     <insert id="insertDisease" parameterType="Disease" useGeneratedKeys="true" keyProperty="id">
         insert into bi_disease
@@ -159,5 +168,5 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
-
+    
 </mapper>

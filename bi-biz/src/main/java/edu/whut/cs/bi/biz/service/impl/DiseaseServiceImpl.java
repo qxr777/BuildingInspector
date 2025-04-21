@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
+import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Disease;
 
 import edu.whut.cs.bi.biz.domain.DiseaseType;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -67,7 +69,16 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Override
     public List<Disease> selectDiseaseList(Disease disease)
     {
-        List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+        // 这里是病害列表只有 biObjectId 一个查询条件
+        Long biObjectId = disease.getBiObjectId();
+        List<Disease> diseases;
+        if (biObjectId != null) {
+            List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
+            List<Long> biObjectIds = biObjects.stream().map(BiObject::getId).collect(Collectors.toList());
+            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds);
+        } else {
+            diseases = diseaseMapper.selectDiseaseList(disease);
+        }
 
         diseases.forEach(ds -> {
             Long componentId = ds.getComponentId();
