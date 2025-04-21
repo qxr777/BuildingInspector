@@ -144,6 +144,7 @@
                         }
                         actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
                         actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="importPropertyJson(\'' + row.id + '\')"><i class="fa fa-upload"></i>json导入</a> ');
+                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="downLoadWord(\'' + row.id + '\')"><i class="fa fa-download"></i>导出桥梁资料卡</a> ');
                         return actions.join('');
                     }
                 }]
@@ -239,6 +240,10 @@
             }
         };
         $.modal.openOptions(options);
+    }
+
+    function downLoadWord(id){
+        window.location.href = ctx + "biz/report/exportPropertyWord/" + id;
     }
 </script>
 </body>

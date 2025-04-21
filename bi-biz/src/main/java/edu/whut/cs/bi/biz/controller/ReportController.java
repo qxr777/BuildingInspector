@@ -15,16 +15,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.HashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigInteger;
+import java.io.FileInputStream;
 
 /**
  * 报告导出 控制器
@@ -117,44 +121,58 @@ public class ReportController extends BaseController {
       Property property = propertyService.selectPropertyById(building.getRootPropertyId());
       List<Property> properties = propertyService.selectPropertyList(property);
 
-      // 创建Word文档
-      XWPFDocument document = new XWPFDocument();
-
-      // 创建表格
-      XWPFTable table = document.createTable();
-
-      // 设置表格样式
-      CTTblPr tblPr = table.getCTTbl().getTblPr();
-      CTTblWidth tblWidth = tblPr.addNewTblW();
-      tblWidth.setW(BigInteger.valueOf(9000));
-      tblWidth.setType(STTblWidth.DXA);
-
-      // 创建表头
-      XWPFTableRow headerRow = table.getRow(0);
-      XWPFTableCell cell1 = headerRow.getCell(0);
-      XWPFTableCell cell2 = headerRow.addNewTableCell();
-
-      // 设置表头样式
-      cell1.setColor("DEEAF6");
-      cell2.setColor("DEEAF6");
-
-      // 设置表头内容
-      cell1.setText("属性名称");
-      cell2.setText("属性值");
-
-      // 填充数据
-      for (Property prop : properties) {
-        XWPFTableRow row = table.createRow();
-        XWPFTableCell nameCell = row.getCell(0);
-        XWPFTableCell valueCell = row.getCell(1);
-
-        // 设置单元格样式
-        setCellStyle(nameCell, 4500);
-        setCellStyle(valueCell, 4500);
-
-        // 设置内容
-        nameCell.setText(prop.getName() != null ? prop.getName() : "");
-        valueCell.setText(prop.getValue() != null ? prop.getValue() : "");
+      // 读取模板文件
+      Resource resource = new ClassPathResource("word.biz/桥梁模板.docx");
+      XWPFDocument document = new XWPFDocument(resource.getInputStream());
+      long t =0L;
+      Property temp=null;
+      for (Property property1: properties){
+        if(property1.getName().equals("结构体系")){
+          t = property1.getId();
+          temp = property1;
+        }
+      }
+      if(temp!=null){
+      temp.setValue("");
+        for (Property property1 : properties) {
+          if (property1.getParentId()!=null&&property1.getParentId() == t) {
+            temp.setValue(temp.getValue() + "\n" + property1.getName()+property1.getValue());
+          }
+        }
+      }
+      // 替换表格中的占位符
+      Map<String,Integer>mp=new HashMap<>();
+      for (XWPFTable table : document.getTables()) {
+        for (XWPFTableRow row : table.getRows()) {
+          for (XWPFTableCell cell : row.getTableCells()) {
+            for (XWPFParagraph p : cell.getParagraphs()) {
+              // 遍历所有属性进行替换
+              for (Property prop : properties) {
+                if(prop.getName().equals("检测类别")||prop.getName().equals("评定时间")||prop.getName().equals("评定结果")||prop.getName().equals("处治对策")||prop.getName().equals("下次检测时间")){
+                    if(mp.get(prop.getName())==null){
+                      mp.put(prop.getName(),1);
+                      prop.setName(prop.getName()+"1");
+                    }
+                    else{
+                      mp.put(prop.getName(),mp.get(prop.getName())+1);
+                      prop.setName(prop.getName()+mp.get(prop.getName()));
+                    }
+                }
+                replacePlaceholder(p, "${" + prop.getName() + "}", prop.getValue() != null ? prop.getValue() : "/");
+              }
+            }
+          }
+        }
+      }
+      // 再次遍历替换剩余的占位符
+      for (XWPFTable table : document.getTables()) {
+        for (XWPFTableRow row : table.getRows()) {
+          for (XWPFTableCell cell : row.getTableCells()) {
+            for (XWPFParagraph p : cell.getParagraphs()) {
+              replaceRemainingPlaceholders(p);
+            }
+          }
+        }
       }
 
       // 将XWPFDocument转换为MultipartFile
@@ -174,41 +192,57 @@ public class ReportController extends BaseController {
 
       // 设置响应头
       response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      fileName = property.getName() + "桥梁基本状况卡.docx";
       response.setHeader("Content-Disposition", "attachment; filename=" +
           new String(fileName.getBytes("UTF-8"), "ISO-8859-1"));
 
       // 输出文档
-      response.getOutputStream().write(documentBytes);
-      response.flushBuffer();
+      document.write(response.getOutputStream());
+      document.close();
     } catch (Exception e) {
-      response.reset();
-      response.setContentType("application/json");
-      response.setCharacterEncoding("utf-8");
-      Map<String, String> error = new HashMap<>();
-      error.put("msg", "导出失败：" + e.getMessage());
-      response.getWriter().write(new ObjectMapper().writeValueAsString(error));
+      logger.error("导出Word文档失败：", e);
+      throw new RuntimeException("导出Word文档失败：" + e.getMessage());
     }
   }
 
-  /**
-   * 设置单元格样式
-   */
-  private void setCellStyle(XWPFTableCell cell, int width) {
-    // 设置单元格宽度
-    CTTcPr tcPr = cell.getCTTc().addNewTcPr();
-    CTTblWidth cellWidth = tcPr.addNewTcW();
-    cellWidth.setW(BigInteger.valueOf(width));
-    cellWidth.setType(STTblWidth.DXA);
+  // 替换单个占位符的方法
+  private void replacePlaceholder(XWPFParagraph p, String placeholder, String value) {
+    String text = p.getText();
+    if (text.contains(placeholder)) {
+      // 清除段落中的所有runs
+      for (int i = p.getRuns().size() - 1; i >= 0; i--) {
+        p.removeRun(i);
+      }
 
-    // 设置垂直对齐
-    cell.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
+      // 创建新的run并设置替换后的文本
+      XWPFRun newRun = p.createRun();
+      newRun.setText(text.replace(placeholder, value));
 
-    // 设置水平对齐和字体
-    XWPFParagraph paragraph = cell.getParagraphs().get(0);
-    paragraph.setAlignment(ParagraphAlignment.CENTER);
-    XWPFRun run = paragraph.createRun();
-    run.setFontFamily("宋体");
-    run.setFontSize(10);
+      // 设置字体为宋体小五
+      newRun.setFontFamily("宋体");
+      newRun.setFontSize(9);
+    }
+  }
+
+  // 替换剩余占位符的方法
+  private void replaceRemainingPlaceholders(XWPFParagraph p) {
+    String text = p.getText();
+    if (text.contains("${")) {
+      // 清除段落中的所有runs
+      for (int i = p.getRuns().size() - 1; i >= 0; i--) {
+        p.removeRun(i);
+      }
+
+      // 创建新的run并设置替换后的文本
+      XWPFRun newRun = p.createRun();
+      // 使用正则表达式替换所有剩余的${xxx}格式的占位符
+      String replacedText = text.replaceAll("\\$\\{[^}]*\\}", "/");
+      newRun.setText(replacedText);
+
+      // 设置字体为宋体小五
+      newRun.setFontFamily("宋体");
+      newRun.setFontSize(9);
+    }
   }
 
 }
