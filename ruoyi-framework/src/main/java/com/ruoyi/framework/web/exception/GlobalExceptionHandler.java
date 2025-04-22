@@ -38,7 +38,7 @@ public class GlobalExceptionHandler
     {
         String requestURI = request.getRequestURI();
         log.error("请求地址'{}',权限校验失败'{}'", requestURI, e.getMessage());
-        if (ServletUtils.isAjaxRequest(request))
+        if (ServletUtils.isAjaxRequest(request) || StringUtils.isNotEmpty(request.getHeader("token")))
         {
             return AjaxResult.error(PermissionUtils.getMsg(e.getMessage()));
         }

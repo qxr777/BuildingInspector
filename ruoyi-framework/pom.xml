@@ -77,6 +77,13 @@
             <artifactId>ruoyi-system</artifactId>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/com.auth0/java-jwt -->
+        <dependency>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>3.4.0</version>
+        </dependency>
+
     </dependencies>
 
 </project>
