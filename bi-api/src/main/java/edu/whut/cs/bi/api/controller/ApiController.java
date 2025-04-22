@@ -1,4 +1,4 @@
-package com.ruoyi.web.controller.system;
+package edu.whut.cs.bi.api.controller;
 
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
