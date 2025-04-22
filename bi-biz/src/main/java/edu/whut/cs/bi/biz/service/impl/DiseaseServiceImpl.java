@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -73,8 +74,10 @@ public class DiseaseServiceImpl implements IDiseaseService
         Long biObjectId = disease.getBiObjectId();
         List<Disease> diseases;
         if (biObjectId != null) {
+            List<Long> biObjectIds = new ArrayList<>();
+            biObjectIds.add(biObjectId);
             List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
-            List<Long> biObjectIds = biObjects.stream().map(BiObject::getId).collect(Collectors.toList());
+            biObjectIds.addAll(biObjects.stream().map(BiObject::getId).collect(Collectors.toList()));
             diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds);
         } else {
             diseases = diseaseMapper.selectDiseaseList(disease);

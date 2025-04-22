@@ -74,7 +74,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectDiseaseListByBiObjectIds" parameterType="java.util.List" resultMap="DiseaseResult">
         <include refid="selectDiseaseVo"/>
         where d.bi_object_id in
-        <foreach item="biObjectIds" collection="list" open="(" separator="," close=")">
+        <foreach item="biObjectId" collection="biObjectIds" open="(" separator="," close=")">
             #{biObjectId}
         </foreach>
         order by d.create_time desc
