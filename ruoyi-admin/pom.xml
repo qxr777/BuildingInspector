@@ -82,15 +82,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.ruoyi</groupId>
+            <groupId>edu.whut.cs.bi</groupId>
             <artifactId>bi-biz</artifactId>
-            <version>4.8.0</version>
         </dependency>
 
         <dependency>
             <groupId>edu.whut.cs.edu.minio</groupId>
             <artifactId>bi-file</artifactId>
-            <version>4.8.0</version>
         </dependency>
 
     </dependencies>

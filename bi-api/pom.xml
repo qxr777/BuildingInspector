@@ -23,7 +23,6 @@
         <dependency>
             <groupId>edu.whut.cs.bi</groupId>
             <artifactId>bi-biz</artifactId>
-            <version>1.0.0</version>
         </dependency>
     </dependencies>
 </project>
