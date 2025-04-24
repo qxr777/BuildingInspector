@@ -86,11 +86,6 @@
             <artifactId>bi-biz</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>edu.whut.cs.edu.minio</groupId>
-            <artifactId>bi-file</artifactId>
-        </dependency>
-
     </dependencies>
 
     <build>
