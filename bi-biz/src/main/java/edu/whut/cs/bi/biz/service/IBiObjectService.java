@@ -116,4 +116,6 @@ public interface IBiObjectService {
      * @return BiObject
      */
     public BiObject selectDirectParentById(Long id);
+
+    String bridgeStructureJson(Long id) throws Exception;
 }

@@ -139,12 +139,17 @@
                         var actions = [];
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="deleteBuilding(\'' + row.id + '\', \'' + row.isLeaf + '\', \'' + row.name + '\')"><i class="fa fa-remove"></i>删除</a> ');
+
+                        // 创建更多操作菜单
+                        var more = [];
                         if (row.isLeaf === "1") {
-                            actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>维护</a> ');
+                            more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>维护</a> ');
                         }
-                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
-                        actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="importPropertyJson(\'' + row.id + '\')"><i class="fa fa-upload"></i>json导入</a> ');
-                        actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="downLoadWord(\'' + row.id + '\')"><i class="fa fa-download"></i>导出桥梁资料卡</a> ');
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyJson(\'' + row.id + '\')"><i class="fa fa-upload"></i>json导入</a> ');
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="downLoadWord(\'' + row.id + '\')"><i class="fa fa-download"></i>导出桥梁资料卡</a> ');
+
+                        actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
                         return actions.join('');
                     }
                 }]
