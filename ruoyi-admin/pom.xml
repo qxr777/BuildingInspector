@@ -91,11 +91,6 @@
             <artifactId>bi-api</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>edu.whut.cs.bi</groupId>
-            <artifactId>bi-api</artifactId>
-        </dependency>
-
     </dependencies>
 
     <build>
