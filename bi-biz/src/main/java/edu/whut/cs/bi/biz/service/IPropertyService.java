@@ -109,5 +109,5 @@ public interface IPropertyService {
      * @param rootId
      * @return
      */
-    public Property selectPropertyTree(Long rootId) throws JsonProcessingException;
+    public Property selectPropertyTree(Long rootId);
 }

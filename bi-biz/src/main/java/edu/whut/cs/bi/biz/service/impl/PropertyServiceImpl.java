@@ -349,7 +349,7 @@ public class PropertyServiceImpl implements IPropertyService {
     }
 
     @Override
-    public Property selectPropertyTree(Long rootId) throws JsonProcessingException {
+    public Property selectPropertyTree(Long rootId) {
         Property root = selectPropertyById(rootId);
         if (root == null) {
             throw new ServiceException("未找到指定属性");

@@ -63,7 +63,8 @@ public class ApiController
      */
     @GetMapping("/property")
     @RequiresPermissions("biz:building:view")
-    public AjaxResult property(@RequestParam("bid") Long bid) throws JsonProcessingException {
+    @ResponseBody
+    public AjaxResult property(@RequestParam("bid") Long bid) {
         if (bid == null) {
             return AjaxResult.error("参数错误");
         }
