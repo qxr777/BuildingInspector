@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ruoyi.common.core.domain.Ztree;
 import edu.whut.cs.bi.biz.domain.Property;
 import org.springframework.web.multipart.MultipartFile;
@@ -102,4 +103,11 @@ public interface IPropertyService {
      */
     public List<Property> selectPropertyTreeById(Long propertyId);
 
+    /**
+     * api 提供给前端的属性树
+     *
+     * @param rootId
+     * @return
+     */
+    public Property selectPropertyTree(Long rootId) throws JsonProcessingException;
 }

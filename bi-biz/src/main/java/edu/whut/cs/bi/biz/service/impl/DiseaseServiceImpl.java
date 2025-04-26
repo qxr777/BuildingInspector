@@ -143,4 +143,39 @@ public class DiseaseServiceImpl implements IDiseaseService
         return diseaseMapper.deleteDiseaseById(id);
     }
 
+    /**
+     * 计算扣分
+     *
+     * @param maxScale 最大分值
+     * @param scale    当前分值
+     * @return 结果
+     */
+    @Override
+    public int computeDeductPoints(int maxScale, int scale) {
+        return switch (maxScale) {
+            case 3 -> switch (scale) {
+                case 1 -> 0;
+                case 2 -> 20;
+                case 3 -> 35;
+                default -> throw new IllegalArgumentException("当 max_scale 为 3 时，scale 只能为 1、2 或 3");
+            };
+            case 4 -> switch (scale) {
+                case 1 -> 0;
+                case 2 -> 25;
+                case 3 -> 40;
+                case 4 -> 50;
+                default -> throw new IllegalArgumentException("当 max_scale 为 4 时，scale 只能为 1、2、3 或 4");
+            };
+            case 5 -> switch (scale) {
+                case 1 -> 0;
+                case 2 -> 35;
+                case 3 -> 45;
+                case 4 -> 60;
+                case 5 -> 100;
+                default -> throw new IllegalArgumentException("当 max_scale 为 5 时，scale 只能为 1、2、3、4 或 5");
+            };
+            default -> throw new IllegalArgumentException("max_scale 只能为 3、4 或 5");
+        };
+    }
+
 }

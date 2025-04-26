@@ -70,6 +70,15 @@ public class Disease extends BaseEntity {
     /** 病害类型 */
     private String type;
 
+    /** 是否参与评定  0是 1否*/
+    private String participateAssess;
+
+    /** 扣分 */
+    private int deductPoints;
+
+    /** 病害图片 */
+    private List<String> images;
+
     /** 关联对象 */
     private Long biObjectId;
     private BiObject biObject;

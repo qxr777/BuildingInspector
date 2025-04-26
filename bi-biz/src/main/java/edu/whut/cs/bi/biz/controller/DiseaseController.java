@@ -159,4 +159,20 @@ public class DiseaseController extends BaseController
 
         return prefix + "/detail";
     }
+
+    /**
+     * 构件扣分
+     */
+    @RequiresPermissions("bi:disease:add")
+    @GetMapping("/computeDeductPoints")
+    @ResponseBody
+    public AjaxResult computeDeductPoints(int maxScale, int scale) {
+
+        if (StringUtils.isNull(maxScale) || StringUtils.isNull(scale)) {
+            return AjaxResult.error("参数错误");
+        }
+
+        return AjaxResult.success(diseaseService.computeDeductPoints(maxScale, scale));
+    }
+
 }

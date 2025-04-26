@@ -15,7 +15,7 @@
         <h4 class="form-header h4">基本信息</h4>
         <!-- 病害基本信息 -->
         <div class="row mb-4">
-            <div class="col-sm-3">
+            <div class="col-sm-2">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label class="col-sm-3 control-label is-required">部件类型：</label>
                     <div class="col-sm-8">
@@ -24,7 +24,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
+            <div class="col-sm-2">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label class="col-sm-3 control-label is-required">构件：</label>
                     <div class="col-sm-8">
@@ -64,6 +64,17 @@
                                    onblur="formatQuantity(this)">
                             <div id="quantityError" class="invalid-feedback" style="display: none; color: red;"></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-2">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label">发展趋势:</label>
+                    <div class="col-sm-8">
+                        <select class="form-control select2" name="trend" th:field="*{trend}">
+                            <option value="稳定">稳定</option>
+                            <option value="新增">新增</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -117,7 +128,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
+            <div class="col-sm-2">
                 <div class="form-group" style="margin-top: 20px;">
                     <label class="control-label is-required">评定标度：</label>
                     <div class="btn-group" id="levelGroup" data-toggle="buttons">
@@ -126,16 +137,31 @@
                 </div>
             </div>
             <div class="col-sm-2">
-                <div class="col-sm-8">
-                    <label class="control-label">发展趋势：</label>
-                    <select class="form-control select2" name="trend" th:field="*{trend}">
-                        <option value="">请选择</option>
-                        <option value="稳定">稳定</option>
-                        <option value="新增">新增</option>
-                    </select>
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="control-label is-required">参与评定：</label>
+                    <div class="btn-group" data-toggle="buttons">
+                        <label class="btn btn-default" th:classappend="${disease.participateAssess == '0'} ? 'active'">
+                            <input type="radio" name="participateAssess" value="0" required th:checked="${disease.participateAssess == '0'}"> 是
+                        </label>
+                        <label class="btn btn-default" th:classappend="${disease.participateAssess == '1'} ? 'active'">
+                            <input type="radio" name="participateAssess" value="1" required th:checked="${disease.participateAssess == '1'}"> 否
+                        </label>
+                    </div>
                 </div>
             </div>
-            <div class="col-sm-1">
+            <div class="col-sm-2">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <label class="control-label">最大标度：</label>
+                            <input name="maxScale" class="form-control" type="text" id="maxScale" th:field="*{diseaseType.maxScale}" readonly>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="control-label">构件扣分：</label>
+                            <input name="deductPoints" class="form-control" type="text" id="deductPoints" th:field="*{deductPoints}" readonly>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <h4 class="form-header h4">其它信息</h4>
@@ -147,7 +173,34 @@
                 </div>
             </div>
         </div>
-
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <div>
+                        <input type="file" name="diseaseImages" id="diseaseImages" class="d-none" multiple accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-primary" onclick="$('#diseaseImages').click()">
+                            <i class="fa fa-upload"></i> 选择图片
+                        </button>
+                        <small class="form-text text-muted">可多选图片，单张不超过5MB</small>
+                        <div id="imagePreview" class="mt-2 row">
+                            <!-- 已上传图片预览区域 -->
+                            <th:block th:each="image : ${disease.images}">
+                                <div class="col-sm-2 mb-2">
+                                    <div class="thumbnail">
+                                        <img th:src="@{${image.url}}" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">
+                                        <button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"
+                                                onclick="removeExistingImage(this, [[${image.id}]])">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                        <input type="hidden" name="existingImages" th:value="${image.id}">
+                                    </div>
+                                </div>
+                            </th:block>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="row">
             <div class="col-sm-offset-5 col-sm-10" style="margin-top: 20px;">
                 <button type="button" class="btn btn-sm btn-primary" onclick="submitHandler()"><i class="fa fa-check"></i>保 存</button>&nbsp;
@@ -192,6 +245,8 @@
                 var selectedType = diseaseTypes.find(function(item) {
                     return item.id == selectedId;
                 });
+                $("#maxScale").val(selectedType.maxScale);
+
                 if (selectedType) {
                     loadDiseaseScales(selectedType.code, selectedType.maxScale);
                 } else {
@@ -275,6 +330,53 @@
         });
     }
 
+    // 计算构件扣分
+    function computeDeductPoints(maxScale, scale) {
+        switch (parseInt(maxScale)) {
+            case 3:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 20;
+                    case 3:
+                        return 35;
+                    default:
+                        throw new Error("当 max_scale 为 3 时，scale 只能为 1、2 或 3");
+                }
+            case 4:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 25;
+                    case 3:
+                        return 40;
+                    case 4:
+                        return 50;
+                    default:
+                        throw new Error("当 max_scale 为 4 时，scale 只能为 1、2、3 或 4");
+                }
+            case 5:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 35;
+                    case 3:
+                        return 45;
+                    case 4:
+                        return 60;
+                    case 5:
+                        return 100;
+                    default:
+                        throw new Error("当 max_scale 为 5 时，scale 只能为 1、2、3、4 或 5");
+                }
+            default:
+                throw new Error("max_scale 只能为 3、4 或 5");
+        }
+    }
+
     // 数量输入验证
     function validateQuantity(input) {
         const value = input.value;
@@ -350,6 +452,18 @@
             if ($option.length) {
                 $description.val(selectedScale).trigger('change');
             }
+
+            // 计算并显示构件扣分
+            var maxScale = $("#maxScale").val();
+            if (maxScale && selectedScale) {
+                try {
+                    var deductPoints = computeDeductPoints(maxScale, selectedScale);
+                    $("#deductPoints").val(deductPoints);
+                } catch (e) {
+                    console.error(e);
+                    $("#deductPoints").val('');
+                }
+            }
         });
     }
 
@@ -371,9 +485,70 @@
         }
     }
 
+    // 上传图片
+    // 图片选择预览处理
+    $("#diseaseImages").change(function() {
+        var previewContainer = $("#imagePreview");
+        previewContainer.empty();
+
+        if (this.files && this.files.length > 0) {
+            for (var i = 0; i < this.files.length; i++) {
+                var file = this.files[i];
+                if (!file.type.match('image.*')) continue;
+
+                var reader = new FileReader();
+                reader.onload = (function(file) {
+                    return function(e) {
+                        var col = $('<div class="col-sm-2 mb-2"></div>');
+                        var thumbnail = $('<div class="thumbnail"></div>');
+
+                        thumbnail.append(
+                            '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
+                            '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeImagePreview(this)">' +
+                            '<i class="fa fa-trash"></i></button>' +
+                            '<input type="hidden" name="imageFiles" value="' + file.name + '">'
+                        );
+
+                        col.append(thumbnail);
+                        previewContainer.append(col);
+                    };
+                })(file);
+                reader.readAsDataURL(file);
+            }
+        }
+    });
+
+    // 移除图片预览
+    window.removeImagePreview = function(btn) {
+        $(btn).closest('.col-sm-2').remove();
+    };
+
     function submitHandler() {
         if ($.validate.form() && validateForm()) {
-            $.operate.saveTab(prefix + "/edit", $('#form-disease-edit').serialize());
+            var formData = new FormData($("#form-disease-edit")[0]);
+
+            $.modal.loading("正在提交数据，请稍候...");
+            $.ajax({
+                url: prefix + "/edit",
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    $.modal.closeLoading();
+                    if (response.code === 0) {
+                        $.modal.msgSuccess("保存成功");
+                        $.modal.closeTab();
+                        $.table.refresh();
+                    } else {
+                        $.modal.alertError(response.msg);
+                    }
+                },
+                error: function() {
+                    $.modal.closeLoading();
+                    $.modal.alertError("保存失败，请稍后再试");
+                }
+            });
         }
     }
 </script>

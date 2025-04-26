@@ -3,6 +3,9 @@ package edu.whut.cs.bi.biz.service.impl;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
@@ -19,7 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.fasterxml.jackson.databind.SerializationFeature;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -345,4 +348,30 @@ public class PropertyServiceImpl implements IPropertyService {
         return propertyMapper.selectPropertyTreeById(propertyId);
     }
 
+    @Override
+    public Property selectPropertyTree(Long rootId) throws JsonProcessingException {
+        Property root = selectPropertyById(rootId);
+        if (root == null) {
+            throw new ServiceException("未找到指定属性");
+        }
+        // 构建树结构
+        buildTreeStructure(root);
+
+        return root;
+    }
+
+    /**
+     * 递归构建树结构
+     */
+    private void buildTreeStructure(Property node) {
+        // 使用selectChildrenByParentId直接获取子节点
+        List<Property> children = propertyMapper.selectChildrenByParentId(node.getId());
+        if (!children.isEmpty()) {
+            node.setChildren(children);
+            // 递归处理每个子节点
+            for (Property child : children) {
+                buildTreeStructure(child);
+            }
+        }
+    }
 }

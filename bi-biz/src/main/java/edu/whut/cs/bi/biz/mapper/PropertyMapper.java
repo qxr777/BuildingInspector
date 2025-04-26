@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.mapper;
 
+import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Property;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -142,4 +143,5 @@ public interface PropertyMapper {
      * @return 完整的属性树列表
      */
     public List<Property> selectPropertyTreeById(Long id);
+
 }
