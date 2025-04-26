@@ -3,17 +3,19 @@ package edu.whut.cs.bi.biz.service.impl;
 import java.util.List;
 import java.util.ArrayList;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
-import edu.whut.cs.bi.biz.domain.Property;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import com.ruoyi.common.core.text.Convert;
+
 
 /**
  * 对象Service业务层处理
@@ -227,5 +229,39 @@ public class BiObjectServiceImpl implements IBiObjectService {
     @Override
     public BiObject selectDirectParentById(Long id) {
         return biObjectMapper.selectDirectParentById(id);
+    }
+
+    /**
+     * 导出JSON桥梁结构数据
+     */
+    @Override
+    public String bridgeStructureJson(Long id) throws Exception {
+        BiObject root = selectBiObjectById(id);
+        if (root == null) {
+            throw new Exception("未找到指定的构件");
+        }
+
+        // 构建树结构
+        buildTreeStructure(root);
+
+        // 配置序列化选项
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        return objectMapper.writeValueAsString(root);
+    }
+
+    /**
+     * 递归构建树结构
+     */
+    private void buildTreeStructure(BiObject node) {
+        // 使用selectChildrenByParentId直接获取子节点
+        List<BiObject> children = biObjectMapper.selectChildrenByParentId(node.getId());
+        if (!children.isEmpty()) {
+            node.setChildren(children);
+            // 递归处理每个子节点
+            for (BiObject child : children) {
+                buildTreeStructure(child);
+            }
+        }
     }
 }

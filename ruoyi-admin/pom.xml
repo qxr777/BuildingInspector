@@ -87,8 +87,8 @@
         </dependency>
 
         <dependency>
-            <groupId>edu.whut.cs.edu.minio</groupId>
-            <artifactId>bi-file</artifactId>
+            <groupId>edu.whut.cs.bi</groupId>
+            <artifactId>bi-api</artifactId>
         </dependency>
 
         <dependency>
