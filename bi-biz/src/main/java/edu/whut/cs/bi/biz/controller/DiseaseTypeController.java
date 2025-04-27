@@ -220,7 +220,7 @@ public class DiseaseTypeController extends BaseController
      */
     @PostMapping( "/readJson" )
     @ResponseBody
-    @RequiresPermissions("bi:property:add")
+    @RequiresPermissions("biz:property:add")
     @Log(title = "读取属性json文件", businessType = BusinessType.INSERT)
     public Boolean readJsonFile(@RequestPart("file") MultipartFile file)
     {
