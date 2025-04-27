@@ -27,7 +27,7 @@ public interface TaskMapper
      * @param task 任务
      * @return 任务集合
      */
-    public List<Task> selectTaskList(Task task);
+    public List<Task> selectTaskList(@Param("task") Task task, @Param("currentUserId") Long currentUserId);
     
     /**
      * 新增任务
@@ -44,14 +44,6 @@ public interface TaskMapper
      * @return 结果
      */
     public int updateTask(Task task);
-
-    /**
-     * 修改任务状态
-     *
-     * @param task 任务
-     * @return 结果
-     */
-    public int updateTaskStatus(Task task);
 
     /**
      * 删除任务

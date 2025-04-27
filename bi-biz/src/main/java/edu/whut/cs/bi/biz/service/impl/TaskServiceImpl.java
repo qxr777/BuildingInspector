@@ -7,6 +7,7 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.system.mapper.SysUserMapper;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import edu.whut.cs.bi.biz.domain.Task;
@@ -40,6 +41,9 @@ public class TaskServiceImpl implements ITaskService {
     @Resource
     private BuildingMapper buildingMapper;
 
+    @Resource
+    private SysUserMapper sysUserMapper;
+
     /**
      * 查询任务
      *
@@ -63,7 +67,18 @@ public class TaskServiceImpl implements ITaskService {
      */
     @Override
     public List<Task> selectTaskList(Task task) {
-        return taskMapper.selectTaskList(task);
+        Long currentUserId = ShiroUtils.getUserId();
+        String role = sysUserMapper.selectUserRoleByUserId(currentUserId);
+
+        List<Task> tasks = null;
+        if (role.equals("admin")) {
+            // 超级管理员
+            tasks = taskMapper.selectTaskList(task, null);
+        } else {
+            tasks = taskMapper.selectTaskList(task, currentUserId);
+        }
+
+        return tasks;
     }
 
     /**
