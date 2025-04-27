@@ -200,6 +200,9 @@
                 <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()"><i
                         class="fa fa-reply-all"></i>关 闭
                 </button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="submitAndCopy()"><i
+                        class="fa fa-check"></i>保存并复制到下一条
+                </button>&nbsp;
             </div>
         </div>
     </form>
@@ -517,6 +520,34 @@
                     if (response.code === 0) {
                         $.modal.msgSuccess("保存成功");
                         $.modal.closeTab();
+                        $.table.refresh();
+                    } else {
+                        $.modal.alertError(response.msg);
+                    }
+                },
+                error: function() {
+                    $.modal.closeLoading();
+                    $.modal.alertError("保存失败，请稍后再试");
+                }
+            });
+        }
+    }
+
+    function submitAndCopy() {
+        if ($.validate.form() && validateForm()) {
+            var formData = new FormData($("#form-disease-add")[0]);
+
+            $.modal.loading("正在提交数据，请稍候...");
+            $.ajax({
+                url: prefix + "/add",
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    $.modal.closeLoading();
+                    if (response.code === 0) {
+                        $.modal.msgSuccess("上一条记录保存成功");
                         $.table.refresh();
                     } else {
                         $.modal.alertError(response.msg);

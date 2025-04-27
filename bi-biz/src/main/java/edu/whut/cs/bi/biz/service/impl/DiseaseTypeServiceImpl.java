@@ -207,6 +207,7 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
             throw new ServiceException("文件不能为空");
         }
 
+        // TODO 新增了一些参数，这里也要修改
         try {
             // 将文件内容转化成字符串
             String json = new String(file.getBytes(), "UTF-8");
