@@ -10,8 +10,7 @@ import java.util.List;
  * @date 2025/4/27
  */
 @Data
-public class TasksOfUserVo {
-    private Long userId;
-    private String taskStatus;
+public class TasksOfProjectVo {
+    private Long projectId;
     private List<Task> tasks;
 }
