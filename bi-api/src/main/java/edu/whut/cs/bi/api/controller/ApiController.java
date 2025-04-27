@@ -2,16 +2,17 @@ package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.biz.domain.Building;
-import edu.whut.cs.bi.biz.service.IBiObjectService;
-import edu.whut.cs.bi.biz.service.IBuildingService;
-import edu.whut.cs.bi.biz.service.IPropertyService;
+import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.web.bind.annotation.*;
 import com.ruoyi.common.core.domain.AjaxResult;
 
 import javax.annotation.Resource;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -26,6 +27,9 @@ public class ApiController
 
     @Resource
     private IBiObjectService biObjectService;
+
+    @Resource
+    private IDiseaseService diseaseService;
 
     /**
      * 无权限访问
@@ -64,7 +68,7 @@ public class ApiController
     @GetMapping("/property")
     @RequiresPermissions("biz:building:view")
     @ResponseBody
-    public AjaxResult property(@RequestParam("bid") Long bid) {
+    public AjaxResult getProperty(@RequestParam("bid") Long bid) {
         if (bid == null) {
             return AjaxResult.error("参数错误");
         }
@@ -93,5 +97,28 @@ public class ApiController
         } catch (Exception e) {
             return AjaxResult.error(e.getMessage());
         }
+    }
+
+    /**
+     * 根据 BuidlingId 和 Year 查询桥梁历史病害
+     */
+    @GetMapping("/disease")
+    @RequiresPermissions("biz:disease:list")
+    @ResponseBody
+    public AjaxResult getDisease(@RequestParam("bid") Long buildingId, @RequestParam("year") int year) {
+        if (buildingId == null) {
+            return AjaxResult.error("参数错误");
+        }
+        Disease disease = new Disease();
+        disease.setBuildingId(buildingId);
+        disease.setYear(year);
+        List<Disease> diseases = diseaseService.selectDiseaseList(disease);
+
+        DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+        diseasesOfYearVo.setDiseases(diseases);
+        diseasesOfYearVo.setYear(year);
+        diseasesOfYearVo.setBuildingId(buildingId);
+
+        return AjaxResult.success("查询成功", diseasesOfYearVo);
     }
 }

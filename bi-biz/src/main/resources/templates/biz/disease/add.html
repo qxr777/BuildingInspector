@@ -339,7 +339,14 @@
             var options = '<option value=""></option>';
             if (result && result.total > 0) {
                 result.rows.forEach(function (item) {
-                    options += '<option value="' + item.qualitativeDescription + '，' + item.quantitativeDescription + '">' + item.qualitativeDescription + ',' + item.quantitativeDescription + '</option>';
+                    var qualitativeDescription = item.qualitativeDescription;
+                    var quantitativeDescription = item.quantitativeDescription;
+                    if (!qualitativeDescription && !quantitativeDescription) {
+                        options += '<option value="' + qualitativeDescription + '，' + quantitativeDescription + '">' + qualitativeDescription + ',' + quantitativeDescription + '</option>';
+                    } else {
+                        options += '<option value="' + qualitativeDescription + '">' + qualitativeDescription + '</option>';
+                    }
+
                 });
             }
             $("#description").html(options).selectpicker('refresh');

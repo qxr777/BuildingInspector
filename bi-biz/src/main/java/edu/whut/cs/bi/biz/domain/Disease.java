@@ -87,6 +87,9 @@ public class Disease extends BaseEntity {
     private Project project;
     private Long projectId;
 
+    /** 年份  项目属性用于查询*/
+    private Integer year;
+
     /** 关联构建 */
     private Component component;
     private Long componentId;
