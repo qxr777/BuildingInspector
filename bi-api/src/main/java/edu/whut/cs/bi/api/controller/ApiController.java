@@ -2,9 +2,15 @@ package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
+import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
+import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.Project;
+import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
@@ -30,6 +36,12 @@ public class ApiController
 
     @Resource
     private IDiseaseService diseaseService;
+
+    @Resource
+    private ITaskService taskService;
+
+    @Resource
+    private IProjectService projectService;
 
     /**
      * 无权限访问
@@ -68,11 +80,11 @@ public class ApiController
     @GetMapping("/property")
     @RequiresPermissions("biz:building:view")
     @ResponseBody
-    public AjaxResult getProperty(@RequestParam("bid") Long bid) {
-        if (bid == null) {
+    public AjaxResult getProperty(@RequestParam("bid") Long buildingId) {
+        if (buildingId == null) {
             return AjaxResult.error("参数错误");
         }
-        Building building = buildingService.selectBuildingById(bid);
+        Building building = buildingService.selectBuildingById(buildingId);
         return AjaxResult.success("查询成功", propertyService.selectPropertyTree(building.getRootPropertyId()));
     }
 
@@ -120,5 +132,47 @@ public class ApiController
         diseasesOfYearVo.setBuildingId(buildingId);
 
         return AjaxResult.success("查询成功", diseasesOfYearVo);
+    }
+
+    /**
+     * 根据项目 ProjectId 查询任务列表
+     */
+    @GetMapping("/task")
+    @RequiresPermissions("biz:task:list")
+    @ResponseBody
+    public AjaxResult getTask(@RequestParam("pid") Long projectId) {
+        if (projectId == null) {
+            return AjaxResult.error("参数错误");
+        }
+        Task task = new Task();
+        task.setProjectId(projectId);
+        List<Task> tasks = taskService.selectTaskList(task);
+
+        TasksOfProjectVo tasksOfProjectVo = new TasksOfProjectVo();
+        tasksOfProjectVo.setTasks(tasks);
+        tasksOfProjectVo.setProjectId(projectId);
+
+        return AjaxResult.success("查询成功", tasksOfProjectVo);
+    }
+
+    /**
+     * 根据用户id查询用户项目Project列表
+     */
+    @GetMapping("/project")
+    @RequiresPermissions("biz:project:list")
+    @ResponseBody
+    public AjaxResult getProject() {
+        Long userId = ShiroUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error("参数错误");
+        }
+
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+
+        ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
+        projectsOfUserVo.setProjects(projects);
+        projectsOfUserVo.setUserId(userId);
+
+        return AjaxResult.success("查询成功", projectsOfUserVo);
     }
 }
