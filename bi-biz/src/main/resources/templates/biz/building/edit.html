@@ -2,6 +2,56 @@
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" >
 <head>
     <th:block th:include="include :: header('修改建筑')" />
+    <style>
+        .upload-section {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .upload-title {
+            color: #666;
+            width: 100px;
+            margin-left: 100px;
+            text-align: right;
+            padding-right: 5px;
+            line-height: 34px;
+        }
+        .upload-content {
+            display: flex;
+            margin-left: 30px;
+        }
+        .upload-btn {
+            width: 120px;
+            height: 120px;
+            border: 1px dashed #d9d9d9;
+            border-radius: 2px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            vertical-align: top;
+            transition: border-color 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-btn:hover {
+            border-color: #1890ff;
+        }
+        .upload-btn .plus {
+            font-size: 28px;
+            color: #999;
+        }
+        .upload-btn img {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            top: 0;
+            left: 0;
+        }
+    </style>
 </head>
 <body class="white-bg">
 <div class="wrapper wrapper-content animated fadeInRight ibox-content">
@@ -124,6 +174,42 @@
                 </div>
             </div>
         </div>
+        <div class="col-xs-12">
+            <div class="form-group">
+                <div class="col-sm-30">
+                    <div class="upload-section">
+                        <label class="upload-title">上传正面照：</label>
+                        <div class="upload-content">
+                            <div class="upload-btn" onclick="uploadImage('front', 0)" id="frontUpload0">
+                                <span class="plus">+</span>
+                                <input type="hidden" name="frontImage1" id="frontImage1">
+                                <img style="display: none;">
+                            </div>
+                            <div class="upload-btn" onclick="uploadImage('front', 1)" id="frontUpload1">
+                                <span class="plus">+</span>
+                                <input type="hidden" name="frontImage2" id="frontImage2">
+                                <img style="display: none;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="upload-section">
+                        <label class="upload-title">上传立面照：</label>
+                        <div class="upload-content">
+                            <div class="upload-btn" onclick="uploadImage('side', 0)" id="sideUpload0">
+                                <span class="plus">+</span>
+                                <input type="hidden" name="sideImage1" id="sideImage1">
+                                <img style="display: none;">
+                            </div>
+                            <div class="upload-btn" onclick="uploadImage('side', 1)" id="sideUpload1">
+                                <span class="plus">+</span>
+                                <input type="hidden" name="sideImage2" id="sideImage2">
+                                <img style="display: none;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- 移除模板选择框，使用隐藏字段保留模板ID -->
         <input type="hidden" name="templateId" th:value="${building.templateId}">
@@ -132,7 +218,6 @@
 <th:block th:include="include :: footer" />
 <script th:inline="javascript">
     var prefix = ctx + "biz/building";
-
     $("#form-building-edit").validate({
         focusCleanup: true
     });
@@ -142,6 +227,100 @@
             $.operate.save(prefix + "/edit", $('#form-building-edit').serialize());
         }
     }
+
+    function uploadImage(type, index) {
+        const serializedData = $('#form-building-edit').serialize();
+        const params = new URLSearchParams(serializedData);
+        const id = params.get('id');
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = function() {
+            var file = this.files[0];
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('id', id);
+            formData.append('type', type);
+            formData.append('index', index);
+
+            // 预览图片
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var uploadBtn = document.getElementById(type + 'Upload' + index);
+                var plusIcon = uploadBtn.querySelector('.plus');
+                var img = uploadBtn.querySelector('img');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                plusIcon.style.display = 'none';
+            }
+            reader.readAsDataURL(file);
+
+            // 获取当前服务的完整URL
+            var baseUrl = window.location.protocol + "//" + window.location.host;
+            
+            $.ajax({
+                url: baseUrl + ctx + "/biz/file/uploadImage",
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.code === 0) {
+                        $.modal.msgSuccess("上传成功");
+                        // 更新隐藏输入框的值
+                        var hiddenInput = document.getElementById(type + 'Image' + (index + 1));
+                        if (hiddenInput) {
+                            hiddenInput.value = response.data;
+                        }
+                    } else {
+                        $.modal.msgError(response.msg);
+                    }
+                }
+            });
+        };
+        input.click();
+    }
+
+    // 页面加载完成后获取图片
+    $(document).ready(function() {
+        const serializedData = $('#form-building-edit').serialize();
+        const params = new URLSearchParams(serializedData);
+        const buildingId = params.get('id');
+        if (buildingId) {
+            var baseUrl = window.location.protocol + "//" + window.location.host;
+            $.ajax({
+                url: baseUrl + ctx + "/biz/file/getImages",
+                type: 'GET',
+                data: {
+                    id: buildingId
+                },
+                success: function(response) {
+                    if (response.code === 0) {
+                        // 遍历所有图片
+                        response.data.forEach(function(fileMap) {
+                            const parts = fileMap.oldName.split('_');
+                            const index = parseInt(parts[0]); // 获取序号（0或1）
+                            const type = parts[1];   // 获取类型（front或side）
+                            console.log(fileMap)
+                            if (type === 'front' || type === 'side') {
+                                var uploadBtn = document.getElementById(type + 'Upload' + index);
+                                var plusIcon = uploadBtn.querySelector('.plus');
+                                var img = uploadBtn.querySelector('img');
+                                var hiddenInput = document.getElementById(type + 'Image' + (index + 1));
+
+                                if (uploadBtn && plusIcon && img && hiddenInput) {
+                                    img.src = fileMap.newName;
+                                    img.style.display = 'block';
+                                    plusIcon.style.display = 'none';
+                                    hiddenInput.value = fileMap.oldName;
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        }
+    });
 </script>
 </body>
 </html>

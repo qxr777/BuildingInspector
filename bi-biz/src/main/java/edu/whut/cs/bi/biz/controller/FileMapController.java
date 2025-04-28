@@ -1,9 +1,14 @@
 package edu.whut.cs.bi.biz.controller;
 
-import java.util.List;
+import java.io.File;
+import java.util.*;
 import java.io.IOException;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
+
+import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -18,21 +23,19 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.common.utils.file.MimeTypeUtils;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+
 import java.net.URLEncoder;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 文件管理Controller
- * 
+ *
  * @author zzzz
  * @date 2025-03-29
  */
@@ -43,6 +46,12 @@ public class FileMapController extends BaseController {
 
     @Autowired
     private IFileMapService fileMapService;
+
+    @Autowired
+    private AttachmentService attachmentService;
+
+    @Autowired
+    private MinioConfig minioConfig;
 
     @RequiresPermissions("biz:file:view")
     @GetMapping()
@@ -150,6 +159,49 @@ public class FileMapController extends BaseController {
             ajaxResult.put("createTime", fileMap.getCreateTime());
             ajaxResult.put("downloadUrl", "/biz/file/download/" + fileMap.getId());
 
+            return ajaxResult;
+        } catch (Exception e) {
+            return error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/uploadImage")
+    @ResponseBody
+    public AjaxResult uploadAttachment(@RequestParam("id") Long id, @RequestParam("file") MultipartFile file,@RequestParam("type") String type,@RequestParam("index") int index) {
+        try {
+            if (file.isEmpty()) {
+                return error("上传文件不能为空");
+            }
+            List<Attachment> attachmentList = attachmentService.getAttachmentList(id);
+            for (Attachment value : attachmentList) {
+                if (value.getName().split("_")[0].equals(String.valueOf(index))&&value.getName().split("_")[1].equals(type)) {
+                    FileMap fileMap = fileMapService.handleFileUpload(file);
+                    value.setMinioId(Long.valueOf(fileMap.getId()));
+                    value.setName(index+"_"+type+"_"+file.getOriginalFilename());
+                    attachmentService.updateAttachment(value);
+                    AjaxResult ajaxResult = success("上传成功");
+                    ajaxResult.put("fileId", fileMap.getId());
+                    ajaxResult.put("fileName", fileMap.getOldName());
+                    ajaxResult.put("newName", fileMap.getNewName());
+                    ajaxResult.put("createTime", fileMap.getCreateTime());
+                    ajaxResult.put("downloadUrl", "/biz/file/download/" + fileMap.getId());
+                    return ajaxResult;
+                }
+            }
+            Attachment attachment = new Attachment();
+            attachment.setType(6);
+            attachment.setName(index+"_"+type+"_"+file.getOriginalFilename());
+            attachment.setSubjectId(id);
+            FileMap fileMap = fileMapService.handleFileUpload(file);
+            // 构建更详细的返回信息
+            AjaxResult ajaxResult = success("上传成功");
+            ajaxResult.put("fileId", fileMap.getId());
+            ajaxResult.put("fileName", fileMap.getOldName());
+            ajaxResult.put("newName", fileMap.getNewName());
+            ajaxResult.put("createTime", fileMap.getCreateTime());
+            ajaxResult.put("downloadUrl", "/biz/file/download/" + fileMap.getId());
+            attachment.setMinioId(Long.valueOf(fileMap.getId()));
+            attachmentService.insertAttachment(attachment);
             return ajaxResult;
         } catch (Exception e) {
             return error(e.getMessage());
@@ -319,4 +371,26 @@ public class FileMapController extends BaseController {
         }
         return AjaxResult.success(fileMap);
     }
+
+    @GetMapping("/getImages")
+    @ResponseBody
+    public AjaxResult getImages(@RequestParam("id") Long id) {
+        List<Attachment> bySubjectId = attachmentService.getAttachmentList(id);
+        List<FileMap> fileMapList = bySubjectId.stream()
+                .map(e -> fileMapService.selectFileMapById(e.getMinioId())) // 查询 FileMap
+                .filter(Objects::nonNull) // 只保留非 null 的 FileMap
+                .peek(e -> e.setNewName(minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+e.getNewName().substring(0, 2) + "/" + e.getNewName())) // 修改 newName
+                .toList();
+
+        for(Attachment attachment: bySubjectId){
+            for(FileMap fileMap:fileMapList){
+                if((fileMap.getId()+0)==attachment.getMinioId()){
+                    fileMap.setOldName(attachment.getName());
+                }
+            }
+        }
+        System.out.println(bySubjectId.size());
+        return AjaxResult.success(fileMapList);
+    }
+
 }
