@@ -14,5 +14,19 @@ services:
       service: minio
     networks:
       - bi-net
+  etcd:
+    container_name: milvus-etcd
+    extends:
+      file: milvus.yml
+      service: etcd
+    networks:
+      - bi-net
+  milvus-standalone:
+    container_name: milvus-standalone
+    extends:
+      file: milvus.yml
+      service: milvus-standalone
+    networks:
+      - bi-net
 networks:
   bi-net:

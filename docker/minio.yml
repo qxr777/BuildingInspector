@@ -1,4 +1,4 @@
-version: '2'
+# version 可能会引起报错，暂时去掉
 services:
   minio:
     image: minio/minio
@@ -6,8 +6,10 @@ services:
       - ./data/minio/data:/data
       - ./data/minio/config:/root/.minio
     environment:
-      - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=admin123
+#      - MINIO_ROOT_USER=admin
+#      - MINIO_ROOT_PASSWORD=admin123   密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
       - MINIO_REGION=cn-north-1
       - TZ=Asia/Shanghai
     ports:
