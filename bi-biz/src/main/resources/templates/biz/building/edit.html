@@ -2,6 +2,7 @@
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" >
 <head>
     <th:block th:include="include :: header('修改建筑')" />
+    <th:block th:include="include :: select2-css" />
     <style>
         .upload-section {
             margin-bottom: 20px;
@@ -126,7 +127,8 @@
             <div class="form-group">
                 <label class="col-sm-3 control-label is-required">片区：</label>
                 <div class="col-sm-8">
-                    <select name="area" class="form-control" th:with="type=${@dict.getType('bi_building_area')}" required>
+                    <select name="area" class="form-control select2-hidden-accessible" th:with="type=${@dict.getType('bi_building_area')}" required>
+                        <option value="">请选择片区</option>
                         <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="*{area}"></option>
                     </select>
                 </div>
@@ -136,7 +138,8 @@
             <div class="form-group">
                 <label class="col-sm-3 control-label is-required">线路：</label>
                 <div class="col-sm-8">
-                    <select name="line" class="form-control" th:with="type=${@dict.getType('bi_buildeing_line')}" required>
+                    <select name="line" class="form-control select2-hidden-accessible" th:with="type=${@dict.getType('bi_buildeing_line')}" required>
+                        <option value="">请选择线路</option>
                         <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="*{line}"></option>
                     </select>
                 </div>
@@ -216,8 +219,26 @@
     </form>
 </div>
 <th:block th:include="include :: footer" />
+<th:block th:include="include :: select2-js" />
 <script th:inline="javascript">
     var prefix = ctx + "biz/building";
+
+    $(function() {
+        // 初始化Select2
+        $("select[name='area']").select2({
+            placeholder: "请选择片区",
+            allowClear: true,
+            width: '100%'
+        });
+
+        $("select[name='line']").select2({
+            placeholder: "请选择线路",
+            allowClear: true,
+            width: '100%'
+        });
+
+    });
+
     $("#form-building-edit").validate({
         focusCleanup: true
     });
@@ -257,7 +278,7 @@
 
             // 获取当前服务的完整URL
             var baseUrl = window.location.protocol + "//" + window.location.host;
-            
+
             $.ajax({
                 url: baseUrl + ctx + "/biz/file/uploadImage",
                 type: 'POST',

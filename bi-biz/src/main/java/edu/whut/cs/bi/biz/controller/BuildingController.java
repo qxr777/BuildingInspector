@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.controller;
 
+import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -172,6 +173,8 @@ public class BuildingController extends BaseController {
     @PostMapping("/edit")
     @ResponseBody
     public AjaxResult editSave(Building building) {
+        building.setCreateBy(ShiroUtils.getLoginName());
+        building.setUpdateTime(new Date());
         return toAjax(buildingService.updateBuilding(building));
     }
 
