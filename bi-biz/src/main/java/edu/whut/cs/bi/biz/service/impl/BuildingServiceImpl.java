@@ -527,6 +527,7 @@ public class BuildingServiceImpl implements IBuildingService {
         rootObject.setOrderNum(0);
         rootObject.setStatus("0");
         rootObject.setCreateBy(ShiroUtils.getLoginName());
+        rootObject.setWeight(template.getWeight());
         rootObject.setTemplateObjectId(template.getId()); // 设置对应的模板ID
 
         // 插入根节点
@@ -568,7 +569,9 @@ public class BuildingServiceImpl implements IBuildingService {
         biObject.setAncestors(parentAncestors + "," + parentId);
         biObject.setOrderNum(template.getOrderNum());
         biObject.setStatus("0");
+        biObject.setWeight(template.getWeight());
         biObject.setCreateBy(ShiroUtils.getLoginName());
+        biObject.setWeight(template.getWeight());
         biObject.setTemplateObjectId(template.getId()); // 设置对应的模板ID
 
         // 插入节点

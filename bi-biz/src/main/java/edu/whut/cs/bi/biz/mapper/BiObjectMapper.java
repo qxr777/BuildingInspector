@@ -84,4 +84,28 @@ public interface BiObjectMapper {
      * @return 结果
      */
     int updateObjectChildren(@Param("objects") List<BiObject> objects);
+
+    /**
+     * 获得每棵树的叶子节点
+     *
+     * @param rootId 子元素
+     * @return 结果
+     */
+    List<BiObject> selectLeafNodes(Long rootId);
+
+    /**
+     * 获得每棵树的直接孩子节点
+     *
+     * @param parentId 子元素
+     * @return 结果
+     */
+    List<BiObject> selectChildrenByParentId(Long parentId);
+
+    /**
+     * 根据对象ID获取其直接父节点
+     *
+     * @param id 对象ID
+     * @return 直接父节点
+     */
+    public BiObject selectDirectParentById(Long id);
 }

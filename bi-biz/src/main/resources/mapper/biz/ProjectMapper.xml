@@ -52,31 +52,36 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 SELECT 1 FROM bi_project_user pu
                 WHERE pu.project_id = bi_project.id
                 AND pu.user_id = #{currentUserId}
+                <if test="role != null">
+                    AND pu.role = #{role}
+                </if>
                 )
             </if>
-            <if test="project.name != null and project.name != ''">
-                AND name like concat('%', #{project.name}, '%')
-            </if>
-            <if test="project.year != null">
-                AND year = #{project.year}
-            </if>
-            <if test="project.status != null and project.status != ''">
-                AND status = #{project.status}
-            </if>
-            <if test="project.code != null and project.code != ''">
-                AND code = #{project.code}
-            </if>
-            <if test="project.ownerDeptId != null">
-                AND owner_dept_id = #{project.ownerDeptId}
-            </if>
-            <if test="project.deptId != null">
-                AND dept_id = #{project.deptId}
-            </if>
-            <if test="project.startDate != null">
-                AND start_date &gt;= #{project.startDate}
-            </if>
-            <if test="project.endDate != null">
-                AND end_date &lt;= #{project.endDate}
+            <if test="project != null">
+                <if test="project.name != null and project.name != ''">
+                    AND name like concat('%', #{project.name}, '%')
+                </if>
+                <if test="project.year != null">
+                    AND year = #{project.year}
+                </if>
+                <if test="project.status != null and project.status != ''">
+                    AND status = #{project.status}
+                </if>
+                <if test="project.code != null and project.code != ''">
+                    AND code = #{project.code}
+                </if>
+                <if test="project.ownerDeptId != null">
+                    AND owner_dept_id = #{project.ownerDeptId}
+                </if>
+                <if test="project.deptId != null">
+                    AND dept_id = #{project.deptId}
+                </if>
+                <if test="project.startDate != null">
+                    AND start_date &gt;= #{project.startDate}
+                </if>
+                <if test="project.endDate != null">
+                    AND end_date &lt;= #{project.endDate}
+                </if>
             </if>
         </where>
     </select>

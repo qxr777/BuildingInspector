@@ -53,7 +53,7 @@ public class PropertyController extends BaseController
      */
     @PostMapping( "/readJson" )
     @ResponseBody
-    @RequiresPermissions("bi:property:add")
+    @RequiresPermissions("biz:property:add")
     @Log(title = "读取属性json文件", businessType = BusinessType.INSERT)
     public Boolean readJsonFile(@RequestPart("file") MultipartFile file, Long buildingId)
     {
@@ -67,7 +67,7 @@ public class PropertyController extends BaseController
     /**
      * 查询属性树列表
      */
-    @RequiresPermissions("bi:property:list")
+    @RequiresPermissions("biz:property:list")
     @PostMapping("/list")
     @ResponseBody
     public List<Property> list(Property property)
@@ -78,7 +78,7 @@ public class PropertyController extends BaseController
     /**
      * 分页查询属性树列表
      */
-//    @RequiresPermissions("bi:property:list")
+//    @RequiresPermissions("biz:property:list")
 //    @PostMapping("/list")
 //    @ResponseBody
 //    public TableDataInfo list(Property property)
@@ -91,7 +91,7 @@ public class PropertyController extends BaseController
     /**
      * 导出属性列表
      */
-    @RequiresPermissions("bi:property:export")
+    @RequiresPermissions("biz:property:export")
     @Log(title = "属性", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     @ResponseBody
@@ -118,7 +118,7 @@ public class PropertyController extends BaseController
     /**
      * 新增保存属性
      */
-    @RequiresPermissions("bi:property:add")
+    @RequiresPermissions("biz:property:add")
     @Log(title = "属性", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
@@ -149,7 +149,7 @@ public class PropertyController extends BaseController
     /**
      * 修改保存属性
      */
-    @RequiresPermissions("bi:property:edit")
+    @RequiresPermissions("biz:property:edit")
     @Log(title = "属性", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
@@ -162,7 +162,7 @@ public class PropertyController extends BaseController
     /**
      * 删除
      */
-    @RequiresPermissions("bi:property:remove")
+    @RequiresPermissions("biz:property:remove")
     @Log(title = "属性", businessType = BusinessType.DELETE)
     @GetMapping("/remove/{id}")
     @ResponseBody

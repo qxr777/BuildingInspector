@@ -11,6 +11,7 @@ import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.domain.Property;
+import edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseTypeService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.stereotype.Controller;
@@ -36,13 +37,22 @@ public class DiseaseTypeController extends BaseController
     @Resource
     private IDiseaseTypeService diseaseTypeService;
 
+    /**
+     * 病害类型信息
+     */
     @RequiresPermissions("biz:diseaseType:view")
     @GetMapping()
-    public String dictType()
+    public String diseaseType()
     {
         return prefix + "/type";
     }
 
+    /**
+     * 病害类型列表
+     *
+     * @param diseaseType
+     * @return
+     */
     @PostMapping("/list")
     @RequiresPermissions("biz:diseaseType:list")
     @ResponseBody
@@ -53,6 +63,26 @@ public class DiseaseTypeController extends BaseController
         return getDataTable(list);
     }
 
+    /**
+     * 病害类型列表
+     *
+     * @param templateObjectId
+     * @return
+     */
+    @PostMapping("/selectList")
+    @RequiresPermissions("biz:diseaseType:list")
+    @ResponseBody
+    public List<DiseaseType> selectList(Long templateObjectId)
+    {
+        return diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(templateObjectId);
+    }
+
+    /**
+     * 病害类型导出
+     *
+     * @param diseaseType
+     * @return
+     */
     @Log(title = "病害类型", businessType = BusinessType.EXPORT)
     @RequiresPermissions("biz:diseaseType:export")
     @PostMapping("/export")
@@ -120,6 +150,9 @@ public class DiseaseTypeController extends BaseController
         return toAjax(diseaseTypeService.updateDiseaseType(diseaseType));
     }
 
+    /**
+     * 删除病害类型
+     */
     @Log(title = "病害类型", businessType = BusinessType.DELETE)
     @RequiresPermissions("biz:diseaseType:remove")
     @PostMapping("/remove")
@@ -173,6 +206,9 @@ public class DiseaseTypeController extends BaseController
         return ztrees;
     }
 
+    /**
+     * 读取json文件
+     */
     @GetMapping("/readJson")
     public String readJson()
     {
@@ -184,7 +220,7 @@ public class DiseaseTypeController extends BaseController
      */
     @PostMapping( "/readJson" )
     @ResponseBody
-    @RequiresPermissions("bi:property:add")
+    @RequiresPermissions("biz:property:add")
     @Log(title = "读取属性json文件", businessType = BusinessType.INSERT)
     public Boolean readJsonFile(@RequestPart("file") MultipartFile file)
     {

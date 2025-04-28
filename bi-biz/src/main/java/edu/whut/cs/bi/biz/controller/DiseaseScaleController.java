@@ -41,7 +41,7 @@ public class DiseaseScaleController extends BaseController
 
     @RequiresPermissions("biz:diseaseType:view")
     @GetMapping()
-    public String dictData()
+    public String diseaseScale()
     {
         return prefix + "/scale";
     }

@@ -10,7 +10,10 @@ import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
+import edu.whut.cs.bi.biz.service.ITaskService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -35,6 +38,12 @@ public class DiseaseController extends BaseController
     @Resource
     private IDiseaseService diseaseService;
 
+    @Resource
+    private ITaskService taskService;
+
+    @Resource
+    private IBiObjectService biObjectService;
+
     @RequiresPermissions("biz:disease:view")
     @GetMapping()
     public String disease()
@@ -43,9 +52,9 @@ public class DiseaseController extends BaseController
     }
 
     /**
-     * 查询病害树列表
+     * 查询病害列表
      */
-    @RequiresPermissions("bi:disease:list")
+    @RequiresPermissions("biz:disease:list")
     @PostMapping("/list")
     @ResponseBody
     public TableDataInfo list(Disease disease)
@@ -58,7 +67,7 @@ public class DiseaseController extends BaseController
     /**
      * 导出病害列表
      */
-    @RequiresPermissions("bi:disease:export")
+    @RequiresPermissions("biz:disease:export")
     @Log(title = "病害", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     @ResponseBody
@@ -72,20 +81,23 @@ public class DiseaseController extends BaseController
     /**
      * 新增病害
      */
-    @GetMapping(value = { "/add/{id}", "/add" })
-    public String add(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
+    @GetMapping(value = { "/add/{taskId}/{biObjectId}" })
+    public String add(@PathVariable("taskId") Long taskId, @PathVariable("biObjectId") Long biObjectId, ModelMap mmap)
     {
-        if (StringUtils.isNotNull(id))
-        {
-            mmap.put("disease", diseaseService.selectDiseaseById(id));
+        if (taskId != null) {
+            mmap.put("task", taskService.selectTaskById(taskId));
         }
+        if (biObjectId != null) {
+            mmap.put("biObject", biObjectService.selectBiObjectById(biObjectId));
+        }
+
         return prefix + "/add";
     }
 
     /**
      * 新增保存病害
      */
-    @RequiresPermissions("bi:disease:add")
+    @RequiresPermissions("biz:disease:add")
     @Log(title = "病害", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
@@ -99,19 +111,20 @@ public class DiseaseController extends BaseController
     /**
      * 修改病害
      */
+    @RequiresPermissions("biz:disease:edit")
     @GetMapping("/edit/{id}")
     public String edit(@PathVariable("id") Long id, ModelMap mmap)
     {
         Disease disease = diseaseService.selectDiseaseById(id);
-
         mmap.put("disease", disease);
+        mmap.put("biObject", disease.getBiObject());
         return prefix + "/edit";
     }
 
     /**
      * 修改保存病害
      */
-    @RequiresPermissions("bi:disease:edit")
+    @RequiresPermissions("biz:disease:edit")
     @Log(title = "病害", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
@@ -124,7 +137,7 @@ public class DiseaseController extends BaseController
     /**
      * 删除
      */
-    @RequiresPermissions("bi:disease:remove")
+    @RequiresPermissions("biz:disease:remove")
     @Log(title = "病害", businessType = BusinessType.DELETE)
     @PostMapping("/remove")
     @ResponseBody
@@ -132,4 +145,34 @@ public class DiseaseController extends BaseController
     {
         return toAjax(diseaseService.deleteDiseaseByIds(ids));
     }
+
+    /**
+     * 修改病害
+     */
+    @RequiresPermissions("biz:disease:list")
+    @GetMapping("/showDiseaseDetail/{id}")
+    public String showDiseaseDetail(@PathVariable("id") Long id, ModelMap mmap)
+    {
+        Disease disease = diseaseService.selectDiseaseById(id);
+        mmap.put("disease", disease);
+        mmap.put("biObject", disease.getBiObject());
+
+        return prefix + "/detail";
+    }
+
+    /**
+     * 构件扣分
+     */
+    @RequiresPermissions("biz:disease:add")
+    @GetMapping("/computeDeductPoints")
+    @ResponseBody
+    public AjaxResult computeDeductPoints(int maxScale, int scale) {
+
+        if (StringUtils.isNull(maxScale) || StringUtils.isNull(scale)) {
+            return AjaxResult.error("参数错误");
+        }
+
+        return AjaxResult.success(diseaseService.computeDeductPoints(maxScale, scale));
+    }
+
 }

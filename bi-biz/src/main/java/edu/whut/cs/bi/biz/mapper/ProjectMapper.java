@@ -28,7 +28,7 @@ public interface ProjectMapper
      * @param project 项目
      * @return 项目集合
      */
-    public List<Project> selectProjectList(@Param("project") Project project, @Param("currentUserId") Long currentUserId);
+    public List<Project> selectProjectList(@Param("project") Project project, @Param("currentUserId") Long currentUserId, @Param("role") String role);
 
     /**
      * 新增项目

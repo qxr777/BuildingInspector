@@ -207,6 +207,7 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
             throw new ServiceException("文件不能为空");
         }
 
+        // TODO 新增了一些参数，这里也要修改
         try {
             // 将文件内容转化成字符串
             String json = new String(file.getBytes(), "UTF-8");
@@ -260,5 +261,15 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
         }
 
         return true;
+    }
+
+    @Override
+    public List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long templateObjectId) {
+        List<Long> diseaseTypeIds = toDiseaseTypeMapper.selectByTemplateObjectId(templateObjectId);
+        if (diseaseTypeIds != null && diseaseTypeIds.size() > 0) {
+            return diseaseTypeMapper.selectDiseaseTypeListByIds(diseaseTypeIds);
+        }
+
+        return List.of();
     }
 }

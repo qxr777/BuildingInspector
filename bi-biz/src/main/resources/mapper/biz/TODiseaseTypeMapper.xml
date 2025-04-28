@@ -16,4 +16,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </foreach>
     </insert>
 
+    <select id="selectByTemplateObjectId" resultType="java.lang.Long">
+        select disease_type_id from bi_templateObject_diseaseType where template_object_id = #{templateObjectId}
+    </select>
+
 </mapper>

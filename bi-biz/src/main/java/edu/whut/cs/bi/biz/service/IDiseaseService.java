@@ -62,4 +62,13 @@ public interface IDiseaseService {
      * @return 结果
      */
     public int deleteDiseaseById(Long id);
+
+    /**
+     * 计算扣分
+     *
+     * @param maxScale
+     * @param scale
+     * @return
+     */
+    public int computeDeductPoints(int maxScale, int scale);
 }

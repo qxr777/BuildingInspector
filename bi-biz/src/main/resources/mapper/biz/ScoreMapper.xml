@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ScoreMapper">
+
+    <resultMap type="Score" id="ScoreResult">
+        <result property="id" column="id"/>
+        <result property="score" column="score"/>
+        <result property="componentId" column="component_id"/>
+        <result property="conditionId" column="condition_id"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+        <association property="component" javaType="Component">
+            <id property="id" column="component_id"/>
+            <result property="code" column="component_code"/>
+            <result property="name" column="component_name"/>
+            <result property="biObjectId" column="component_bi_object_id"/>
+        </association>
+    </resultMap>
+
+    <sql id="selectScoreVo">
+        select s.id, s.score, s.component_id, s.condition_id, s.create_by, s.create_time, s.update_by, s.update_time, s.remark,
+               c.code as component_code, c.name as component_name, c.bi_object_id as component_bi_object_id
+        from bi_score s
+                 left join bi_component c on s.component_id = c.id
+    </sql>
+
+    <select id="selectScoreById" parameterType="Long" resultMap="ScoreResult">
+        <include refid="selectScoreVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectScoreBycomponentId" parameterType="Long" resultMap="ScoreResult">
+        <include refid="selectScoreVo"/>
+        where component_id = #{componentId}
+    </select>
+
+    <select id="selectScoreList" parameterType="Score" resultMap="ScoreResult">
+        <include refid="selectScoreVo"/>
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="score != null">
+                and score = #{score}
+            </if>
+            <if test="componentId != null">
+                and component_id = #{componentId}
+            </if>
+            <if test="conditionId != null">
+                and condition_id = #{conditionId}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertScore" parameterType="Score" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_score
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="score != null">score,</if>
+            <if test="componentId != null">component_id,</if>
+            <if test="conditionId != null">condition_id,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="score != null">#{score},</if>
+            <if test="componentId != null">#{componentId},</if>
+            <if test="conditionId != null">#{conditionId},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateScore" parameterType="Score">
+        update bi_score
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="score != null">score = #{score},</if>
+            <if test="componentId != null">component_id = #{componentId},</if>
+            <if test="conditionId != null">condition_id = #{conditionId},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteScoreById" parameterType="Long">
+        delete from bi_score where id = #{id}
+    </delete>
+
+    <delete id="deleteScoreByIds" parameterType="String">
+        delete from bi_score where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

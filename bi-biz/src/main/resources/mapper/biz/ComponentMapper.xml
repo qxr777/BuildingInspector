@@ -45,12 +45,12 @@
         where c.id = #{id} and c.del_flag = '0'
     </select>
 
-    <select id="selectComponentsByBiObjectId" parameterType="String" resultMap="ComponentResult">
+    <select id="selectComponentsByBiObjectId" parameterType="Long" resultMap="ComponentResult">
         <include refid="selectComponentVo"/>
         where c.bi_object_id = #{biObjectId} and c.del_flag = '0'
     </select>
 
-    <select id="selectComponentsByBiObjectIdAndChildren" parameterType="String" resultMap="ComponentResult">
+    <select id="selectComponentsByBiObjectIdAndChildren" parameterType="Long" resultMap="ComponentResult">
         <include refid="selectComponentVo"/>
         where c.bi_object_id in (
         select id from bi_object where id = #{biObjectId}

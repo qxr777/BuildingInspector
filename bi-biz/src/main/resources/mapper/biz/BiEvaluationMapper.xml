@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BiEvaluationMapper">
+
+    <resultMap type="BiEvaluation" id="BiEvaluationResult">
+        <result property="id" column="id"/>
+        <result property="superstructureLevel" column="superstructure_level"/>
+        <result property="superstructureScore" column="superstructure_score"/>
+        <result property="substructureLevel" column="substructure_level"/>
+        <result property="substructureScore" column="substructure_score"/>
+        <result property="deckSystemLevel" column="deck_system_level"/>
+        <result property="deckSystemScore" column="deck_system_score"/>
+        <result property="systemScore" column="system_score"/>
+        <result property="worstPartLevel" column="worst_part_level"/>
+        <result property="level" column="level"/>
+        <result property="systemLevel" column="system_level"/>
+        <result property="singleControl" column="single_control"/>
+        <result property="manmadeLevel" column="manmade_level"/>
+        <result property="taskId" column="task_id"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectBiEvaluationVo">
+        select id, superstructure_level, superstructure_score, substructure_level, substructure_score,
+               deck_system_level, deck_system_score, system_score, worst_part_level, level, system_level,
+               single_control, manmade_level, task_id, create_by, create_time, update_by, update_time, remark
+        from bi_evaluation
+    </sql>
+
+    <select id="selectBiEvaluationById" parameterType="Long" resultMap="BiEvaluationResult">
+        <include refid="selectBiEvaluationVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectBiEvaluationList" parameterType="BiEvaluation" resultMap="BiEvaluationResult">
+        <include refid="selectBiEvaluationVo"/>
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="superstructureLevel != null">
+                and superstructure_level = #{superstructureLevel}
+            </if>
+            <if test="superstructureScore != null">
+                and superstructure_score = #{superstructureScore}
+            </if>
+            <if test="substructureLevel != null">
+                and substructure_level = #{substructureLevel}
+            </if>
+            <if test="substructureScore != null">
+                and substructure_score = #{substructureScore}
+            </if>
+            <if test="deckSystemLevel != null">
+                and deck_system_level = #{deckSystemLevel}
+            </if>
+            <if test="deckSystemScore != null">
+                and deck_system_score = #{deckSystemScore}
+            </if>
+            <if test="systemScore != null">
+                and system_score = #{systemScore}
+            </if>
+            <if test="worstPartLevel != null">
+                and worst_part_level = #{worstPartLevel}
+            </if>
+            <if test="level != null">
+                and level = #{level}
+            </if>
+            <if test="systemLevel != null">
+                and system_level = #{systemLevel}
+            </if>
+            <if test="singleControl != null">
+                and single_control = #{singleControl}
+            </if>
+            <if test="manmadeLevel != null">
+                and manmade_level = #{manmadeLevel}
+            </if>
+            <if test="taskId != null">
+                and task_id = #{taskId}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertBiEvaluation" parameterType="BiEvaluation" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_evaluation
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="superstructureLevel != null">superstructure_level,</if>
+            <if test="superstructureScore != null">superstructure_score,</if>
+            <if test="substructureLevel != null">substructure_level,</if>
+            <if test="substructureScore != null">substructure_score,</if>
+            <if test="deckSystemLevel != null">deck_system_level,</if>
+            <if test="deckSystemScore != null">deck_system_score,</if>
+            <if test="systemScore != null">system_score,</if>
+            <if test="worstPartLevel != null">worst_part_level,</if>
+            <if test="level != null">level,</if>
+            <if test="systemLevel != null">system_level,</if>
+            <if test="singleControl != null">single_control,</if>
+            <if test="manmadeLevel != null">manmade_level,</if>
+            <if test="taskId != null">task_id,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="superstructureLevel != null">#{superstructureLevel},</if>
+            <if test="superstructureScore != null">#{superstructureScore},</if>
+            <if test="substructureLevel != null">#{substructureLevel},</if>
+            <if test="substructureScore != null">#{substructureScore},</if>
+            <if test="deckSystemLevel != null">#{deckSystemLevel},</if>
+            <if test="deckSystemScore != null">#{deckSystemScore},</if>
+            <if test="systemScore != null">#{systemScore},</if>
+            <if test="worstPartLevel != null">#{worstPartLevel},</if>
+            <if test="level != null">#{level},</if>
+            <if test="systemLevel != null">#{systemLevel},</if>
+            <if test="singleControl != null">#{singleControl},</if>
+            <if test="manmadeLevel != null">#{manmadeLevel},</if>
+            <if test="taskId != null">#{taskId},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBiEvaluation" parameterType="BiEvaluation">
+        update bi_evaluation
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="superstructureLevel != null">superstructure_level = #{superstructureLevel},</if>
+            <if test="superstructureScore != null">superstructure_score = #{superstructureScore},</if>
+            <if test="substructureLevel != null">substructure_level = #{substructureLevel},</if>
+            <if test="substructureScore != null">substructure_score = #{substructureScore},</if>
+            <if test="deckSystemLevel != null">deck_system_level = #{deckSystemLevel},</if>
+            <if test="deckSystemScore != null">deck_system_score = #{deckSystemScore},</if>
+            <if test="systemScore != null">system_score = #{systemScore},</if>
+            <if test="worstPartLevel != null">worst_part_level = #{worstPartLevel},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="systemLevel != null">system_level = #{systemLevel},</if>
+            <if test="singleControl != null">single_control = #{singleControl},</if>
+            <if test="manmadeLevel != null">manmade_level = #{manmadeLevel},</if>
+            <if test="taskId != null">task_id = #{taskId},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBiEvaluationById" parameterType="Long">
+        delete from bi_evaluation where id = #{id}
+    </delete>
+
+    <delete id="deleteBiEvaluationByIds" parameterType="String">
+        delete from bi_evaluation where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

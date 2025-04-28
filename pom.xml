@@ -35,6 +35,7 @@
         <logback.version>1.2.13</logback.version>
         <spring-framework.version>5.3.39</spring-framework.version>
         <bm.version>1.0.0</bm.version>
+        <bi.version>1.0.0</bi.version>
         <mybatis-plus.version>3.5.1</mybatis-plus.version> <!-- mybatis-plus-boot-starter-->
     </properties>
 
@@ -245,9 +246,15 @@
             </dependency>
 
             <dependency>
-                <groupId>edu.whut.cs.edu.minio</groupId>
-                <artifactId>bi-file</artifactId>
-                <version>${ruoyi.version}</version>
+                <groupId>edu.whut.cs.bi</groupId>
+                <artifactId>bi-biz</artifactId>
+                <version>${bi.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>edu.whut.cs.bi</groupId>
+                <artifactId>bi-api</artifactId>
+                <version>${bi.version}</version>
             </dependency>
 
         </dependencies>
@@ -264,7 +271,7 @@
         <module>bm-common</module>
         <module>bm-biz</module>
         <module>bi-biz</module>
-        <module>bi-file</module>
+        <module>bi-api</module>
     </modules>
     <packaging>pom</packaging>
 

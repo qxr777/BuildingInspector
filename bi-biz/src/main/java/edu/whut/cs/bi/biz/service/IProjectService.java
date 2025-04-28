@@ -114,4 +114,10 @@ public interface IProjectService
      */
     int saveProjectUserAssignments(ProjectUserAssignment assignment);
 
+    /**
+     * 根据 用户ID和role 查询项目列表
+     * @param userId
+     * @param value
+     */
+    List<Project> selectProjectListByUserIdAndRole(Long userId, String value);
 }

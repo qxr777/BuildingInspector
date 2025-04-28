@@ -2,9 +2,12 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
+import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Disease;
-import edu.whut.cs.bi.biz.domain.Disease;
+
 import edu.whut.cs.bi.biz.domain.DiseaseType;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
@@ -13,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -30,6 +33,11 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Resource
     private DiseaseTypeMapper diseaseTypeMapper;
 
+    @Resource
+    private ComponentMapper componentMapper;
+
+    @Resource
+    private BiObjectMapper biObjectMapper;
     /**
      * 查询病害
      *
@@ -41,10 +49,14 @@ public class DiseaseServiceImpl implements IDiseaseService
     {
         Disease disease = diseaseMapper.selectDiseaseById(id);
         // 关联查询其它属性
-        Long diseaseTypeId = disease.getDiseaseTypeId();
-
-
-        disease.setDiseaseType(diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId));
+        Long componentId = disease.getComponentId();
+        Long biObjectId = disease.getBiObjectId();
+        if (biObjectId != null) {
+            disease.setBiObject(biObjectMapper.selectBiObjectById(biObjectId));
+        }
+        if (componentId != null) {
+            disease.setComponent(componentMapper.selectComponentById(componentId));
+        }
 
         return disease;
     }
@@ -58,8 +70,26 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Override
     public List<Disease> selectDiseaseList(Disease disease)
     {
-        List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+        // 这里是病害列表只有 biObjectId 一个查询条件
+        Long biObjectId = disease.getBiObjectId();
+        List<Disease> diseases;
+        if (biObjectId != null) {
+            List<Long> biObjectIds = new ArrayList<>();
+            biObjectIds.add(biObjectId);
+            List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
+            biObjectIds.addAll(biObjects.stream().map(BiObject::getId).collect(Collectors.toList()));
+            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds);
+        } else {
+            diseases = diseaseMapper.selectDiseaseList(disease);
+        }
 
+        diseases.forEach(ds -> {
+            Long componentId = ds.getComponentId();
+
+            if (componentId != null) {
+                ds.setComponent(componentMapper.selectComponentById(componentId));
+            }
+        });
         return diseases;
     }
 
@@ -73,7 +103,9 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Transactional
     public int insertDisease(Disease disease) {
         disease.setCreateTime(DateUtils.getNowDate());
-
+        Long diseaseTypeId = disease.getDiseaseTypeId();
+        DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
+        disease.setType(diseaseType.getName());
         return diseaseMapper.insertDisease(disease);
     }
 
@@ -109,6 +141,41 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Override
     public int deleteDiseaseById(Long id) {
         return diseaseMapper.deleteDiseaseById(id);
+    }
+
+    /**
+     * 计算扣分
+     *
+     * @param maxScale 最大分值
+     * @param scale    当前分值
+     * @return 结果
+     */
+    @Override
+    public int computeDeductPoints(int maxScale, int scale) {
+        return switch (maxScale) {
+            case 3 -> switch (scale) {
+                case 1 -> 0;
+                case 2 -> 20;
+                case 3 -> 35;
+                default -> throw new IllegalArgumentException("当 max_scale 为 3 时，scale 只能为 1、2 或 3");
+            };
+            case 4 -> switch (scale) {
+                case 1 -> 0;
+                case 2 -> 25;
+                case 3 -> 40;
+                case 4 -> 50;
+                default -> throw new IllegalArgumentException("当 max_scale 为 4 时，scale 只能为 1、2、3 或 4");
+            };
+            case 5 -> switch (scale) {
+                case 1 -> 0;
+                case 2 -> 35;
+                case 3 -> 45;
+                case 4 -> 60;
+                case 5 -> 100;
+                default -> throw new IllegalArgumentException("当 max_scale 为 5 时，scale 只能为 1、2、3、4 或 5");
+            };
+            default -> throw new IllegalArgumentException("max_scale 只能为 3、4 或 5");
+        };
     }
 
 }

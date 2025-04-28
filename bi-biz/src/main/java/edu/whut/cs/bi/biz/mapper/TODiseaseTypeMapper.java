@@ -19,4 +19,12 @@ public interface TODiseaseTypeMapper
      * @param id
      */
     void insertData(@Param("componentIds") List<Long> componentIds, @Param("id") Long id);
+
+    /**
+     * 跟踪模板对象和病害类型关联数据
+     *
+     * @param templateObjectId
+     * @return
+     */
+    List<Long> selectByTemplateObjectId(Long templateObjectId);
 }

@@ -55,7 +55,7 @@ public class ComponentServiceImpl implements IComponentService {
      * @return 构件集合
      */
     @Override
-    public List<Component> selectComponentsByBiObjectId(String biObjectId) {
+    public List<Component> selectComponentsByBiObjectId(Long biObjectId) {
         return componentMapper.selectComponentsByBiObjectId(biObjectId);
     }
 
@@ -66,7 +66,7 @@ public class ComponentServiceImpl implements IComponentService {
      * @return 构件集合
      */
     @Override
-    public List<Component> selectComponentsByBiObjectIdAndChildren(String biObjectId) {
+    public List<Component> selectComponentsByBiObjectIdAndChildren(Long biObjectId) {
         return componentMapper.selectComponentsByBiObjectIdAndChildren(biObjectId);
     }
 
@@ -79,6 +79,11 @@ public class ComponentServiceImpl implements IComponentService {
     @Override
     public int insertComponent(Component component) {
         component.setCreateTime(DateUtils.getNowDate());
+        BiObject biObject = biObjectMapper.selectBiObjectById(component.getBiObjectId());
+        biObject.setCount(biObject.getCount() + 1);
+        biObject.setUpdateBy(ShiroUtils.getLoginName());
+        biObject.setUpdateTime(DateUtils.getNowDate());
+        biObjectMapper.insertBiObject(biObject);
         return componentMapper.insertComponent(component);
     }
 
@@ -102,6 +107,15 @@ public class ComponentServiceImpl implements IComponentService {
      */
     @Override
     public int deleteComponentByIds(String ids) {
+        String[] strArray = Convert.toStrArray(ids);
+        for (String str : strArray) {
+            Component component = selectComponentById(Long.parseLong(str));
+            BiObject biObject = biObjectMapper.selectBiObjectById(component.getBiObjectId());
+            biObject.setCount(biObject.getCount() - 1);
+            biObject.setUpdateBy(ShiroUtils.getLoginName());
+            biObject.setUpdateTime(DateUtils.getNowDate());
+            biObjectMapper.updateBiObject(biObject);
+        }
         return componentMapper.deleteComponentByIds(Convert.toStrArray(ids));
     }
 
@@ -124,9 +138,9 @@ public class ComponentServiceImpl implements IComponentService {
      * @return 结果
      */
     @Override
-    public int generateComponents(String biObjectId, List<CodeSegment> segments) {
+    public int generateComponents(Long biObjectId, List<CodeSegment> segments) {
         // 获取部件信息
-        BiObject biObject = biObjectMapper.selectBiObjectById(Long.parseLong(biObjectId));
+        BiObject biObject = biObjectMapper.selectBiObjectById(biObjectId);
         if (biObject == null) {
             throw new RuntimeException("部件不存在");
         }
@@ -138,7 +152,7 @@ public class ComponentServiceImpl implements IComponentService {
                 totalCount *= (segment.getMaxValue() - segment.getMinValue() + 1);
             }
         }
-
+        biObject.setCount(totalCount);
         // 生成所有可能的编号组合
         List<String> codes = generateCodes(segments, biObject.getName());
 
@@ -157,7 +171,7 @@ public class ComponentServiceImpl implements IComponentService {
                 successCount++;
             }
         }
-
+        biObjectMapper.updateBiObject(biObject);
         return successCount;
     }
 

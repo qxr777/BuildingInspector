@@ -18,6 +18,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="heightOrDepth" column="height_or_depth" javaType="BigDecimal" jdbcType="DECIMAL"/>
         <result property="slitWidth" column="slit_width" javaType="BigDecimal" jdbcType="DECIMAL"/>
         <result property="area" column="area" javaType="BigDecimal" jdbcType="DECIMAL"/>
+        <result property="participateAssess" column="participate_assess"/>
+        <result property="deductPoints" column="deduct_points"/>
         <result property="projectId" column="project_id"/>
         <result property="biObjectId" column="bi_object_id"/>
         <result property="buildingId" column="building_id"/>
@@ -42,17 +44,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <sql id="selectDiseaseVo">
         select
             d.id, d.position, d.type, d.disease_type_id, d.description, d.trend, d.level, d.quantity,
-            d.length, d.width, d.height_or_depth, d.slit_width, d.area,
+            d.length, d.width, d.height_or_depth, d.slit_width, d.area, d.participate_assess, d.deduct_points,
             d.project_id, d.bi_object_id, d.building_id, d.component_id, d.remark,
             d.create_by, d.create_time, d.update_by, d.update_time,
             dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
         from bi_disease d
-                 left join bi_disease_type dt on d.disease_type_id = dt.id
+        left join bi_disease_type dt on d.disease_type_id = dt.id
+        left join bi.bi_project bp on d.project_id = bp.id
     </sql>
 
     <select id="selectDiseaseList" parameterType="Disease" resultMap="DiseaseResult">
         <include refid="selectDiseaseVo"/>
         <where>
+            <if test="buildingId != null"> and d.building_id = #{buildingId}</if>
+            <if test="year != null">and bp.year = #{year} </if>
             <if test="position != null and position != ''"> and d.position like concat('%', #{position}, '%')</if>
             <if test="type != null and type != ''"> and d.type = #{type}</if>
             <if test="diseaseTypeId != null"> and d.disease_type_id = #{diseaseTypeId}</if>
@@ -60,7 +65,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="level != null and level > 0"> and d.level = #{level}</if>
             <if test="projectId != null"> and d.project_id = #{projectId}</if>
             <if test="biObjectId != null"> and d.bi_object_id = #{biObjectId}</if>
-            <if test="buildingId != null"> and d.building_id = #{buildingId}</if>
             <if test="componentId != null"> and d.component_id = #{componentId}</if>
         </where>
         order by d.create_time desc
@@ -71,15 +75,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where d.id = #{id}
     </select>
 
+    <select id="selectDiseaseListByBiObjectIds" parameterType="java.util.List" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        where d.bi_object_id in
+        <foreach item="biObjectId" collection="biObjectIds" open="(" separator="," close=")">
+            #{biObjectId}
+        </foreach>
+        order by d.create_time desc
+    </select>
+
 
     <insert id="insertDisease" parameterType="Disease" useGeneratedKeys="true" keyProperty="id">
         insert into bi_disease
         <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="position != null">position,</if>
-            <if test="type != null">type,</if>
+            <if test="position != null and position != ''">position,</if>
+            <if test="type != null and type != ''">type,</if>
             <if test="diseaseTypeId != null">disease_type_id,</if>
-            <if test="description != null">description,</if>
-            <if test="trend != null">trend,</if>
+            <if test="description != null and description != ''">description,</if>
+            <if test="trend != null and trend != ''">trend,</if>
             <if test="level != null">level,</if>
             <if test="quantity != null">quantity,</if>
             <if test="length != null">length,</if>
@@ -87,6 +100,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="heightOrDepth != null">height_or_depth,</if>
             <if test="slitWidth != null">slit_width,</if>
             <if test="area != null">area,</if>
+            <if test="participateAssess != null and participateAssess != ''">participate_assess,</if>
+            <if test="deductPoints != null">deduct_points,</if>
             <if test="projectId != null">project_id,</if>
             <if test="biObjectId != null">bi_object_id,</if>
             <if test="buildingId != null">building_id,</if>
@@ -98,11 +113,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="updateTime != null">update_time,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="position != null">#{position},</if>
-            <if test="type != null">#{type},</if>
+            <if test="position != null and position != ''">#{position},</if>
+            <if test="type != null and type != ''">#{type},</if>
             <if test="diseaseTypeId != null">#{diseaseTypeId},</if>
-            <if test="description != null">#{description},</if>
-            <if test="trend != null">#{trend},</if>
+            <if test="description != null and description != ''">#{description},</if>
+            <if test="trend != null and trend != ''">#{trend},</if>
             <if test="level != null">#{level},</if>
             <if test="quantity != null">#{quantity},</if>
             <if test="length != null">#{length,jdbcType=DECIMAL},</if>
@@ -110,6 +125,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="heightOrDepth != null">#{heightOrDepth,jdbcType=DECIMAL},</if>
             <if test="slitWidth != null">#{slitWidth,jdbcType=DECIMAL},</if>
             <if test="area != null">#{area,jdbcType=DECIMAL},</if>
+            <if test="participateAssess != null and participateAssess != ''">#{participateAssess},</if>
+            <if test="deductPoints != null">#{deductPoints},</if>
             <if test="projectId != null">#{projectId},</if>
             <if test="biObjectId != null">#{biObjectId},</if>
             <if test="buildingId != null">#{buildingId},</if>
@@ -125,11 +142,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="updateDisease" parameterType="Disease">
         update bi_disease
         <trim prefix="SET" suffixOverrides=",">
-            <if test="position != null">position = #{position},</if>
-            <if test="type != null">type = #{type},</if>
+            <if test="position != null and position != ''">position = #{position},</if>
+            <if test="type != null and type != ''">type = #{type},</if>
             <if test="diseaseTypeId != null">disease_type_id = #{diseaseTypeId},</if>
-            <if test="description != null">description = #{description},</if>
-            <if test="trend != null">trend = #{trend},</if>
+            <if test="description != null and description != ''">description = #{description},</if>
+            <if test="trend != null and trend != ''">trend = #{trend},</if>
             <if test="level != null">level = #{level},</if>
             <if test="quantity != null">quantity = #{quantity},</if>
             <if test="length != null">length = #{length,jdbcType=DECIMAL},</if>
@@ -137,6 +154,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="heightOrDepth != null">height_or_depth = #{heightOrDepth,jdbcType=DECIMAL},</if>
             <if test="slitWidth != null">slit_width = #{slitWidth,jdbcType=DECIMAL},</if>
             <if test="area != null">area = #{area,jdbcType=DECIMAL},</if>
+            <if test="participateAssess != null and participateAssess != ''">participate_assess = #{participateAssess},</if>
+            <if test="deductPoints != null">deduct_points = #{deductPoints},</if>
             <if test="projectId != null">project_id = #{projectId},</if>
             <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
             <if test="buildingId != null">building_id = #{buildingId},</if>
@@ -159,5 +178,5 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
-
+    
 </mapper>

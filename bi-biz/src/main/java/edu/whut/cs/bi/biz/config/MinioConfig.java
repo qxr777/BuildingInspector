@@ -39,8 +39,6 @@ public class MinioConfig {
         .build();
     boolean isExist = build.bucketExists(
         BucketExistsArgs.builder().bucket(bucketName).build());
-    System.out.println("------------------------");
-    System.out.println(isExist);
     if (!isExist) {
       build.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
     }

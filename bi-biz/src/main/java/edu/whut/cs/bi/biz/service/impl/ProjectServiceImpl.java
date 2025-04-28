@@ -55,11 +55,6 @@ public class ProjectServiceImpl implements IProjectService {
     @Resource
     private ProjectUserMapper projectUserMapper;
 
-    @Resource
-    private ProjectBuildingMapper projectBuildingMapper;
-
-    @Resource
-    private TaskMapper taskMapper;
     /**
      * 查询项目
      *
@@ -85,9 +80,9 @@ public class ProjectServiceImpl implements IProjectService {
         List<Project> projects = null;
         if (role.equals("admin")) {
             // 超级管理员
-            projects = projectMapper.selectProjectList(project, null);
+            projects = projectMapper.selectProjectList(project, null, null);
         } else {
-            projects = projectMapper.selectProjectList(project, currentUserId);
+            projects = projectMapper.selectProjectList(project, currentUserId, null);
         }
 
         projects.forEach(pj -> {
@@ -326,6 +321,19 @@ public class ProjectServiceImpl implements IProjectService {
         save += projectUserMapper.saveProjectUser(projectId, List.of(approverId), ProjectUserRoleEnum.APPROVER.getValue());
 
         return save;
+    }
+
+    /**
+     * 根据用户ID和角色查询项目列表
+     *
+     * @param userId
+     * @param value
+     * @return
+     */
+    @Override
+    public List<Project> selectProjectListByUserIdAndRole(Long userId, String value) {
+        return projectMapper.selectProjectList(null, userId, value);
+
     }
 
 }
