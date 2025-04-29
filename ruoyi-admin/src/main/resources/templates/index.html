@@ -539,9 +539,9 @@
 <script th:src="@{/ajax/libs/fullscreen/jquery.fullscreen.js}"></script>
 <script th:inline="javascript">
 window.history.forward(1);
-var ctx = [[@{/}]]; 
+var ctx_index = [[@{/}]]; 
 var lockscreen = [[${session.lockscreen}]]; 
-if(lockscreen){window.top.location=ctx+"lockscreen";}
+if(lockscreen){window.top.location=ctx_index+"lockscreen";}
 // 皮肤缓存
 var skin = storage.get("skin");
 // history（表示去掉地址的#）否则地址以"#"形式展示
@@ -562,7 +562,7 @@ if($.common.isNotEmpty(skin)){
 
 /* 用户管理-重置密码 */
 function resetPwd() {
-    var url = ctx + 'system/user/profile/resetPwd';
+    var url = ctx_index + 'system/user/profile/resetPwd';
     $.modal.open("重置密码", url, '770', '380');
 }
 
@@ -573,14 +573,14 @@ function switchSkin() {
 		shadeClose : true,
 		title : "切换主题",
 		area : ["530px", "386px"],
-		content : [ctx + "system/switchSkin", 'no']
+		content : [ctx_index + "system/switchSkin", 'no']
 	})
 }
 
 /* 切换菜单 */
 function toggleMenu() {
 	$.modal.confirm("确认要切换成横向菜单吗？", function() {
-		$.get(ctx + 'system/menuStyle/topnav', function(result) {
+		$.get(ctx_index + 'system/menuStyle/topnav', function(result) {
             window.location.reload();
 	    });
 	})
@@ -646,11 +646,11 @@ $(function() {
 
 
 // 聊天机器人 js
-
+const RagUrl = 'http://60.205.13.156:8081';  // springai 项目地址
+const BootUrl = ctx;
 async function getUserId() {
 	try {
-		// 暂定的url
-		const userIdUrl = 'http://localhost:80/biz/chat/getUserId';
+		const userIdUrl = BootUrl+'/biz/chat/getUserId';
 		const response = await fetch(userIdUrl);
 		if (!response.ok) throw new Error('获取userId失败');
 		const userId = await response.json();
@@ -686,8 +686,8 @@ async function sendMessage() {
 			addMessage('无法获取用户ID，请稍后再试', 'received');
 			return;
 		}
-		// 调用API, url 暂定
-		const url = 'http://localhost:8081/api/dialog';
+		// 调用API
+		const url = RagUrl+'/api/dialog';
 		const response = await fetch(url+`?message=${encodeURIComponent(message)}&userId=${encodeURIComponent(userId)}`);
 		if (!response.ok) throw new Error('请求失败');
 		const content = await response.text();
@@ -845,7 +845,7 @@ document.addEventListener('DOMContentLoaded', function() {
 					addMessage('无法获取用户ID，请稍后再试', 'received');
 					return;
 				}
-				fetch(`http://localhost:8081/api/dialog?message=${encodeURIComponent(question)}&userId=${encodeURIComponent(userId)}`)
+				fetch(RagUrl+`/api/dialog?message=${encodeURIComponent(question)}&userId=${encodeURIComponent(userId)}`)
 						.then(response => {
 							if (!response.ok) throw new Error('请求失败');
 							return response.text();
