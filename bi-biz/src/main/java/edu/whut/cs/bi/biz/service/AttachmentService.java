@@ -18,5 +18,6 @@ public interface AttachmentService  {
     void insertAttachment(Attachment attachment);
     void updateAttachment(Attachment attachment);
 
+    List<Attachment> getAttachmentList(Long id);
 
 }

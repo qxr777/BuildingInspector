@@ -18,7 +18,7 @@ services:
       retries: 3
   milvus-standalone:
     container_name: milvus-standalone
-    image: milvusdb/milvus:v2.3.2
+    image: crpi-gxv0234hwyx1jbhm.cn-beijing.personal.cr.aliyuncs.com/qxr777/milvus:2.3.2
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: etcd:2379

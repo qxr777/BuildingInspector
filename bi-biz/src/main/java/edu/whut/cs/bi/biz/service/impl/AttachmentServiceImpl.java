@@ -63,11 +63,17 @@ public class AttachmentServiceImpl  implements AttachmentService {
     }
 
     @Override
+    public List<Attachment> getAttachmentList(Long id) {
+        return attachmentMapper.selectBySubjectListById(id);
+    }
+
+    @Override
     public int deleteAttachmentByIds(String ids) {
         // 拿到 文件的 ids
         String[] FileMapIds = attachmentMapper.selectMinioIdsByIds(Convert.toStrArray(ids));
         fileMapService.deleteFileMapByIds(String.join(",",FileMapIds));
         return attachmentMapper.deleteByIds(Convert.toStrArray(ids));
     }
+
 
 }
