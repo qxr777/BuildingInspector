@@ -155,3 +155,6 @@ minio:
   secret-key: minioadmin
 
   bucket-name: public
+springAi_Rag:
+#  springai 项目地址， 后端连接时可用 , 如有改动 ，需和 index 页面的地址同步。
+  endpoint: http://60.205.13.156:8081

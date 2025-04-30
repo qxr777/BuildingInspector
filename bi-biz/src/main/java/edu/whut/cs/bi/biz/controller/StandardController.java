@@ -12,6 +12,7 @@ import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.StandardService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
@@ -51,6 +52,8 @@ public class StandardController extends BaseController
     @Autowired
     private RestTemplate restTemplate;
 
+    @Value("${springAi_Rag.endpoint}")
+    private String springai_url;
     @RequiresPermissions("biz:standard:view")
     @GetMapping()
     public String standard()
@@ -131,7 +134,7 @@ public class StandardController extends BaseController
     private String uploadFileToExternalService(MultipartFile file) {
         try {
             // 暂定的url
-            String url = "http://localhost:8081/api/upload";
+            String url = springai_url+"/api/upload";
             // 创建请求的文件资源
 
             byte[] fileContent = file.getBytes();
