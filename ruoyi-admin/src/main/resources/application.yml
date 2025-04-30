@@ -148,7 +148,7 @@ swagger:
   enabled: true
 
 minio:
-  endpoint: http://60.205.13.156:9000
+  endpoint: http://47.94.205.90:9000
 #  access-key: admin
 #  secret-key: admin123      密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
   access-key: minioadmin
@@ -157,4 +157,4 @@ minio:
   bucket-name: public
 springAi_Rag:
 #  springai 项目地址， 后端连接时可用 , 如有改动 ，需和 index 页面的地址同步。
-  endpoint: http://60.205.13.156:8081
+  endpoint: http://47.94.205.90:8081
