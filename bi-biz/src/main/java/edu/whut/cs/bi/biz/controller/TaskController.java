@@ -33,8 +33,9 @@ public class TaskController extends BaseController {
     private ITaskService taskService;
 
     @RequiresPermissions("biz:task:view")
-    @GetMapping()
-    public String task() {
+    @GetMapping("/{select}")
+    public String task(@PathVariable("select") String select, ModelMap mmap) {
+        mmap.put("select", select);
         return prefix + "/task";
     }
 
@@ -42,9 +43,12 @@ public class TaskController extends BaseController {
      * 查询任务列表
      */
     @RequiresPermissions("biz:task:list")
-    @PostMapping("/list")
+    @PostMapping("/list/{select}")
     @ResponseBody
-    public TableDataInfo list(Task task) {
+    public TableDataInfo list(@PathVariable("select") String select, Task task) {
+        // 权限区分
+        task.setSelect(select);
+
         startPage();
         List<Task> list = taskService.selectTaskList(task);
         return getDataTable(list);

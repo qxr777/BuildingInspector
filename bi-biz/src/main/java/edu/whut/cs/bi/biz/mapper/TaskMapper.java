@@ -87,4 +87,12 @@ public interface TaskMapper
      * @param buildingIds
      */
     int batchDeleteTaskByProjectIdAndBuildingIds(@Param("projectId") Long projectId, @Param("buildingIds") List<Long> buildingIds);
+
+    /**
+     * 通过项目id查询任务列表
+     *
+     * @param id
+     * @return
+     */
+    List<Task> selectTaskListByProjectId(Long id);
 }

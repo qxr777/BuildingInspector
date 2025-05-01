@@ -35,8 +35,9 @@ public class ProjectController extends BaseController {
     private IProjectService projectService;
 
     @RequiresPermissions("biz:project:view")
-    @GetMapping()
-    public String project() {
+    @GetMapping("/{select}")
+    public String project(@PathVariable("select") String select, ModelMap mmap) {
+        mmap.put("select", select);
         return prefix + "/project";
     }
 
@@ -44,9 +45,12 @@ public class ProjectController extends BaseController {
      * 查询项目列表
      */
     @RequiresPermissions("biz:project:list")
-    @PostMapping("/list")
+    @PostMapping("/list/{select}")
     @ResponseBody
-    public TableDataInfo list(Project project) {
+    public TableDataInfo list(@PathVariable("select") String select, Project project) {
+        // 供权限区分
+        project.setSelect(select);
+
         startPage();
         List<Project> list = projectService.selectProjectList(project);
         return getDataTable(list);

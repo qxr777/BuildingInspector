@@ -31,4 +31,10 @@ public class Task extends BaseEntity {
     /** 项目状态（0正常 1停用） */
     @Excel(name = "任务状态", readConverterExp = "0=正常,1=停用")
     private String status;
+
+    // 业务实体可见性控制
+    String select;
+
+    // 业务实体根据部门查询项目
+    Long selectDeptId;
 }

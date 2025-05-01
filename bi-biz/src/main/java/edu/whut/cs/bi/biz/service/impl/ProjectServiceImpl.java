@@ -18,13 +18,10 @@ import com.ruoyi.system.service.ISysDeptService;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.ProjectUserAssignment;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
-import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
-import edu.whut.cs.bi.biz.mapper.ProjectUserMapper;
-import edu.whut.cs.bi.biz.mapper.TaskMapper;
+import edu.whut.cs.bi.biz.mapper.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.service.IProjectService;
 
 import com.ruoyi.common.core.text.Convert;
@@ -55,6 +52,12 @@ public class ProjectServiceImpl implements IProjectService {
     @Resource
     private ProjectUserMapper projectUserMapper;
 
+    @Resource
+    private TaskMapper taskMapper;
+
+    @Resource
+    private BuildingMapper buildingMapper;
+
     /**
      * 查询项目
      *
@@ -74,6 +77,7 @@ public class ProjectServiceImpl implements IProjectService {
      */
     @Override
     public List<Project> selectProjectList(Project project) {
+        String select = project.getSelect();
         Long currentUserId = ShiroUtils.getUserId();
         List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
 
@@ -81,11 +85,20 @@ public class ProjectServiceImpl implements IProjectService {
         boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
         List<Project> projects = null;
-        if (isAdmin) {
-            // 超级管理员
+        if (isAdmin || select.equals("platform")) {
+            // 超级管理员, 所有数据都能看到
             projects = projectMapper.selectProjectList(project, null, null);
         } else {
-            projects = projectMapper.selectProjectList(project, currentUserId, null);
+            // 部门管理员
+            if (select.equals("department")) {
+                SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
+                // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
+                project.setSelectDeptId(sysUser.getDeptId());
+                projects = projectMapper.selectProjectList(project, null, null);
+            } else {
+                // 当前登录用户关联的业务实体
+                projects = projectMapper.selectProjectList(project, currentUserId, null);
+            }
         }
 
         projects.forEach(pj -> {
@@ -224,10 +237,13 @@ public class ProjectServiceImpl implements IProjectService {
         SysUser approver = sysUserMapper.selectUserById(approverId);
         project.setApprover(approver);
 
+        // 关联的任务列表
+        List<Task> tasks = taskMapper.selectTaskListByProjectId(id);
+        project.setTasks(tasks);
+
+        // 下面非必要信息
         // 关联的建筑列表
 //        private List<Building> buildings;
-        // 关联的任务列表
-//        private List<Task> tasks;
         // 关联的标准列表
 //        private List<Standard> standards;
         // 关联的设备列表

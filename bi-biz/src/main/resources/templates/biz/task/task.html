@@ -75,12 +75,13 @@
 <script th:inline="javascript">
     var editFlag = [[${@permission.hasPermi('biz:task:edit')}]];
     var statusDatas = [[${@dict.getType('bi_task_status')}]];
+    var select = [[${select}]]
     var prefix = ctx + "biz/task";
     var evaluationPrefix = ctx + "biz/bievaluation";
 
     $(function () {
         var options = {
-            url: prefix + "/list",
+            url: prefix + "/list/" + select,
             updateUrl: prefix + "/edit/{id}",
             exportUrl: prefix + "/export",
             modalName: "检测任务",

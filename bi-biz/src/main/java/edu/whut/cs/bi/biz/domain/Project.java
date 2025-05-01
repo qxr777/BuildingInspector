@@ -77,5 +77,9 @@ public class Project extends BaseEntity {
     // 关联的设备列表
     private List<BiDevice> biDevices;
 
+    // 业务实体可见性控制
+    String select;
 
+    // 业务实体根据部门查询项目
+    Long selectDeptId;
 }

@@ -76,6 +76,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 <if test="project.deptId != null">
                     AND dept_id = #{project.deptId}
                 </if>
+                <if test="project.selectDeptId != null">
+                    AND (dept_id = #{project.selectDeptId} OR owner_dept_id = #{project.selectDeptId})
+                </if>
                 <if test="project.startDate != null">
                     AND start_date &gt;= #{project.startDate}
                 </if>

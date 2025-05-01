@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.service.impl;
 import cn.hutool.core.util.ObjUtil;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
@@ -67,6 +68,7 @@ public class TaskServiceImpl implements ITaskService {
      */
     @Override
     public List<Task> selectTaskList(Task task) {
+        String select = task.getSelect();
         Long currentUserId = ShiroUtils.getUserId();
         List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
 
@@ -74,11 +76,20 @@ public class TaskServiceImpl implements ITaskService {
         boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
         List<Task> tasks = null;
-        if (isAdmin) {
-            // 超级管理员
+        if (isAdmin || select.equals("platform")) {
+            // 超级管理员, 所有数据都能看到
             tasks = taskMapper.selectTaskList(task, null);
         } else {
-            tasks = taskMapper.selectTaskList(task, currentUserId);
+            // 部门管理员
+            if (select.equals("department")) {
+                SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
+                // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
+                task.setSelectDeptId(sysUser.getDeptId());
+                tasks = taskMapper.selectTaskList(task, null);
+            } else {
+                // 当前登录用户关联的业务实体
+                tasks = taskMapper.selectTaskList(task, currentUserId);
+            }
         }
 
         return tasks;

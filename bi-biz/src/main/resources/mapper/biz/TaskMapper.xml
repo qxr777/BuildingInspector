@@ -76,7 +76,9 @@
             <if test="task.buildingId != null"> and t.building_id = #{task.buildingId}</if>
             <if test="task.projectId != null"> and t.project_id = #{task.projectId}</if>
             <if test="task.status != null and task.status != ''"> and t.status = #{task.status}</if>
-
+            <if test="task.selectDeptId != null">
+                and (p.dept_id = #{task.selectDeptId} OR p.owner_dept_id = #{task.selectDeptId})
+            </if>
             <!-- 建筑表条件 -->
             <if test="task.building != null">
                 <if test="task.building.name != null and task.building.name != ''">
@@ -108,6 +110,10 @@
     <select id="selectTaskById" parameterType="Long" resultMap="TaskResult">
         <include refid="selectTaskVo"/>
         where t.id = #{id}
+    </select>
+
+    <select id="selectTaskListByProjectId" resultType="edu.whut.cs.bi.biz.domain.Task">
+        select *  from bi_task where project_id = #{projectId}
     </select>
 
     <insert id="insertTask" parameterType="Task" useGeneratedKeys="true" keyProperty="id">

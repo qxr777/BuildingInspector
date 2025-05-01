@@ -77,11 +77,12 @@
     var statusDatas = [[${@dict.getType('bi_project_status')}]];
     var hasDepartmentBusinessAdminRole = [[${@permission.hasRole('department_business_admin')}]];
     var showActionColumn = !editFlag || !removeFlag || !hasDepartmentBusinessAdminRole;
+    var select = [[${select}]]
     var prefix = ctx + "biz/project";
 
     $(function () {
         var options = {
-            url: prefix + "/list",
+            url: prefix + "/list/" + select,
             createUrl: prefix + "/add",
             updateUrl: prefix + "/edit/{id}",
             removeUrl: prefix + "/remove",
