@@ -5,7 +5,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper">
 
     <insert id="insertData">
-        insert into bi_templateObject_diseaseType
+        insert into bi_template_object_disease_type
         (template_object_id, disease_type_id)
         values
         <foreach collection="componentIds" item="componentId" separator=",">
@@ -17,7 +17,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </insert>
 
     <select id="selectByTemplateObjectId" resultType="java.lang.Long">
-        select disease_type_id from bi_templateObject_diseaseType where template_object_id = #{templateObjectId}
+        select disease_type_id from bi_template_object_disease_type where template_object_id = #{templateObjectId}
     </select>
 
 </mapper>

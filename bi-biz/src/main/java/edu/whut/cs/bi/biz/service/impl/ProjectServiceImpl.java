@@ -75,10 +75,13 @@ public class ProjectServiceImpl implements IProjectService {
     @Override
     public List<Project> selectProjectList(Project project) {
         Long currentUserId = ShiroUtils.getUserId();
-        String role = sysUserMapper.selectUserRoleByUserId(currentUserId);
+        List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
+
+        // 检查用户是否有admin角色
+        boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
         List<Project> projects = null;
-        if (role.equals("admin")) {
+        if (isAdmin) {
             // 超级管理员
             projects = projectMapper.selectProjectList(project, null, null);
         } else {

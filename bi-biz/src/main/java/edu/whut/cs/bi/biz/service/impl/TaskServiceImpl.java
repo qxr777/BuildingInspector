@@ -68,10 +68,13 @@ public class TaskServiceImpl implements ITaskService {
     @Override
     public List<Task> selectTaskList(Task task) {
         Long currentUserId = ShiroUtils.getUserId();
-        String role = sysUserMapper.selectUserRoleByUserId(currentUserId);
+        List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
+
+        // 检查用户是否有admin角色
+        boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
         List<Task> tasks = null;
-        if (role.equals("admin")) {
+        if (isAdmin) {
             // 超级管理员
             tasks = taskMapper.selectTaskList(task, null);
         } else {

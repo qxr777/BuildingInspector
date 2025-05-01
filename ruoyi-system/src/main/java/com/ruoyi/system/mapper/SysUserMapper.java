@@ -128,5 +128,5 @@ public interface SysUserMapper
      * @param userId 用户ID
      * @return 结果
      */
-    String selectUserRoleByUserId(Long userId);
+    List<String> selectUserRoleByUserId(Long userId);
 }
