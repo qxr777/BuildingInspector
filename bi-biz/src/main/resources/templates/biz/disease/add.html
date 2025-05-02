@@ -112,23 +112,23 @@
                     <div class="row">
                         <div class="col-sm-2">
                             <label class="control-label">长度(m)</label>
-                            <input name="length" class="form-control" type="number" step="0.01">
+                            <input name="length" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
                         </div>
                         <div class="col-sm-2">
                             <label class="control-label">宽度(m)</label>
-                            <input name="width" class="form-control" type="number" step="0.01">
+                            <input name="width" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
                         </div>
                         <div class="col-sm-2">
                             <label class="control-label">缝宽(mm)</label>
-                            <input name="slitWidth" class="form-control" type="number" step="0.0001">
+                            <input name="slitWidth" class="form-control" type="number" step="0.0001" min="0.0001" oninput="validatePositiveNumber(this)">
                         </div>
                         <div class="col-sm-3">
                             <label class="control-label">高度/深度(m)</label>
-                            <input name="heightOrDepth" class="form-control" type="number" step="0.01">
+                            <input name="heightOrDepth" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
                         </div>
                         <div class="col-sm-2">
                             <label class="control-label">面积(㎡)</label>
-                            <input name="area" class="form-control" type="number" step="0.01">
+                            <input name="area" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
                         </div>
                     </div>
                 </div>
@@ -341,10 +341,13 @@
                 result.rows.forEach(function (item) {
                     var qualitativeDescription = item.qualitativeDescription;
                     var quantitativeDescription = item.quantitativeDescription;
-                    if (!qualitativeDescription && !quantitativeDescription) {
-                        options += '<option value="' + qualitativeDescription + '，' + quantitativeDescription + '">' + qualitativeDescription + ',' + quantitativeDescription + '</option>';
-                    } else {
-                        options += '<option value="' + qualitativeDescription + '">' + qualitativeDescription + '</option>';
+
+                    if (qualitativeDescription) {
+                        if (quantitativeDescription) {
+                            options += '<option value="' + qualitativeDescription + '，' + quantitativeDescription + '">' + qualitativeDescription + ',' + quantitativeDescription + '</option>';
+                        } else {
+                            options += '<option value="' + qualitativeDescription + '">' + qualitativeDescription + '</option>';
+                        }
                     }
 
                 });
@@ -506,15 +509,6 @@
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
 
-            // // 添加图片文件
-            // var files = $("#diseaseImages")[0].files;
-            // for (var i = 0; i < files.length; i++) {
-            //     // 检查图片是否已被移除
-            //     if ($('#imagePreview').find('input[value="' + files[i].name + '"]').length > 0) {
-            //         formData.append('imageFiles', files[i]);
-            //     }
-            // }
-
             $.modal.loading("正在提交数据，请稍候...");
             $.ajax({
                 url: prefix + "/add",
@@ -526,8 +520,18 @@
                     $.modal.closeLoading();
                     if (response.code === 0) {
                         $.modal.msgSuccess("保存成功");
+                        if (parent.$.table && typeof parent.$.table.refresh === 'function') {
+                            try {
+                                parent.$.table.refresh();
+                            } catch (error) {
+                                console.error('调用父窗口的 refresh 方法时出错:', error);
+                            }
+                        } else {
+                            console.error('父窗口的 $.table 对象不存在或 refresh 方法不是一个函数');
+                        }
                         $.modal.closeTab();
-                        $.table.refresh();
+
+
                     } else {
                         $.modal.alertError(response.msg);
                     }
@@ -555,7 +559,7 @@
                     $.modal.closeLoading();
                     if (response.code === 0) {
                         $.modal.msgSuccess("上一条记录保存成功");
-                        $.table.refresh();
+                        parent.$.table.refresh();
                     } else {
                         $.modal.alertError(response.msg);
                     }
@@ -567,6 +571,7 @@
             });
         }
     }
+
 </script>
 </body>
 </html>
