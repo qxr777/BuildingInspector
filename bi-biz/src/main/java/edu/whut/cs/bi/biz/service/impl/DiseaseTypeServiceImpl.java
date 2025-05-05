@@ -231,12 +231,12 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
                     diseaseType.setId(oldDiseaseType.getId());
                 }
 
-                JSONArray bridgeComponentArray = jsonObject.getJSONArray("BridgeComponentID");
-                List<Long> componentIds = new ArrayList<>();
-                for (int j = 0; j < bridgeComponentArray.size(); j++) {
-                    componentIds.add(bridgeComponentArray.getLong(j));
-                }
-                toDiseaseTypeMapper.insertData(componentIds, diseaseType.getId());
+//                JSONArray bridgeComponentArray = jsonObject.getJSONArray("BridgeComponentID");
+//                List<Long> componentIds = new ArrayList<>();
+//                for (int j = 0; j < bridgeComponentArray.size(); j++) {
+//                    componentIds.add(bridgeComponentArray.getLong(j));
+//                }
+//                toDiseaseTypeMapper.insertData(componentIds, diseaseType.getId());
 
                 // 添加病害标度
                 JSONArray scaleArray = jsonObject.getJSONArray("DiseaseScale");

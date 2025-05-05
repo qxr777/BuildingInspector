@@ -6,6 +6,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
@@ -46,11 +47,7 @@ public class TaskController extends BaseController {
     @PostMapping("/list/{select}")
     @ResponseBody
     public TableDataInfo list(@PathVariable("select") String select, Task task) {
-        // 权限区分
-        task.setSelect(select);
-
-        startPage();
-        List<Task> list = taskService.selectTaskList(task);
+        List<Task> list = taskService.selectTaskList(task, select);
         return getDataTable(list);
     }
 

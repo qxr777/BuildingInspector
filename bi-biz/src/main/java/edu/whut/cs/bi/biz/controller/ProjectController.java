@@ -51,7 +51,6 @@ public class ProjectController extends BaseController {
         // 供权限区分
         project.setSelect(select);
 
-        startPage();
         List<Project> list = projectService.selectProjectList(project);
         return getDataTable(list);
     }

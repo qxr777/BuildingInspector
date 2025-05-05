@@ -7,6 +7,7 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysUserMapper;
 import edu.whut.cs.bi.biz.domain.BiObject;
@@ -68,13 +69,16 @@ public class TaskServiceImpl implements ITaskService {
      */
     @Override
     public List<Task> selectTaskList(Task task) {
-        String select = task.getSelect();
+        String select =  task.getSelect();
+
         Long currentUserId = ShiroUtils.getUserId();
         List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
+        SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
 
         // 检查用户是否有admin角色
         boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
+        PageUtils.startPage();
         List<Task> tasks = null;
         if (isAdmin || select.equals("platform")) {
             // 超级管理员, 所有数据都能看到
@@ -82,7 +86,6 @@ public class TaskServiceImpl implements ITaskService {
         } else {
             // 部门管理员
             if (select.equals("department")) {
-                SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
                 // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
                 task.setSelectDeptId(sysUser.getDeptId());
                 tasks = taskMapper.selectTaskList(task, null);
@@ -95,6 +98,19 @@ public class TaskServiceImpl implements ITaskService {
         return tasks;
     }
 
+    /**
+     * 查询任务列表
+     *
+     * @param task 任务
+     * @return 任务
+     */
+    @Override
+    public List<Task> selectTaskList(Task task, String select) {
+        // 权限区分
+        task.setSelect(select);
+
+        return selectTaskList(task);
+    }
     /**
      * 新增任务
      *

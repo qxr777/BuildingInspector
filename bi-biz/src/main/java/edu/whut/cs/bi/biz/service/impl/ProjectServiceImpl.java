@@ -11,6 +11,7 @@ import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysDeptMapper;
 import com.ruoyi.system.mapper.SysUserMapper;
@@ -80,10 +81,12 @@ public class ProjectServiceImpl implements IProjectService {
         String select = project.getSelect();
         Long currentUserId = ShiroUtils.getUserId();
         List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
+        SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
 
         // 检查用户是否有admin角色
         boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
+        PageUtils.startPage();
         List<Project> projects = null;
         if (isAdmin || select.equals("platform")) {
             // 超级管理员, 所有数据都能看到
@@ -91,7 +94,7 @@ public class ProjectServiceImpl implements IProjectService {
         } else {
             // 部门管理员
             if (select.equals("department")) {
-                SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
+
                 // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
                 project.setSelectDeptId(sysUser.getDeptId());
                 projects = projectMapper.selectProjectList(project, null, null);

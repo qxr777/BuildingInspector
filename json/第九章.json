@@ -1,0 +1,1152 @@
+[
+  {
+    "DiseaseType": {
+      "名称": "蜂窝、麻面",
+      "对应表序号": "9.1.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "轻微蜂窝、麻面",
+        "QuantitativeDescription": "累计面积≤构件面积的 20%，单处面积≤1.0m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较多蜂窝、麻面",
+        "QuantitativeDescription": "累计面积＞构件面积的 20%，单处面积 > 1.0m²"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "剥落、露筋",
+      "对应表序号": "9.1.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部混凝土剥落、露筋",
+        "QuantitativeDescription": "累计面积≤构件面积的 3%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较大范围混凝土剥落、露筋",
+        "QuantitativeDescription": "累计面积＞构件面积的 3% 且≤构件面积的 10%，单处面积≥0.5m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大范围混凝土剥落、露筋",
+        "QuantitativeDescription": "累计面积＞构件面积的 10%，单处面积 > 1.0m²"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "空洞、孔洞",
+      "对应表序号": "9.1.1-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部空洞、孔洞",
+        "QuantitativeDescription": "累计面积≤构件面积的 3%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较大范围空洞、孔洞",
+        "QuantitativeDescription": "累计面积＞构件面积的 3% 且≤构件面积的 10%，单处面积≥0.5m² 或最大深度≤25mm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大范围空洞、孔洞",
+        "QuantitativeDescription": "累计面积＞构件面积 10%，单处面积 > 0.5m² 或最大深度 > 25mm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "钢筋锈蚀",
+      "对应表序号": "9.1.1-4"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "有锈蚀现象",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "钢筋锈蚀，混凝土表面有沿主筋方向的裂缝或混凝土表面有锈迹",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大量主筋锈蚀，混凝土表面保护层剥落，钢筋裸露，甚至出现主筋锈断现象",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "钢筋严重锈蚀，主筋锈断，混凝土表面开裂严重，出现严重滑动或倾斜等现象",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "混凝土碳化、腐蚀",
+      "对应表序号": "9.1.1-5"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "无碳化现象",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "有少量碳化或腐蚀现象，且所有碳化深度均小于混凝土保护层厚度",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "部分位置出现碳化现象，局部碳化深度大于混凝土保护层厚度，混凝土表面少量胶凝料松散粉化，或构件受强酸性液体或气体腐蚀，造成混凝土受到腐蚀，或钢筋出现少量锈蚀，或有冻融现象，造成混凝土出现胀裂",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大部分位置碳化，碳化深度大于混凝土保护层厚度，混凝土表面胶凝料大量松散粉化，或构件受强酸性液体或气体腐蚀，造成混凝土腐蚀或钢筋大量锈蚀，或有冻融现象，造成混凝土严重胀裂",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "磨损",
+      "对应表序号": "9.1.1-6"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "有磨损现象，个别部位表面磨耗，粗集料显露",
+        "QuantitativeDescription": "累计面积≤构件面积的 5%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较大范围有磨损、缩颈现象，并出现露筋或锈蚀",
+        "QuantitativeDescription": "累计面积＞构件面积的 5% 且≤构件面积的 20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大范围有磨损、缩颈现象，混凝土剥蚀，大范围出现露筋现象，裸露钢筋锈蚀",
+        "QuantitativeDescription": "累计面积＞构件面积的 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "圬工砌体缺陷",
+      "对应表序号": "9.1.1-7"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "砌体局部出现灰缝脱落现象，或砌体局部出现破损、剥落等现象",
+        "QuantitativeDescription": "灰缝脱落累计长度≤构件截面长度的 10%，或破损、剥落累计面积≤构件面积的 3%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "砌体大范围出现灰缝脱落现象，或砌体较 大范围出现破损，剥落、局部变形等现象",
+        "QuantitativeDescription": "灰缝脱落累计长度＞构件截面长度的 10%，或破损、剥落、局部变形等累计面积＞构件面积的 3% 且≤构件面积的 10%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "砌体大范围出现破损、剥落、松动、变形等现象",
+        "QuantitativeDescription": "破损、剥落、松动、变形等累计面积＞构件面积的 10%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "位移",
+      "对应表序号": "9.1.1-8"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "桥墩出现轻微下沉、倾斜滑动等，发展缓慢或趋向稳定",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "桥墩出现滑动、下沉、倾斜，变形小于或等于规范值",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "桥墩不稳定，出现严重滑动、下沉、位移、倾斜现象，造成结构和桥面变形过大，变形大于规范值或不能正常行车",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "裂缝",
+      "对应表序号": "9.1.1-9"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好，无裂缝",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "网状裂缝：局部网状裂缝；墩身的水平裂缝：较少裂缝，缝宽未超限；竖向裂缝：较少裂缝，缝宽未超限；不等高的墩盖梁上的竖向裂缝：较少裂缝，缝宽未超限；悬臂桥墩角隅处的裂缝：较少裂缝，缝宽未超限；镶面石突出的裂缝：局部开裂",
+        "QuantitativeDescription": "网状裂缝：累计面积≤构件面积的 20%，单处面积≤1.0m²；墩身的水平裂缝：缝长≤墩身直径或墩身宽度的 1/8；竖向裂缝：缝长≤截面尺寸的 1/5；不等高的墩盖梁上的竖向裂缝：缝长≤截面尺寸的 1/3；悬臂桥墩角隅处的裂缝：缝长≤截面尺寸的 1/3；镶面石突出的裂缝：累计面积≤构件面积的 10%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "网状裂缝：局部网状裂缝；从基础向上发展至墩身的裂缝：较多裂缝，缝宽未超限；墩身的水平裂缝：较多裂缝，缝宽未超限；墩身的剪切破坏：较多裂缝，缝宽未越限；竖向裂缝：较多裂缝，缝宽未超限；不等高的墩盖梁上的竖向裂缝：较多裂缝，缝宽未超限；悬臂桥墩角隅处的裂缝：较多裂缝，缝宽未超限；镶面石突出的裂缝：局部开裂，少量裂缝宽度超限",
+        "QuantitativeDescription": "网状裂缝：累计面积＞构件表面积的 20%，单处面积 > 1.0m²；从基础向上发展至墩身的裂缝：缝长≤截面尺寸的 1/3，间距≥50cm；墩身的水平裂缝：缝长＞墩身直径或墩身宽度的 1/8 且≤墩身直径或墩身宽度的 1/2；墩身的剪切破坏：缝长≤截面尺寸的 1/3；竖向裂缝：缝长＞截面尺寸的 1/5 且≤截面尺寸的 1/3，间距≥30cm；不等高的墩盖梁上的竖向裂缝：缝长＞截面尺寸的 1/3 且≤截面尺寸的 2/3；悬臂桥墩角隅处的裂缝：缝长＞截面尺寸的 1/3 且≤截面尺寸的 1/2；镶面石突出的裂缝：累计面积＞构件面积的 10% 且≤构件面积的 20%，单处面积≤1.0m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "从基础向上发展至墩身的裂缝：存在大量裂缝，缝宽大多超限；墩身的水平裂缝：存在大量裂缝，缝宽大多超限；墩身的剪切破坏：缝宽超限；竖向裂缝：存在大量裂缝，缝宽大多超限；悬臂桥墩角隅处的裂缝：缝宽超限；不等高的墩盖梁上的竖向裂缝：存在大量裂缝，缝宽大多超限，少部分混凝土出现剥落、露筋；镶面石突出的裂缝：多处开裂，裂缝宽度大多超限",
+        "QuantitativeDescription": "从基础向上发展至墩身的裂缝：缝长＞截面尺寸的 1/3，间距 < 50cm；墩身的水平裂缝：缝长＞墩身直径或墩身宽度的 1/2；墩身的剪切破坏：缝长＞截面尺寸的 1/3；竖向裂缝：缝长＞截面尺寸的 1/3，间距 < 30cm；悬臂桥墩角隅处的裂缝：缝长＞截面尺寸的 1/2；不等高的墩盖梁上的竖向裂缝：缝长＞截面尺寸的 2/3，少部分混凝土出现剥落、露筋；镶面石突出的裂缝：累计面积＞构件面积的 20%"
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "桥墩出现结构性裂缝，缝宽超限，裂缝有开合现象，桥墩变形失稳",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "裂缝",
+      "对应表序号": "9.1.2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好，无裂缝",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "网状裂缝：局部网状开裂；墩帽顶面水平裂缝：少量裂缝，缝宽未超限；由支承垫石从下向上发展的裂缝：缝宽未超限；盖梁自上而下的垂直裂缝：缝宽未超限",
+        "QuantitativeDescription": "网状裂缝：累计面积≤构件面积的 20%，单处面积≤1.0m²；墩帽顶面水平裂缝：缝长≤截面尺寸的 1/3；由支承垫石从下向上发展的裂缝：缝长≤截面尺寸的 1/3；盖梁自上而下的垂直裂缝：缝长≤截面尺寸的 1/5，间距 > 80cm"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "网状裂缝：局部网裂；墩帽顶面水平裂缝：缝宽未超限；由支承垫石从下向上发展的裂缝：缝宽未超限；盖梁自上而下的垂直裂缝：缝宽未超限",
+        "QuantitativeDescription": "网状裂缝：累计面积＞构件面积的 20%，单处面积 > 1.0m²；墩帽顶面水平裂缝：缝长＞截面尺寸的 1/3 且≤截面尺寸的 2/3，间距≥20cm；由支承垫石从下向上发展的裂缝：缝长＞截面尺寸的 1/3 且≤截面尺寸的 2/3；盖梁自上而下的垂直裂缝：缝长＞截面尺寸的 1/5 且≤截面尺寸的 1/3，间距≥50cm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "墩帽顶面水平裂缝：存在大量裂缝，缝宽超限；由支承垫石从下向上发展的裂缝：存在大量裂缝，缝宽越限；盖梁自上而下的垂直裂缝：裂缝贯通，缝宽超限",
+        "QuantitativeDescription": "墩帽顶面水平裂缝：缝长＞截面尺寸的 2/3，间距 <20cm；由支承垫石从下向上发展的裂缝：缝长＞截面尺寸的 2/3；盖梁自上而下的垂直裂缝：缝长> 1/3 截面尺寸，间距 < 50cm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "剥落",
+      "对应表序号": "9.2.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部混凝土剥落",
+        "QuantitativeDescription": "累计面积≤构件面积的 5%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较大范围混凝土剥落",
+        "QuantitativeDescription": "累计面积＞构件面积的 5% 且≤构件面积的 20%，单处面积≤1.0m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大范围混凝土剥落",
+        "QuantitativeDescription": "累计面积＞构件面积的 20%，单处面积 > 1.0m²"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "空洞、孔洞",
+      "对应表序号": "9.2.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部空洞、孔洞",
+        "QuantitativeDescription": "累计面积≤构件面积的 5%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较大范围空洞、孔洞",
+        "QuantitativeDescription": "累计面积＞构件面积的 5% 且≤构件面积的 20%，单处面积≤1.0m² 或深度≤25mm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大范围空洞、孔洞",
+        "QuantitativeDescription": "累计面积＞构件面积的 20%，单处面积 > 1.0m² 或深度 > 25mm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "磨损",
+      "对应表序号": "9.2.1-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "出现磨损，个别部位表面磨耗，粗集料显露",
+        "QuantitativeDescription": "累计面积≤构件面积的 10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "大范围有磨损，粗集料显露",
+        "QuantitativeDescription": "累计面积＞构件面积的 10%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "混凝土碳化、腐蚀",
+      "对应表序号": "9.2.1-4"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "有局部碳化或腐蚀现象，且所有碳化深度均小于混凝土保护层厚度",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "大部分出现碳化或腐蚀现象，局部碳化深度大于混凝土保护层厚度，混凝土表面少量胶凝料松散粉化",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "圬工砌体缺陷",
+      "对应表序号": "9.2.1-5"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "砌体局部出现灰缝脱落现象，或砌体局部出现破损、剥落等现象",
+        "QuantitativeDescription": "灰缝脱落累计长度≤构件截面长度的 10%，或破损、剥落累计面积≤构件面积的 3%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "砌体大范围出现灰缝脱落现象，或砌体较 大范围出现破损，剥落、局部变形等现象",
+        "QuantitativeDescription": "灰缝脱落累计长度＞构件截面长度的 10%，或破损、剥落、局部变形等累计面积＞构件面积的 3% 且≤构件面积的 10%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "砌体大范围出现破损、剥落、松动、变形等现象",
+        "QuantitativeDescription": "破损、剥落、松动、变形等累计面积＞构件面积的 10%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "桥头跳车",
+      "对应表序号": "9.2.1-6"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "台背路面轻微沉降，有轻度跳车现象",
+        "QuantitativeDescription": "沉降值≤2cm"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "台背路面沉降较大，桥头跳车明显",
+        "QuantitativeDescription": "沉降值 > 2cm 且≤5cm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "台背路面明显沉降，桥头跳车严重",
+        "QuantitativeDescription": "沉降值 > 5cm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "台背排水状况",
+      "对应表序号": "9.2.1-7"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "台背排水不良，造成桥台被渗水污染",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "台背填土排水不畅，填土出现膨胀或冻胀现象，造成挤压隆起，变形发展较快",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "台背填土排水不畅，填土出现膨胀或冻胀现象，造成台身、翼墙等构件出现大面积鼓肚或砌体松动，甚至出现严重变形",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "位移",
+      "对应表序号": "9.2.1-8"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "出现轻微下沉、倾斜滑动，发展缓慢或趋向稳定",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "桥台出现滑动、下沉、倾斜、冻拔等，台背填土有沉降裂缝或挤压隆起，变形发展较快，变形小于或等于规范值",
+        "QuantitativeDescription": "简支梁墩台允许沉降见表 9.1.1-8 的表注"
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "桥台不稳定，出现严重滑动、下沉、位移、倾斜、冻拔等，造成结构和桥面变形过大，变形大于规范值或不能正常行车",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "裂缝",
+      "对应表序号": "9.2.1-9"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好，无裂缝",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "网状裂缝：局部网状开裂；从基础向上发展至台身的裂缝：缝宽未超限；台身的水平裂缝：缝宽未超限；竖向裂缝：缝宽未超限；翼墙和前墙断裂的裂缝：出现开裂，缝宽未超限；镶面石突出的裂缝：局部开裂",
+        "QuantitativeDescription": "网状裂缝：累计面积≤构件面积的 20%，单处面积≤1.0m²；从基础向上发展至台身的裂缝：缝长≤截面尺寸的 1/5；台身的水平裂缝：缝长≤台身宽的 1/8；竖向裂缝：缝长≤截面尺寸的 1/3；翼墙和前墙断裂的裂缝：缝长≤截面尺寸的 1/3；镶面石突出的裂缝：累计面积≤构件面积的 10%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "网状裂缝：局部网状裂缝；从基础向上发展至台身的裂缝：缝宽未超限；台身的水平裂缝：缝宽未超限；竖向裂缝：缝宽未超限；翼墙和前墙断裂的裂缝：出现开裂，缝宽超限；镶面石突出的裂缝：局部开裂",
+        "QuantitativeDescription": "网状裂缝：累计面积＞构件面积的 20%，单处面积 > 1.0m²；从基础向上发展至台身的裂缝：缝长＞截面尺寸的 1/5 且≤截面尺寸的 1/3，间距≥20cm；台身的水平裂缝：缝长＞台身宽的 1/8 且≤台身宽的 1/2；竖向裂缝：缝长＞截面尺寸的 1/3 且≤截面尺寸的 1/2，间距≥20cm；翼墙和前墙断裂的裂缝：缝长＞截面尺寸的 1/3 且≤截面尺寸的 2/3；镶面石突出的裂缝：累计面积＞构件面积的 10%，单处面积 > 1.0m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "从基础向上发展至台身的裂缝：重点部位缝宽超限；台身的水平裂缝：重点部位缝宽超限；竖向裂缝：重点部位缝宽超限；翼墙和前墙断裂的裂缝：出现开裂，缝宽超限",
+        "QuantitativeDescription": "从基础向上发展至台身的裂缝：缝长＞截面尺寸的 1/3，间距 < 20cm；台身的水平裂缝：缝长＞台身宽的 1/2；竖向裂缝：缝长＞截面尺寸的 1/2，间距 < 20cm；翼墙和前墙断裂的裂缝：缝长＞截面尺寸的 2/3，缝宽＞1.0mm"
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "桥台出现结构性裂缝，桥台变形失稳",
+        "QuantitativeDescription": "缝宽 > 1.0mm，缝长＞台身宽的 2/3"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "破损",
+      "对应表序号": "9.2.2-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部混凝土剥落、磨损等",
+        "QuantitativeDescription": "累计面积≤构件面积的 10%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较大范围混凝土剥落、磨损等",
+        "QuantitativeDescription": "累计面积＞构件面积的 10% 且≤构件面积的 20%，单处面积≤1.0m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大范围混凝土剥落、磨损等",
+        "QuantitativeDescription": "累计面积＞构件面积的 20%，单处面积 > 1.0m²"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "混凝土碳化、腐蚀",
+      "对应表序号": "9.2.2-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "无碳化现象",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "有局部碳化或腐蚀现象，且所有碳化深度均小于混凝土保护层厚度",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "大部分出现碳化或腐蚀现象，局部碳化深度大于混凝土保护层厚度，混凝土表面松散粉化",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "裂缝",
+      "对应表序号": "9.2.2-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好，无裂缝",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "由支承垫石从下向上发展的裂缝：缝宽未超限；台帽自上而下的垂直裂缝：缝宽未超限",
+        "QuantitativeDescription": "由支承垫石从下向上发展的裂缝：缝长≤截面尺寸的 2/3；台帽自上而下的垂直裂缝：缝长≤截面尺寸的 2/3，间距≥20cm"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "由支承垫石从下向上发展的裂缝：缝宽超限；台帽自上而下的垂直裂缝：缝宽超限",
+        "QuantitativeDescription": "由支承垫石从下向上发展的裂缝：缝长＞截面尺寸的 2/3；台帽自上而下的垂直裂缝：缝宽＞限值且≤1.0mm，缝长＞截面尺寸的 2/3，间距 < 20cm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "台帽自上而下的垂直裂缝：缝宽超限",
+        "QuantitativeDescription": "台帽自上而下的垂直裂缝：缝宽 > 1.0mm，缝长＞截面尺寸的 2/3，间距 < 20cm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "冲刷、淘空",
+      "对应表序号": "9.3.2-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "基础无冲蚀现象，表面长有青苔、杂草",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "基础有局部冲蚀现象，部分外露，但未露出基底，基础冲空面积≤10%",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "浅基被冲空，露出底面，冲刷深度大于设计值，基础冲空面积 > 10% 且≤20%",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "冲刷深度大于设计值，地基失效，承载力降低，或桥台岸坡滑移或基础无法修复，基础冲空面积 > 20%",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "剥落、露筋",
+      "对应表序号": "9.3.2-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "承台出现少量剥落、露筋、锈蚀现象，或基础少量混凝土剥落",
+        "QuantitativeDescription": "累计面积≤构件面积的 3%，单处面积≤0.25m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "承台较大范围出现剥落、露筋、锈蚀现象，或基础小范围出现剥落、露筋、锈蚀现象",
+        "QuantitativeDescription": "剥落、露筋累计面积＞构件面积的 3% 且≤构件面积的 10%，单处面积 > 0.25m² 且≤1.0m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "承台大范围出现严重剥落、露筋、锈蚀现象且混凝土出现严重锈蚀裂缝，或基础较大范围出现剥落、露筋，主筋严重锈蚀",
+        "QuantitativeDescription": "剥落、露筋累计面积＞构件面积的 10% 且≤构件面积的 20%，单处面积 > 1.0m²"
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "基础大量剥落、露筋且主筋有锈断现象，基础失稳",
+        "QuantitativeDescription": "基础剥落、露筋累计面积＞构件面积的 20%，单处面积 > 1.0m²"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "冲蚀",
+      "对应表序号": "9.3.2-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "基础或承台有轻微磨损、腐蚀现象，个别部位表面磨耗，粗骨料显露",
+        "QuantitativeDescription": "累计面积≤构件面积的 3%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "基础或承台大范围被侵蚀，有磨损、缩颈、露筋或者环状冻裂现象；或桩基顶面出现较大空洞",
+        "QuantitativeDescription": "累计面积＞构件面积的 3% 且≤构件面积的 10%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "混凝土腐蚀或钢筋大量锈蚀并有锈断现象；或有严重冻融现象，造成大面积混凝土胀裂",
+        "QuantitativeDescription": "累计面积＞构件面积的 10%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "河底铺砌损坏",
+      "对应表序号": "9.3.2-4"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "河底铺砌完好，无冲刷现象",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "河底铺砌局部轻微冲刷或损坏",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "河底铺砌冲刷较重或损坏严重",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "河底铺砌出现严重冲刷淘空或损坏",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "沉降",
+      "对应表序号": "9.3.2-5"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "出现轻微的下沉，发展缓慢或下沉趋于稳定",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "出现下沉现象，沉降量小于或等于规范值",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "基础不稳定，下沉现象严重，沉降量大于规范值，造成上部结构和桥面系变形过大",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "滑移和倾斜",
+      "对应表序号": "9.3.2-6"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "出现滑移或倾斜，导致支座和墩台支承面轻微损坏，或导致伸缩装置破坏、接缝减小、伸缩机能受损，但发展缓慢或下沉趋于稳定",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "基础出现滑移或倾斜，导致支座和墩台支承面被严重破坏，或导致伸缩装置破坏、接缝减小、伸缩机能完全丧失，或滑移量过大，梁端与胸墙紧贴",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "滑移量过大导致前墙破坏或局部破碎、压曲，或基础不稳定，滑移或倾斜现象严重，或导致梁体从支承面上滑落",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "裂缝",
+      "对应表序号": "9.3.2-7"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "结构应力异常，出现剪切裂缝，缝宽未超限",
+        "QuantitativeDescription": "缝长≤截面尺寸的 1/3"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "结构应力异常，出现剪切裂缝，缝宽未超限",
+        "QuantitativeDescription": "缝长＞截面尺寸的 1/3 且≤截面尺寸的 1/2"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "结构应力异常，出现剪切裂缝或混凝土出现碎裂",
+        "QuantitativeDescription": "缝宽＞限值且≤1.0mm，缝长＞截面尺寸的 1/2"
+      },
+      {
+        "Scale": 5,
+        "QualitativeDescription": "结构应力异常，出现剪切裂缝，裂缝贯通，基础处于失稳状态，或基础出现结构性裂缝甚至断裂",
+        "QuantitativeDescription": "缝宽 > 1.0mm，缝长＞截面尺寸的 1/2"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "破损",
+      "对应表序号": "9.4.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部混凝土出现空洞、孔洞、剥落，或砖石表面小块脱落",
+        "QuantitativeDescription": "累计面积≤构件面积的 5%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较大范围混凝土或砖石出现空洞、孔洞、剥落",
+        "QuantitativeDescription": "累计面积＞构件面积的 5% 且≤构件面积的 20%，单处面积≤1.0m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大范围混凝土或砖石出现空洞、孔洞、剥落",
+        "QuantitativeDescription": "累计面积＞构件面积的 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "位移",
+      "对应表序号": "9.4.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "存在明显的永久变形，但无明显的外倾、下挠，或出现填料损失，但仍可起到挡土的作用",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "有下沉、滑动现象，造成翼墙断裂，外倾失稳，砌体变形，部分倒塌，或填料严重流失，失去挡土功能",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "鼓肚、砌体松动",
+      "对应表序号": "9.4.1-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部鼓肚，砌体松动",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "大面积鼓肚，砌体松动",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大面积鼓肚，砌体松动，甚至出现严重渗漏",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "裂缝",
+      "对应表序号": "9.4.1-4"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好或有轻微网裂",
+        "QuantitativeDescription": "网裂总面积≤10%"
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "较多网裂，出现个别裂缝，缝宽未超限",
+        "QuantitativeDescription": "网裂总面积 > 10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "出现多处裂缝，未贯通，缝宽超限，或翼墙或耳墙有断裂，与前墙脱开现象",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "出现通缝，裂缝超限，或翼墙或耳墙断裂，与前墙完全脱开",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "缺陷",
+      "对应表序号": "9.5.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "铺砌面局部隆起、凹陷、开裂，砌缝砂浆脱落，或局部铺砌面下滑，坡角损坏",
+        "QuantitativeDescription": "缺陷面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "铺砌面出现大面积隆起、凹陷、开裂，砌缝砂浆脱落",
+        "QuantitativeDescription": "缺陷面积 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "出现孔洞，破损等，丧失锥坡、护坡功能，或锥坡体和坡脚损坏严重，大面积滑坡、坍塌，坡顶下降较大，锥坡、护坡作用明显降低",
+        "QuantitativeDescription": "缺陷面积＞20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "冲刷",
+      "对应表序号": "9.5.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部冲成浅坑",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "坡脚局部冲蚀，冲成深坑、沟或槽",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "锥坡体和坡脚冲蚀严重，基础有掏空现象",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "堵塞",
+      "对应表序号": "9.6.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部有漂流物，堵塞河道",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处有漂流物堵塞河道",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "河道被完全堵塞",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "冲刷",
+      "对应表序号": "9.6.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "河床稳定，无冲刷现象",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部轻微冲刷",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "冲刷较重，墩台底有淘空现象，防护体损坏严重",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "河床压缩，出现严重冲刷淘空，危及桥梁安全",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "河床变迁",
+      "对应表序号": "9.6.1-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部轻微淤积",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "河床淤泥严重，河床扩宽有变迁趋势",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "已出现变迁、扩宽现象，并有发展趋势",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "损坏",
+      "对应表序号": "9.6.2-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "构造物局部断裂，砌体松动、鼓肚、凹陷或灰浆脱落",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "表面出现大面积损坏或坡脚局部损坏",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "需要设置但没有设置调治构造物者",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "冲刷、变形",
+      "对应表序号": "9.6.2-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "边坡局部下滑，基础局部冲空",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "边坡大面积下滑，构造物出现下沉、倾斜，局部坍塌",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "构造物出现下沉、倾斜、坍塌，基础冲蚀严重",
+        "QuantitativeDescription": ""
+      }
+    ]
+  }
+]

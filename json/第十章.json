@@ -1,0 +1,663 @@
+[
+  {
+    "DiseaseType": {
+      "名称": "变形",
+      "对应表序号": "10.1.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部出现波浪拥包；或局部有高低不平的现象；或局部出现车辙，深度较浅",
+        "QuantitativeDescription": "波浪拥包面积≤10%，波峰波谷高差≤25mm；高差≤25mm；铺装层出现车辙的面积≤10%，深度≤25mm"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处出现波浪拥包；或多处有高低不平的现象；或较大面积出现车辙，深度较浅",
+        "QuantitativeDescription": "波浪拥包面积 > 10% 且≤20%，波峰波谷高差≤25mm；高差≤25mm；铺装层出现车辙的面积 > 10% 且≤20%，深度≤25mm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大面积出现波浪拥包；或普遍有高低不平的现象；或大面积出现车辙，深度较深",
+        "QuantitativeDescription": "波浪拥包面积 > 20%，波峰波谷高差 > 25mm；高差 > 25mm；铺装层出现车辙的面积 > 20%，深度 > 25mm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "泛油",
+      "对应表序号": "10.1.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部出现泛油",
+        "QuantitativeDescription": "面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处出现泛油",
+        "QuantitativeDescription": "面积 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大面积出现泛油、磨光",
+        "QuantitativeDescription": "面积 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "破损",
+      "对应表序号": "10.1.1-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "面层局部松散、露骨；或局部浅坑槽",
+        "QuantitativeDescription": "松散、露骨累计面积≤10%；坑槽深度≤25mm，累计面积≤3%，单处面积≤0.5m²"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处松散、露骨；或多处出现坑槽",
+        "QuantitativeDescription": "松散、露骨累计面积 > 10% 且≤20%；坑槽深度≤25mm，累计面积 > 3% 且≤10%，单处面积 > 0.5m² 且≤1.0m²"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大部分松散、露骨；大部分有坑槽",
+        "QuantitativeDescription": "松散、露骨累计面积 > 20%；坑槽深度 > 25mm，累计面积 > 10%，单处面积 > 1.0m²"
+      }
+    ]
+  },{
+  "DiseaseType": {
+    "名称": "裂缝",
+    "对应表序号": "10.1.1-4"
+  },
+  "DiseaseScale": [
+    {
+      "Scale": 1,
+      "QualitativeDescription": "完好",
+      "QuantitativeDescription": ""
+    },
+    {
+      "Scale": 2,
+      "QualitativeDescription": "局部龟裂，裂缝区无变形、无散落；或局部块裂，裂缝区无散落；或有纵横裂缝，裂缝壁无散落，无支缝",
+      "QuantitativeDescription": "龟裂缝宽≤2.0mm，部分裂缝块度≥5.0m；块裂缝宽≤3.0mm，大部分裂缝块度 > 1.0m；纵横裂缝缝长≤1.0m，缝宽≤3.0mm"
+    },
+    {
+      "Scale": 3,
+      "QualitativeDescription": "局部龟裂，状态明显，裂缝区有轻度散落；或局部块裂，裂缝区有散落；或有纵横裂缝，裂缝壁有散落，有支缝",
+      "QuantitativeDescription": "龟裂缝宽 > 2.0mm 且≤5.0mm，部分裂缝块度≥2.0m；块裂缝宽 > 3.0mm，大部分裂缝块度 > 0.5m 且≤1.0m；纵横裂缝缝长 > 1.0m 且≤2.0m，缝宽 > 3.0mm"
+    },
+    {
+      "Scale": 4,
+      "QualitativeDescription": "多处龟裂，特征显著，裂缝区变形明显、散落严重；或多处块裂，裂缝区散落严重；或有纵横通缝，裂缝壁散落，支缝严重",
+      "QuantitativeDescription": "龟裂缝宽 > 5.0mm，大部分裂缝块度≤2.0m；块裂缝宽 > 3.0mm，大部分裂缝块度≤0.5m；纵横裂缝缝长 > 2.0m，缝宽 > 3.0mm"
+    }
+  ]
+},
+  {
+    "DiseaseType": {
+      "名称": "磨光、脱皮、露骨",
+      "对应表序号": "10.1.2-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部出现磨光、脱皮、露骨",
+        "QuantitativeDescription": "面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处出现磨光、脱皮、露骨",
+        "QuantitativeDescription": "面积 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大面积出现磨光、脱皮、露骨",
+        "QuantitativeDescription": "面积 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "错台",
+      "对应表序号": "10.1.2-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部接缝两侧出现高差现象",
+        "QuantitativeDescription": "高差≤10mm"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处接缝两侧出现高差现象",
+        "QuantitativeDescription": "高差 > 10mm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "绝大多数接缝两侧出现高差现象",
+        "QuantitativeDescription": "高差 > 10mm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "坑洞",
+      "对应表序号": "10.1.2-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部出现坑洞",
+        "QuantitativeDescription": "深度≤1cm，直径≤3cm，或累计面积≤3%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处坑洞",
+        "QuantitativeDescription": "深度 > 1cm，直径 > 3cm，或累计面积 > 3% 且≤10%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大部分有坑洞",
+        "QuantitativeDescription": "深度 > 1cm，直径 > 3cm，或累计面积 > 10%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "剥落",
+      "对应表序号": "10.1.2-4"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部接缝处出现浅层边角剥落，局部出现层状剥落",
+        "QuantitativeDescription": "层状剥落累计面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处接缝处出现中、深层边角剥落，局部出现层状剥落",
+        "QuantitativeDescription": "层状剥落累计面积 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大部分接缝处出现深层边角剥落，局部出现层状剥落",
+        "QuantitativeDescription": "层状剥落累计面积 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "拱起",
+      "对应表序号": "10.1.2-5"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "接缝两侧出现轻微抬高",
+        "QuantitativeDescription": "接缝拱起条数≤总数的 10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "接缝两侧出现较大抬高",
+        "QuantitativeDescription": "接缝拱起条数 > 总数的 10% 且≤总数的 20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "接缝两侧出现明显抬高",
+        "QuantitativeDescription": "接缝拱起条数 > 总数的 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "接缝料损坏",
+      "对应表序号": "10.1.2-6"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "接缝处填料老化、漏水，但尚未出现剥落、脱空，或被杂物填塞现象",
+        "QuantitativeDescription": "填料老化、漏水≤整条缝的 10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "接缝处填料老化、漏水，部分填料脱空，或被杂物填塞",
+        "QuantitativeDescription": "填料老化、漏水 > 整条缝的 10% 且≤整条缝的 20%，或脱空、填塞长度≤接缝长的 1/3"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "接缝处填料老化、漏水，多处填料脱空，或被杂物填塞",
+        "QuantitativeDescription": "填料老化、漏水 > 整条缝的 20%，或脱空、填塞长度 > 接缝长的 1/3"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "裂缝",
+      "对应表序号": "10.1.2-7"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部存在横向裂缝、纵向裂缝或斜裂缝，但未贯通；或板角处裂缝与纵横接缝相交；或局部出现破碎板，但未发生松动、沉陷等病害",
+        "QuantitativeDescription": "裂缝缝宽 < 3mm；交点距角点≤1/2 板块边长，裂缝缝宽 < 3mm；每块板被分成 2 - 3 块"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多数存在横向裂缝、纵向裂缝或斜裂缝，边缘有碎裂；或板角处裂缝与纵横向接缝相交，边缘存在碎裂现象；或出现较多破碎板，板块伴有松动、沉陷、唧泥等",
+        "QuantitativeDescription": "裂缝缝宽 ≥3mm 且≤10mm；交点距角点≤1/2 板块边长，裂缝缝宽 ≥3mm 且≤10mm；每块板被分成 3 - 4 块"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大部分存在横向裂缝、纵向裂缝或斜裂缝，边缘有碎裂，并伴有错台出现；或板角处裂缝与纵横向接缝相交，断角有松动现象；或出现大量破碎板，板块伴有松动、沉陷、唧泥等",
+        "QuantitativeDescription": "裂缝缝宽 > 10mm；交点距角点≤1/2 板块边长，缝宽 > 10mm；每块板被分成 4 块以上"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "凹凸不平",
+      "对应表序号": "10.2.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "略有凹凸不平",
+        "QuantitativeDescription": "差值 ≤1cm"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "有明显凹凸不平",
+        "QuantitativeDescription": "差值 >1cm 且≤3cm"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "严重凹凸不平",
+        "QuantitativeDescription": "差值 >3cm"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "锚固区缺陷",
+      "对应表序号": "10.2.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "锚固构件松动，或锚固螺栓松脱；或混凝土轻微损坏，出现裂缝、剥落现象",
+        "QuantitativeDescription": "数量 ≤10%；面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "锚固构件松动，或锚固螺栓松脱但功能尚存；或混凝土局部损坏",
+        "QuantitativeDescription": "数量 >10% 且≤20%；面积 >10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "锚固构件松动，或锚固螺栓松脱基本失效；或混凝土大面积破损",
+        "QuantitativeDescription": "数量 >20%；面积 >20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "破损",
+      "对应表序号": "10.2.1-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "锚固构件松动、缺失，或焊缝开裂；或橡胶条轻微损坏、老化；或排水管发生轻微破损，但不影响功能",
+        "QuantitativeDescription": "数量≤10%；面积≤20%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "锚固构件松动、缺失，或焊缝开焊，造成钢板破损；或橡胶条老化、剥离；或焊接处大部分出现裂缝，但未断裂；或防水材料老化并有局部脱落现象，或排水管破损、堵塞，尚能维持功能",
+        "QuantitativeDescription": "数量 > 10% 且≤20%；面积 > 20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "严重老化，锚固构件松动、缺失，或焊缝开焊，造成钢板破损失效；或焊接处出现剪断现象，或钢板其他部位出现剪断现象；或橡胶条完全剥离或脱落；或防水材料老化，完全脱落，或排水管完全堵塞失效",
+        "QuantitativeDescription": "数量 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "失效",
+      "对应表序号": "10.2.1-4"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "上层槽口堵塞、卡死等原因，造成伸缩缝伸缩异常，车辆行驶时出现冲击和噪声",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "上层槽口堵塞、卡死等原因，造成伸缩缝不能自由变形，伸缩异常现象严重，伸缩缝出现明显损坏",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "伸缩异常导致失效",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "破损",
+      "对应表序号": "10.3.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "出现少量坑槽、孔洞、裂缝、剥落、松动等现象",
+        "QuantitativeDescription": "面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "出现较多坑槽、孔洞、裂缝、剥落、松动等现象",
+        "QuantitativeDescription": "面积 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "出现大量坑槽、孔洞、裂缝、剥落、松动等现象",
+        "QuantitativeDescription": "面积 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "缺失",
+      "对应表序号": "10.3.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "人行道出现少量缺失现象",
+        "QuantitativeDescription": "面积≤3%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "人行道出现较大面积缺损",
+        "QuantitativeDescription": "面积 > 3% 且≤10%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "人行道出现大面积缺损",
+        "QuantitativeDescription": "面积 > 10%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "撞坏、缺失",
+      "对应表序号": "10.4.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部受到车辆冲撞，不影响功能，或构件脱落、缺失",
+        "QuantitativeDescription": "损坏长度≤3%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处出现车辆冲撞引起的损坏，不影响功能，或构件脱落、缺失",
+        "QuantitativeDescription": "损坏长度 > 3% 且≤10%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "受到车辆冲撞，失去效用，或构件脱落、缺失",
+        "QuantitativeDescription": "损坏长度 > 10%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "破损",
+      "对应表序号": "10.4.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "个别构件出现蜂窝麻面、剥落、锈蚀、裂缝、变形错位等现象",
+        "QuantitativeDescription": "累计面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较多构件出现蜂窝麻面、剥落、露筋、锈蚀、裂缝、变形错位等现象",
+        "QuantitativeDescription": "累计面积 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大量构件出现剥落、露筋、锈蚀、裂缝、变形错位等现象",
+        "QuantitativeDescription": "累计面积 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "排水不畅",
+      "对应表序号": "10.5.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部排水不畅，桥下出现漏水现象，或桥台支承面、翼墙面等平面受到污水污染",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "排水不畅，造成路堤轻微沉降；桥下多处出现漏水现象，或桥台支承面、翼墙面、前墙面等平面受到污水污染，支座锈蚀，或桥台后填料排水不畅，造成路堤明显沉降",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "桥下普遍出现漏水现象，或桥台支承面、翼墙面、前墙面等平面被污水严重污染，支座严重锈蚀，或桥台后填料排水不畅，造成路堤明显沉降",
+        "QuantitativeDescription": ""
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "泄水管、引水槽缺陷",
+      "对应表序号": "10.5.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "较少泄水管、引水槽、排水孔出现堵塞，或排水设施构件破损、缺失、管体脱落、漏留泄水管",
+        "QuantitativeDescription": "数量≤5%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较多泄水管、引水槽、排水孔出现堵塞，或排水设施构件破损、缺失、管体脱落、漏留泄水管",
+        "QuantitativeDescription": "数量 > 5%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "污损或损坏",
+      "对应表序号": "10.6.1-1"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好，表面清洁、无损坏",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "局部有污损或轻微损坏，不影响正常使用",
+        "QuantitativeDescription": "污损或损坏面积≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处有污损或损坏，影响美观或部分功能，尚未影响正常使用",
+        "QuantitativeDescription": "污损或损坏面积 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大面积污损或严重损坏，影响正常使用或结构安全",
+        "QuantitativeDescription": "污损或损坏面积 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "照明设施故障",
+      "对应表序号": "10.6.1-2"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "所有照明设施正常工作，无故障",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "少量照明灯具损坏或部分线路故障，不影响整体照明效果",
+        "QuantitativeDescription": "损坏灯具数量≤10%"
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "较多照明灯具损坏或线路故障，影响部分区域照明效果",
+        "QuantitativeDescription": "损坏灯具数量 > 10% 且≤20%"
+      },
+      {
+        "Scale": 4,
+        "QualitativeDescription": "大量照明灯具损坏或线路严重故障，严重影响整体照明效果或导致部分区域无照明",
+        "QuantitativeDescription": "损坏灯具数量 > 20%"
+      }
+    ]
+  },
+  {
+    "DiseaseType": {
+      "名称": "标志脱落、缺失",
+      "对应表序号": "10.6.1-3"
+    },
+    "DiseaseScale": [
+      {
+        "Scale": 1,
+        "QualitativeDescription": "完好",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 2,
+        "QualitativeDescription": "个别标志脱落、缺失，或需要标志的位置没有相应标志",
+        "QuantitativeDescription": ""
+      },
+      {
+        "Scale": 3,
+        "QualitativeDescription": "多处标志脱落、缺失，或需要标志的位置没有相应标志",
+        "QuantitativeDescription": ""
+      }
+    ]
+  }
+]

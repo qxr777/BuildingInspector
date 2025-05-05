@@ -30,6 +30,14 @@ public interface ITaskService
      */
     public List<Task> selectTaskList(Task task);
 
+    /**
+     * 查询任务列表
+     *
+     * @param task 任务
+     * @return 任务集合
+     */
+    public List<Task> selectTaskList(Task task, String select);
+
 
     /**
      * 修改任务
