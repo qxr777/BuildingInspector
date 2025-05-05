@@ -377,6 +377,13 @@ public class FileMapController extends BaseController {
     public AjaxResult getImages(@RequestParam("id") Long id) {
         List<Attachment> bySubjectId = attachmentService.getAttachmentList(id);
         List<FileMap> fileMapList = bySubjectId.stream()
+                .filter(e->{
+                    String[] s = e.getName().split("_");
+                    if(s.length>=2&&(s[1].equals("front")||s[1].equals("side"))){
+                        return true;
+                    }
+                    return false;
+                })
                 .map(e -> fileMapService.selectFileMapById(e.getMinioId())) // 查询 FileMap
                 .filter(Objects::nonNull) // 只保留非 null 的 FileMap
                 .peek(e -> e.setNewName(minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+e.getNewName().substring(0, 2) + "/" + e.getNewName())) // 修改 newName

@@ -173,29 +173,18 @@
                 </div>
             </div>
         </div>
+        <!-- 文件上传和预览区域 -->
         <div class="row">
             <div class="col-sm-12">
                 <div class="form-group">
                     <div>
-                        <input type="file" name="diseaseImages" id="diseaseImages" class="d-none" multiple accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-primary" onclick="$('#diseaseImages').click()">
-                            <i class="fa fa-upload"></i> 选择图片
+                        <input type="file" name="attachmentFiles" id="diseaseFiles" class="d-none" multiple accept="*/*" style="display: none;">
+                        <button type="button" class="btn btn-primary" onclick="$('#diseaseFiles').click()">
+                            <i class="fa fa-upload"></i> 选择文件
                         </button>
-                        <small class="form-text text-muted">可多选图片，单张不超过5MB</small>
-                        <div id="imagePreview" class="mt-2 row">
-                            <!-- 已上传图片预览区域 -->
-                            <th:block th:each="image : ${disease.images}">
-                                <div class="col-sm-2 mb-2">
-                                    <div class="thumbnail">
-                                        <img th:src="@{${image.url}}" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">
-                                        <button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"
-                                                onclick="removeExistingImage(this, [[${image.id}]])">
-                                            <i class="fa fa-trash"></i>
-                                        </button>
-                                        <input type="hidden" name="existingImages" th:value="${image.id}">
-                                    </div>
-                                </div>
-                            </th:block>
+                        <small class="form-text text-muted">支持上传图片和其他文件</small>
+                        <div id="filePreview" class="mt-2 row">
+                            <!-- 这里是文件预览区域,会显示已上传的文件和新上传的文件 -->
                         </div>
                     </div>
                 </div>
@@ -236,6 +225,8 @@
         // 初始化评定标度
         updateLevelGroup();
 
+        // 加载已上传的附件
+        loadExistingAttachments();
 
         // 监听病害类型选择变化
         $("#diseaseTypeId").on('change', function() {
@@ -270,6 +261,12 @@
             focusCleanup: true
         });
 
+        // 添加文件预览和下载功能
+        $(document).on('click', '.preview-image img, .preview-file', function() {
+            var url = $(this).closest('.thumbnail').find('input[name$=".url"]').val();
+            var fileName = $(this).closest('.thumbnail').find('input[name$=".fileName"]').val();
+            downloadFile(url, fileName);
+        });
 
     });
 
@@ -494,47 +491,136 @@
         }
     }
 
-    // 上传图片
-    // 图片选择预览处理
-    $("#diseaseImages").change(function() {
-        var previewContainer = $("#imagePreview");
-        previewContainer.empty();
+    // 文件选择预览处理
+    $("#diseaseFiles").change(function() {
+        var previewContainer = $("#filePreview");
+        var files = this.files;
 
-        if (this.files && this.files.length > 0) {
-            for (var i = 0; i < this.files.length; i++) {
-                var file = this.files[i];
-                if (!file.type.match('image.*')) continue;
+        if (files && files.length > 0) {
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var isImage = file.type.startsWith('image/');
 
-                var reader = new FileReader();
-                reader.onload = (function(file) {
-                    return function(e) {
-                        var col = $('<div class="col-sm-2 mb-2"></div>');
-                        var thumbnail = $('<div class="thumbnail"></div>');
+                var col = $('<div class="col-sm-2 mb-2"></div>');
+                var thumbnail = $('<div class="thumbnail" data-file-index="' + i + '"></div>');
 
-                        thumbnail.append(
-                            '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
-                            '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeImagePreview(this)">' +
-                            '<i class="fa fa-trash"></i></button>' +
-                            '<input type="hidden" name="imageFiles" value="' + file.name + '">'
-                        );
+                if (isImage) {
+                    // 如果是图片，创建图片预览
+                    var reader = new FileReader();
+                    reader.onload = (function(file, thumbnail) {
+                        return function(e) {
+                            thumbnail.append(
+                                '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">'
+                            );
+                        };
+                    })(file, thumbnail);
+                    reader.readAsDataURL(file);
+                } else {
+                    // 如果是其他类型的文件，显示文件图标
+                    thumbnail.append(
+                        '<div class="text-center" style="padding: 20px;">' +
+                        '<i class="fa fa-file fa-3x mb-2"></i>' +
+                        '<p class="mb-0" style="word-break: break-all;">' + file.name + '</p>' +
+                        '</div>'
+                    );
+                }
 
-                        col.append(thumbnail);
-                        previewContainer.append(col);
-                    };
-                })(file);
-                reader.readAsDataURL(file);
+                // 添加删除按钮和隐藏的文件信息
+                thumbnail.append(
+                    '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeFilePreview(this)">' +
+                    '<i class="fa fa-trash"></i></button>' +
+                    '<input type="hidden" class="file-data" name="fileData" value="' + encodeURIComponent(JSON.stringify({
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        lastModified: file.lastModified
+                    })) + '">'
+                );
+
+                col.append(thumbnail);
+                previewContainer.append(col);
             }
         }
+
+        // 保存文件到全局变量
+        saveFilesToGlobal();
     });
 
-    // 移除图片预览
-    window.removeImagePreview = function(btn) {
+    // 全局变量存储所有文件
+    var globalFiles = [];
+
+    // 保存文件到全局变量
+    function saveFilesToGlobal() {
+        var fileInput = document.getElementById('diseaseFiles');
+        if (fileInput.files) {
+            for (var i = 0; i < fileInput.files.length; i++) {
+                globalFiles.push(fileInput.files[i]);
+            }
+        }
+        // 清空input，以便可以重复选择同一文件
+        fileInput.value = '';
+    }
+
+    // 移除文件预览
+    window.removeFilePreview = function(btn) {
+        var $thumbnail = $(btn).closest('.thumbnail');
+        var fileData = JSON.parse(decodeURIComponent($thumbnail.find('.file-data').val()));
+
+        // 从全局文件数组中移除对应文件
+        globalFiles = globalFiles.filter(function(file) {
+            return !(file.name === fileData.name &&
+                    file.size === fileData.size &&
+                    file.lastModified === fileData.lastModified);
+        });
+
         $(btn).closest('.col-sm-2').remove();
+    };
+
+    // 移除已存在的文件
+    window.removeExistingFile = function(btn) {
+        var $container = $(btn).closest('.col-sm-2');
+        var fileId = $(btn).data('id');
+        if (fileId) {
+            $.modal.confirm("确定要删除该文件吗？", function() {
+                $.ajax({
+                    url: prefix + "/attachment/delete/" + fileId,
+                    type: 'DELETE',
+                    success: function(response) {
+                        if (response.code === 0) {
+                            $.modal.msgSuccess("删除成功");
+                            $container.remove();
+                        } else {
+                            $.modal.alertError(response.msg);
+                        }
+                    },
+                    error: function() {
+                        $.modal.alertError("删除失败，请稍后重试");
+                    }
+                });
+            });
+        }
     };
 
     function submitHandler() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-edit")[0]);
+
+            // 添加所有预览区域的文件到FormData
+            globalFiles.forEach(function(file, index) {
+                formData.append('files', file);
+            });
+
+            // 添加已有附件的ID列表
+            var existingAttachments = [];
+            $('[name^="attachments["]').each(function() {
+                var id = $(this).val();
+                if (id) {
+                    existingAttachments.push(id);
+                }
+            });
+            if (existingAttachments.length > 0) {
+                formData.append('existingAttachmentIds', JSON.stringify(existingAttachments));
+            }
 
             $.modal.loading("正在提交数据，请稍候...");
             $.ajax({
@@ -559,6 +645,110 @@
                 }
             });
         }
+    }
+
+    // 获取已上传的附件列表
+    function loadExistingAttachments() {
+        var diseaseId = $("input[name='id']").val();
+        if (diseaseId) {
+            $.ajax({
+                url: prefix + "/attachments/" + diseaseId,
+                type: 'GET',
+                success: function(response) {
+                    if (response.code === 0 && response.data) {
+                        var previewContainer = $("#filePreview");
+                        // 清空现有预览
+                        previewContainer.empty();
+
+                        // 显示已有附件
+                        response.data.forEach(function(attachment) {
+                            var col = $('<div class="col-sm-2 mb-2"></div>');
+                            var thumbnail = $('<div class="thumbnail"></div>');
+                            
+                            if (attachment.isImage) {
+                                // 图片预览，点击可下载
+                                thumbnail.append(
+                                    '<div class="preview-image">' +
+                                    '<a href="javascript:void(0);" onclick="downloadFile(\'' + attachment.url + '\', \'' + attachment.fileName + '\')">' +
+                                    '<img src="' + attachment.url + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;cursor:pointer;" ' +
+                                    'title="点击下载：' + attachment.fileName + '">' +
+                                    '</a>' +
+                                    '</div>'
+                                );
+                            } else {
+                                // 文件图标，点击可下载
+                                thumbnail.append(
+                                    '<a href="javascript:void(0);" onclick="downloadFile(\'' + attachment.url + '\', \'' + attachment.fileName + '\')" ' +
+                                    'style="text-decoration:none;color:inherit;" title="点击下载：' + attachment.fileName + '">' +
+                                    '<div class="preview-file text-center" style="cursor:pointer;">' +
+                                    '<i class="fa fa-file fa-3x" style="margin: 20px;"></i>' +
+                                    '<p style="word-break: break-all;">' + attachment.fileName + '</p>' +
+                                    '</div>' +
+                                    '</a>'
+                                );
+                            }
+
+                            // 添加删除按钮
+                            thumbnail.append(
+                                '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"' +
+                                'data-id="' + attachment.id + '" onclick="removeExistingFile(this)">' +
+                                '<i class="fa fa-trash"></i></button>'
+                            );
+
+                            // 添加隐藏字段保存附件信息
+                            thumbnail.append(
+                                '<input type="hidden" name="attachments[' + attachment.id + '].id" value="' + attachment.id + '">' +
+                                '<input type="hidden" name="attachments[' + attachment.id + '].fileName" value="' + attachment.fileName + '">' +
+                                '<input type="hidden" name="attachments[' + attachment.id + '].url" value="' + attachment.url + '">' +
+                                '<input type="hidden" name="attachments[' + attachment.id + '].isImage" value="' + attachment.isImage + '">'
+                            );
+
+                            col.append(thumbnail);
+                            previewContainer.append(col);
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    // 添加下载文件的函数
+    function downloadFile(url, fileName) {
+        // 创建一个XMLHttpRequest对象
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'blob';
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                // 创建blob链接
+                var blob = new Blob([xhr.response], { type: xhr.getResponseHeader('Content-Type') });
+                var link = document.createElement('a');
+                
+                // 添加fileName参数到URL
+                var downloadUrl = url;
+                if (url.indexOf('?') === -1) {
+                    downloadUrl += '?fileName=' + encodeURIComponent(fileName);
+                } else {
+                    downloadUrl += '&fileName=' + encodeURIComponent(fileName);
+                }
+                
+                // 设置下载链接和文件名
+                link.href = window.URL.createObjectURL(blob);
+                link.download = fileName;
+                
+                // 触发下载
+                document.body.appendChild(link);
+                link.click();
+                
+                // 清理
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(link.href);
+            }
+        };
+        
+        // 发送请求
+        xhr.send();
     }
 </script>
 </body>

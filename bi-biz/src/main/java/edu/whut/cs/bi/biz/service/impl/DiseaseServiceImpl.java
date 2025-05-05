@@ -2,20 +2,23 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
-import edu.whut.cs.bi.biz.domain.BiObject;
-import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.*;
 
-import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
+import edu.whut.cs.bi.biz.service.IFileMapService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +41,12 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Resource
     private BiObjectMapper biObjectMapper;
+
+    @Autowired
+    private IFileMapService fileMapService;
+
+    @Autowired
+    private AttachmentService attachmentService;
     /**
      * 查询病害
      *
@@ -176,6 +185,19 @@ public class DiseaseServiceImpl implements IDiseaseService
             };
             default -> throw new IllegalArgumentException("max_scale 只能为 3、4 或 5");
         };
+    }
+
+    @Override
+    public void handleDiseaseAttachment(MultipartFile[] files,Long id) {
+        Arrays.stream(files).forEach(e->{
+            FileMap fileMap = fileMapService.handleFileUpload(e);
+            Attachment attachment = new Attachment();
+            attachment.setMinioId(Long.valueOf(fileMap.getId()));
+            attachment.setName("disease_"+fileMap.getOldName());
+            attachment.setSubjectId(id);
+            attachment.setType(1);
+            attachmentService.insertAttachment(attachment);
+        });
     }
 
 }

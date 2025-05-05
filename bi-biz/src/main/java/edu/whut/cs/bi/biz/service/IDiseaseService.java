@@ -4,6 +4,7 @@ package edu.whut.cs.bi.biz.service;
 import com.ruoyi.common.core.domain.Ztree;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Disease;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -71,4 +72,6 @@ public interface IDiseaseService {
      * @return
      */
     public int computeDeductPoints(int maxScale, int scale);
+
+    public void handleDiseaseAttachment(MultipartFile[] files,Long id);
 }

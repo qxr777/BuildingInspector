@@ -9,19 +9,25 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Task;
-import edu.whut.cs.bi.biz.service.IBiObjectService;
-import edu.whut.cs.bi.biz.service.IDiseaseService;
-import edu.whut.cs.bi.biz.service.ITaskService;
+import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.validation.Valid;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 病害Controller
@@ -44,6 +50,14 @@ public class DiseaseController extends BaseController
     @Resource
     private IBiObjectService biObjectService;
 
+    @Autowired
+    private AttachmentService attachmentService;
+
+    @Autowired
+    private IFileMapService fileMapService;
+
+    @Autowired
+    private MinioConfig minioConfig;
     @RequiresPermissions("biz:disease:view")
     @GetMapping()
     public String disease()
@@ -128,9 +142,14 @@ public class DiseaseController extends BaseController
     @Log(title = "病害", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
-    public AjaxResult editSave(@Valid Disease disease)
-    {
+    public AjaxResult editSave(
+            @Valid Disease disease,
+            @RequestParam(value = "files", required = false) MultipartFile[] files,
+            @RequestParam(value = "existingAttachmentIds", required = false) String existingAttachmentIds,
+            @RequestParam(value = "deletedAttachmentIds", required = false) String[] deletedAttachmentIds
+    ) {
         disease.setUpdateBy(ShiroUtils.getLoginName());
+        diseaseService.handleDiseaseAttachment(files,disease.getId());
         return toAjax(diseaseService.updateDisease(disease));
     }
 
@@ -175,4 +194,56 @@ public class DiseaseController extends BaseController
         return AjaxResult.success(diseaseService.computeDeductPoints(maxScale, scale));
     }
 
+
+
+    @GetMapping("/attachments/{id}")
+    @ResponseBody  // 添加此注解以返回JSON数据
+    public AjaxResult getAttachments(@PathVariable("id") Long id)
+    {
+        try {
+            // 获取病害对应的附件列表
+            List<Attachment> attachments = attachmentService.getAttachmentList(id).stream().filter(e->e.getName().startsWith("disease")).toList();
+
+            // 转换为前端需要的格式
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Attachment attachment : attachments) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", attachment.getId());
+                map.put("fileName", attachment.getName().split("_")[1]);
+                FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
+                if(fileMap == null)continue;
+                String s = fileMap.getNewName();
+                map.put("url",minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s);
+                // 根据文件后缀判断是否为图片
+                map.put("isImage", isImageFile(attachment.getName()));
+                result.add(map);
+            }
+
+            return AjaxResult.success(result);
+        } catch (Exception e) {
+            return AjaxResult.error("获取附件列表失败：" + e.getMessage());
+        }
+    }
+
+    // 判断文件是否为图片的辅助方法
+    private boolean isImageFile(String fileName) {
+        if (StringUtils.isBlank(fileName)) {
+            return false;
+        }
+        String extension = fileName.toLowerCase();
+        return extension.endsWith(".jpg") ||
+                extension.endsWith(".jpeg") ||
+                extension.endsWith(".png") ||
+                extension.endsWith(".gif") ||
+                extension.endsWith(".bmp");
+    }
+
+
+    @DeleteMapping("/attachment/delete/{fileId}")
+    @ResponseBody  // 添加此注解以返回JSON数据
+    public AjaxResult deleteAttachment(@PathVariable("fileId") Long id)
+    {
+        attachmentService.deleteAttachmentById(id);
+        return AjaxResult.success("success");
+    }
 }
