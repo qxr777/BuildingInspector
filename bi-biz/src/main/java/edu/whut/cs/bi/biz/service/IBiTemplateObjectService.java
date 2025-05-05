@@ -4,6 +4,7 @@ import java.util.List;
 
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import com.ruoyi.common.core.domain.Ztree;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
 
 /**
  * 桥梁构件模版Service接口
@@ -82,4 +83,50 @@ public interface IBiTemplateObjectService {
      * @return 子节点列表
      */
     public List<BiTemplateObject> selectChildrenById(Long id);
+
+    /**
+     * 添加模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeId 病害类型ID
+     * @return 结果
+     */
+    public int insertTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId);
+
+    /**
+     * 删除模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeId 病害类型ID
+     * @return 结果
+     */
+    public int deleteTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId);
+
+    /**
+     * 批量添加模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeIds 病害类型ID字符串，逗号分隔
+     * @return 结果
+     */
+    public int batchInsertTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds);
+
+    /**
+     * 批量删除模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeIds 病害类型ID字符串，逗号分隔
+     * @return 结果
+     */
+    public int batchDeleteTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds);
+
+
+    /**
+     * 获取病害类型列表，包含是否已选信息
+     *
+     * @param diseaseType 病害类型信息
+     * @param templateObjectId 模板对象ID
+     * @return 病害类型列表
+     */
+    public List<TemplateDiseaseTypeVO> selectDiseaseTypeVOList(TemplateDiseaseTypeVO diseaseType, Long templateObjectId);
 }

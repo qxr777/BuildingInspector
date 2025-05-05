@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.mapper;
 
 
 import edu.whut.cs.bi.biz.domain.DiseaseType;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -100,4 +101,13 @@ public interface DiseaseTypeMapper
      * @return
      */
     int updateMaxScale(@Param("id") Long id, @Param("scale") Integer scale);
+
+    /**
+     * 查询病害类型列表，包含是否已选信息
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseType 病害类型信息
+     * @return 病害类型集合
+     */
+    public List<TemplateDiseaseTypeVO> selectTemplateDiseaseTypeList(@Param("templateObjectId") Long templateObjectId, @Param("diseaseType") DiseaseType diseaseType);
 }

@@ -9,6 +9,7 @@ import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.domain.Component;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
@@ -27,6 +28,9 @@ import com.ruoyi.common.core.text.Convert;
 public class BiObjectServiceImpl implements IBiObjectService {
     @Autowired
     private BiObjectMapper biObjectMapper;
+
+    @Autowired
+    private ComponentServiceImpl componentService;
 
     /**
      * 查询对象
@@ -256,6 +260,8 @@ public class BiObjectServiceImpl implements IBiObjectService {
     private void buildTreeStructure(BiObject node) {
         // 使用selectChildrenByParentId直接获取子节点
         List<BiObject> children = biObjectMapper.selectChildrenByParentId(node.getId());
+        List<Component> components = componentService.selectComponentsByBiObjectIdApi(node.getId());
+        node.setComments(components);
         if (!children.isEmpty()) {
             node.setChildren(children);
             // 递归处理每个子节点

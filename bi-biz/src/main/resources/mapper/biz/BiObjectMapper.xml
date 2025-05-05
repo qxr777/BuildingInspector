@@ -28,6 +28,15 @@
         <result property="parentName" column="parent_name" />
         <result property="count" column="count" />
         <result property="templateObjectId" column="template_object_id" />
+        <collection property="children" ofType="BiObject">
+            <id     property="id"        column="child_id"         />
+            <result property="name"      column="child_name"       />
+            <result property="parentId"  column="child_parent_id"  />
+            <result property="ancestors" column="child_ancestors"   />
+            <result property="orderNum"  column="child_order_num"  />
+            <result property="status"    column="child_status"     />
+            <result property="delFlag"   column="child_del_flag"   />
+        </collection>
     </resultMap>
 
     <sql id="selectBiObjectVo">
@@ -38,27 +47,45 @@
     </sql>
 
     <select id="selectBiObjectList" parameterType="BiObject" resultMap="BiObjectResult">
-        <include refid="selectBiObjectVo"/>
+        SELECT t.*,
+        c.id as child_id,
+        c.name as child_name,
+        c.parent_id as child_parent_id,
+        c.ancestors as child_ancestors,
+        c.order_num as child_order_num,
+        c.status as child_status,
+        c.del_flag as child_del_flag
+        FROM bi_object t
+        LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
         <where>
             <if test="name != null and name != ''">
-                AND name like concat('%', #{name}, '%')
+                AND t.name like concat('%', #{name}, '%')
             </if>
             <if test="status != null and status != ''">
-                AND status = #{status}
+                AND t.status = #{status}
             </if>
             <if test="parentId != null">
-                AND parent_id = #{parentId}
+                AND t.parent_id = #{parentId}
             </if>
-            AND del_flag = '0'
+            AND t.del_flag = '0'
         </where>
-        order by parent_id, order_num
+        order by t.parent_id, t.order_num
     </select>
 
     <select id="selectBiObjectById" parameterType="Long" resultMap="BiObjectResult">
-        select t.*, p.name as parent_name
-        from bi_object t
-                 left join bi_object p on p.id = t.parent_id
-        where t.id = #{id} AND t.del_flag = '0'
+        SELECT t.*,
+               p.name as parent_name,
+               c.id as child_id,
+               c.name as child_name,
+               c.parent_id as child_parent_id,
+               c.ancestors as child_ancestors,
+               c.order_num as child_order_num,
+               c.status as child_status,
+               c.del_flag as child_del_flag
+        FROM bi_object t
+                 LEFT JOIN bi_object p ON p.id = t.parent_id
+                 LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+        WHERE t.id = #{id} AND t.del_flag = '0'
     </select>
 
     <select id="selectChildrenByParentId" parameterType="Long" resultMap="BiObjectResult">
@@ -67,8 +94,18 @@
     </select>
 
     <select id="selectChildrenById" parameterType="Long" resultMap="BiObjectResult">
-        <include refid="selectBiObjectVo"/>
-        where FIND_IN_SET(#{id}, ancestors) AND del_flag = '0' order by parent_id, order_num
+        SELECT t.*,
+               c.id as child_id,
+               c.name as child_name,
+               c.parent_id as child_parent_id,
+               c.ancestors as child_ancestors,
+               c.order_num as child_order_num,
+               c.status as child_status,
+               c.del_flag as child_del_flag
+        FROM bi_object t
+                 LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+        WHERE FIND_IN_SET(#{id}, t.ancestors) AND t.del_flag = '0'
+        ORDER BY t.parent_id, t.order_num
     </select>
 
     <select id="selectParentById" parameterType="Long" resultMap="BiObjectResult">

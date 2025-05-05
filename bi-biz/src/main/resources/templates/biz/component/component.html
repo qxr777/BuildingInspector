@@ -44,6 +44,9 @@
                 <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:component:export">
                     <i class="fa fa-download"></i> 导出
                 </a>
+                <a class="btn btn-info" onclick="generateComponentCode()" shiro:hasPermission="biz:component:add">
+                    <i class="fa fa-barcode"></i> 构件编号
+                </a>
             </div>
             <div class="col-sm-12 select-table table-striped">
                 <table id="bootstrap-table"></table>
@@ -60,6 +63,7 @@
     var statusDatas = [[${@dict.getType('bi_component_status')}]];
     var prefix = ctx + "biz/component";
     var rootObjectId = [[${rootObjectId}]];
+    var currentNode = null; // 用于存储当前选中的节点
 
     $(function () {
         var panehHidden = false;
@@ -138,6 +142,7 @@
         $.tree.init(options);
 
         function zOnClick(event, treeId, treeNode) {
+            currentNode = treeNode;
             $("#biObjectId").val(treeNode.id);
             $.table.search();
         }
@@ -160,13 +165,35 @@
     });
 
     function addComponent() {
-        var biObjectId = $("#biObjectId").val();
-        if (!biObjectId) {
+        if (!currentNode) {
             $.modal.alertWarning("请先选择部件");
             return;
         }
-        var url = prefix + "/add?biObjectId=" + biObjectId;
+
+        // 判断是否是叶子节点
+        if (currentNode.children && currentNode.children.length > 0) {
+            $.modal.alertWarning("请先选择叶子节点部件");
+            return;
+        }
+
+        var url = prefix + "/add?biObjectId=" + currentNode.id;
         $.modal.open("新增构件", url);
+    }
+
+    function generateComponentCode() {
+        if (!currentNode) {
+            $.modal.alertWarning("请先选择部件");
+            return;
+        }
+
+        // 判断是否是叶子节点
+        if (currentNode.children && currentNode.children.length > 0) {
+            $.modal.alertWarning("请先选择叶子节点部件");
+            return;
+        }
+
+        var url = prefix + "/generateCode/" + currentNode.id;
+        $.modal.open("构件编号生成", url);
     }
 </script>
 </body>

@@ -11,11 +11,15 @@
         <result property="maxScale" column="max_scale"/>
         <result property="minScale" column="min_scale"/>
         <result property="status" column="status"/>
+        <result property="remark" column="remark"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
-        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <resultMap type="TemplateDiseaseTypeVO" id="TemplateDiseaseTypeVOResult" extends="DiseaseTypeResult">
+        <result property="isSelected" column="isSelected"/>
     </resultMap>
 
     <sql id="selectDiseaseTypeVo">
@@ -138,5 +142,30 @@
             <if test="createBy != null and createBy != ''">#{createBy},</if>
         </trim>
     </insert>
+
+    <select id="selectTemplateDiseaseTypeList" resultMap="TemplateDiseaseTypeVOResult">
+        SELECT
+        d.id, d.name, d.code, d.max_scale, d.min_scale, d.status,
+        d.remark, d.create_by, d.create_time, d.update_by, d.update_time,
+        CASE WHEN td.template_object_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
+        FROM bi_disease_type d
+        LEFT JOIN bi_template_object_disease_type td ON d.id = td.disease_type_id
+        AND td.template_object_id = #{templateObjectId}
+        <where>
+            <if test="diseaseType.name != null and diseaseType.name != ''">
+                AND d.name like concat('%', #{diseaseType.name}, '%')
+            </if>
+            <if test="diseaseType.code != null and diseaseType.code != ''">
+                AND d.code like concat('%', #{diseaseType.code}, '%')
+            </if>
+            <if test="diseaseType.status != null and diseaseType.status != ''">
+                AND d.status = #{diseaseType.status}
+            </if>
+            <if test="diseaseType.isSelected != null">
+                AND (td.template_object_id IS NOT NULL) = #{diseaseType.isSelected}
+            </if>
+        </where>
+        order by d.create_time desc
+    </select>
 
 </mapper>

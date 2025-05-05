@@ -25,6 +25,7 @@ public interface IComponentService {
      */
     public List<Component> selectComponentList(Component component);
 
+
     /**
      * 查询部件下的构件列表
      *
@@ -32,6 +33,14 @@ public interface IComponentService {
      * @return 构件集合
      */
     public List<Component> selectComponentsByBiObjectId(Long biObjectId);
+
+    /**
+     * 查询部件下的构件列表
+     *
+     * @param biObjectId 部件ID
+     * @return 构件集合
+     */
+    public List<Component> selectComponentsByBiObjectIdApi(Long biObjectId);
 
     /**
      * 查询部件及其子部件下的构件列表

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('病害类型选择列表')"/>
+</head>
+<body class="gray-bg">
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <input type="hidden" id="templateObjectId" name="templateObjectId" th:value="${templateObjectId}"/>
+                    <input type="hidden" id="isSelected" name="isSelected"/>
+                    <ul>
+                        <li>
+                            <label>病害名称：</label>
+                            <input type="text" name="name"/>
+                        </li>
+                        <li>
+                            <label>病害编码：</label>
+                            <input type="text" name="code"/>
+                        </li>
+                        <li>
+                            <label>状态：</label>
+                            <select name="status" th:with="type=${@dict.getType('sys_normal_disable')}">
+                                <option value="">所有</option>
+                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
+                                    class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
+                                    class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <div class="btn-group-sm" id="toolbar" role="group">
+            <!-- 添加筛选下拉框 -->
+            <select id="selectStatus" class="form-control" style="width: 150px; display: inline-block; margin-right: 8px;">
+                <option value="">全部病害类型</option>
+                <option value="1">已选病害类型</option>
+                <option value="0">未选病害类型</option>
+            </select>
+            <a class="btn btn-success multiple" onclick="addSelectedDiseaseTypes()" shiro:hasPermission="biz:template_object:edit">
+                <i class="fa fa-plus"></i> 批量添加
+            </a>
+            <a class="btn btn-danger multiple" onclick="removeSelectedDiseaseTypes()" shiro:hasPermission="biz:template_object:edit">
+                <i class="fa fa-minus"></i> 批量取消
+            </a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="bootstrap-table"></table>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<script th:inline="javascript">
+    var statusDatas = [[${@dict.getType('sys_normal_disable')}]];
+    var prefix = ctx + "biz/template_object";
+    var templateObjectId = [[${templateObjectId}]];
+
+    $(function () {
+        var options = {
+            url: prefix + "/listDiseaseType",
+            modalName: "病害类型",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'id',
+                    title: '病害类型ID',
+                    visible: false
+                },
+                {
+                    field: 'name',
+                    title: '名称'
+                },
+                {
+                    field: 'code',
+                    title: '编码'
+                },
+                {
+                    field: 'maxScale',
+                    title: '最大标度'
+                },
+                {
+                    field: 'minScale',
+                    title: '最小标度'
+                },
+                {
+                    field: 'status',
+                    title: '状态',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(statusDatas, value);
+                    }
+                },
+                {
+                    field: 'isSelected',
+                    title: '操作',
+                    align: 'center',
+                    formatter: function (value, row, index) {
+                        var actions = [];
+                        if (value) {
+                            actions.push('<a class="btn btn-danger btn-xs" href="javascript:void(0)" onclick="cancelDiseaseType(\'' + row.id + '\')"><i class="fa fa-remove"></i>取消</a> ');
+                        } else {
+                            actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="addDiseaseType(\'' + row.id + '\')"><i class="fa fa-plus"></i>添加</a> ');
+                        }
+                        return actions.join('');
+                    }
+                }]
+        };
+        $.table.init(options);
+
+        // 添加选择框变化事件
+        $("#selectStatus").change(function() {
+            var selectStatus = $("#selectStatus").val();
+
+            var selectValue = selectStatus === "1" ? true : false;
+            if (selectStatus === "") {
+                selectValue = "";
+            }
+
+            $("#isSelected").val(selectValue);
+
+            $.table.search();
+        });
+    });
+
+    /* 添加单个病害类型 */
+    function addDiseaseType(diseaseTypeId) {
+        $.ajax({
+            url: prefix + "/addTemplateDiseaseType",
+            type: "post",
+            data: {
+                "templateObjectId": templateObjectId,
+                "diseaseTypeId": diseaseTypeId
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("添加成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 取消单个病害类型 */
+    function cancelDiseaseType(diseaseTypeId) {
+        $.ajax({
+            url: prefix + "/cancelTemplateDiseaseType",
+            type: "post",
+            data: {
+                "templateObjectId": templateObjectId,
+                "diseaseTypeId": diseaseTypeId
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("取消成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 批量添加病害类型 */
+    function addSelectedDiseaseTypes() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length === 0) {
+            $.modal.alertWarning("请至少选择一个病害类型");
+            return;
+        }
+        $.ajax({
+            url: prefix + "/batchAddTemplateDiseaseType",
+            type: "post",
+            data: {
+                "templateObjectId": templateObjectId,
+                "diseaseTypeIds": rows.join(",")
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("批量添加成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 批量取消病害类型 */
+    function removeSelectedDiseaseTypes() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length === 0) {
+            $.modal.alertWarning("请至少选择一个病害类型");
+            return;
+        }
+        $.ajax({
+            url: prefix + "/batchCancelTemplateDiseaseType",
+            type: "post",
+            data: {
+                "templateObjectId": templateObjectId,
+                "diseaseTypeIds": rows.join(",")
+            },
+            success: function(result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("批量取消成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

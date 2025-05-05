@@ -22,12 +22,33 @@
         </association>
     </resultMap>
 
+    <resultMap type="Component" id="ComponentResultApi">
+        <result property="id"     column="id"     />
+        <result property="biObjectId"   column="bi_object_id"   />
+        <result property="name"   column="name"   />
+        <result property="code"   column="code"   />
+        <result property="status" column="status" />
+        <result property="delFlag"     column="del_flag"     />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"  column="create_time"  />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"  column="update_time"  />
+        <result property="remark"      column="remark"       />
+    </resultMap>
+
     <sql id="selectComponentVo">
         select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
                c.update_by, c.update_time, c.remark, o.name as bi_object_name
         from bi_component c
                  left join bi_object o on o.id = c.bi_object_id
     </sql>
+
+    <sql id="selectComponentListVo">
+        select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
+               c.update_by, c.update_time, c.remark
+        from bi_component c
+    </sql>
+
 
     <select id="selectComponentList" parameterType="Component" resultMap="ComponentResult">
         <include refid="selectComponentVo"/>
@@ -49,6 +70,12 @@
         <include refid="selectComponentVo"/>
         where c.bi_object_id = #{biObjectId} and c.del_flag = '0'
     </select>
+
+    <select id="selectComponentsByBiObjectIdApi" parameterType="Long" resultMap="ComponentResultApi">
+        <include refid="selectComponentListVo"/>
+        where c.bi_object_id = #{biObjectId} and c.del_flag = '0'
+    </select>
+
 
     <select id="selectComponentsByBiObjectIdAndChildren" parameterType="Long" resultMap="ComponentResult">
         <include refid="selectComponentVo"/>

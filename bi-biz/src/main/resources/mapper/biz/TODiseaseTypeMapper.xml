@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper">
 
     <insert id="insertData">
@@ -19,5 +19,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectByTemplateObjectId" resultType="java.lang.Long">
         select disease_type_id from bi_template_object_disease_type where template_object_id = #{templateObjectId}
     </select>
+
+    <delete id="deleteData">
+        delete from bi_template_object_disease_type
+        where template_object_id = #{templateObjectId}
+          and disease_type_id = #{diseaseTypeId}
+    </delete>
+
+    <delete id="batchDeleteData">
+        delete from bi_template_object_disease_type
+        where template_object_id = #{templateObjectId}
+        and disease_type_id in
+        <foreach collection="diseaseTypeIds" item="diseaseTypeId" open="(" separator="," close=")">
+            #{diseaseTypeId}
+        </foreach>
+    </delete>
 
 </mapper>

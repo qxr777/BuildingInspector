@@ -5,20 +5,35 @@
 <mapper namespace="edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper">
 
     <resultMap type="BiTemplateObject" id="BiTemplateObjectResult">
-        <result property="id"    column="id"    />
-        <result property="name"    column="name"    />
-        <result property="parentId"    column="parent_id"    />
-        <result property="ancestors"    column="ancestors"    />
-        <result property="orderNum"    column="order_num"    />
-        <result property="status"    column="status"    />
-        <result property="delFlag"    column="del_flag"    />
-        <result property="weight"    column="weight"    />
-        <result property="remark"    column="remark"    />
-        <result property="createBy"    column="create_by"    />
-        <result property="createTime"    column="create_time"    />
-        <result property="updateBy"    column="update_by"    />
-        <result property="updateTime"    column="update_time"    />
-        <result property="parentName" column="parent_name" />
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="ancestors" column="ancestors"/>
+        <result property="orderNum" column="order_num"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="weight" column="weight"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="parentName" column="parent_name"/>
+        <collection property="children" ofType="BiTemplateObject">
+            <id property="id" column="child_id"/>
+            <result property="name" column="child_name"/>
+            <result property="parentId" column="child_parent_id"/>
+            <result property="ancestors" column="child_ancestors"/>
+            <result property="orderNum" column="child_order_num"/>
+            <result property="status" column="child_status"/>
+            <result property="delFlag" column="child_del_flag"/>
+            <result property="weight" column="child_weight"/>
+            <result property="remark" column="child_remark"/>
+            <result property="createBy" column="child_create_by"/>
+            <result property="createTime" column="child_create_time"/>
+            <result property="updateBy" column="child_update_by"/>
+            <result property="updateTime" column="child_update_time"/>
+        </collection>
     </resultMap>
 
     <sql id="selectBiTemplateObjectVo">
@@ -26,20 +41,30 @@
     </sql>
 
     <select id="selectBiTemplateObjectList" parameterType="BiTemplateObject" resultMap="BiTemplateObjectResult">
-        <include refid="selectBiTemplateObjectVo"/>
+        SELECT
+        t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
+        t.weight, t.remark, t.create_by, t.create_time, t.update_by, t.update_time,
+        c.id as child_id, c.name as child_name, c.parent_id as child_parent_id,
+        c.ancestors as child_ancestors, c.order_num as child_order_num,
+        c.status as child_status, c.del_flag as child_del_flag,
+        c.weight as child_weight, c.remark as child_remark,
+        c.create_by as child_create_by, c.create_time as child_create_time,
+        c.update_by as child_update_by, c.update_time as child_update_time
+        FROM bi_template_object t
+        LEFT JOIN bi_template_object c ON t.id = c.parent_id AND c.del_flag = '0'
         <where>
             <if test="name != null and name != ''">
-                AND name like concat('%', #{name}, '%')
+                AND t.name like concat('%', #{name}, '%')
             </if>
             <if test="status != null and status != ''">
-                AND status = #{status}
+                AND t.status = #{status}
             </if>
             <if test="parentId != null">
-                AND parent_id = #{parentId}
+                AND t.parent_id = #{parentId}
             </if>
-            AND del_flag = '0'
+            AND t.del_flag = '0'
         </where>
-        order by parent_id, order_num
+        order by t.parent_id, t.order_num
     </select>
 
     <select id="selectBiTemplateObjectById" parameterType="Long" resultMap="BiTemplateObjectResult">

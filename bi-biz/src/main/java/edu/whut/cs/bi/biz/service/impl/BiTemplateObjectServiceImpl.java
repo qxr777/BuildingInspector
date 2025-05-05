@@ -2,14 +2,20 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import com.ruoyi.common.core.domain.Ztree;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
+import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
 import com.ruoyi.common.core.text.Convert;
+import edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 桥梁构件模版Service业务层处理
@@ -21,6 +27,12 @@ import com.ruoyi.common.core.text.Convert;
 public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
     @Autowired
     private BiTemplateObjectMapper biTemplateObjectMapper;
+
+    @Autowired
+    private TODiseaseTypeMapper toDiseaseTypeMapper;
+
+    @Autowired
+    private DiseaseTypeMapper diseaseTypeMapper;
 
     /**
      * 查询桥梁构件模版
@@ -139,5 +151,82 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
     @Override
     public List<BiTemplateObject> selectChildrenById(Long id) {
         return biTemplateObjectMapper.selectChildrenById(id);
+    }
+
+    /**
+     * 添加模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeId 病害类型ID
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int insertTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId) {
+        List<Long> componentIds = new ArrayList<>();
+        componentIds.add(templateObjectId);
+        toDiseaseTypeMapper.insertData(componentIds, diseaseTypeId);
+        return 1;
+    }
+
+    /**
+     * 删除模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeId 病害类型ID
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int deleteTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId) {
+        return toDiseaseTypeMapper.deleteData(templateObjectId, diseaseTypeId);
+    }
+
+    /**
+     * 批量添加模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeIds 病害类型ID字符串，逗号分隔
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int batchInsertTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds) {
+        String[] ids = Convert.toStrArray(diseaseTypeIds);
+        List<Long> componentIds = new ArrayList<>();
+        componentIds.add(templateObjectId);
+
+        for (String diseaseTypeId : ids) {
+            toDiseaseTypeMapper.insertData(componentIds, Long.valueOf(diseaseTypeId));
+        }
+        return ids.length;
+    }
+
+    /**
+     * 批量删除模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseaseTypeIds 病害类型ID字符串，逗号分隔
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int batchDeleteTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds) {
+        String[] ids = Convert.toStrArray(diseaseTypeIds);
+        return toDiseaseTypeMapper.batchDeleteData(templateObjectId, Arrays.stream(ids)
+                .map(Long::valueOf)
+                .collect(Collectors.toList()));
+    }
+
+    /**
+     * 获取病害类型列表，包含是否已选信息
+     *
+     * @param diseaseType 病害类型信息
+     * @param templateObjectId 模板对象ID
+     * @return 病害类型列表
+     */
+    @Override
+    public List<TemplateDiseaseTypeVO> selectDiseaseTypeVOList(TemplateDiseaseTypeVO diseaseType, Long templateObjectId) {
+        return diseaseTypeMapper.selectTemplateDiseaseTypeList(templateObjectId, diseaseType);
     }
 }

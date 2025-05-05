@@ -100,11 +100,21 @@ public class BiObject extends TreeEntity {
      */
     private List<BiObject> children = new ArrayList<BiObject>();
 
+    private List<Component> comments = new ArrayList<Component>();
+
     /**
      * 构件数量
      */
     @Excel(name = "构件数量")
     private int count;
+
+    public List<Component> getComments() {
+        return comments;
+    }
+
+    public void setComments(List<Component> comments) {
+        this.comments = comments;
+    }
 
     public int getCount() {
         return count;

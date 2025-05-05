@@ -60,6 +60,17 @@ public class ComponentServiceImpl implements IComponentService {
     }
 
     /**
+     * 查询部件下的构件列表
+     *
+     * @param biObjectId 部件ID
+     * @return 构件集合
+     */
+    @Override
+    public List<Component> selectComponentsByBiObjectIdApi(Long biObjectId) {
+        return componentMapper.selectComponentsByBiObjectIdApi(biObjectId);
+    }
+
+    /**
      * 查询部件及其子部件下的构件列表
      *
      * @param biObjectId 部件ID

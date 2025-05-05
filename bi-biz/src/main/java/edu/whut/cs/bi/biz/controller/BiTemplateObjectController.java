@@ -1,10 +1,10 @@
 package edu.whut.cs.bi.biz.controller;
 
 import java.util.List;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
 
+import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -148,5 +148,71 @@ public class BiTemplateObjectController extends BaseController {
     public List<Ztree> treeData() {
         List<Ztree> ztrees = biTemplateObjectService.selectBiTemplateObjectTree();
         return ztrees;
+    }
+
+    /**
+     * 选择病害类型页面
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @GetMapping("/selectDiseaseType/{templateObjectId}")
+    public String selectDiseaseType(@PathVariable("templateObjectId") Long templateObjectId, ModelMap mmap) {
+        mmap.put("templateObjectId", templateObjectId);
+        return prefix + "/selectDiseaseType";
+    }
+
+    /**
+     * 添加单个病害类型
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.INSERT)
+    @PostMapping("/addTemplateDiseaseType")
+    @ResponseBody
+    public AjaxResult addTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId) {
+        return toAjax(biTemplateObjectService.insertTemplateDiseaseType(templateObjectId, diseaseTypeId));
+    }
+
+    /**
+     * 取消单个病害类型
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.DELETE)
+    @PostMapping("/cancelTemplateDiseaseType")
+    @ResponseBody
+    public AjaxResult cancelTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId) {
+        return toAjax(biTemplateObjectService.deleteTemplateDiseaseType(templateObjectId, diseaseTypeId));
+    }
+
+    /**
+     * 批量添加病害类型
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.INSERT)
+    @PostMapping("/batchAddTemplateDiseaseType")
+    @ResponseBody
+    public AjaxResult batchAddTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds) {
+        return toAjax(biTemplateObjectService.batchInsertTemplateDiseaseType(templateObjectId, diseaseTypeIds));
+    }
+
+    /**
+     * 批量取消病害类型
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.DELETE)
+    @PostMapping("/batchCancelTemplateDiseaseType")
+    @ResponseBody
+    public AjaxResult batchCancelTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds) {
+        return toAjax(biTemplateObjectService.batchDeleteTemplateDiseaseType(templateObjectId, diseaseTypeIds));
+    }
+
+    /**
+     * 获取病害类型列表
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @PostMapping("/listDiseaseType")
+    @ResponseBody
+    public TableDataInfo listDiseaseType(TemplateDiseaseTypeVO diseaseType, Long templateObjectId) {
+        startPage();
+        List<TemplateDiseaseTypeVO> list = biTemplateObjectService.selectDiseaseTypeVOList(diseaseType, templateObjectId);
+        return getDataTable(list);
     }
 }

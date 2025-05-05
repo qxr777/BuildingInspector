@@ -123,6 +123,18 @@ public class BiEvaluationController extends BaseController {
     }
 
     /**
+     * 检查是否存在评定数据
+     */
+    @RequiresPermissions("biz:evaluation:detail")
+    @GetMapping("/check/{taskId}")
+    @ResponseBody
+    public AjaxResult check(@PathVariable("taskId") Long taskId) {
+        BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(taskId);
+        return AjaxResult.success(evaluation != null);
+    }
+
+
+    /**
      * 获取构件评分列表
      */
     @GetMapping("/score/list")
