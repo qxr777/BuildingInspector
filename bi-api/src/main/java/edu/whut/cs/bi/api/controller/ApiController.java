@@ -77,10 +77,10 @@ public class ApiController
     /**
      * 通过Building ID 获取对应桥梁 property
      */
-    @GetMapping("/property")
+    @GetMapping("/building/{bid}/property")
     @RequiresPermissions("biz:building:view")
     @ResponseBody
-    public AjaxResult getProperty(@RequestParam("bid") Long buildingId) {
+    public AjaxResult getProperty(@PathVariable("bid") Long buildingId) {
         if (buildingId == null) {
             return AjaxResult.error("参数错误");
         }
@@ -91,10 +91,10 @@ public class ApiController
     /**
      * 获取建筑物对象树结构
      */
-    @GetMapping("/object")
+    @GetMapping("/building/{bid}/object")
     @RequiresPermissions("biz:object:list")
     @ResponseBody
-    public AjaxResult getObjectTree(@RequestParam("bid") Long buildingId) {
+    public AjaxResult getObjectTree(@PathVariable("bid") Long buildingId) {
         try {
             // 查询建筑物的root_object_id
             Building building = buildingService.selectBuildingById(buildingId);
@@ -114,10 +114,10 @@ public class ApiController
     /**
      * 根据 BuidlingId 和 Year 查询桥梁历史病害
      */
-    @GetMapping("/disease")
+    @GetMapping("/building/{bid}/disease/{year}")
     @RequiresPermissions("biz:disease:list")
     @ResponseBody
-    public AjaxResult getDisease(@RequestParam("bid") Long buildingId, @RequestParam("year") int year) {
+    public AjaxResult getDisease(@PathVariable("bid") Long buildingId, @PathVariable("year") int year) {
         if (buildingId == null) {
             return AjaxResult.error("参数错误");
         }
@@ -137,10 +137,10 @@ public class ApiController
     /**
      * 根据项目 ProjectId 查询任务列表
      */
-    @GetMapping("/task")
+    @GetMapping("/project/{pid}/task")
     @RequiresPermissions("biz:task:list")
     @ResponseBody
-    public AjaxResult getTask(@RequestParam("pid") Long projectId) {
+    public AjaxResult getTask(@PathVariable("pid") Long projectId) {
         if (projectId == null) {
             return AjaxResult.error("参数错误");
         }
