@@ -39,7 +39,7 @@ public class PropertyController extends BaseController
         return prefix + "/property";
     }
 
-    @GetMapping("/readJson/{id}")
+    @GetMapping(value = {"/readJson/{id}", "/readJson"})
     public String readJson(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
     {
         if (id != null) {
@@ -74,19 +74,6 @@ public class PropertyController extends BaseController
     {
         return propertyService.selectPropertyList(property);
     }
-
-    /**
-     * 分页查询属性树列表
-     */
-//    @RequiresPermissions("biz:property:list")
-//    @PostMapping("/list")
-//    @ResponseBody
-//    public TableDataInfo list(Property property)
-//    {
-//        startPage();
-//        List<Property> properties = propertyService.selectPropertyList(property);
-//        return getDataTable(properties);
-//    }
 
     /**
      * 导出属性列表

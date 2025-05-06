@@ -81,6 +81,12 @@ public class PropertyServiceImpl implements IPropertyService {
             building.setUpdateBy(ShiroUtils.getLoginName());
             buildingMapper.updateBuilding(building);
 
+            // 同时更新属性树根节点的名称值
+            Property p = new Property();
+            p.setId(rootId);
+            p.setName(bd.getName());
+            propertyMapper.updateProperty(p);
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -137,17 +143,29 @@ public class PropertyServiceImpl implements IPropertyService {
                 rootId[0] = property.getId();
                 buildTree((JSONObject) value, property);
             } else if (value instanceof JSONArray) {
-                // json值，这里需要将时间属性作为父节点
+                // json值，这里需要将第一个子节点的value作为父节点
                 List<JSONObject> list = JSONUtil.toList((JSONArray) value, JSONObject.class);
 
+                propertyMapper.insertProperty(property);
                 // 检测评定历史
                 if (property.getName().equals("检测评定历史")) {
-                    propertyMapper.insertProperty(property);
                     for (int i = 1; i <= list.size(); i++) {
                         JSONObject jO = list.get(i - 1);
                         // 设置评定时间为下一级节点
                         Property childProperty = new Property();
                         childProperty.setName(jO.getStr("评定时间"));
+                        childProperty.setParentId(property.getId());
+                        childProperty.setAncestors(property.getAncestors() + "," + property.getId());
+                        childProperty.setOrderNum(i);
+                        propertyMapper.insertProperty(childProperty);
+                        buildTree(jO, childProperty);
+                    }
+                } else {
+                    for (int i = 0; i < list.size(); i++) {
+                        JSONObject jO = list.get(i);
+                        // 设置评定时间为下一级节点
+                        Property childProperty = new Property();
+                        childProperty.setName(jO.getStr(jO.keySet().iterator().next()));
                         childProperty.setParentId(property.getId());
                         childProperty.setAncestors(property.getAncestors() + "," + property.getId());
                         childProperty.setOrderNum(i);
