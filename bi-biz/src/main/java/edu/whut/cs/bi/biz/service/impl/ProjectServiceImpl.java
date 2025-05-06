@@ -1,7 +1,9 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import cn.hutool.core.util.ObjUtil;
@@ -354,8 +356,25 @@ public class ProjectServiceImpl implements IProjectService {
      */
     @Override
     public List<Project> selectProjectListByUserIdAndRole(Long userId, String value) {
-        return projectMapper.selectProjectList(null, userId, value);
+        List<Project> projects = projectMapper.selectProjectList(null, userId, value);
 
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        projects.forEach(project -> {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                Long deptId = project.getDeptId();
+                project.setDept(deptMapper.selectDeptById(deptId));
+
+                Long ownerDeptId = project.getOwnerDeptId();
+                project.setOwnerDept(deptMapper.selectDeptById(ownerDeptId));
+
+                List<SysUser> inspectors = projectUserMapper.selectUsersByProjectAndRole(project.getId(), ProjectUserRoleEnum.INSPECTOR.getValue());
+                project.setInspectors(inspectors);
+            });
+            futures.add(future);
+        });
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return projects;
     }
 
 }
