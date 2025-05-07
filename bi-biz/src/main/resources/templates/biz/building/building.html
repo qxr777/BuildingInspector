@@ -149,7 +149,9 @@
                             more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>部件结构</a> ');
                         }
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
-                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="property(\'' + row.rootPropertyId + '\')"><i class="fa fa-search"></i>桥梁卡</a> ');
+                        if (row.rootPropertyId) {
+                            more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="property(\'' + row.rootPropertyId + '\')"><i class="fa fa-search"></i>桥梁卡</a> ');
+                        }
 
                         if (typeof propertyImport !== 'undefined' && !propertyImport) {
                             more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyJson(\'' + row.id + '\')"><i class="fa fa-upload"></i>导入桥梁卡</a> ');
