@@ -94,7 +94,7 @@ public class ComponentServiceImpl implements IComponentService {
         biObject.setCount(biObject.getCount() + 1);
         biObject.setUpdateBy(ShiroUtils.getLoginName());
         biObject.setUpdateTime(DateUtils.getNowDate());
-        biObjectMapper.insertBiObject(biObject);
+        biObjectMapper.updateBiObject(biObject);
         return componentMapper.insertComponent(component);
     }
 
@@ -146,10 +146,11 @@ public class ComponentServiceImpl implements IComponentService {
      *
      * @param biObjectId 部件ID
      * @param segments   编号片段列表
+     * @param nameSuffix 构件名称后缀
      * @return 结果
      */
     @Override
-    public int generateComponents(Long biObjectId, List<CodeSegment> segments) {
+    public int generateComponents(Long biObjectId, List<CodeSegment> segments, String nameSuffix) {
         // 获取部件信息
         BiObject biObject = biObjectMapper.selectBiObjectById(biObjectId);
         if (biObject == null) {
@@ -172,7 +173,12 @@ public class ComponentServiceImpl implements IComponentService {
         for (int i = 0; i < codes.size(); i++) {
             Component component = new Component();
             component.setBiObjectId(biObjectId);
-            component.setName(biObject.getName() + (i + 1)); // 构件名称为部件名称加序号
+            // 构件名称为构件编号，如果有后缀则加上后缀
+            String componentName = codes.get(i);
+            if (nameSuffix != null && !nameSuffix.trim().isEmpty()) {
+                componentName = componentName + nameSuffix;
+            }
+            component.setName(componentName);
             component.setCode(codes.get(i));
             component.setStatus("0"); // 默认正常状态
             component.setCreateTime(DateUtils.getNowDate());
@@ -211,8 +217,8 @@ public class ComponentServiceImpl implements IComponentService {
     private void generateCodesRecursive(List<CodeSegment> segments, int index, List<String> currentParts,
                                         List<String> results, String objectName) {
         if (index == segments.size()) {
-            // 使用 "-" 连接片段，最后用 "#" 连接部件名
-            String code = String.join("-", currentParts) + "#" + objectName;
+            // 只使用 "-" 连接片段
+            String code = String.join("-", currentParts);
             results.add(code);
             return;
         }

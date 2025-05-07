@@ -87,7 +87,8 @@ public interface IComponentService {
      *
      * @param biObjectId 部件ID
      * @param segments   编号片段列表
+     * @param nameSuffix 名称后缀
      * @return 结果
      */
-    public int generateComponents(Long biObjectId, List<CodeSegment> segments);
+    public int generateComponents(Long biObjectId, List<CodeSegment> segments, String nameSuffix);
 }
