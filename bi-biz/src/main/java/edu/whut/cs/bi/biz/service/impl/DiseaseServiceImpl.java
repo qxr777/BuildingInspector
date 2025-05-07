@@ -194,6 +194,7 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Override
     public void handleDiseaseAttachment(MultipartFile[] files,Long id) {
+        if(files == null)return;
         Arrays.stream(files).forEach(e->{
             FileMap fileMap = fileMapService.handleFileUpload(e);
             Attachment attachment = new Attachment();
