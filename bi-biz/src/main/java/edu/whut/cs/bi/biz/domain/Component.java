@@ -48,6 +48,16 @@ public class Component extends BaseEntity {
      */
     private String delFlag;
 
+    private String parentObjectName;
+
+    public String getParentObjectName() {
+        return parentObjectName;
+    }
+
+    public void setParentObjectName(String parentObjectName) {
+        this.parentObjectName = parentObjectName;
+    }
+
     public Long getId() {
         return id;
     }

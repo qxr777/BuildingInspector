@@ -10,6 +10,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.Component;
+import edu.whut.cs.bi.biz.domain.DiseaseType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
@@ -31,6 +32,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
     @Autowired
     private ComponentServiceImpl componentService;
+
+    @Autowired
+    private DiseaseTypeServiceImpl diseaseTypeService;
 
     /**
      * 查询对象
@@ -261,7 +265,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
         // 使用selectChildrenByParentId直接获取子节点
         List<BiObject> children = biObjectMapper.selectChildrenByParentId(node.getId());
         List<Component> components = componentService.selectComponentsByBiObjectIdApi(node.getId());
+        List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(node.getTemplateObjectId());
         node.setComments(components);
+        node.setDiseaseTypes(diseaseTypes);
         if (!children.isEmpty()) {
             node.setChildren(children);
             // 递归处理每个子节点

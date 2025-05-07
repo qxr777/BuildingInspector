@@ -17,6 +17,14 @@ public interface ComponentMapper {
     public Component selectComponentById(Long id);
 
     /**
+     * 查询构件
+     *
+     * @param id 构件ID
+     * @return 构件
+     */
+    public Component selectComponentByIdApi(Long id);
+
+    /**
      * 查询构件列表
      *
      * @param component 构件

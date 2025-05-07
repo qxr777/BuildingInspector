@@ -102,6 +102,8 @@ public class BiObject extends TreeEntity {
 
     private List<Component> comments = new ArrayList<Component>();
 
+    private List<DiseaseType>  diseaseTypes = new ArrayList<>();
+
     /**
      * 构件数量
      */
@@ -110,6 +112,14 @@ public class BiObject extends TreeEntity {
 
     public List<Component> getComments() {
         return comments;
+    }
+
+    public List<DiseaseType> getDiseaseTypes() {
+        return diseaseTypes;
+    }
+
+    public void setDiseaseTypes(List<DiseaseType> diseaseTypes) {
+        this.diseaseTypes = diseaseTypes;
     }
 
     public void setComments(List<Component> comments) {
