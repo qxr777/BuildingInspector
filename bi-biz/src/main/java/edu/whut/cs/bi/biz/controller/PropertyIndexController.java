@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.controller;
 
+import cn.hutool.core.util.ObjUtil;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -43,8 +44,12 @@ public class PropertyIndexController extends BaseController
 
     @RequiresPermissions("biz:property:view")
     @GetMapping()
-    public String propertyIndex()
+    public String propertyIndex(@RequestParam(value = "rootPropertyId", required = false) Long rootPropertyId, ModelMap mmap)
     {
+        if (ObjUtil.isNotNull(rootPropertyId)) {
+            mmap.put("rootPropertyId", rootPropertyId);
+        }
+
         return prefix + "/propertyIndex";
     }
 
@@ -163,10 +168,12 @@ public class PropertyIndexController extends BaseController
      */
     @GetMapping("/treeData")
     @ResponseBody
-    public List<Ztree> treeData(String name)
+    public List<Ztree> treeData(String name, Long rootPropertyId)
     {
-        List<Ztree> ztrees = propertyIndexService.selectPropertyTree(name);
-        return ztrees;
+        if (StringUtils.isNotNull(name)) {
+            return propertyIndexService.selectPropertyTree(name);
+        }
+        return propertyIndexService.selectPropertyTree(rootPropertyId);
     }
 
 }

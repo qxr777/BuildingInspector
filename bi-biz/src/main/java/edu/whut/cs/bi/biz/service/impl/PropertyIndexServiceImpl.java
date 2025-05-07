@@ -32,11 +32,9 @@ import static com.ruoyi.common.utils.PageUtils.startPage;
 
 /**
  * 建筑属性Service业务层处理
- *
  */
 @Service
-public class PropertyIndexServiceImpl implements IPropertyIndexService
-{
+public class PropertyIndexServiceImpl implements IPropertyIndexService {
     @Resource
     private PropertyMapper propertyMapper;
 
@@ -47,8 +45,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService
      * @return 属性
      */
     @Override
-    public Property selectPropertyById(Long id)
-    {
+    public Property selectPropertyById(Long id) {
         return propertyMapper.selectPropertyById(id);
     }
 
@@ -59,8 +56,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService
      * @return 属性
      */
     @Override
-    public List<Property> selectPropertyList(Property property)
-    {
+    public List<Property> selectPropertyList(Property property) {
         return propertyMapper.selectPropertyList(property);
     }
 
@@ -87,8 +83,31 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService
 
         // 封装成 Ztree
         List<Ztree> ztrees = new ArrayList<>();
-        for (Property property : propertyList)
-        {
+        for (Property property : propertyList) {
+            Ztree ztree = new Ztree();
+            ztree.setId(property.getId());
+            ztree.setpId(property.getParentId());
+            ztree.setName(property.getName());
+            ztree.setTitle(property.getName());
+            ztrees.add(ztree);
+        }
+        return ztrees;
+    }
+
+    @Override
+    public List<Ztree> selectPropertyTree(Long rootPropertyId) {
+        Property ps = propertyMapper.selectPropertyById(rootPropertyId);
+
+        // 节点顺序要求
+        List<Property> propertyList = new ArrayList<>();
+
+        propertyList.add(ps);
+        List<Property> properties = propertyMapper.selectChildrenObjectById(rootPropertyId);
+        propertyList.addAll(properties);
+
+        // 封装成 Ztree
+        List<Ztree> ztrees = new ArrayList<>();
+        for (Property property : propertyList) {
             Ztree ztree = new Ztree();
             ztree.setId(property.getId());
             ztree.setpId(property.getParentId());

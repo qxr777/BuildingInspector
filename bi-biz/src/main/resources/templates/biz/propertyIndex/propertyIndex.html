@@ -77,9 +77,9 @@
 <!--                    <i class="fa fa-upload"></i> 导入JSON-->
 <!--                </a>-->
                 <!-- 添加导出Word按钮 -->
-                <a class="btn btn-info" onclick="exportWord()">
-                    <i class="fa fa-file-word-o"></i> 导出Word
-                </a>
+<!--                <a class="btn btn-info" onclick="exportWord()">-->
+<!--                    <i class="fa fa-file-word-o"></i> 导出Word-->
+<!--                </a>-->
 <!--                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:property:export">-->
 <!--                    <i class="fa fa-download"></i> 导出-->
 <!--                </a>-->
@@ -123,6 +123,7 @@
     var editFlag = [[${@permission.hasPermi('biz:property:edit')}]];
     var removeFlag = [[${@permission.hasPermi('biz:property:remove')}]];
     var prefix = ctx + "biz/propertyIndex";
+    var rootPropertyId = [[${rootPropertyId}]];
 
     $(function () {
         var panehHidden = false;
@@ -138,6 +139,8 @@
             };
             $('#scroll-up').toTop(opt);
         }
+        $("#search_id").val(rootPropertyId);
+
         queryPropertyList();
         queryPropertyTree();
     });
@@ -182,7 +185,13 @@
     }
 
     function queryPropertyTree() {
-        var url = ctx + "biz/propertyIndex/treeData";
+        var url;
+        if (rootPropertyId) {
+            url  = ctx + "biz/propertyIndex/treeData?rootPropertyId=" + rootPropertyId;
+        } else {
+            url = ctx + "biz/propertyIndex/treeData";
+        }
+
         var options = {
             url: url,
             expandLevel: 0,

@@ -33,10 +33,18 @@ public interface IPropertyIndexService {
      List<Property> selectPropertyList(Property property);
 
     /**
-     * 查询属性树结构
+     * 根据name查询属性树结构
      *
      * @param name
      * @return
      */
     List<Ztree> selectPropertyTree(String name);
+
+    /**
+     * 根据id查询属性树结构
+     *
+     * @param rootPropertyId
+     * @return
+     */
+    List<Ztree> selectPropertyTree(Long rootPropertyId);
 }
