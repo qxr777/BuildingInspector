@@ -197,15 +197,22 @@
 
     <update id="updateBiObjects" parameterType="java.util.List">
         update bi_object
-        <trim prefix="set" suffixOverrides=",">
-            <trim prefix="ancestors =case" suffix="end,">
-                <foreach collection="biObjects" item="item">
-                    when id = #{item.id} then #{item.ancestors}
-                </foreach>
-            </trim>
-        </trim>
+        <set>
+            weight =
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
+                WHEN #{item.id} THEN #{item.weight}
+            </foreach>
+            update_time =
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
+                WHEN #{item.id} THEN #{item.updateTime}
+            </foreach>
+            update_by =
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END">
+                WHEN #{item.id} THEN #{item.updateBy}
+            </foreach>
+        </set>
         where id in
-        <foreach collection="biObjects" item="item" open="(" separator="," close=")">
+        <foreach collection="objects" item="item" open="(" separator="," close=")">
             #{item.id}
         </foreach>
     </update>

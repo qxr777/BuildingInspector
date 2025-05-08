@@ -96,7 +96,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             Long componentId = ds.getComponentId();
 
             if (componentId != null) {
-                Component component = componentMapper.selectComponentByIdApi(componentId);
+                Component component = componentMapper.selectComponentById(componentId);
                 BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
                 if (parent != null) {
                     component.setParentObjectName(parent.getName());

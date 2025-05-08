@@ -61,7 +61,7 @@
         </where>
     </select>
 
-    <select id="selectComponentById" parameterType="Long" resultMap="ComponentResultApi">
+    <select id="selectComponentById" parameterType="Long" resultMap="ComponentResult">
         <include refid="selectComponentVo"/>
         where c.id = #{id} and c.del_flag = '0'
     </select>

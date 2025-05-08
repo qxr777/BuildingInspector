@@ -1,5 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -8,6 +10,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
@@ -17,6 +20,7 @@ import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import com.ruoyi.common.core.text.Convert;
+import org.springframework.transaction.annotation.Transactional;
 
 
 /**
@@ -137,7 +141,56 @@ public class BiObjectServiceImpl implements IBiObjectService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteBiObjectById(Long id) {
+        // 1. 获取要删除的部件信息
+        BiObject biObject = biObjectMapper.selectBiObjectById(id);
+        if (biObject == null) {
+            return 0;
+        }
+
+        // 2. 获取同级部件列表（相同parentId的部件）
+        BiObject query = new BiObject();
+        query.setParentId(biObject.getParentId());
+        List<BiObject> siblings = biObjectMapper.selectBiObjectList(query);
+
+        // 3. 如果有同级部件且被删除部件有权重，则重新分配权重
+        if (siblings != null && siblings.size() > 1 && biObject.getWeight() != null) {
+            BigDecimal deletedWeight = biObject.getWeight();
+            BigDecimal totalRemainingWeight = BigDecimal.ZERO;
+            List<BiObject> siblingToUpdate = new ArrayList<>();
+
+            // 单次遍历计算总权重并收集需要更新的兄弟节点
+            for (BiObject sibling : siblings) {
+                if (!sibling.getId().equals(id) && sibling.getWeight() != null) {
+                    totalRemainingWeight = totalRemainingWeight.add(sibling.getWeight());
+                    siblingToUpdate.add(sibling);
+                }
+            }
+
+            // 如果剩余权重大于0，则重新分配权重
+            if (totalRemainingWeight.compareTo(BigDecimal.ZERO) > 0) {
+                // 准备批量更新的对象
+                for (BiObject sibling : siblingToUpdate) {
+                    // 计算新权重：原权重 + (删除权重 * 原权重/剩余总权重)
+                    BigDecimal newWeight = sibling.getWeight().add(
+                            deletedWeight.multiply(sibling.getWeight())
+                                    .divide(totalRemainingWeight, 4, RoundingMode.HALF_UP)
+                    );
+
+                    sibling.setWeight(newWeight);
+                    sibling.setUpdateTime(DateUtils.getNowDate());
+                    sibling.setUpdateBy(ShiroUtils.getLoginName());
+                }
+
+                // 批量更新所有兄弟节点的权重
+                if (!siblingToUpdate.isEmpty()) {
+                    biObjectMapper.updateBiObjects(siblingToUpdate);
+                }
+            }
+        }
+
+        // 4. 删除目标部件
         return biObjectMapper.deleteBiObjectById(id);
     }
 

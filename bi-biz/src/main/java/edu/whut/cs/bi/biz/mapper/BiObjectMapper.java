@@ -108,4 +108,12 @@ public interface BiObjectMapper {
      * @return 直接父节点
      */
     public BiObject selectDirectParentById(Long id);
+
+    /**
+     * 批量更新对象
+     *
+     * @param objects 需要更新的对象列表
+     * @return 结果
+     */
+    public int updateBiObjects(@Param("objects") List<BiObject> objects);
 }
