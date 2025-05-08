@@ -10,16 +10,13 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysUserMapper;
-import edu.whut.cs.bi.biz.domain.BiObject;
-import edu.whut.cs.bi.biz.domain.BiTemplateObject;
-import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.mapper.BiEvaluationMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 
-import edu.whut.cs.bi.biz.service.IBiObjectService;
-import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
-import edu.whut.cs.bi.biz.service.IBuildingService;
-import edu.whut.cs.bi.biz.service.ITaskService;
+import edu.whut.cs.bi.biz.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +24,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import java.io.IOException;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * 任务Service业务层处理
@@ -45,6 +44,12 @@ public class TaskServiceImpl implements ITaskService {
 
     @Resource
     private SysUserMapper sysUserMapper;
+
+    @Resource
+    private IBiEvaluationService evaluationService;
+
+    @Resource
+    private PropertyMapper propertyMapper;
 
     /**
      * 查询任务
@@ -111,6 +116,93 @@ public class TaskServiceImpl implements ITaskService {
 
         return selectTaskList(task);
     }
+
+    /**
+     * 查询任务列表
+     *
+     * @param task 任务
+     * @return 任务
+     */
+    @Override
+    public List<Task> selectTaskVOList(Task task) {
+        // 1. 同步查询基础任务列表
+        List<Task> tasks = taskMapper.selectTaskList(task, null);
+
+        if (ObjUtil.isEmpty(tasks)) {
+            return tasks;
+        }
+
+        // 2. 准备异步任务
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        // 3. 为每个任务创建异步处理
+        for (Task t : tasks) {
+            CompletableFuture<Void> future = CompletableFuture
+                    // 异步获取评价结果
+                    .supplyAsync(() -> {
+                        try {
+                            return Optional.ofNullable(evaluationService.selectBiEvaluationByTaskId(t.getId()));
+                        } catch (Exception e) {
+                            return Optional.<BiEvaluation>empty();
+                        }
+                    })
+                    .thenCombineAsync(
+                            // 异步获取属性数据
+                            CompletableFuture.supplyAsync(() -> {
+                                try {
+                                    if (t.getBuilding() != null && t.getBuilding().getRootPropertyId() != null) {
+                                        return Optional.ofNullable(
+                                                propertyMapper.selectAllChildrenById(t.getBuilding().getRootPropertyId())
+                                        );
+                                    }
+                                    return Optional.<List<Property>>empty();
+                                } catch (Exception e) {
+                                    return Optional.<List<Property>>empty();
+                                }
+                            }),
+                            // 合并两个异步结果并设置到Task对象
+                            (biEvaluationOpt, propertiesOpt) -> {
+                                biEvaluationOpt.ifPresent(biEvaluation ->
+                                        t.setEvaluationResult(biEvaluation.getLevel())
+                                );
+
+                                propertiesOpt.ifPresent(properties -> {
+                                    Building building = t.getBuilding();
+                                    building.setBuildingCode(findPropertyValue(properties, "桥梁编号"));
+                                    building.setRouteCode(findPropertyValue(properties, "路线编号"));
+                                    building.setRouteName(findPropertyValue(properties, "路线名称"));
+                                    building.setBridgePileNumber(findPropertyValue(properties, "桥位桩号"));
+                                    building.setBridgeLength(findPropertyValue(properties, "桥梁全长(m)"));
+                                    t.setBuilding(building);
+                                });
+                                return null;
+                            }
+                    );
+
+            futures.add(future);
+        }
+
+        // 4. 等待所有异步任务完成
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            throw new RuntimeException("异步处理任务数据时出错", e);
+        }
+
+        return tasks;
+    }
+
+    /**
+     * 从属性树中查找特定属性值
+     */
+    private String findPropertyValue(List<Property> propertyTree, String propertyName) {
+        return propertyTree.stream()
+                .filter(p -> propertyName.equals(p.getName()))
+                .findFirst()
+                .map(Property::getValue)
+                .orElse(null);
+    }
+
     /**
      * 新增任务
      *

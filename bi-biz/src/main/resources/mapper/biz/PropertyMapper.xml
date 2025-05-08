@@ -70,6 +70,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by create_time desc
     </select>
 
+    <select id="selectAllChildrenById" resultType="edu.whut.cs.bi.biz.domain.Property">
+        select * from bi.bi_property
+        where
+            find_in_set(#{id}, ancestors)
+    </select>
+
+
     <insert id="insertProperty" parameterType="Property" useGeneratedKeys="true" keyProperty="id">
         insert into bi_property
         <trim prefix="(" suffix=")" suffixOverrides=",">

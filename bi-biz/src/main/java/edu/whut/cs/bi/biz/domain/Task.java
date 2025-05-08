@@ -37,4 +37,7 @@ public class Task extends BaseEntity {
 
     // 业务实体根据部门查询项目
     Long selectDeptId;
+
+    /** 桥梁技术状况评定结果 */
+    private Integer evaluationResult;
 }
