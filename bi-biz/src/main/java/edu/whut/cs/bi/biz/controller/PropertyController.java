@@ -8,7 +8,9 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Property;
+import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.IPropertyService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,7 @@ import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import javax.validation.Valid;
 import java.util.List;
 
@@ -31,6 +34,9 @@ public class PropertyController extends BaseController
 
     @Autowired
     private IPropertyService propertyService;
+
+    @Resource
+    private IBuildingService buildingService;
 
     @RequiresPermissions("biz:property:view")
     @GetMapping()
@@ -55,12 +61,20 @@ public class PropertyController extends BaseController
     @ResponseBody
     @RequiresPermissions("biz:property:add")
     @Log(title = "读取属性json文件", businessType = BusinessType.INSERT)
-    public Boolean readJsonFile(@RequestPart("file") MultipartFile file, Long buildingId)
+    public Building readJsonFile(@RequestPart("file") MultipartFile file, Long buildingId)
     {
         Property property = new Property();
         property.setCreateBy(ShiroUtils.getLoginName());
         property.setUpdateBy(ShiroUtils.getLoginName());
-        return propertyService.readJsonFile(file, property, buildingId);
+
+        Boolean read = propertyService.readJsonFile(file, property, buildingId);
+
+        Building building = null;
+        if (read) {
+            building = buildingService.selectBuildingById(buildingId);
+        }
+
+        return building;
     }
 
 
@@ -197,7 +211,6 @@ public class PropertyController extends BaseController
     @GetMapping("/index")
     public String propertyIndex()
     {
-        System.out.println("--------");
         return "/biz/propertyIndex/propertyIndex";
     }
 

@@ -78,8 +78,6 @@
     var areaDatas = [[${@dict.getType('bi_building_area')}]];
     var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
     var isLeafDatas = [[${@dict.getType('bi_building_is_leaf')}]];
-    var propertyImport = [[${@permission.hasPermi('biz:property:import')}]];
-    var propertyExport = [[${@permission.hasPermi('biz:property:export')}]];
 
     var prefix = ctx + "biz/building";
 
@@ -149,16 +147,8 @@
                             more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>部件结构</a> ');
                         }
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
-                        if (row.rootPropertyId) {
-                            more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="property(\'' + row.rootPropertyId + '\')"><i class="fa fa-search"></i>桥梁卡</a> ');
-                        }
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="property(\'' + row.id + '\')"><i class="fa fa-search"></i>桥梁卡</a> ');
 
-                        if (typeof propertyImport !== 'undefined' && !propertyImport) {
-                            more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyJson(\'' + row.id + '\')"><i class="fa fa-upload"></i>导入桥梁卡</a> ');
-                        }
-                        if (typeof propertyExport !== 'undefined' && !propertyExport) {
-                            more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="downLoadWord(\'' + row.id + '\')"><i class="fa fa-download"></i>导出桥梁卡</a> ');
-                        }
 
                         actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
                         return actions.join('');
@@ -223,8 +213,8 @@
         $.modal.openOptions(options);
     }
 
-    function property(rootPropertyId) {
-        var url = ctx + "biz/propertyIndex?rootPropertyId=" + rootPropertyId;
+    function property(buildingId) {
+        var url = ctx + "biz/propertyIndex?buildingId=" + buildingId;
         $.modal.openTab("桥梁基本状况片", url);
     }
 
@@ -247,26 +237,6 @@
         }
     }
 
-    function importPropertyJson(id) {
-        var options = {
-            title: 'JSON数据导入',
-            width: "500",
-            url: ctx + "biz/property/readJson/" + id,
-            callBack: function(index, layero){
-                var iframe = layero.find('iframe')[0];
-                iframe.contentWindow.submitHandler(function() {
-                    $.modal.msgSuccess("导入成功");
-                    $.table.refresh();  // 确保在数据提交后刷新
-                });
-
-            }
-        };
-        $.modal.openOptions(options);
-    }
-
-    function downLoadWord(id){
-        window.location.href = ctx + "biz/report/exportPropertyWord/" + id;
-    }
 </script>
 </body>
 </html>

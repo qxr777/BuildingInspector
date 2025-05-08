@@ -69,10 +69,19 @@
                     <i class="fa fa-edit"></i> 修改
                 </a>
                 <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()"
-                   shiro:hasPermission="biz:property:remove">
+                   shiro:hasPermission="biz:property:remove"
+                   th:if="${building}">
                     <i class="fa fa-remove"></i> 删除
                 </a>
-                <!-- 新增JSON上传按钮 -->
+                <a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyJson()"
+                   shiro:hasPermission="biz:property:import">
+                    <i class="fa fa-upload"></i>导入桥梁卡
+                </a>
+                <a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="downLoadWord()"
+                   shiro:hasPermission="biz:property:export"
+                   th:if="${building}">
+                    <i class="fa fa-download"></i>导出桥梁卡
+                </a>
 <!--                <a class="btn btn-warning" shiro:hasPermission="biz:property:add" onclick="importJson()">-->
 <!--                    <i class="fa fa-upload"></i> 导入JSON-->
 <!--                </a>-->
@@ -80,9 +89,7 @@
 <!--                <a class="btn btn-info" onclick="exportWord()">-->
 <!--                    <i class="fa fa-file-word-o"></i> 导出Word-->
 <!--                </a>-->
-<!--                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:property:export">-->
-<!--                    <i class="fa fa-download"></i> 导出-->
-<!--                </a>-->
+
             </div>
             <div class="col-sm-12 select-table table-striped">
                 <table id="bootstrap-table"></table>
@@ -123,7 +130,7 @@
     var editFlag = [[${@permission.hasPermi('biz:property:edit')}]];
     var removeFlag = [[${@permission.hasPermi('biz:property:remove')}]];
     var prefix = ctx + "biz/propertyIndex";
-    var rootPropertyId = [[${rootPropertyId}]];
+    var building = [[${building}]];
 
     $(function () {
         var panehHidden = false;
@@ -139,7 +146,10 @@
             };
             $('#scroll-up').toTop(opt);
         }
-        $("#search_id").val(rootPropertyId);
+
+        if (building && building.rootPropertyId) {
+            $("#search_id").val(building.rootPropertyId);
+        }
 
         queryPropertyList();
         queryPropertyTree();
@@ -186,8 +196,8 @@
 
     function queryPropertyTree() {
         var url;
-        if (rootPropertyId) {
-            url  = ctx + "biz/propertyIndex/treeData?rootPropertyId=" + rootPropertyId;
+        if (building && building.rootPropertyId) {
+            url  = ctx + "biz/propertyIndex/treeData?rootPropertyId=" + building.rootPropertyId;
         } else {
             url = ctx + "biz/propertyIndex/treeData";
         }
@@ -292,6 +302,35 @@
 
         // 显示成功消息
         $.modal.msgSuccess("正在导出Word文档，请稍候...");
+    }
+
+
+    function importPropertyJson() {
+        var id = building.id;
+        var options = {
+            title: 'JSON数据导入',
+            width: "500",
+            url: ctx + "biz/property/readJson/" + id,
+            callBack: function(index, layero){
+                var iframe = layero.find('iframe')[0];
+                iframe.contentWindow.submitHandler(function(result) {
+                    $.modal.msgSuccess("导入成功");
+                    building = result;
+                    if (building && building.rootPropertyId) {
+                        $("#search_id").val(building.rootPropertyId);
+                    }
+                    $.table.refresh();  // 确保在数据提交后刷新
+                    queryPropertyTree();
+                });
+
+            }
+        };
+        $.modal.openOptions(options);
+    }
+
+    function downLoadWord(){
+        var id = building.id;
+        window.location.href = ctx + "biz/report/exportPropertyWord/" + id;
     }
 </script>
 </body>

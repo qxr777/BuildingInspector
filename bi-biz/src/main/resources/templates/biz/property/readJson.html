@@ -55,7 +55,7 @@
                     if (result && result.code) {
                         $.modal.alertWarning("系统错误，导入失败！");
                     } else {
-                        if (callback) callback();  // 调用回调函数
+                        if (callback) callback(result);  // 调用回调函数
                     }
                 });
             }

@@ -10,7 +10,9 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Property;
+import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.IPropertyIndexService;
 import edu.whut.cs.bi.biz.service.IPropertyService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -42,12 +44,16 @@ public class PropertyIndexController extends BaseController
     @Resource
     private IPropertyIndexService propertyIndexService;
 
+    @Resource
+    private IBuildingService buildingService;
+
     @RequiresPermissions("biz:property:view")
     @GetMapping()
-    public String propertyIndex(@RequestParam(value = "rootPropertyId", required = false) Long rootPropertyId, ModelMap mmap)
+    public String propertyIndex(@RequestParam(value = "buildingId", required = false) Long buildingId, ModelMap mmap)
     {
-        if (ObjUtil.isNotNull(rootPropertyId)) {
-            mmap.put("rootPropertyId", rootPropertyId);
+        if (ObjUtil.isNotNull(buildingId)) {
+            Building building = buildingService.selectBuildingById(buildingId);
+            mmap.put("building", building);
         }
 
         return prefix + "/propertyIndex";
@@ -170,10 +176,10 @@ public class PropertyIndexController extends BaseController
     @ResponseBody
     public List<Ztree> treeData(String name, Long rootPropertyId)
     {
-        if (StringUtils.isNotNull(name)) {
-            return propertyIndexService.selectPropertyTree(name);
+        if (ObjUtil.isNotNull(rootPropertyId)) {
+            return propertyIndexService.selectPropertyTree(rootPropertyId);
         }
-        return propertyIndexService.selectPropertyTree(rootPropertyId);
+        return propertyIndexService.selectPropertyTree(name);
     }
 
 }
