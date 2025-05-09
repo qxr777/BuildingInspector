@@ -121,20 +121,11 @@ public interface PropertyMapper {
     List<Property> selectPropertyByName(Property pt);
 
     /**
-     * 根据建筑ID查询根属性节点
-     *
-     * @param buildingId 建筑ID
-     * @return 根属性节点
-     */
-    public Property selectRootPropertyByBuildingId(Long buildingId);
-
-    /**
      * 根据属性ID查询所有子节点（包括子节点的子节点）
      *
      * @param id 属性ID
      * @return 所有子节点列表
      */
-    public List<Property> selectAllChildrenById(Long id);
 
     /**
      * 根据属性ID查询完整的属性树（包括根节点和所有子节点）
@@ -142,6 +133,6 @@ public interface PropertyMapper {
      * @param id 属性ID
      * @return 完整的属性树列表
      */
-    public List<Property> selectPropertyTreeById(Long id);
+
 
 }

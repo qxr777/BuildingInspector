@@ -87,21 +87,7 @@ public interface IPropertyService {
      */
     String getAncestorNames(Long objectId);
 
-    /**
-     * 根据建筑ID查询根属性节点
-     *
-     * @param buildingId 建筑ID
-     * @return 根属性节点
-     */
-    public Property selectRootPropertyByBuildingId(Long buildingId);
 
-    /**
-     * 根据属性ID查询完整的属性树
-     *
-     * @param propertyId 属性ID
-     * @return 属性树列表
-     */
-    public List<Property> selectPropertyTreeById(Long propertyId);
 
     /**
      * api 提供给前端的属性树

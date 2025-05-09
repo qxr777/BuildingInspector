@@ -46,45 +46,6 @@ public class ReportController extends BaseController {
   @Autowired
   IFileMapService iFileMapService;
 
-  /**
-   * 根据建筑ID导出属性树信息
-   */
-  @GetMapping("/exportPropertyTree/{bid}")
-  @Log(title = "导出属性树", businessType = BusinessType.EXPORT)
-  public AjaxResult exportPropertyTree(@PathVariable("bid") Long bid) {
-    try {
-      // 1. 根据buildingId查找对应的根属性节点
-      Property rootProperty = propertyService.selectRootPropertyByBuildingId(bid);
-      System.out.println(rootProperty.getId());
-      if (rootProperty == null) {
-        return AjaxResult.error("未找到该建筑的属性信息");
-      }
-
-      // 2. 获取完整的属性树
-      List<Property> propertyTree = propertyService.selectPropertyTreeById(rootProperty.getId());
-
-      // 3. 转换为层级结构
-      Map<String, Object> result = convertToTreeStructure(propertyTree);
-
-      return AjaxResult.success(result);
-    } catch (Exception e) {
-      logger.error("导出属性树失败：", e);
-      return AjaxResult.error("导出失败：" + e.getMessage());
-    }
-  }
-
-  /**
-   * 将属性列表转换为层级结构
-   */
-  private Map<String, Object> convertToTreeStructure(List<Property> properties) {
-    Property rootProperty = properties.stream()
-        .filter(p -> p.getParentId() == null)
-        .findFirst()
-        .orElseThrow(() -> new RuntimeException("未找到根节点"));
-
-    return buildTreeNode(rootProperty, properties);
-  }
-
   private Map<String, Object> buildTreeNode(Property current, List<Property> allProperties) {
     Map<String, Object> node = Map.of(
         "id", current.getId(),

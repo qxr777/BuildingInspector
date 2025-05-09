@@ -115,8 +115,11 @@ public class DiseaseController extends BaseController
     @Log(title = "病害", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
-    public AjaxResult addSave(@Valid Disease disease)
+    public AjaxResult addSave(@Valid Disease disease,@RequestParam(value = "files", required = false) MultipartFile[] files)
     {
+        if(files!=null) {
+            diseaseService.handleDiseaseAttachment(files,disease.getId());
+        }
         disease.setCreateBy(ShiroUtils.getLoginName());
         return toAjax(diseaseService.insertDisease(disease));
     }

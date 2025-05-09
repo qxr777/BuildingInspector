@@ -356,15 +356,8 @@ public class PropertyServiceImpl implements IPropertyService {
         return result;
     }
 
-    @Override
-    public Property selectRootPropertyByBuildingId(Long buildingId) {
-        return propertyMapper.selectRootPropertyByBuildingId(buildingId);
-    }
 
-    @Override
-    public List<Property> selectPropertyTreeById(Long propertyId) {
-        return propertyMapper.selectPropertyTreeById(propertyId);
-    }
+
 
     @Override
     public Property selectPropertyTree(Long rootId) {
