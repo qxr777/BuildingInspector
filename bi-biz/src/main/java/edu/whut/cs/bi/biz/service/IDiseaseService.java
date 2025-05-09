@@ -38,7 +38,7 @@ public interface IDiseaseService {
      * @param disease 病害
      * @return 结果
      */
-    public int insertDisease(Disease disease);
+    public Integer insertDisease(Disease disease);
 
     /**
      * 修改病害

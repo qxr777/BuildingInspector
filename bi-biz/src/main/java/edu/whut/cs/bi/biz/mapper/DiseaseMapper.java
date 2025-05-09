@@ -37,7 +37,7 @@ public interface DiseaseMapper {
      * @param disease 病害
      * @return 结果
      */
-    int insertDisease(Disease disease);
+    Integer insertDisease(Disease disease);
 
 
     /**

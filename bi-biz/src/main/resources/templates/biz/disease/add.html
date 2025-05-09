@@ -497,17 +497,20 @@
         $(btn).closest('.col-sm-2').remove();
     };
 
-    // function submitHandler() {
-    //     if ($.validate.form() && validateForm()) {
-    //         $.operate.saveTab(prefix + "/add", $('#form-disease-add').serialize());
-    //     }
-    // }
-
-
     // 修改表单提交处理
     function submitHandler() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
+            
+            // 确保deductPoints是整数
+            var deductPoints = $("#deductPoints").val();
+            formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
+            
+            // 添加图片文件到FormData
+            var imageFiles = $("#diseaseImages")[0].files;
+            for (var i = 0; i < imageFiles.length; i++) {
+                formData.append("files", imageFiles[i]);
+            }
 
             $.modal.loading("正在提交数据，请稍候...");
             $.ajax({
@@ -530,8 +533,6 @@
                             console.error('父窗口的 $.table 对象不存在或 refresh 方法不是一个函数');
                         }
                         $.modal.closeTab();
-
-
                     } else {
                         $.modal.alertError(response.msg);
                     }
@@ -547,6 +548,16 @@
     function submitAndCopy() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
+            
+            // 确保deductPoints是整数
+            var deductPoints = $("#deductPoints").val();
+            formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
+            
+            // 添加图片文件到FormData
+            var imageFiles = $("#diseaseImages")[0].files;
+            for (var i = 0; i < imageFiles.length; i++) {
+                formData.append("files", imageFiles[i]);
+            }
 
             $.modal.loading("正在提交数据，请稍候...");
             $.ajax({

@@ -117,11 +117,13 @@ public class DiseaseController extends BaseController
     @ResponseBody
     public AjaxResult addSave(@Valid Disease disease,@RequestParam(value = "files", required = false) MultipartFile[] files)
     {
+        disease.setCreateBy(ShiroUtils.getLoginName());
+        diseaseService.insertDisease(disease);
+        System.out.println(disease.getId());
         if(files!=null) {
             diseaseService.handleDiseaseAttachment(files,disease.getId());
         }
-        disease.setCreateBy(ShiroUtils.getLoginName());
-        return toAjax(diseaseService.insertDisease(disease));
+        return toAjax(Math.toIntExact(disease.getId()));
     }
 
 

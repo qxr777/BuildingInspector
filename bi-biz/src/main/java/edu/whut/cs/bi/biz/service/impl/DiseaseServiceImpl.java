@@ -115,7 +115,7 @@ public class DiseaseServiceImpl implements IDiseaseService
      */
     @Override
     @Transactional
-    public int insertDisease(Disease disease) {
+    public Integer insertDisease(Disease disease) {
         disease.setCreateTime(DateUtils.getNowDate());
         Long diseaseTypeId = disease.getDiseaseTypeId();
         DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
