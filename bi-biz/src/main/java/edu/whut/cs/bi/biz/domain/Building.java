@@ -2,6 +2,8 @@ package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.hibernate.validator.constraints.Length;
@@ -13,6 +15,8 @@ import java.math.BigDecimal;
  * @author QiXin
  * @date 2025/3/17
  */
+@EqualsAndHashCode(callSuper = true)
+@Data
 public class Building extends BaseEntity {
     /**
      * 建筑id
@@ -126,181 +130,20 @@ public class Building extends BaseEntity {
     /** 父对象ID (BiObject的parent_id) */
     private Long parentObjectId;
 
-    public Long getRootObjectId() {
-        return rootObjectId;
-    }
+    /** 桥梁编号 */
+    private String buildingCode;
 
-    public void setRootObjectId(Long rootObjectId) {
-        this.rootObjectId = rootObjectId;
-    }
+    /** 路线编号 */
+    private String routeCode;
 
-    public Long getRootPropertyId() {
-        return rootPropertyId;
-    }
+    /** 路线名称 */
+    private String routeName;
 
-    public void setRootPropertyId(Long rootPropertyId) {
-        this.rootPropertyId = rootPropertyId;
-    }
+    /** 桥位桩号 */
+    private String bridgePileNumber;
 
-    public String getLine() {
-        return line;
-    }
-
-    public void setLine(String line) {
-        this.line = line;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setDelFlag(String delFlag) {
-        this.delFlag = delFlag;
-    }
-
-    public String getDelFlag() {
-        return delFlag;
-    }
-
-    public void setLongitude(BigDecimal longitude) {
-        this.longitude = longitude;
-    }
-
-    public BigDecimal getLongitude() {
-        return longitude;
-    }
-
-    public void setLatitude(BigDecimal latitude) {
-        this.latitude = latitude;
-    }
-
-    public BigDecimal getLatitude() {
-        return latitude;
-    }
-
-    public void setAltitude(BigDecimal altitude) {
-        this.altitude = altitude;
-    }
-
-    public BigDecimal getAltitude() {
-        return altitude;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setArea(String area) {
-        this.area = area;
-    }
-
-    public String getArea() {
-        return area;
-    }
-
-    public void setAdminDept(String adminDept) {
-        this.adminDept = adminDept;
-    }
-
-    public String getAdminDept() {
-        return adminDept;
-    }
-
-    public void setWeight(BigDecimal weight) {
-        this.weight = weight;
-    }
-
-    public BigDecimal getWeight() {
-        return weight;
-    }
-
-    public String getVideoFeed() {
-        return videoFeed;
-    }
-
-    public void setVideoFeed(String videoFeed) {
-        this.videoFeed = videoFeed;
-    }
-
-    public BiObject getRootObject() {
-        return rootObject;
-    }
-
-    public void setRootObject(BiObject rootObject) {
-        this.rootObject = rootObject;
-    }
-
-    public Property getRootProperty() {
-        return rootProperty;
-    }
-
-    public void setRootProperty(Property rootProperty) {
-        this.rootProperty = rootProperty;
-    }
-
-    public Long getParentId() {
-        return parentId;
-    }
-
-    public void setParentId(Long parentId) {
-        this.parentId = parentId;
-    }
-
-    public Long getTemplateId() {
-        return templateId;
-    }
-
-    public void setTemplateId(Long templateId) {
-        this.templateId = templateId;
-    }
-
-    public String getIsLeaf() {
-        return isLeaf;
-    }
-
-    public void setIsLeaf(String isLeaf) {
-        this.isLeaf = isLeaf;
-    }
-
-    public String getParentName() {
-        return parentName;
-    }
-
-    public void setParentName(String parentName) {
-        this.parentName = parentName;
-    }
-
-    public Long getParentObjectId() {
-        return parentObjectId;
-    }
-
-    public void setParentObjectId(Long parentObjectId) {
-        this.parentObjectId = parentObjectId;
-    }
+    /** 桥梁长度 */
+    private String bridgeLength;
 
     @Override
     public String toString() {

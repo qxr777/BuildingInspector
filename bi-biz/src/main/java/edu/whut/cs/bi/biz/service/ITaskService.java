@@ -36,6 +36,14 @@ public interface ITaskService
      * @param task 任务
      * @return 任务集合
      */
+    public List<Task> selectTaskVOList(Task task);
+
+    /**
+     * 查询任务列表
+     *
+     * @param task 任务
+     * @return 任务集合
+     */
     public List<Task> selectTaskList(Task task, String select);
 
 

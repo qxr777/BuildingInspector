@@ -146,8 +146,7 @@ public class ApiController
         }
         Task task = new Task();
         task.setProjectId(projectId);
-        task.setSelect("platform");
-        List<Task> tasks = taskService.selectTaskList(task);
+        List<Task> tasks = taskService.selectTaskVOList(task);
 
         TasksOfProjectVo tasksOfProjectVo = new TasksOfProjectVo();
         tasksOfProjectVo.setTasks(tasks);
