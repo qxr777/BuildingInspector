@@ -96,4 +96,14 @@ public interface IPropertyService {
      * @return
      */
     public Property selectPropertyTree(Long rootId);
+
+    /**
+     * 读取word文件, 并保存到数据库中
+     *
+     * @param file
+     * @param property
+     * @param buildingId
+     * @return
+     */
+    Boolean readWordFile(MultipartFile file, Property property, Long buildingId);
 }
