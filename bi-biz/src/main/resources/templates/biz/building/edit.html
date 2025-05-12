@@ -52,6 +52,122 @@
             top: 0;
             left: 0;
         }
+        .delete-btn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 14px;
+            display: none;
+        }
+        .upload-btn:hover .delete-btn {
+            display: flex;
+        }
+        /* 图片预览相关样式 */
+        .image-preview-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            display: none;
+        }
+        .image-preview-container {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+        }
+        .image-preview-img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            border: 2px solid white;
+            background-color: #fff;
+        }
+        .image-preview-close {
+            position: absolute;
+            top: -30px;
+            right: 0;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            background: rgba(0, 0, 0, 0.5);
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+        }
+        .image-preview-nav {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+            z-index: 1100;
+        }
+        .image-preview-nav:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        .image-preview-prev {
+            left: 30px;
+        }
+        .image-preview-next {
+            right: 30px;
+        }
+        .image-preview-counter {
+            position: absolute;
+            bottom: -30px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 14px;
+        }
+        .image-preview-download {
+            position: absolute;
+            bottom: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .image-preview-download:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        .image-preview-download i {
+            font-size: 16px;
+        }
     </style>
 </head>
 <body class="white-bg">
@@ -185,13 +301,15 @@
                         <div class="upload-content">
                             <div class="upload-btn" onclick="uploadImage('front', 0)" id="frontUpload0">
                                 <span class="plus">+</span>
+                                <div class="delete-btn" onclick="deleteImage(event, 'front', 0)">x</div>
                                 <input type="hidden" name="frontImage1" id="frontImage1">
-                                <img style="display: none;">
+                                <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
                             <div class="upload-btn" onclick="uploadImage('front', 1)" id="frontUpload1">
                                 <span class="plus">+</span>
+                                <div class="delete-btn" onclick="deleteImage(event, 'front', 1)">x</div>
                                 <input type="hidden" name="frontImage2" id="frontImage2">
-                                <img style="display: none;">
+                                <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
                         </div>
                     </div>
@@ -200,13 +318,15 @@
                         <div class="upload-content">
                             <div class="upload-btn" onclick="uploadImage('side', 0)" id="sideUpload0">
                                 <span class="plus">+</span>
+                                <div class="delete-btn" onclick="deleteImage(event, 'side', 0)">x</div>
                                 <input type="hidden" name="sideImage1" id="sideImage1">
-                                <img style="display: none;">
+                                <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
                             <div class="upload-btn" onclick="uploadImage('side', 1)" id="sideUpload1">
                                 <span class="plus">+</span>
+                                <div class="delete-btn" onclick="deleteImage(event, 'side', 1)">x</div>
                                 <input type="hidden" name="sideImage2" id="sideImage2">
-                                <img style="display: none;">
+                                <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
                         </div>
                     </div>
@@ -218,6 +338,21 @@
         <input type="hidden" name="templateId" th:value="${building.templateId}">
     </form>
 </div>
+
+<!-- 添加图片预览的HTML结构 -->
+<div class="image-preview-overlay" id="imagePreviewOverlay">
+    <div class="image-preview-container">
+        <img class="image-preview-img" id="previewImage" src="">
+        <div class="image-preview-close" onclick="closePreview()">×</div>
+        <div class="image-preview-nav image-preview-prev" onclick="navigateImage(-1)">&#10094;</div>
+        <div class="image-preview-nav image-preview-next" onclick="navigateImage(1)">&#10095;</div>
+        <div class="image-preview-counter" id="imageCounter"></div>
+        <div class="image-preview-download" id="downloadButton" onclick="downloadCurrentImage()">
+            <i class="fa fa-download"></i> 下载原图
+        </div>
+    </div>
+</div>
+
 <th:block th:include="include :: footer" />
 <th:block th:include="include :: select2-js" />
 <script th:inline="javascript">
@@ -270,9 +405,11 @@
                 var uploadBtn = document.getElementById(type + 'Upload' + index);
                 var plusIcon = uploadBtn.querySelector('.plus');
                 var img = uploadBtn.querySelector('img');
+                var deleteBtn = uploadBtn.querySelector('.delete-btn');
                 img.src = e.target.result;
                 img.style.display = 'block';
                 plusIcon.style.display = 'none';
+                deleteBtn.style.display = 'flex';
             }
             reader.readAsDataURL(file);
 
@@ -302,6 +439,138 @@
         input.click();
     }
 
+    // 删除图片的函数
+    function deleteImage(event, type, index) {
+        event.stopPropagation(); // 阻止事件冒泡，防止触发上传
+        
+        const serializedData = $('#form-building-edit').serialize();
+        const params = new URLSearchParams(serializedData);
+        const buildingId = params.get('id');
+        var hiddenInput = document.getElementById(type + 'Image' + (index + 1));
+        var filename = hiddenInput.value;
+        
+        if (filename) {
+            var baseUrl = window.location.protocol + "//" + window.location.host;
+            $.ajax({
+                url: baseUrl + ctx + "/biz/file/deleteImage",
+                type: 'POST',
+                data: {
+                    id: buildingId,
+                    filename: filename
+                },
+                success: function(response) {
+                    if (response.code === 0) {
+                        $.modal.msgSuccess("删除成功");
+                        // 重置UI
+                        var uploadBtn = document.getElementById(type + 'Upload' + index);
+                        var plusIcon = uploadBtn.querySelector('.plus');
+                        var img = uploadBtn.querySelector('img');
+                        var deleteBtn = uploadBtn.querySelector('.delete-btn');
+                        
+                        img.style.display = 'none';
+                        plusIcon.style.display = 'block';
+                        deleteBtn.style.display = 'none';
+                        hiddenInput.value = '';
+                    } else {
+                        $.modal.msgError(response.msg || "删除失败");
+                    }
+                }
+            });
+        } else {
+            // 如果没有保存的文件名，可能是刚上传但未保存的图片，直接重置UI
+            var uploadBtn = document.getElementById(type + 'Upload' + index);
+            var plusIcon = uploadBtn.querySelector('.plus');
+            var img = uploadBtn.querySelector('img');
+            var deleteBtn = uploadBtn.querySelector('.delete-btn');
+            
+            img.style.display = 'none';
+            plusIcon.style.display = 'block';
+            deleteBtn.style.display = 'none';
+            hiddenInput.value = '';
+        }
+    }
+
+    // 全局变量，用于存储所有图片
+    var allImages = [];
+    var currentImageIndex = 0;
+    
+    // 图片预览功能
+    function previewImage(event, src) {
+        event.stopPropagation(); // 阻止事件冒泡，防止触发上传
+        
+        // 收集所有已上传的图片
+        allImages = [];
+        var imgElements = document.querySelectorAll('.upload-btn img');
+        imgElements.forEach(function(img) {
+            if (img.style.display !== 'none' && img.src) {
+                allImages.push(img.src);
+            }
+        });
+        
+        // 找到当前点击图片的索引
+        currentImageIndex = allImages.findIndex(function(imgSrc) {
+            return imgSrc === src;
+        });
+        
+        if (currentImageIndex === -1 && allImages.length > 0) {
+            currentImageIndex = 0;
+        }
+        
+        // 更新预览图片
+        updatePreviewImage();
+        
+        // 显示预览层
+        document.getElementById('imagePreviewOverlay').style.display = 'flex';
+    }
+    
+    // 更新预览图片
+    function updatePreviewImage() {
+        if (allImages.length > 0) {
+            document.getElementById('previewImage').src = allImages[currentImageIndex];
+            document.getElementById('imageCounter').textContent = (currentImageIndex + 1) + ' / ' + allImages.length;
+            
+            // 控制导航按钮的可见性
+            var prevBtn = document.querySelector('.image-preview-prev');
+            var nextBtn = document.querySelector('.image-preview-next');
+            
+            prevBtn.style.visibility = allImages.length > 1 ? 'visible' : 'hidden';
+            nextBtn.style.visibility = allImages.length > 1 ? 'visible' : 'hidden';
+        }
+    }
+    
+    // 导航到上一张/下一张图片
+    function navigateImage(step) {
+        if (allImages.length <= 1) return;
+        
+        currentImageIndex = (currentImageIndex + step + allImages.length) % allImages.length;
+        updatePreviewImage();
+    }
+    
+    // 键盘导航
+    document.addEventListener('keydown', function(e) {
+        if (document.getElementById('imagePreviewOverlay').style.display === 'flex') {
+            if (e.key === 'ArrowLeft') {
+                navigateImage(-1);
+            } else if (e.key === 'ArrowRight') {
+                navigateImage(1);
+            } else if (e.key === 'Escape') {
+                closePreview();
+            }
+        }
+    });
+    
+    // 关闭预览
+    function closePreview() {
+        document.getElementById('imagePreviewOverlay').style.display = 'none';
+    }
+    
+    // 点击预览层背景关闭预览
+    document.getElementById('imagePreviewOverlay').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePreview();
+        }
+    });
+
     // 页面加载完成后获取图片
     $(document).ready(function() {
         const serializedData = $('#form-building-edit').serialize();
@@ -327,12 +596,14 @@
                                 var uploadBtn = document.getElementById(type + 'Upload' + index);
                                 var plusIcon = uploadBtn.querySelector('.plus');
                                 var img = uploadBtn.querySelector('img');
+                                var deleteBtn = uploadBtn.querySelector('.delete-btn');
                                 var hiddenInput = document.getElementById(type + 'Image' + (index + 1));
 
                                 if (uploadBtn && plusIcon && img && hiddenInput) {
                                     img.src = fileMap.newName;
                                     img.style.display = 'block';
                                     plusIcon.style.display = 'none';
+                                    deleteBtn.style.display = 'flex';
                                     hiddenInput.value = fileMap.oldName;
                                 }
                             }
@@ -342,6 +613,113 @@
             });
         }
     });
+
+    // 下载当前图片
+    function downloadCurrentImage() {
+        if (allImages.length > 0 && currentImageIndex >= 0 && currentImageIndex < allImages.length) {
+            var imageUrl = allImages[currentImageIndex];
+            
+            // 显示加载状态
+            var downloadBtn = document.getElementById('downloadButton');
+            var originalText = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 下载中...';
+            downloadBtn.style.pointerEvents = 'none';
+            
+            // 通过XHR获取图片数据
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', imageUrl, true);
+            xhr.responseType = 'blob';
+            
+            xhr.onload = function() {
+                if (this.status === 200) {
+                    var blob = this.response;
+                    
+                    // 根据图片类型设置文件名
+                    var filename = 'image.jpg';
+                    var fileExtension = '.jpg';
+                    
+                    // 尝试获取图片扩展名
+                    try {
+                        var urlParts = imageUrl.split('/');
+                        var potentialFilename = urlParts[urlParts.length - 1];
+                        if (potentialFilename && potentialFilename.includes('.')) {
+                            // 如果文件名包含查询参数，移除它们
+                            if (potentialFilename.includes('?')) {
+                                potentialFilename = potentialFilename.split('?')[0];
+                            }
+                            // 提取文件扩展名
+                            var extIndex = potentialFilename.lastIndexOf('.');
+                            if (extIndex > -1) {
+                                fileExtension = potentialFilename.substring(extIndex);
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error extracting file extension:", e);
+                    }
+                    
+                    // 根据当前显示的图片确定是正面照还是侧面照
+                    var currentImg = null;
+                    var imgIndex = currentImageIndex;
+                    
+                    // 找到当前显示的图片元素
+                    var imgElements = document.querySelectorAll('.upload-btn img');
+                    var visibleImgs = Array.from(imgElements).filter(function(img) {
+                        return img.style.display !== 'none' && img.src;
+                    });
+                    
+                    if (visibleImgs.length > imgIndex) {
+                        currentImg = visibleImgs[imgIndex];
+                        // 找到上层的upload-btn元素
+                        var uploadBtn = currentImg.closest('.upload-btn');
+                        if (uploadBtn) {
+                            var id = uploadBtn.id;
+                            if (id.includes('front')) {
+                                filename = '桥梁正面照' + fileExtension;
+                            } else if (id.includes('side')) {
+                                filename = '桥梁侧面照' + fileExtension;
+                            }
+                        }
+                    }
+                    
+                    // 使用URL.createObjectURL创建Blob URL
+                    var blobUrl = URL.createObjectURL(blob);
+                    
+                    // 创建隐藏的a标签，设置download属性，并模拟点击
+                    var a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = blobUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // 清理
+                    setTimeout(function() {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(blobUrl);
+                        // 恢复按钮状态
+                        downloadBtn.innerHTML = originalText;
+                        downloadBtn.style.pointerEvents = 'auto';
+                    }, 100);
+                } else {
+                    console.error('下载图片失败');
+                    // 恢复按钮状态
+                    downloadBtn.innerHTML = originalText;
+                    downloadBtn.style.pointerEvents = 'auto';
+                    alert('下载图片失败，请重试');
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.error('下载图片失败');
+                // 恢复按钮状态
+                downloadBtn.innerHTML = originalText;
+                downloadBtn.style.pointerEvents = 'auto';
+                alert('下载图片失败，请重试');
+            };
+            
+            xhr.send();
+        }
+    }
 </script>
 </body>
 </html>

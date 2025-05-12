@@ -291,6 +291,37 @@ public class FileMapController extends BaseController {
         }
     }
 
+    @PostMapping("/deleteImage")
+    @ResponseBody
+    public AjaxResult deleteImage(@RequestParam("id") Long id, @RequestParam("filename") String filename) {
+        try {
+            // 从文件名中解析出类型和索引
+            String[] parts = filename.split("_");
+            if (parts.length < 2) {
+                return error("文件名格式不正确");
+            }
+
+            String index = parts[0];
+            String type = parts[1];
+
+            // 查找对应的附件记录
+            List<Attachment> attachmentList = attachmentService.getAttachmentList(id);
+            for (Attachment attachment : attachmentList) {
+                String attachmentName = attachment.getName();
+                if (attachmentName != null && attachmentName.startsWith(index + "_" + type)) {
+                    // 删除附件记录及关联的文件
+                    Long attachmentId = attachment.getId();
+                    attachmentService.deleteAttachmentById(attachmentId);
+                    return success("删除成功");
+                }
+            }
+
+            return error("未找到对应的图片记录");
+        } catch (Exception e) {
+            return error("删除图片失败: " + e.getMessage());
+        }
+    }
+
     /**
      * 批量下载文件
      */

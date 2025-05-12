@@ -330,7 +330,10 @@
 
     function downLoadWord(){
         var id = building.id;
-        window.location.href = ctx + "biz/report/exportPropertyWord/" + id;
+        $.modal.confirm("确认要导出桥梁卡吗？", function() {
+            window.location.href = ctx + "biz/report/exportPropertyWord/" + id;
+            $.modal.msgSuccess("正在导出，请稍候...");
+        });
     }
 </script>
 </body>

@@ -209,6 +209,10 @@
     var biObject = [[${biObject}]];
     var diseaseTypes;
 
+    // 全局变量，存储所有图片的url、文件名和当前索引
+    var previewImageList = [];
+    var previewImageIndex = 0;
+
     $(function () {
         // 初始化select2
         $('.select2').select2({
@@ -262,10 +266,48 @@
         });
 
         // 添加文件预览和下载功能
-        $(document).on('click', '.preview-image img, .preview-file', function() {
+        $(document).on('click', '.preview-file', function() {
             var url = $(this).closest('.thumbnail').find('input[name$=".url"]').val();
             var fileName = $(this).closest('.thumbnail').find('input[name$=".fileName"]').val();
             downloadFile(url, fileName);
+        });
+
+        // 绑定图片点击事件为预览，并收集所有图片
+        $(document).on('click', '.preview-image img', function() {
+            previewImageList = [];
+            // 收集所有图片的src和文件名
+            var $allImages = $('.preview-image img');
+            $allImages.each(function(idx, img) {
+                var $img = $(img);
+                var src = $img.attr('src');
+                // 文件名可以从img的title、alt或父级隐藏input中取
+                var fileName = $img.attr('title') || $img.attr('alt') || $img.closest('.thumbnail').find('input[name$=".fileName"]').val() || '';
+                previewImageList.push({src: src, fileName: fileName});
+            });
+            
+            // 当前点击的图片索引
+            var currentSrc = $(this).attr('src');
+            previewImageIndex = -1;
+            
+            // 查找当前图片的索引
+            for(var i = 0; i < previewImageList.length; i++) {
+                if(previewImageList[i].src === currentSrc) {
+                    previewImageIndex = i;
+                    break;
+                }
+            }
+            
+            // 如果没找到，默认为第一张
+            if(previewImageIndex === -1) {
+                previewImageIndex = 0;
+            }
+            
+            // 显示并打开模态框
+            showPreviewImage();
+            $('#imagePreviewModal').modal('show');
+            
+            // 调试信息
+            console.log('收集到 ' + previewImageList.length + ' 张图片，当前索引: ' + previewImageIndex);
         });
 
     });
@@ -510,7 +552,11 @@
                     reader.onload = (function(file, thumbnail) {
                         return function(e) {
                             thumbnail.append(
-                                '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">'
+                                '<div class="preview-image">' +
+                                '<a href="javascript:void(0);" class="preview-image">' +
+                                '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
+                                '</a>' +
+                                '</div>'
                             );
                         };
                     })(file, thumbnail);
@@ -669,9 +715,9 @@
                                 // 图片预览，点击可下载
                                 thumbnail.append(
                                     '<div class="preview-image">' +
-                                    '<a href="javascript:void(0);" onclick="downloadFile(\'' + attachment.url + '\', \'' + attachment.fileName + '\')">' +
+                                    '<a href="javascript:void(0);" class="preview-image">' +
                                     '<img src="' + attachment.url + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;cursor:pointer;" ' +
-                                    'title="点击下载：' + attachment.fileName + '">' +
+                                    'title="' + attachment.fileName + '">' +
                                     '</a>' +
                                     '</div>'
                                 );
@@ -750,6 +796,155 @@
         // 发送请求
         xhr.send();
     }
+
+    // 显示当前图片并控制按钮显示
+    function showPreviewImage() {
+        if (previewImageList.length === 0) return;
+        
+        console.log('显示图片索引: ' + previewImageIndex + '，总数: ' + previewImageList.length);
+        
+        // 确保索引在有效范围内
+        if (previewImageIndex < 0) previewImageIndex = 0;
+        if (previewImageIndex >= previewImageList.length) previewImageIndex = previewImageList.length - 1;
+        
+        var item = previewImageList[previewImageIndex];
+        
+        // 设置图片源
+        $('#previewImage').attr('src', item.src);
+        
+        // 设置下载链接
+        var fileName = item.fileName || 'image.jpg';
+        $('#downloadImageLink').attr('href', item.src).attr('download', fileName);
+        
+        // 设置底部信息
+        $('#previewFileName').text(item.fileName || '');
+        $('#previewIndex').text((previewImageIndex+1) + ' of ' + previewImageList.length);
+        
+        // 控制左右按钮的启用/禁用状态，但始终保持显示
+        if (previewImageIndex <= 0) {
+            $('#prevImage').prop('disabled', true).css('opacity', '0.3');
+        } else {
+            $('#prevImage').prop('disabled', false).css('opacity', '1');
+        }
+        
+        if (previewImageIndex >= previewImageList.length - 1) {
+            $('#nextImage').prop('disabled', true).css('opacity', '0.3');
+        } else {
+            $('#nextImage').prop('disabled', false).css('opacity', '1');
+        }
+    }
+
+    // 确保在文档加载后执行
+    $(document).ready(function() {
+        // 左右按钮点击事件
+        $('#prevImage').on('click', function(e) {
+            e.stopPropagation();
+            if (previewImageIndex > 0) {
+                previewImageIndex--;
+                showPreviewImage();
+                console.log('向左切换，当前索引: ' + previewImageIndex);
+            }
+        });
+        
+        $('#nextImage').on('click', function(e) {
+            e.stopPropagation();
+            if (previewImageIndex < previewImageList.length - 1) {
+                previewImageIndex++;
+                showPreviewImage();
+                console.log('向右切换，当前索引: ' + previewImageIndex);
+            }
+        });
+        
+        // 下载按钮点击事件
+        $('#downloadButton').on('click', function() {
+            var item = previewImageList[previewImageIndex];
+            if(item && item.src) {
+                downloadFile(item.src, item.fileName || 'image.jpg');
+            }
+        });
+        
+        // 点击图片下载处理
+        $('#downloadImageLink').on('click', function(e) {
+            var item = previewImageList[previewImageIndex];
+            if(item && item.src) {
+                e.preventDefault(); // 防止默认行为
+                downloadFile(item.src, item.fileName || 'image.jpg');
+            }
+        });
+        
+        // 键盘左右键控制
+        $(document).on('keydown', function(e) {
+            if ($('#imagePreviewModal').hasClass('show')) {
+                if (e.keyCode === 37) { // 左箭头
+                    $('#prevImage').click();
+                } else if (e.keyCode === 39) { // 右箭头
+                    $('#nextImage').click();
+                } else if (e.keyCode === 27) { // ESC键
+                    $('#imagePreviewModal').modal('hide');
+                }
+            }
+        });
+        
+        // 关闭弹窗时清空
+        $('#imagePreviewModal').on('hidden.bs.modal', function () {
+            previewImageList = [];
+            previewImageIndex = 0;
+            $('#previewImage').attr('src', '');
+            $('#previewFileName').text('');
+            $('#previewIndex').text('');
+        });
+    });
 </script>
+<!-- 图片预览模态框 -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" role="dialog" aria-labelledby="imagePreviewLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document" style="width: 100%; max-width: 100%; height: 100vh; margin: 0; padding: 0;">
+    <div class="modal-content" style="height: 100%; background-color: transparent; border: none; box-shadow: none;">
+      <!-- 关闭按钮 - 独立放在右上角 -->
+      <button type="button" class="close" data-dismiss="modal" aria-label="关闭" 
+        style="position: absolute; top: 20px; right: 25px; color: #fff; opacity: 1; font-size: 28px; z-index: 1050;">
+        <span aria-hidden="true">&times;</span>
+      </button>
+      
+      <div class="modal-body" style="padding: 0; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; background-color: transparent;">
+        <!-- 左侧箭头 -->
+        <div style="position: absolute; top: 50%; transform: translateY(-50%); left: 30px; z-index: 1030;">
+          <button id="prevImage" type="button" 
+            style="background: rgba(0,0,0,0.3); border: none; width: 50px; height: 50px; border-radius: 50%; color: #fff; font-size: 24px; cursor: pointer; outline: none;">
+            &larr;
+          </button>
+        </div>
+        
+        <!-- 中央图片区域 -->
+        <div style="max-width: 70%; max-height: 80%; text-align: center;">
+          <a id="downloadImageLink" href="#" download style="display: inline-block; position: relative;">
+            <img id="previewImage" src="" alt="图片预览" style="max-width: 100%; max-height: 80vh; object-fit: contain; background-color: transparent;">
+          </a>
+        </div>
+        
+        <!-- 右侧箭头 -->
+        <div style="position: absolute; top: 50%; transform: translateY(-50%); right: 30px; z-index: 1030;">
+          <button id="nextImage" type="button"
+            style="background: rgba(0,0,0,0.3); border: none; width: 50px; height: 50px; border-radius: 50%; color: #fff; font-size: 24px; cursor: pointer; outline: none;">
+            &rarr;
+          </button>
+        </div>
+        
+        <!-- 底部文件信息 -->
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: #fff; padding: 15px 20px; z-index: 1020;">
+          <div class="text-left" style="float: left;">
+            <span id="previewFileName"></span>
+            <button id="downloadButton" class="btn btn-sm btn-primary" style="margin-left: 15px; padding: 3px 10px;">
+              <i class="fa fa-download"></i> 点击下载原图
+            </button>
+          </div>
+          <div class="text-right" style="float: right;">
+            <span id="previewIndex"></span>
+          </div>
+          <div style="clear: both;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
