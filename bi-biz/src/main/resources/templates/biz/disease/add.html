@@ -182,7 +182,7 @@
             <div class="col-sm-12">
                 <div class="form-group">
                     <div>
-                        <input type="file" name="diseaseImages" id="diseaseImages" class="d-none" multiple accept="image/*" style="display: none;">
+                        <input type="file" name="diseaseImages" id="diseaseImages" class="d-none" accept="image/*" style="display: none;">
                         <button type="button" class="btn btn-primary" onclick="$('#diseaseImages').click()">
                             <i class="fa fa-upload"></i> 选择图片
                         </button>
@@ -463,33 +463,31 @@
     // 图片选择预览处理
     $("#diseaseImages").change(function() {
         var previewContainer = $("#imagePreview");
-        previewContainer.empty();
-
+        
         if (this.files && this.files.length > 0) {
-            for (var i = 0; i < this.files.length; i++) {
-                var file = this.files[i];
-                if (!file.type.match('image.*')) continue;
-
+            var file = this.files[0]; // 每次只取第一张图片
+            if (file.type.match('image.*')) {
                 var reader = new FileReader();
-                reader.onload = (function(file) {
-                    return function(e) {
-                        var col = $('<div class="col-sm-2 mb-2"></div>');
-                        var thumbnail = $('<div class="thumbnail"></div>');
+                reader.onload = function(e) {
+                    var col = $('<div class="col-sm-2 mb-2"></div>');
+                    var thumbnail = $('<div class="thumbnail"></div>');
 
-                        thumbnail.append(
-                            '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
-                            '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeImagePreview(this)">' +
-                            '<i class="fa fa-trash"></i></button>' +
-                            '<input type="hidden" name="imageFiles" value="' + file.name + '">'
-                        );
+                    thumbnail.append(
+                        '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
+                        '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeImagePreview(this)">' +
+                        '<i class="fa fa-trash"></i></button>' +
+                        '<input type="hidden" name="imageFiles" value="' + file.name + '">'
+                    );
 
-                        col.append(thumbnail);
-                        previewContainer.append(col);
-                    };
-                })(file);
+                    col.append(thumbnail);
+                    previewContainer.append(col);
+                };
                 reader.readAsDataURL(file);
             }
         }
+        
+        // 清空input，允许再次选择相同的文件
+        $(this).val('');
     });
 
     // 移除图片预览
@@ -506,11 +504,17 @@
             var deductPoints = $("#deductPoints").val();
             formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
             
-            // 添加图片文件到FormData
-            var imageFiles = $("#diseaseImages")[0].files;
-            for (var i = 0; i < imageFiles.length; i++) {
-                formData.append("files", imageFiles[i]);
-            }
+            // 添加图片文件
+            $("#imagePreview").find('.thumbnail').each(function() {
+                var fileName = $(this).find('input[name="imageFiles"]').val();
+                var imgSrc = $(this).find('img').attr('src');
+                
+                // 如果是Base64格式，转换为Blob
+                if (imgSrc.startsWith('data:image')) {
+                    var imageBlob = dataURItoBlob(imgSrc);
+                    formData.append("files", imageBlob, fileName);
+                }
+            });
 
             $.modal.loading("正在提交数据，请稍候...");
             $.ajax({
@@ -545,6 +549,18 @@
         }
     }
 
+    // 添加辅助函数：将DataURI转换为Blob
+    function dataURItoBlob(dataURI) {
+        var byteString = atob(dataURI.split(',')[1]);
+        var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+        var ab = new ArrayBuffer(byteString.length);
+        var ia = new Uint8Array(ab);
+        for (var i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], {type: mimeString});
+    }
+
     function submitAndCopy() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
@@ -553,11 +569,17 @@
             var deductPoints = $("#deductPoints").val();
             formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
             
-            // 添加图片文件到FormData
-            var imageFiles = $("#diseaseImages")[0].files;
-            for (var i = 0; i < imageFiles.length; i++) {
-                formData.append("files", imageFiles[i]);
-            }
+            // 添加图片文件
+            $("#imagePreview").find('.thumbnail').each(function() {
+                var fileName = $(this).find('input[name="imageFiles"]').val();
+                var imgSrc = $(this).find('img').attr('src');
+                
+                // 如果是Base64格式，转换为Blob
+                if (imgSrc.startsWith('data:image')) {
+                    var imageBlob = dataURItoBlob(imgSrc);
+                    formData.append("files", imageBlob, fileName);
+                }
+            });
 
             $.modal.loading("正在提交数据，请稍候...");
             $.ajax({
