@@ -73,7 +73,7 @@
                    th:if="${building}">
                     <i class="fa fa-remove"></i> 删除
                 </a>
-                <a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyJson()"
+                <a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyWord()"
                    shiro:hasPermission="biz:property:import">
                     <i class="fa fa-upload"></i>导入桥梁卡
                 </a>
@@ -149,6 +149,8 @@
 
         if (building && building.rootPropertyId) {
             $("#search_id").val(building.rootPropertyId);
+        } else {
+            $("#search_id").val(0);
         }
 
         queryPropertyList();
@@ -199,7 +201,7 @@
         if (building && building.rootPropertyId) {
             url  = ctx + "biz/propertyIndex/treeData?rootPropertyId=" + building.rootPropertyId;
         } else {
-            url = ctx + "biz/propertyIndex/treeData";
+            return;
         }
 
         var options = {
@@ -304,7 +306,35 @@
         $.modal.msgSuccess("正在导出Word文档，请稍候...");
     }
 
+    /**
+     * 桥梁卡word导入
+     */
+    function importPropertyWord() {
+        var id = building.id;
+        var options = {
+            title: 'Word数据导入',
+            width: "500",
+            url: ctx + "biz/property/readWord/" + id,
+            callBack: function(index, layero){
+                var iframe = layero.find('iframe')[0];
+                iframe.contentWindow.submitHandler(function(result) {
+                    $.modal.msgSuccess("导入成功");
+                    building = result;
+                    if (building && building.rootPropertyId) {
+                        $("#search_id").val(building.rootPropertyId);
+                    }
+                    $.table.refresh();  // 确保在数据提交后刷新
+                    queryPropertyTree();
+                });
 
+            }
+        };
+        $.modal.openOptions(options);
+    }
+
+    /**
+     * 桥梁卡json导入
+     */
     function importPropertyJson() {
         var id = building.id;
         var options = {

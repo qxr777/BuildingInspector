@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('桥梁卡导入')" />
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+    <form class="form-horizontal m" id="form-upload-word">
+        <div class="form-group">
+            <label class="col-sm-3 control-label is-required">选择文件：</label>
+            <div class="col-sm-8">
+                <input type="file" name="wordFile" class="form-control" accept=".doc,.docx" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label">操作说明：</label>
+            <div class="col-sm-8">
+                <span class="help-block"><i class="fa fa-info-circle"></i> 仅支持Word文档(.doc或.docx格式)</span>
+            </div>
+        </div>
+    </form>
+</div>
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    var prefix = ctx + "biz/property";
+    var buildingId = [[${buildingId}]];
+
+    // 添加自定义验证方法
+    $.validator.addMethod("fileExtension", function(value, element) {
+        var extension = value.split('.').pop().toLowerCase();
+        return this.optional(element) || extension === 'doc' || extension === 'docx';
+    }, "请选择Word文档(.doc或.docx格式)");
+
+    $(function() {
+        $("#form-upload-word").validate({
+            rules: {
+                wordFile: {
+                    required: true,
+                    fileExtension: true
+                }
+            },
+            errorPlacement: function(error, element) {
+                error.insertAfter(element.parent());
+            }
+        });
+    });
+
+    function submitHandler(callback) {
+        if ($("#form-upload-word").valid()) {
+            var fileInput = $('input[name="wordFile"]')[0];
+            if (fileInput.files.length > 0) {
+                var formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('buildingId', buildingId);
+                $.operate.submitJsonFile(prefix + "/readWord", formData, function(result) {
+                    if (result && result.code) {
+                        $.modal.alertWarning("系统错误，导入失败！");
+                    } else {
+                        if (callback) callback(result);  // 调用回调函数
+                    }
+                });
+            }
+        }
+    }
+</script>
+</body>
+</html>

@@ -54,6 +54,15 @@ public class PropertyController extends BaseController
         return prefix + "/readJson";
     }
 
+    @GetMapping(value = {"/readWord/{id}", "/readWord"})
+    public String readWord(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
+    {
+        if (id != null) {
+            mmap.put("buildingId", id);
+        }
+        return prefix + "/readWord";
+    }
+
     /**
      * 通过json文件添加
      */
@@ -76,6 +85,30 @@ public class PropertyController extends BaseController
 
         return building;
     }
+
+    /**
+     * 通过word文件添加
+     */
+    @PostMapping( "/readWord" )
+    @ResponseBody
+    @RequiresPermissions("biz:property:add")
+    @Log(title = "读取属性word文件", businessType = BusinessType.INSERT)
+    public Building readWordFile(@RequestPart("file") MultipartFile file, Long buildingId)
+    {
+        Property property = new Property();
+        property.setCreateBy(ShiroUtils.getLoginName());
+        property.setUpdateBy(ShiroUtils.getLoginName());
+
+        Boolean read = propertyService.readWordFile(file, property, buildingId);
+
+        Building building = null;
+        if (read) {
+            building = buildingService.selectBuildingById(buildingId);
+        }
+
+        return building;
+    }
+
 
 
     /**

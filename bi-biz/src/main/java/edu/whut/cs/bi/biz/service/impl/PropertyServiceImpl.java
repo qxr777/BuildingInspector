@@ -17,18 +17,24 @@ import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.service.IPropertyService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+
 import javax.annotation.Resource;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -37,7 +43,9 @@ import java.util.stream.Collectors;
  *
  */
 @Service
+@Slf4j
 public class PropertyServiceImpl implements IPropertyService {
+
     @Resource
     private PropertyMapper propertyMapper;
 
@@ -356,9 +364,12 @@ public class PropertyServiceImpl implements IPropertyService {
         return result;
     }
 
-
-
-
+    /**
+     * 获取属性树结构
+     *
+     * @param rootId
+     * @return
+     */
     @Override
     public Property selectPropertyTree(Long rootId) {
         Property root = selectPropertyById(rootId);
@@ -383,6 +394,80 @@ public class PropertyServiceImpl implements IPropertyService {
             for (Property child : children) {
                 buildTreeStructure(child);
             }
+        }
+    }
+
+    /**
+     * 读取word文件
+     *
+     * @param file
+     * @param property
+     * @param buildingId
+     * @return
+     */
+    @Override
+    @Transactional
+    public Boolean readWordFile(MultipartFile file, Property property, Long buildingId) {
+        String jsonData = getJsonData(file);
+
+        if (jsonData.startsWith("```json")) {
+            jsonData = jsonData.substring(7);
+        }
+        // 去除尾部的 ```json
+        if (jsonData.endsWith("```")) {
+            jsonData = jsonData.substring(0, jsonData.length() - 3);
+        }
+
+        // 先删除原本的属性树
+        Building bd = buildingMapper.selectBuildingById(buildingId);
+        Long oldRootId = bd.getRootPropertyId();
+        if (oldRootId != null) {
+            this.deletePropertyById(oldRootId);
+        }
+
+        // 解析json数据
+        JSONObject jsonObject = JSONUtil.parseObj(jsonData, false);
+        Long rootId = buildTree(jsonObject, property);
+        // 更新建筑的root_property_id
+        Building building = new Building();
+        building.setId(buildingId);
+        building.setRootPropertyId(rootId);
+        building.setUpdateBy(ShiroUtils.getLoginName());
+        buildingMapper.updateBuilding(building);
+
+        // 同时更新属性树根节点的名称值
+        Property p = new Property();
+        p.setId(rootId);
+        p.setName(bd.getName());
+        propertyMapper.updateProperty(p);
+
+        return true;
+    }
+
+    public String getJsonData(MultipartFile file) {
+        String host = "47.94.205.90";
+        int port = 8081;
+        String url = "http://" + host + ":" + port + "/api/word2Json";
+
+        try {
+            // 构建Multipart请求体
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", file.getResource());  // 将MultipartFile转换为Resource
+
+            // 使用WebClient发送请求
+            String response = WebClient.create()
+                    .post()
+                    .uri(url)
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(body))
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            return response;
+        } catch (Exception e) {
+            log.error("Word文件转换JSON失败", e);
+            throw new RuntimeException("文件处理失败: " + e.getMessage());
         }
     }
 }

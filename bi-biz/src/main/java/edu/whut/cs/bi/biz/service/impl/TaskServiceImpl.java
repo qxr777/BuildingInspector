@@ -163,7 +163,7 @@ public class TaskServiceImpl implements ITaskService {
                             // 合并两个异步结果并设置到Task对象
                             (biEvaluationOpt, propertiesOpt) -> {
                                 biEvaluationOpt.ifPresent(biEvaluation ->
-                                        t.setEvaluationResult(biEvaluation.getLevel())
+                                        t.setEvaluationResult(biEvaluation.getSystemLevel())
                                 );
 
                                 propertiesOpt.ifPresent(properties -> {

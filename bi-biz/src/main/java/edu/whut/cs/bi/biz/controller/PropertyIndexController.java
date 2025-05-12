@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -67,6 +68,9 @@ public class PropertyIndexController extends BaseController
     @ResponseBody
     public TableDataInfo list(Property property)
     {
+        if (property.getId() == 0) {
+            return getDataTable(new ArrayList<>());
+        }
         startPage();
         List<Property> properties = propertyIndexService.selectPropertyList(property);
         return getDataTable(properties);
