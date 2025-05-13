@@ -217,7 +217,9 @@
                     return;
                 }
                 var taskId = task.id;
-                $.operate.addTable(prefix + "/add/" + taskId + "/" + biObjectId);
+
+
+                $.modal.openTab("添加病害", prefix + "/add/" + taskId + "/" + biObjectId, true);
             }
         });
 

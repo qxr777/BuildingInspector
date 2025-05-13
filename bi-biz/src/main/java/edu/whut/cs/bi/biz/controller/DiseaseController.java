@@ -73,7 +73,6 @@ public class DiseaseController extends BaseController
     @ResponseBody
     public TableDataInfo list(Disease disease)
     {
-        startPage();
         List<Disease> properties = diseaseService.selectDiseaseList(disease);
         return getDataTable(properties);
     }

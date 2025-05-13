@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.PageUtils;
 import edu.whut.cs.bi.biz.domain.*;
 
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
@@ -82,13 +83,16 @@ public class DiseaseServiceImpl implements IDiseaseService
         // 这里是病害列表只有 biObjectId 一个查询条件
         Long biObjectId = disease.getBiObjectId();
         List<Disease> diseases;
+
         if (biObjectId != null) {
             List<Long> biObjectIds = new ArrayList<>();
             biObjectIds.add(biObjectId);
             List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
             biObjectIds.addAll(biObjects.stream().map(BiObject::getId).collect(Collectors.toList()));
+            PageUtils.startPage();
             diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds);
         } else {
+            PageUtils.startPage();
             diseases = diseaseMapper.selectDiseaseList(disease);
         }
 

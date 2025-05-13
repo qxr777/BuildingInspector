@@ -524,22 +524,9 @@
                 contentType: false,
                 processData: false,
                 success: function(response) {
+                    $.modal.msgSuccess("保存成功")
                     $.modal.closeLoading();
-                    if (response.code === 0) {
-                        $.modal.msgSuccess("保存成功");
-                        if (parent.$.table && typeof parent.$.table.refresh === 'function') {
-                            try {
-                                parent.$.table.refresh();
-                            } catch (error) {
-                                console.error('调用父窗口的 refresh 方法时出错:', error);
-                            }
-                        } else {
-                            console.error('父窗口的 $.table 对象不存在或 refresh 方法不是一个函数');
-                        }
-                        $.modal.closeTab();
-                    } else {
-                        $.modal.alertError(response.msg);
-                    }
+                    $.modal.closeTab();
                 },
                 error: function() {
                     $.modal.closeLoading();
