@@ -9,6 +9,7 @@ import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
@@ -44,6 +45,9 @@ public class ApiController {
 
     @Resource
     private IComponentService componentService;
+
+    @Resource
+    private DiseaseMapper diseaseMapper;
 
     /**
      * 无权限访问
@@ -229,7 +233,7 @@ public class ApiController {
                 }
 
                 // 插入病害记录
-                successCount += diseaseService.insertDisease(disease);
+                successCount += diseaseMapper.insertDisease(disease);
             }
 
             return AjaxResult.success("批量保存病害成功", successCount);
