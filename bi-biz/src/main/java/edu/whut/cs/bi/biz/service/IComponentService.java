@@ -91,4 +91,20 @@ public interface IComponentService {
      * @return 结果
      */
     public int generateComponents(Long biObjectId, List<CodeSegment> segments, String nameSuffix);
+
+    /**
+     * 批量插入构件
+     *
+     * @param components 构件集合
+     * @return 结果
+     */
+    public int batchInsertComponents(List<Component> components);
+
+    /**
+     * 批量删除对应BiObjectId的构件
+     *
+     * @param biObjectId 部件ID
+     * @return 结果
+     */
+    public int deleteComponentsByBiObjectId(Long biObjectId);
 }

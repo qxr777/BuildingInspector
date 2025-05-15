@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Component;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -88,4 +89,12 @@ public interface ComponentMapper {
      * @return 结果
      */
     public int deleteComponentByIds(String[] ids);
+
+    /**
+     * 批量插入构件
+     *
+     * @param components 构件集合
+     * @return 结果
+     */
+    public int batchInsertComponents(@Param("components") List<Component> components);
 }

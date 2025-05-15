@@ -118,4 +118,12 @@ public interface IBiObjectService {
     public BiObject selectDirectParentById(Long id);
 
     String bridgeStructureJson(Long id) throws Exception;
+
+    /**
+     * 递归更新BiObject树结构
+     *
+     * @param biObject 当前处理的节点
+     * @return 更新的节点数量
+     */
+    public int updateBiObjectTreeRecursively(BiObject biObject) ;
 }

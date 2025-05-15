@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -328,5 +329,60 @@ public class BiObjectServiceImpl implements IBiObjectService {
                 buildTreeStructure(child);
             }
         }
+    }
+
+    /**
+     * 递归更新BiObject树结构
+     *
+     * @param biObject 当前处理的节点
+     * @return 更新的节点数量
+     */
+    @Override
+    public int updateBiObjectTreeRecursively(BiObject biObject) {
+        if (biObject.getStatus() == null || biObject.getStatus().equals("3")) {
+            throw new RuntimeException(biObject.getName() + "结构已初始化，不允许修改");
+        }
+        int updateCount = 0;
+
+        // 1. 更新当前节点
+        BiObject existingObject = biObjectMapper.selectBiObjectById(biObject.getId());
+        if (existingObject == null) {
+            throw new RuntimeException("未找到ID为 " + biObject.getId() + " 的节点");
+        }
+
+        biObject.setUpdateBy(ShiroUtils.getLoginName());
+        biObject.setUpdateTime(new Date());
+        biObjectMapper.updateBiObject(biObject);
+        updateCount++;
+
+        // 2. 处理构件更新
+        List<Component> newComponents = biObject.getComments();
+        if (newComponents != null && !newComponents.isEmpty()) {
+            // 逻辑删除该BiObject下所有的构件（一次数据库操作）
+            componentService.deleteComponentsByBiObjectId(biObject.getId());
+
+            for (Component component : newComponents) {
+                // 设置必要的系统字段
+                component.setCreateBy(ShiroUtils.getLoginName());
+                component.setCreateTime(new Date());
+                component.setUpdateBy(ShiroUtils.getLoginName());
+                component.setUpdateTime(new Date());
+                component.setStatus("0"); // 默认正常状态
+                component.setDelFlag("0"); // 默认存在
+            }
+
+            // 批量插入所有构件（一次数据库操作）
+            componentService.batchInsertComponents(newComponents);
+        }
+
+        // 3. 递归处理子节点
+        List<BiObject> children = biObject.getChildren();
+        if (children != null && !children.isEmpty()) {
+            for (BiObject child : children) {
+                updateCount += updateBiObjectTreeRecursively(child);
+            }
+        }
+
+        return updateCount;
     }
 }

@@ -236,4 +236,67 @@ public class ComponentServiceImpl implements IComponentService {
             }
         }
     }
+
+    /**
+     * 批量插入构件
+     *
+     * @param components 构件集合
+     * @return 结果
+     */
+    @Override
+    public int batchInsertComponents(List<Component> components) {
+        if (components == null || components.isEmpty()) {
+            return 0;
+        }
+
+        // 提取第一个组件的biObjectId来更新计数
+        if (!components.isEmpty() && components.get(0).getBiObjectId() != null) {
+            Long biObjectId = components.get(0).getBiObjectId();
+            BiObject biObject = biObjectMapper.selectBiObjectById(biObjectId);
+            if (biObject != null) {
+                biObject.setCount(biObject.getCount() + components.size());
+                biObject.setUpdateBy(ShiroUtils.getLoginName());
+                biObject.setUpdateTime(DateUtils.getNowDate());
+                biObjectMapper.updateBiObject(biObject);
+            }
+        }
+
+        return componentMapper.batchInsertComponents(components);
+    }
+
+    /**
+     * 批量删除对应BiObjectId的构件
+     *
+     * @param biObjectId 部件ID
+     * @return 结果
+     */
+    @Override
+    public int deleteComponentsByBiObjectId(Long biObjectId) {
+        if (biObjectId == null) {
+            return 0;
+        }
+
+        // 查询构件列表
+        List<Component> components = componentMapper.selectComponentsByBiObjectId(biObjectId);
+        if (components.isEmpty()) {
+            return 0;
+        }
+
+        // 组织ID列表
+        String[] ids = components.stream()
+                .map(c -> c.getId().toString())
+                .toArray(String[]::new);
+
+        // 更新部件构件计数
+        BiObject biObject = biObjectMapper.selectBiObjectById(biObjectId);
+        if (biObject != null) {
+            biObject.setCount(0); // 重置计数
+            biObject.setUpdateBy(ShiroUtils.getLoginName());
+            biObject.setUpdateTime(DateUtils.getNowDate());
+            biObjectMapper.updateBiObject(biObject);
+        }
+
+        // 批量删除
+        return componentMapper.deleteComponentByIds(ids);
+    }
 }

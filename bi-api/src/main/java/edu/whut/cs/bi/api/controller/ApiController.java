@@ -2,28 +2,27 @@ package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
-import edu.whut.cs.bi.biz.domain.Building;
-import edu.whut.cs.bi.biz.domain.Disease;
-import edu.whut.cs.bi.biz.domain.Project;
-import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import com.ruoyi.common.core.domain.AjaxResult;
 
 import javax.annotation.Resource;
+import java.util.Date;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api")
-public class ApiController
-{
+public class ApiController {
 
     @Resource
     private IBuildingService buildingService;
@@ -43,14 +42,16 @@ public class ApiController
     @Resource
     private IProjectService projectService;
 
+    @Resource
+    private IComponentService componentService;
+
     /**
      * 无权限访问
      *
      * @return
      */
     @GetMapping("/list")
-    public AjaxResult list()
-    {
+    public AjaxResult list() {
         return AjaxResult.success("list success");
     }
 
@@ -59,8 +60,7 @@ public class ApiController
      */
     @GetMapping("/user/list")
     @RequiresPermissions("system:user:list")
-    public AjaxResult userlist()
-    {
+    public AjaxResult userlist() {
         return AjaxResult.success("user list success");
     }
 
@@ -69,8 +69,7 @@ public class ApiController
      */
     @GetMapping("/role/list")
     @RequiresRoles("admin")
-    public AjaxResult rolelist()
-    {
+    public AjaxResult rolelist() {
         return AjaxResult.success("role list success");
     }
 
@@ -175,4 +174,68 @@ public class ApiController
 
         return AjaxResult.success("查询成功", projectsOfUserVo);
     }
+
+    /**
+     * 更新桥梁结构树
+     * 接收完整的树形结构数据，递归处理每个节点及其子节点
+     * 对于包含comments的节点，清空原有构件并添加新构件
+     */
+    @PostMapping("/building/updateObjectTree")
+    @ResponseBody
+    @Transactional
+    public AjaxResult updateObjectTree(@RequestBody BiObject rootObject) {
+        try {
+            if (rootObject == null || rootObject.getId() == null) {
+                return AjaxResult.error("参数错误：无效的根节点");
+            }
+
+            // 更新整个树结构
+            int updateCount = biObjectService.updateBiObjectTreeRecursively(rootObject);
+
+            return AjaxResult.success("桥梁结构更新成功", updateCount);
+        } catch (Exception e) {
+            return AjaxResult.error("更新桥梁结构失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量保存病害信息
+     * 根据构件名称自动关联构件ID
+     */
+    @PostMapping("/disease/batchSave")
+    @RequiresPermissions("biz:disease:add")
+    @ResponseBody
+    @Transactional
+    public AjaxResult batchSaveDiseases(@RequestBody List<Disease> diseases) {
+        try {
+            if (diseases == null || diseases.isEmpty()) {
+                return AjaxResult.error("参数错误：病害列表为空");
+            }
+            int successCount = 0;
+            for (Disease disease : diseases) {
+                // 设置创建时间
+                disease.setCreateTime(DateUtils.getNowDate());
+
+                // 通过构件名称查找构件ID
+                if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null) {
+                    Component queryComponent = new Component();
+                    queryComponent.setName(disease.getComponent().getName());
+                    queryComponent.setBiObjectId(disease.getBiObjectId());
+
+                    List<Component> components = componentService.selectComponentList(queryComponent);
+                    if (!components.isEmpty()) {
+                        disease.setComponentId(components.get(0).getId());
+                    }
+                }
+
+                // 插入病害记录
+                successCount += diseaseService.insertDisease(disease);
+            }
+
+            return AjaxResult.success("批量保存病害成功", successCount);
+        } catch (Exception e) {
+            return AjaxResult.error("批量保存病害失败：" + e.getMessage());
+        }
+    }
+
 }
