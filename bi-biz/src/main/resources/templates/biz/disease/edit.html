@@ -314,66 +314,90 @@
 
     // 选择构件
     function selectComponent() {
-        $.operate.list(ctx + "biz/component/selectList", {
-            biObjectId: biObject.id
-        }, function (result) {
-            var options = '<option value="">请选择构件</option>';
-            $.each(result, function (i, item) {
-                options += '<option value="' + item.id + '">' + item.code + ' - ' + (item.name || '') + '</option>';
-            });
-            $("#componentId").html(options).trigger('change');
+        $.ajax({
+            url: ctx + "biz/component/selectList",
+            type: "POST",
+            data: {
+                biObjectId: biObject.id
+            },
+            success: function(result) {
+                var options = '<option value="">请选择构件</option>';
+                $.each(result, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.code + ' - ' + (item.name || '') + '</option>';
+                });
+                $("#componentId").html(options).trigger('change');
 
-            // 如果是编辑模式，设置选中值
-            if (disease && disease.componentId) {
-                $("#componentId").val(disease.componentId).trigger('change');
+                // 如果是编辑模式，设置选中值
+                if (disease && disease.componentId) {
+                    $("#componentId").val(disease.componentId).trigger('change');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error("Error fetching component list:", error);
             }
         });
     }
 
     // 加载病害类型
     function loadDiseaseTypes() {
-        $.operate.list(ctx + "biz/diseaseType/selectList", {
-            templateObjectId: biObject.templateObjectId
-        }, function (result) {
-            diseaseTypes = result;
-            var options = '<option value="">请选择病害类型</option>';
-            $.each(result, function (i, item) {
-                options += '<option value="' + item.id + '">' + item.name + '</option>';
-            });
-            $("#diseaseTypeId").html(options).trigger('change');
+        $.ajax({
+            url: ctx + "biz/diseaseType/selectList",
+            type: "POST", // or "POST" depending on your backend
+            data: {
+                templateObjectId: biObject.templateObjectId
+            },
+            success: function(result) {
+                diseaseTypes = result;
+                var options = '<option value="">请选择病害类型</option>';
+                $.each(result, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                });
+                $("#diseaseTypeId").html(options).trigger('change');
 
-            // 如果是编辑模式，设置选中值并触发change事件
-            if (disease && disease.diseaseTypeId) {
-                $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
+                // 如果是编辑模式，设置选中值并触发change事件
+                if (disease && disease.diseaseTypeId) {
+                    $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error("Error fetching disease list:", error);
             }
         });
     }
 
     // 加载病害描述和标度
     function loadDiseaseScales(diseaseTypeCode, maxScale) {
-        $.operate.list(ctx + "biz/diseaseScale/list", {
-            typeCode: diseaseTypeCode
-        }, function(result) {
-            var options = '<option value=""></option>';
-            if (result && result.total > 0) {
-                result.rows.forEach(function(item) {
-                    var qualitativeDescription = item.qualitativeDescription;
-                    var quantitativeDescription = item.quantitativeDescription;
+        $.ajax({
+            url: ctx + "biz/diseaseScale/list",
+            type: "POST", // or "POST" depending on your backend
+            data: {
+                typeCode: diseaseTypeCode
+            },
+            success: function(result) {
+                var options = '<option value=""></option>';
+                if (result && result.total > 0) {
+                    result.rows.forEach(function(item) {
+                        var qualitativeDescription = item.qualitativeDescription;
+                        var quantitativeDescription = item.quantitativeDescription;
 
-                    if (qualitativeDescription) {
-                        if (quantitativeDescription) {
-                            options += '<option value="' + qualitativeDescription + '，' + quantitativeDescription + '">' + qualitativeDescription + ',' + quantitativeDescription + '</option>';
-                        } else {
-                            options += '<option value="' + qualitativeDescription + '">' + qualitativeDescription + '</option>';
+                        if (qualitativeDescription) {
+                            if (quantitativeDescription) {
+                                options += '<option value="' + qualitativeDescription + '，' + quantitativeDescription + '">' + qualitativeDescription + ',' + quantitativeDescription + '</option>';
+                            } else {
+                                options += '<option value="' + qualitativeDescription + '">' + qualitativeDescription + '</option>';
+                            }
                         }
-                    }
-                });
-            }
-            $("#description").html(options).trigger('change');
+                    });
+                }
+                $("#description").html(options).trigger('change');
 
-            // 如果是编辑模式，设置选中值
-            if (disease && disease.description) {
-                $("#description").val(disease.description).trigger('change');
+                // 如果是编辑模式，设置选中值
+                if (disease && disease.description) {
+                    $("#description").val(disease.description).trigger('change');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error("Error fetching diseaseScale list:", error);
             }
         });
     }
