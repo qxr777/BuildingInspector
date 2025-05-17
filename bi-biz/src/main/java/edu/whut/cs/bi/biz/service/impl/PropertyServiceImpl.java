@@ -311,8 +311,6 @@ public class PropertyServiceImpl implements IPropertyService {
     @Override
     @Transactional
     public int deletePropertyById(Long id) {
-        // 删除逻辑怎么可能这么简单，直接删除会导致其子节点的父节点置空！
-
         Property property = propertyMapper.selectPropertyById(id);
         if (property == null) {
             throw new ServiceException("所要删除的桥梁属性不存在");
@@ -422,7 +420,11 @@ public class PropertyServiceImpl implements IPropertyService {
         Building bd = buildingMapper.selectBuildingById(buildingId);
         Long oldRootId = bd.getRootPropertyId();
         if (oldRootId != null) {
-            this.deletePropertyById(oldRootId);
+            // 预防建筑属性所有节点全被删除情况
+            Property oldProperty = this.selectPropertyById(oldRootId);
+            if (oldProperty != null) {
+                this.deletePropertyById(oldRootId);
+            }
         }
 
         // 解析json数据
@@ -440,6 +442,7 @@ public class PropertyServiceImpl implements IPropertyService {
         p.setId(rootId);
         p.setName(bd.getName());
         propertyMapper.updateProperty(p);
+
 
         return true;
     }
