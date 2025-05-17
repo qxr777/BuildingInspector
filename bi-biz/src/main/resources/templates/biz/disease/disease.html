@@ -200,6 +200,14 @@
         $.table.init(options);
     }
 
+    window.addEventListener("storage", function (event) {
+        if (event.key === "refreshDiseaseTable") {
+            // console.log("检测到病害数据刷新标志，刷新表格");
+            $("#bootstrap-table").bootstrapTable("refresh");
+            localStorage.removeItem("refreshDiseaseTable");
+        }
+    });
+
     function addDisease() {
         var biObjectId = $("#biObjectId").val();
         if (!biObjectId) {

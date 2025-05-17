@@ -524,9 +524,14 @@
                 contentType: false,
                 processData: false,
                 success: function(response) {
-                    $.modal.msgSuccess("保存成功")
                     $.modal.closeLoading();
-                    $.modal.closeTab();
+                    if (response.code === 0) {
+                        $.modal.msgSuccess("保存成功");
+                        localStorage.setItem("refreshDiseaseTable", Date.now()); // 设置一个刷新标志（附带时间避免缓存）
+                        $.modal.closeTab();
+                    } else {
+                        $.modal.alertError(response.msg);
+                    }
                 },
                 error: function() {
                     $.modal.closeLoading();
@@ -579,7 +584,7 @@
                     $.modal.closeLoading();
                     if (response.code === 0) {
                         $.modal.msgSuccess("上一条记录保存成功");
-                        parent.$.table.refresh();
+                        localStorage.setItem("refreshDiseaseTable", Date.now()); // 设置一个刷新标志（附带时间避免缓存）
                     } else {
                         $.modal.alertError(response.msg);
                     }
