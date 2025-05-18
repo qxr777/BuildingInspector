@@ -15,9 +15,12 @@ import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.service.IPropertyService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFPictureData;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +37,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.Resource;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -51,6 +55,9 @@ public class PropertyServiceImpl implements IPropertyService {
 
     @Resource
     private BuildingMapper buildingMapper;
+
+    @Resource
+    private FileMapMapper fileMapMapper;
 
     /**
      * 查询属性
@@ -445,6 +452,33 @@ public class PropertyServiceImpl implements IPropertyService {
 
 
         return true;
+    }
+
+    /**
+     * 从word中提取图片
+     *
+     * @param file
+     * @return
+     * @throws IOException
+     */
+    public List<byte[]> extractImagesFromWord(MultipartFile file) throws IOException {
+        List<byte[]> images = new ArrayList<>();
+
+        // 将MultipartFile转换成InputStream
+        try (InputStream inputStream = file.getInputStream()) {
+            // 使用
+            XWPFDocument document = new XWPFDocument(inputStream);
+
+            // 遍历文档中的所有图片
+            for (XWPFPictureData pictureData : document.getAllPictures()) {
+                // 获取图片的二进制数据
+                byte[] imageBytes = pictureData.getData();
+
+                images.add(imageBytes);
+            }
+        }
+
+        return images;
     }
 
     public String getJsonData(MultipartFile file) {
