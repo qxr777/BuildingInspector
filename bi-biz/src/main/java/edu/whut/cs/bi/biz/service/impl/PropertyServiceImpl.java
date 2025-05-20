@@ -12,11 +12,16 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.Building;
+import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Property;
+import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.mapper.PropertyMapper;
+import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.IPropertyService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -26,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
@@ -57,8 +63,10 @@ public class PropertyServiceImpl implements IPropertyService {
     private BuildingMapper buildingMapper;
 
     @Resource
-    private FileMapMapper fileMapMapper;
+    private IFileMapService fileMapService;
 
+    @Resource
+    private AttachmentService attachmentService;
     /**
      * 查询属性
      *
@@ -461,8 +469,8 @@ public class PropertyServiceImpl implements IPropertyService {
      * @return
      * @throws IOException
      */
-    public List<byte[]> extractImagesFromWord(MultipartFile file) throws IOException {
-        List<byte[]> images = new ArrayList<>();
+    public void extractImagesFromWord(MultipartFile file, Long buildingId) throws IOException {
+        List<MultipartFile> images = new ArrayList<>();
 
         // 将MultipartFile转换成InputStream
         try (InputStream inputStream = file.getInputStream()) {
@@ -473,12 +481,28 @@ public class PropertyServiceImpl implements IPropertyService {
             for (XWPFPictureData pictureData : document.getAllPictures()) {
                 // 获取图片的二进制数据
                 byte[] imageBytes = pictureData.getData();
-
-                images.add(imageBytes);
+                // imageBytes转为MultipartFile
+                MultipartFile imageFile = new MockMultipartFile(
+                        pictureData.getFileName(),
+                        pictureData.getFileName(),
+                        "image/jpeg",
+                        imageBytes
+                );
+                images.add(imageFile);
             }
         }
 
-        return images;
+        List<FileMap> fileMaps = fileMapService.handleBatchFileUpload(images.toArray(new MultipartFile[0]));
+        // 持久化
+        fileMaps.forEach(fileMap -> {
+            Attachment attachment = new Attachment();
+            attachment.setName(fileMap.getNewName());
+            attachment.setMinioId(Long.valueOf(fileMap.getId()));
+            attachment.setSubjectId(buildingId);
+            attachment.setType(2);
+            attachmentService.insertAttachment(attachment);
+        });
+
     }
 
     public String getJsonData(MultipartFile file) {
