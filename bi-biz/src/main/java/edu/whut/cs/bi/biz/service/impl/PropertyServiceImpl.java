@@ -3,9 +3,6 @@ package edu.whut.cs.bi.biz.service.impl;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
@@ -16,9 +13,7 @@ import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Property;
-import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
-import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
@@ -27,17 +22,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFPictureData;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -46,6 +37,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -494,13 +486,21 @@ public class PropertyServiceImpl implements IPropertyService {
 
         List<FileMap> fileMaps = fileMapService.handleBatchFileUpload(images.toArray(new MultipartFile[0]));
         // 持久化
+        AtomicInteger index = new AtomicInteger();
+        AtomicReference<String> str = new AtomicReference<>("front");
         fileMaps.forEach(fileMap -> {
+            if(index.get()==2){
+                index.set(0);
+                str.set("side");
+            }
             Attachment attachment = new Attachment();
-            attachment.setName(fileMap.getNewName());
+            attachment.setName(index+"_"+str +"_"+ fileMap.getOldName());
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setSubjectId(buildingId);
             attachment.setType(2);
             attachmentService.insertAttachment(attachment);
+            index.getAndIncrement();
+
         });
 
     }
