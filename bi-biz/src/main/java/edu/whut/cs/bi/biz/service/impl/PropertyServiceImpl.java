@@ -450,6 +450,7 @@ public class PropertyServiceImpl implements IPropertyService {
         p.setName(bd.getName());
         propertyMapper.updateProperty(p);
 
+        extractImagesFromWord(file, buildingId);
 
         return true;
     }
@@ -461,7 +462,7 @@ public class PropertyServiceImpl implements IPropertyService {
      * @return
      * @throws IOException
      */
-    public void extractImagesFromWord(MultipartFile file, Long buildingId) throws IOException {
+    public void extractImagesFromWord(MultipartFile file, Long buildingId)  {
         List<MultipartFile> images = new ArrayList<>();
 
         // 将MultipartFile转换成InputStream
@@ -482,6 +483,8 @@ public class PropertyServiceImpl implements IPropertyService {
                 );
                 images.add(imageFile);
             }
+        } catch (IOException e) {
+            throw new ServiceException("从word中提取图片失败");
         }
 
         List<FileMap> fileMaps = fileMapService.handleBatchFileUpload(images.toArray(new MultipartFile[0]));
