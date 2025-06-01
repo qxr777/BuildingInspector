@@ -38,7 +38,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <sql id="selectDiseaseVo">
         select
-            d.id, d.position, d.type, d.disease_type_id, d.description, d.trend, d.level, d.quantity,
+            d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
             d.nature , d.participate_assess, d.deduct_points,
             d.project_id, d.bi_object_id, d.building_id, d.component_id, d.remark,
             d.create_by, d.create_time, d.update_by, d.update_time,
