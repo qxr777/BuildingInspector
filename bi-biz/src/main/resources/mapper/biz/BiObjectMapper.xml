@@ -20,6 +20,7 @@
         <result property="adminDept" column="admin_dept" />
         <result property="weight"    column="weight"     />
         <result property="videoFeed" column="video_feed" />
+        <result property="props"     column="props"      />
         <result property="createBy"  column="create_by"  />
         <result property="createTime" column="create_time" />
         <result property="updateBy"   column="update_by"  />
@@ -41,7 +42,7 @@
 
     <sql id="selectBiObjectVo">
         select id, name, parent_id, ancestors, order_num, status, del_flag, longitude, latitude,
-               altitude, position, area, admin_dept, weight, video_feed, create_by, create_time, update_by,
+               altitude, position, area, admin_dept, weight, video_feed, props, create_by, create_time, update_by,
                update_time, remark, template_object_id,count
         from bi_object
     </sql>
@@ -135,6 +136,7 @@
             <if test="adminDept != null">admin_dept,</if>
             <if test="weight != null">weight,</if>
             <if test="videoFeed != null">video_feed,</if>
+            <if test="props != null">props,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -158,6 +160,7 @@
             <if test="adminDept != null">#{adminDept},</if>
             <if test="weight != null">#{weight},</if>
             <if test="videoFeed != null">#{videoFeed},</if>
+            <if test="props != null">#{props},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -184,6 +187,7 @@
             <if test="adminDept != null">admin_dept = #{adminDept},</if>
             <if test="weight != null">weight = #{weight},</if>
             <if test="videoFeed != null">video_feed = #{videoFeed},</if>
+            <if test="props != null">props = #{props},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>

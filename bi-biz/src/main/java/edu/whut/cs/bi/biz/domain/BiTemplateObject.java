@@ -47,12 +47,26 @@ public class BiTemplateObject extends TreeEntity {
     private BigDecimal weight;
 
     /**
+     * 附加属性2
+     */
+    @Excel(name = "附加属性")
+    private String props;
+
+    /**
      * 子模板对象
      */
     private List<BiTemplateObject> children = new ArrayList<BiTemplateObject>();
 
     public List<BiTemplateObject> getChildren() {
         return children;
+    }
+
+    public String getProps() {
+        return props;
+    }
+
+    public void setProps(String props) {
+        this.props = props;
     }
 
     public void setChildren(List<BiTemplateObject> children) {

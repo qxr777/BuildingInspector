@@ -192,7 +192,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
         }
 
         // 4. 删除目标部件
-        return biObjectMapper.deleteBiObjectById(id);
+        return biObjectMapper.logicDeleteByRootObjectId(id, ShiroUtils.getLoginName());
     }
 
     /**

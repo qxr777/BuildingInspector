@@ -128,7 +128,7 @@
                         actions.push('<a class="btn btn-info btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="$.operate.add(\'' + row.id + '\')"><i class="fa fa-plus"></i>新增</a> ');
                         // 创建更多操作菜单
                         var more = [];
-                        more.push('<a class="btn btn-default btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
+                        more.push('<a class="btn btn-default btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="deleteObject(\'' + row.id + '\', ' + (row.children && row.children.length > 0) + ')"><i class="fa fa-remove"></i>删除</a> ');
                         actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
                         return actions.join('');
                     }
@@ -136,6 +136,30 @@
         };
         $.treeTable.init(options);
     });
+
+    // 自定义删除方法
+    function deleteObject(id, hasChildren) {
+        if (hasChildren) {
+            $.modal.confirm("该节点存在子节点，是否确认删除？删除后将同时删除所有子节点！", function() {
+                // 用户确认删除，调用删除包含子节点的方法
+                $.ajax({
+                    type: "get",
+                    url: prefix + "/remove/" + id,
+                    success: function(result) {
+                        if (result.code == 0) {
+                            $.modal.alertSuccess("操作成功");
+                            $.treeTable.refresh();
+                        } else {
+                            $.modal.alertError(result.msg);
+                        }
+                    }
+                });
+            });
+        } else {
+            // 没有子节点，直接调用框架的删除方法
+            $.operate.remove(id);
+        }
+    }
 </script>
 </body>
 </html>

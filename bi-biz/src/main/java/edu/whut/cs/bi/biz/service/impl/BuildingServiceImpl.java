@@ -523,7 +523,7 @@ public class BuildingServiceImpl implements IBuildingService {
             ancestors = parentObject.getAncestors() + "," + parentRootObjectId;
         }
         rootObject.setAncestors(ancestors);
-
+        rootObject.setProps(template.getProps());
         rootObject.setOrderNum(0);
         rootObject.setStatus("0");
         rootObject.setCreateBy(ShiroUtils.getLoginName());
@@ -566,6 +566,7 @@ public class BuildingServiceImpl implements IBuildingService {
         BiObject biObject = new BiObject();
         biObject.setName(template.getName());
         biObject.setParentId(parentId);
+        biObject.setProps(template.getProps());
         biObject.setAncestors(parentAncestors + "," + parentId);
         biObject.setOrderNum(template.getOrderNum());
         biObject.setStatus("0");

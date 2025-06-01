@@ -91,6 +91,12 @@ public class BiObject extends TreeEntity {
     private String videoFeed;
 
     /**
+     * 附加属性2
+     */
+    @Excel(name = "附加属性")
+    private String props;
+
+    /**
      * 对应的模板对象ID
      */
     private Long templateObjectId;
@@ -109,6 +115,14 @@ public class BiObject extends TreeEntity {
      */
     @Excel(name = "构件数量")
     private int count;
+
+    public String getProps() {
+        return props;
+    }
+
+    public void setProps(String props) {
+        this.props = props;
+    }
 
     public List<Component> getComments() {
         return comments;
