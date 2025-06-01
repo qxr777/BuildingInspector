@@ -54,12 +54,11 @@ public class BiObjectController extends BaseController {
     @GetMapping("/isCanAddDisease/{biObjectId}")
     @ResponseBody
     public Boolean isCanAddDisease(@PathVariable("biObjectId") Long biObjectId) {
-        BiObject biObject = biObjectService.selectBiObjectById(biObjectId);
-
-        if (biObject != null && biObject.getTemplateObjectId() != null) {
-            return true;
+        if (biObjectId == null) {
+            return false;
         }
-        return false;
+
+        return biObjectService.isLeafNode(biObjectId);
     }
 
     /**

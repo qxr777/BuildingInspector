@@ -204,7 +204,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
     public List<Ztree> selectBiObjectTree(Long rootObjectId) {
         List<BiObject> biObjectList;
         if (rootObjectId != null) {
-            biObjectList = selectBiObjectAndChildren(rootObjectId);
+            biObjectList = selectBiObjectAndChildrenRemoveLeaf(rootObjectId);
         } else {
             biObjectList = biObjectMapper.selectBiObjectList(new BiObject());
         }
@@ -235,6 +235,25 @@ public class BiObjectServiceImpl implements IBiObjectService {
             list.add(rootNode);
             // 查询所有子节点
             list.addAll(biObjectMapper.selectChildrenById(rootId));
+        }
+        return list;
+    }
+
+    /**
+     * 查询根节点及其所有子节点
+     *
+     * @param rootId 根节点ID
+     * @return 根节点及其所有子节点列表
+     */
+    @Override
+    public List<BiObject> selectBiObjectAndChildrenRemoveLeaf(Long rootId) {
+        List<BiObject> list = new ArrayList<>();
+        // 添加根节点
+        BiObject rootNode = selectBiObjectById(rootId);
+        if (rootNode != null) {
+            list.add(rootNode);
+            // 查询所有子节点
+            list.addAll(biObjectMapper.selectChildrenByIdRemoveLeaf(rootId));
         }
         return list;
     }
@@ -384,5 +403,10 @@ public class BiObjectServiceImpl implements IBiObjectService {
         }
 
         return updateCount;
+    }
+
+    @Override
+    public Boolean isLeafNode(Long id) {
+        return biObjectMapper.isLeafNode(id);
     }
 }

@@ -109,6 +109,19 @@
         ORDER BY t.parent_id, t.order_num
     </select>
 
+    <select id="selectChildrenByIdRemoveLeaf" parameterType="Long" resultMap="BiObjectResult">
+        SELECT t.*
+        FROM bi_object t
+        WHERE FIND_IN_SET(#{id}, t.ancestors)
+          AND t.del_flag = '0'
+          AND EXISTS(
+               SELECT 1 FROM bi_object c
+                        where c.parent_id = t.id
+                        AND c.del_flag = '0'
+        )
+        ORDER BY t.parent_id, t.order_num
+    </select>
+
     <select id="selectParentById" parameterType="Long" resultMap="BiObjectResult">
         <include refid="selectBiObjectVo"/>
         where id in (
@@ -299,6 +312,22 @@
                  join bi_object p on c.parent_id = p.id
         where c.id = #{id}
           and p.del_flag = '0'
+    </select>
+
+    <select id="isLeafNode" resultType="java.lang.Boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM bi_object c1
+            WHERE c1.parent_id = #{id}
+              AND c1.del_flag = '0'
+        ) AND NOT EXISTS (
+            SELECT 1
+            FROM bi_object c2
+                     JOIN bi_object c1 ON c2.parent_id = c1.id
+            WHERE c1.parent_id = #{id}
+              AND c1.del_flag = '0'
+              AND c2.del_flag = '0'
+        )
     </select>
 
 </mapper>

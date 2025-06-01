@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper">
+
+    <!-- DiseaseDetail Result Map -->
+    <resultMap id="DiseaseDetailResult" type="DiseaseDetail">
+        <result property="id" column="id"/>
+        <result property="diseaseId" column="disease_id"/>
+        <result property="crackType" column="crack_type"/>
+        <result property="reference1Location" column="reference1_location"/>
+        <result property="reference1LocationStart" column="reference1_location_start"/>
+        <result property="reference1LocationEnd" column="reference1_location_end"/>
+        <result property="reference2Location" column="reference2_location"/>
+        <result property="reference2LocationStart" column="reference2_location_start"/>
+        <result property="reference2LocationEnd" column="reference2_location_end"/>
+        <result property="length" column="length"/>
+        <result property="width" column="width"/>
+        <result property="heightDepth" column="height_depth"/>
+        <result property="crackWidth" column="crack_width"/>
+        <result property="area" column="area"/>
+        <result property="volume" column="volume"/>
+        <result property="angle" column="angle"/>
+        <result property="percentage" column="percentage"/>
+        <result property="developmentTrend" column="development_trend"/>
+        <result property="lengthRangeStart" column="length_range_start"/>
+        <result property="lengthRangeEnd" column="length_range_end"/>
+        <result property="crackWidthRangeStart" column="crack_width_range_start"/>
+        <result property="crackWidthRangeEnd" column="crack_width_range_end"/>
+    </resultMap>
+
+    <sql id="selectDiseaseDetailVo">
+        select id, disease_id, crack_type, reference1_location, reference1_location_start, reference1_location_end,
+               reference2_location, reference2_location_start, reference2_location_end, length, width, height_depth,
+               crack_width, area, volume, angle, percentage, development_trend, length_range_start, length_range_end,
+               crack_width_range_start, crack_width_range_end
+        from bi_disease_detail
+    </sql>
+
+    <select id="selectDiseaseDetailList" parameterType="DiseaseDetail" resultMap="DiseaseDetailResult">
+        <include refid="selectDiseaseDetailVo"/>
+        <where>
+            <if test="diseaseId != null"> and disease_id = #{diseaseId}</if>
+        </where>
+    </select>
+
+    <select id="selectDiseaseDetailById" parameterType="Long" resultMap="DiseaseDetailResult">
+        <include refid="selectDiseaseDetailVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertDiseaseDetail" parameterType="DiseaseDetail" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_disease_detail
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="diseaseId != null">disease_id,</if>
+            <if test="crackType != null and crackType != ''">crack_type,</if>
+            <if test="reference1Location != null and reference1Location != ''">reference1_location,</if>
+            <if test="reference1LocationStart != null">reference1_location_start,</if>
+            <if test="reference1LocationEnd != null">reference1_location_end,</if>
+            <if test="reference2Location != null and reference2Location != ''">reference2_location,</if>
+            <if test="reference2LocationStart != null">reference2_location_start,</if>
+            <if test="reference2LocationEnd != null">reference2_location_end,</if>
+            <if test="length != null">length,</if>
+            <if test="width != null">width,</if>
+            <if test="heightDepth != null">height_depth,</if>
+            <if test="crackWidth != null">crack_width,</if>
+            <if test="area != null">area,</if>
+            <if test="volume != null">volume,</if>
+            <if test="angle != null">angle,</if>
+            <if test="percentage != null">percentage,</if>
+            <if test="developmentTrend != null and developmentTrend != ''">development_trend,</if>
+            <if test="lengthRangeStart != null">length_range_start,</if>
+            <if test="lengthRangeEnd != null">length_range_end,</if>
+            <if test="crackWidthRangeStart != null">crack_width_range_start,</if>
+            <if test="crackWidthRangeEnd != null">crack_width_range_end,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="diseaseId != null">#{diseaseId},</if>
+            <if test="crackType != null and crackType != ''">#{crackType},</if>
+            <if test="reference1Location != null and reference1Location != ''">#{reference1Location},</if>
+            <if test="reference1LocationStart != null">#{reference1LocationStart},</if>
+            <if test="reference1LocationEnd != null">#{reference1LocationEnd},</if>
+            <if test="reference2Location != null and reference2Location != ''">#{reference2Location},</if>
+            <if test="reference2LocationStart != null">#{reference2LocationStart},</if>
+            <if test="reference2LocationEnd != null">#{reference2LocationEnd},</if>
+            <if test="length != null">#{length},</if>
+            <if test="width != null">#{width},</if>
+            <if test="heightDepth != null">#{heightDepth},</if>
+            <if test="crackWidth != null">#{crackWidth},</if>
+            <if test="area != null">#{area},</if>
+            <if test="volume != null">#{volume},</if>
+            <if test="angle != null">#{angle},</if>
+            <if test="percentage != null">#{percentage},</if>
+            <if test="developmentTrend != null and developmentTrend != ''">#{developmentTrend},</if>
+            <if test="lengthRangeStart != null">#{lengthRangeStart},</if>
+            <if test="lengthRangeEnd != null">#{lengthRangeEnd},</if>
+            <if test="crackWidthRangeStart != null">#{crackWidthRangeStart},</if>
+            <if test="crackWidthRangeEnd != null">#{crackWidthRangeEnd},</if>
+        </trim>
+    </insert>
+
+    <update id="updateDiseaseDetail" parameterType="DiseaseDetail">
+        update bi_disease_detail
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="diseaseId != null">disease_id = #{diseaseId},</if>
+            <if test="crackType != null and crackType != ''">crack_type = #{crackType},</if>
+            <if test="reference1Location != null and reference1Location != ''">reference1_location = #{reference1Location},</if>
+            <if test="reference1LocationStart != null">reference1_location_start = #{reference1LocationStart},</if>
+            <if test="reference1LocationEnd != null">reference1_location_end = #{reference1LocationEnd},</if>
+            <if test="reference2Location != null and reference2Location != ''">reference2_location = #{reference2Location},</if>
+            <if test="reference2LocationStart != null">reference2_location_start = #{reference2LocationStart},</if>
+            <if test="reference2LocationEnd != null">reference2_location_end = #{reference2LocationEnd},</if>
+            <if test="length != null">length = #{length},</if>
+            <if test="width != null">width = #{width},</if>
+            <if test="heightDepth != null">height_depth = #{heightDepth},</if>
+            <if test="crackWidth != null">crack_width = #{crackWidth},</if>
+            <if test="area != null">area = #{area},</if>
+            <if test="volume != null">volume = #{volume},</if>
+            <if test="angle != null">angle = #{angle},</if>
+            <if test="percentage != null">percentage = #{percentage},</if>
+            <if test="developmentTrend != null and developmentTrend != ''">development_trend = #{developmentTrend},</if>
+            <if test="lengthRangeStart != null">length_range_start = #{lengthRangeStart},</if>
+            <if test="lengthRangeEnd != null">length_range_end = #{lengthRangeEnd},</if>
+            <if test="crackWidthRangeStart != null">crack_width_range_start = #{crackWidthRangeStart},</if>
+            <if test="crackWidthRangeEnd != null">crack_width_range_end = #{crackWidthRangeEnd},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteDiseaseDetailById" parameterType="Long">
+        delete from bi_disease_detail where id = #{id}
+    </delete>
+
+    <delete id="deleteDiseaseDetailByDiseaseId" parameterType="Long">
+        delete from bi_disease_detail where disease_id = #{diseaseId}
+    </delete>
+
+    <delete id="deleteDiseaseDetailByIds" parameterType="String">
+        delete from bi_disease_detail where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

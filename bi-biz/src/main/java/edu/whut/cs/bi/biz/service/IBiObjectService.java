@@ -76,6 +76,14 @@ public interface IBiObjectService {
     public List<BiObject> selectBiObjectAndChildren(Long rootId);
 
     /**
+     * 查询根节点及其所有子节点 移除叶子节点
+     *
+     * @param rootId 根节点ID
+     * @return 根节点及其所有子节点列表
+     */
+    public List<BiObject> selectBiObjectAndChildrenRemoveLeaf(Long rootId);
+
+    /**
      * 根据根节点ID逻辑删除对象及其所有子节点
      *
      * @param rootObjectId 根节点ID
@@ -126,4 +134,12 @@ public interface IBiObjectService {
      * @return 更新的节点数量
      */
     public int updateBiObjectTreeRecursively(BiObject biObject) ;
+
+    /**
+     * 判断是否为叶子节点
+     *
+     * @param id
+     * @return
+     */
+    public Boolean isLeafNode(Long id);
 }
