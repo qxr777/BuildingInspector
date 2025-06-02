@@ -5,10 +5,7 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import edu.whut.cs.bi.biz.domain.*;
 
-import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
-import edu.whut.cs.bi.biz.mapper.ComponentMapper;
-import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
-import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
+import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
@@ -43,11 +40,15 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Resource
     private BiObjectMapper biObjectMapper;
 
-    @Autowired
+    @Resource
     private IFileMapService fileMapService;
 
-    @Autowired
+    @Resource
     private AttachmentService attachmentService;
+
+    @Resource
+    private DiseaseDetailMapper diseaseDetailMapper;
+
     /**
      * 查询病害
      *
@@ -67,6 +68,11 @@ public class DiseaseServiceImpl implements IDiseaseService
         if (componentId != null) {
             disease.setComponent(componentMapper.selectComponentById(componentId));
         }
+
+        DiseaseDetail diseaseDetail = new DiseaseDetail();
+        diseaseDetail.setDiseaseId(id);
+        List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
+        disease.setDiseaseDetails(diseaseDetails);
 
         return disease;
     }
@@ -107,6 +113,11 @@ public class DiseaseServiceImpl implements IDiseaseService
                 }
                 ds.setComponent(component);
             }
+
+            DiseaseDetail diseaseDetail = new DiseaseDetail();
+            diseaseDetail.setDiseaseId(ds.getId());
+            List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
+            disease.setDiseaseDetails(diseaseDetails);
         });
         return diseases;
     }
