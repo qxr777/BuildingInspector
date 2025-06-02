@@ -74,10 +74,10 @@ public class ReportController extends BaseController {
       disease.setProjectId(task.getProjectId());
       List<Disease> properties = diseaseService.selectDiseaseList(disease);
       List<BiObject> biObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
-//      System.out.println(building.getRootObjectId());
-//      biObjects.forEach(e -> {
-//        System.out.println(e.getId() + " " + e.getName());
-//      });
+      // System.out.println(building.getRootObjectId());
+      // biObjects.forEach(e -> {
+      // System.out.println(e.getId() + " " + e.getName());
+      // });
       // 2. 找到树的根节点
       BiObject root = biObjectMapper.selectBiObjectById(building.getRootObjectId());
 
@@ -134,12 +134,106 @@ public class ReportController extends BaseController {
     List<Disease> nodeDiseases = properties.stream()
         .filter(d -> d.getBiObjectId() != null && d.getBiObjectId().equals(node.getId()))
         .collect(Collectors.toList());
-    for (Disease d : nodeDiseases) {
-      XWPFParagraph dp = doc.createParagraph();
-      XWPFRun dr = dp.createRun();
-      dr.setFontSize(10);
-      dr.setText("病害描述：" + (d.getDescription() != null ? d.getDescription() : "/"));
-      // 可根据需要添加更多病害字段
+
+    // 如果存在病害信息，则生成介绍段落和表格
+    if (!nodeDiseases.isEmpty()) {
+      // 创建介绍段落
+      XWPFParagraph introPara = doc.createParagraph();
+
+      // Part 1: 加粗的开头部分
+      XWPFRun runBold = introPara.createRun();
+      runBold.setText("经检查，" + node.getName() + " 主要病害为:");
+      runBold.setBold(true);
+      runBold.setFontSize(10); // 设置字号与后面一致
+
+      // Part 2: 遍历病害，每个条目一行
+      int summarySeqNum = 1;
+      for (Disease d : nodeDiseases) {
+        XWPFRun runNewline = introPara.createRun();
+        runNewline.addCarriageReturn(); // 添加换行符
+
+        XWPFRun runItem = introPara.createRun();
+        runItem.setText(summarySeqNum++ + ") "
+            + (d.getPosition() != null ? d.getPosition() : "/") + " "
+            + (d.getType() != null ? d.getType() : "/") + " "
+            + (d.getQuantity() > 0 ? d.getQuantity() : "/") + " 处; "
+            + (d.getDescription() != null ? d.getDescription() : "/") + "; ");
+        runItem.setFontSize(10); // 设置字号
+      }
+
+      // Part 3: 表格引用部分
+      XWPFRun runTableRef = introPara.createRun();
+      runTableRef.addCarriageReturn(); // 添加换行符
+      runTableRef.setText("具体检测结果见下表 " + prefix + ":");
+      runTableRef.setFontSize(10); // 设置字号
+
+      // --- 原有的表格创建代码开始 --- //
+      XWPFTable table = doc.createTable(1, 8); // 1 row (header), 8 columns
+
+      // 设置表格边框
+      CTTblPr tblPr = table.getCTTbl().getTblPr();
+      if (tblPr == null)
+        tblPr = table.getCTTbl().addNewTblPr();
+      CTTblBorders borders = tblPr.addNewTblBorders();
+      borders.addNewBottom().setVal(STBorder.SINGLE);
+      borders.addNewLeft().setVal(STBorder.SINGLE);
+      borders.addNewRight().setVal(STBorder.SINGLE);
+      borders.addNewTop().setVal(STBorder.SINGLE);
+      borders.addNewInsideH().setVal(STBorder.SINGLE);
+      borders.addNewInsideV().setVal(STBorder.SINGLE);
+
+      // 设置表头
+      XWPFTableRow headerRow = table.getRow(0);
+
+// 表头文本数组
+      String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
+
+// 设置表头样式（加粗 + 居中 + 不换行）
+      for (int i = 0; i < headers.length; i++) {
+        XWPFTableCell cell = headerRow.getCell(i);
+
+        // 1️⃣ 清除单元格原有内容（避免干扰）
+        cell.removeParagraph(0);
+
+        // 2️⃣ 创建新段落并设置居中
+        XWPFParagraph paragraph = cell.addParagraph();
+        paragraph.setAlignment(ParagraphAlignment.CENTER); // 居中
+
+        // 3️⃣ 创建 Run 并设置文本 + 加粗
+        XWPFRun run1 = paragraph.createRun();
+        run1.setText(headers[i]);
+        run1.setBold(true); // 加粗
+        run1.setFontSize(10); // 字号
+
+        // 4️⃣ 设置单元格不换行（必须操作底层 CTTcPr）
+        CTTc cttc = cell.getCTTc();
+        CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
+        tcPr.addNewNoWrap(); // 不换行
+      }
+
+      // 填充数据行
+      int seqNum = 1;
+      for (Disease d : nodeDiseases) {
+        XWPFTableRow dataRow = table.createRow();
+        dataRow.getCell(0).setText(String.valueOf(seqNum++));
+        // 根据 Disease 类的实际字段修改 getter 方法
+        dataRow.getCell(1).setText(d.getComponent() != null ? d.getComponent().getName() : "/");
+        dataRow.getCell(2).setText(d.getType() != null ? d.getType() : "/");
+        // quantity 和 level 是 int 类型，判断是否大于默认值或使用包装类 Integer
+        dataRow.getCell(3).setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
+        dataRow.getCell(4).setText(d.getDescription() != null ? d.getDescription() : "/");
+        dataRow.getCell(5).setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/"); // 假设 level > 0 表示有效评定
+        dataRow.getCell(6).setText("/"); // 发展趋势字段在 Disease 中未找到，暂时留空或使用默认值
+        dataRow.getCell(7).setText(""); // 照片列暂时为空白，如需插入图片需要额外处理
+
+        // 设置数据单元格样式（可选）
+        for (int i = 0; i < 8; i++) {
+          XWPFTableCell cell = dataRow.getCell(i);
+          XWPFParagraph cellP = cell.getParagraphs().get(0);
+          XWPFRun cellR = cellP.createRun();
+          cellR.setFontSize(9); // 设置小五号字体
+        }
+      }
     }
 
     // 递归写子节点
@@ -153,7 +247,19 @@ public class ReportController extends BaseController {
       idx++;
     }
   }
-
+  private String getHeaderText(int index) {
+    switch (index) {
+      case 0: return "序号";
+      case 1: return "缺损位置";
+      case 2: return "缺损类型";
+      case 3: return "数量";
+      case 4: return "病害描述";
+      case 5: return "评定类别 (1~5)";
+      case 6: return "发展趋势";
+      case 7: return "照片";
+      default: return "";
+    }
+  }
   private Map<String, Object> buildTreeNode(Property current, List<Property> allProperties) {
     Map<String, Object> node = Map.of(
         "id", current.getId(),

@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.ToString;
 import org.hibernate.validator.constraints.Length;
 
 import javax.validation.constraints.NotBlank;
@@ -10,6 +11,7 @@ import javax.validation.constraints.NotBlank;
  * @author QiXin
  * @date 2025/3/28
  */
+@ToString
 public class Component extends BaseEntity {
     /**
      * 构件id
