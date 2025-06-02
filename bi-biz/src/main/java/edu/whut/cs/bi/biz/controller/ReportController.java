@@ -165,7 +165,7 @@ public class ReportController extends BaseController {
       XWPFRun runTableRef = introPara.createRun();
       runTableRef.addCarriageReturn(); // 添加换行符
       runTableRef.setText("具体检测结果见下表 " + prefix + ":");
-      runTableRef.setFontSize(10); // 设置字号
+      runTableRef.setFontSize(12); // 设置字号
 
       // --- 原有的表格创建代码开始 --- //
       XWPFTable table = doc.createTable(1, 8); // 1 row (header), 8 columns
@@ -185,53 +185,96 @@ public class ReportController extends BaseController {
       // 设置表头
       XWPFTableRow headerRow = table.getRow(0);
 
-// 表头文本数组
-      String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
+      // 表头文本数组
+      String[] headers = { "序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片" };
 
-// 设置表头样式（加粗 + 居中 + 不换行）
+      // 设置表头样式（加粗 + 居中 + 不换行）
+      Double[] num = { 1.24, 2.75, 2.28, 1.29, 4.43, 2.0, 2.0, 1.51 };
+
+      CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
+      tblLayout.setType(STTblLayoutType.FIXED);
+
+      // 3. 设置每列
       for (int i = 0; i < headers.length; i++) {
         XWPFTableCell cell = headerRow.getCell(i);
 
-        // 1️⃣ 清除单元格原有内容（避免干扰）
-        cell.removeParagraph(0);
+        // 清除内容（更安全的清除方式）
+        for (int j = cell.getParagraphs().size() - 1; j >= 0; j--) {
+          cell.removeParagraph(j);
+        }
 
-        // 2️⃣ 创建新段落并设置居中
+        // 设置文本样式
         XWPFParagraph paragraph = cell.addParagraph();
-        paragraph.setAlignment(ParagraphAlignment.CENTER); // 居中
+        paragraph.setAlignment(ParagraphAlignment.CENTER);
 
-        // 3️⃣ 创建 Run 并设置文本 + 加粗
         XWPFRun run1 = paragraph.createRun();
         run1.setText(headers[i]);
-        run1.setBold(true); // 加粗
-        run1.setFontSize(10); // 字号
+        run1.setBold(true);
+        run1.setFontSize(11); // 五号字
 
-        // 4️⃣ 设置单元格不换行（必须操作底层 CTTcPr）
+        // 设置列宽（关键修正）
         CTTc cttc = cell.getCTTc();
         CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
-        tcPr.addNewNoWrap(); // 不换行
+
+        // 确保单元格宽度属性存在
+        CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+        tcW.setW(BigInteger.valueOf((int) Math.round(num[i] * 567)));
+        tcW.setType(STTblWidth.DXA);
+
+        // 防止内容换行（可选）
+        tcPr.addNewNoWrap();
       }
 
       // 填充数据行
       int seqNum = 1;
       for (Disease d : nodeDiseases) {
         XWPFTableRow dataRow = table.createRow();
-        dataRow.getCell(0).setText(String.valueOf(seqNum++));
-        // 根据 Disease 类的实际字段修改 getter 方法
-        dataRow.getCell(1).setText(d.getComponent() != null ? d.getComponent().getName() : "/");
-        dataRow.getCell(2).setText(d.getType() != null ? d.getType() : "/");
-        // quantity 和 level 是 int 类型，判断是否大于默认值或使用包装类 Integer
-        dataRow.getCell(3).setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
-        dataRow.getCell(4).setText(d.getDescription() != null ? d.getDescription() : "/");
-        dataRow.getCell(5).setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/"); // 假设 level > 0 表示有效评定
-        dataRow.getCell(6).setText("/"); // 发展趋势字段在 Disease 中未找到，暂时留空或使用默认值
-        dataRow.getCell(7).setText(""); // 照片列暂时为空白，如需插入图片需要额外处理
 
-        // 设置数据单元格样式（可选）
-        for (int i = 0; i < 8; i++) {
+        // 为数据行的每个单元格设置相同的宽度
+        for (int i = 0; i < headers.length; i++) {
           XWPFTableCell cell = dataRow.getCell(i);
+
+          // 设置单元格宽度与表头一致
+          CTTc cttc = cell.getCTTc();
+          CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
+          CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+          tcW.setW(BigInteger.valueOf((int) Math.round(num[i] * 567)));
+          tcW.setType(STTblWidth.DXA);
+
+          // 设置单元格内容居中
           XWPFParagraph cellP = cell.getParagraphs().get(0);
+          cellP.setAlignment(ParagraphAlignment.CENTER);
+
+          // 设置文本内容
           XWPFRun cellR = cellP.createRun();
-          cellR.setFontSize(9); // 设置小五号字体
+          cellR.setFontSize(11);
+
+          switch (i) {
+            case 0:
+              cellR.setText(String.valueOf(seqNum++));
+              break;
+            case 1:
+              cellR.setText(d.getComponent() != null ? d.getComponent().getName() : "/");
+              break;
+            case 2:
+              cellR.setText(d.getType() != null ? d.getType() : "/");
+              break;
+            case 3:
+              cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
+              break;
+            case 4:
+              cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+              break;
+            case 5:
+              cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+              break;
+            case 6:
+              cellR.setText("/");
+              break;
+            case 7:
+              cellR.setText("");
+              break;
+          }
         }
       }
     }
@@ -247,19 +290,30 @@ public class ReportController extends BaseController {
       idx++;
     }
   }
+
   private String getHeaderText(int index) {
     switch (index) {
-      case 0: return "序号";
-      case 1: return "缺损位置";
-      case 2: return "缺损类型";
-      case 3: return "数量";
-      case 4: return "病害描述";
-      case 5: return "评定类别 (1~5)";
-      case 6: return "发展趋势";
-      case 7: return "照片";
-      default: return "";
+      case 0:
+        return "序号";
+      case 1:
+        return "缺损位置";
+      case 2:
+        return "缺损类型";
+      case 3:
+        return "数量";
+      case 4:
+        return "病害描述";
+      case 5:
+        return "评定类别 (1~5)";
+      case 6:
+        return "发展趋势";
+      case 7:
+        return "照片";
+      default:
+        return "";
     }
   }
+
   private Map<String, Object> buildTreeNode(Property current, List<Property> allProperties) {
     Map<String, Object> node = Map.of(
         "id", current.getId(),
