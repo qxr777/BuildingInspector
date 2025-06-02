@@ -51,6 +51,9 @@
                 <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:disease:export">
                     <i class="fa fa-download"></i> 导出
                 </a>
+                <a class="btn btn-warning" onclick="exportReport()" shiro:hasPermission="biz:disease:export">
+                    <i class="fa fa-download"></i> 导出报告
+                </a>
             </div>
             <div class="col-sm-12 select-table table-striped">
                 <table id="bootstrap-table"></table>
@@ -274,6 +277,18 @@
         queryPropertyTree();
     });
     
+    function exportReport() {
+        var taskId = task.id;
+        var url = ctx + "biz/report/export/" + taskId;
+        $.modal.loading("正在导出报告，请稍候...");
+        setTimeout(function() {
+            window.location.href = url;
+            // 2秒后关闭 loading（可根据实际情况调整时间）
+            setTimeout(function() {
+                $.modal.closeLoading();
+            }, 2000);
+        }, 500);
+    }
 </script>
 </body>
 </html>

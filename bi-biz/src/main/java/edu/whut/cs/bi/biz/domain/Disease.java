@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.domain;
 import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.util.List;
 import java.math.BigDecimal;
@@ -13,6 +14,7 @@ import java.math.BigDecimal;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
+@ToString
 public class Disease extends BaseEntity {
 
     /** 病害id */
