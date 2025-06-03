@@ -117,21 +117,27 @@ public class ApiController {
     /**
      * 根据 BuidlingId 和 Year 查询桥梁历史病害
      */
-    @GetMapping("/building/{bid}/disease/{year}")
+    @GetMapping("/building/{bid}/disease")
     @RequiresPermissions("biz:disease:list")
     @ResponseBody
-    public AjaxResult getDisease(@PathVariable("bid") Long buildingId, @PathVariable("year") int year) {
+    public AjaxResult getDisease(@PathVariable("bid") Long buildingId, @RequestParam(required = false, name = "year") Integer year) {
         if (buildingId == null) {
             return AjaxResult.error("参数错误");
         }
         Disease disease = new Disease();
         disease.setBuildingId(buildingId);
-        disease.setYear(year);
+        if (year != null) {
+            disease.setYear(year);
+        }
+
         List<Disease> diseases = diseaseService.selectDiseaseList(disease);
 
         DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
         diseasesOfYearVo.setDiseases(diseases);
-        diseasesOfYearVo.setYear(year);
+        if (year != null) {
+            diseasesOfYearVo.setYear(year);
+        }
+
         diseasesOfYearVo.setBuildingId(buildingId);
 
         return AjaxResult.success("查询成功", diseasesOfYearVo);
