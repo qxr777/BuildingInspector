@@ -17,7 +17,13 @@
     </insert>
 
     <select id="selectByTemplateObjectId" resultType="java.lang.Long">
-        select disease_type_id from bi_template_object_disease_type where template_object_id = #{templateObjectId}
+        select disease_type_id
+        from bi_template_object_disease_type
+        where template_object_id
+                  in (select template_object_id
+                      from bi_object
+                      where id in (#{biObjectId}, (select parent_id from bi.bi_object where id = #{biObjectId})
+                          ))
     </select>
 
     <delete id="deleteData">

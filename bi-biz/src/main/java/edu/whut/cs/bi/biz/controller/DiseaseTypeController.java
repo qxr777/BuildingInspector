@@ -66,15 +66,15 @@ public class DiseaseTypeController extends BaseController
     /**
      * 病害类型列表
      *
-     * @param templateObjectId
+     * @param biObjectId
      * @return
      */
     @PostMapping("/selectList")
     @RequiresPermissions("biz:diseaseType:list")
     @ResponseBody
-    public List<DiseaseType> selectList(Long templateObjectId)
+    public List<DiseaseType> selectList(Long biObjectId)
     {
-        return diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(templateObjectId);
+        return diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObjectId);
     }
 
     /**

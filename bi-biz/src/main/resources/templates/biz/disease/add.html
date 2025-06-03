@@ -22,10 +22,10 @@
         <div class="row mb-4">
             <div class="col-sm-2">
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label is-required">构件:</label>
+                    <label class="col-sm-3 control-label is-required">构件名称:</label>
                     <div class="col-sm-8">
                         <input class="form-control" type="text" th:value="${biObject.name}" readonly required>
-                        <input type="hidden" name="component.id" th:value="${biObject.id}">
+                        <input type="hidden" name="biObjectId" th:value="${biObject.id}">
                     </div>
                 </div>
             </div>
@@ -331,7 +331,7 @@
     // 加载病害类型
     function loadDiseaseTypes() {
         $.operate.list(ctx + "biz/diseaseType/selectList", {
-            templateObjectId: biObject.templateObjectId
+            biObjectId: biObject.id
         }, function (result) {
             diseaseTypes = result;
             var options = '<option value="">请选择病害类型</option>';
@@ -488,161 +488,18 @@
         var detailsContainer = $("#diseaseDetails");
         detailsContainer.empty();
 
-        if (quantity == 1) {
-            detailsContainer.append(`
-                <div class="col-sm-12">
-                    <div class="form-group">
-                            <div class="row">
-                                <div class="form-group">
-                                    <label class="col-sm-3 control-label">裂缝特征：</label>
-                                    <div class="col-sm-8">
-                                        <select class="form-control" name="diseaseDetail[0].crackType">
-                                            <option value="纵向">纵向</option>
-                                            <option value="横向">横向</option>
-                                            <option value="斜向">斜向</option>
-                                            <option value="L型">L型</option>
-                                            <option value="U型">U型</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row" style="margin-bottom: 20px;">
-                                <label class="col-sm-2 control-label">距参考面1位置：</label>
-                                <div class="col-sm-3">
-                                    <label class="col-sm-2 control-label">距</label>
-                                    <div class="col-sm-10">
-                                        <select class="form-control" name="diseaseDetail[0].reference1Location" id="reference1Location">
-                                            <option value="">请选择</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
-                                </div>
-                                <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
-                                </div>
-                            </div>
-                            <div class="row" style="margin-bottom: 20px;">
-                                <label class="col-sm-2 control-label">距参考面2位置：</label>
-                                <div class="col-sm-3">
-                                    <label class="col-sm-2 control-label">距</label>
-                                    <div class="col-sm-10">
-                                        <select class="form-control" name="diseaseDetail[0].reference2Location" id="reference2Location">
-                                            <option value="">请选择</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
-                                </div>
-                                <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-3 control-label">长度:</label>
-                                        <div class="col-sm-9">
-                                            <input name="diseaseDetail[0].length" class="form-control" type="number" step="0.01" placeholder="长度">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-3 control-label">宽度:</label>
-                                        <div class="col-sm-9">
-                                            <input name="diseaseDetail[0].width" class="form-control" type="number" step="0.01" placeholder="宽度">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-3 control-label">高度/深度:</label>
-                                        <div class="col-sm-9">
-                                            <input name="diseaseDetail[0].heightDepth" class="form-control" type="number" step="0.01" placeholder="高度/深度">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-3 control-label">缝宽:</label>
-                                        <div class="col-sm-9">
-                                            <input name="diseaseDetail[0].crackWidth" class="form-control" type="number" step="0.0001" placeholder="缝宽">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-2 control-label">面积:</label>
-                                        <div class="col-sm-10">
-                                            <input name="diseaseDetail[0].area" class="form-control" type="number" step="0.01" placeholder="面积">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-2 control-label">体积:</label>
-                                        <div class="col-sm-10">
-                                            <input name="diseaseDetail[0].volume" class="form-control" type="number" step="0.01" placeholder="体积">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-2 control-label">角度:</label>
-                                        <div class="col-sm-10">
-                                            <input name="diseaseDetail[0].angle" class="form-control" type="number" placeholder="角度">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                    <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-2 control-label">百分比:</label>
-                                        <div class="col-sm-10">
-                                            <input name="diseaseDetail[0].percentage" class="form-control" type="number" step="0.01" placeholder="百分比">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row" style="margin-bottom: 20px;">
-                                <div class="col-sm-3">
-                                </div>
-                                <div class="col-sm-6">
-                                     <div class="form-group" style="margin-bottom: 20px;">
-                                        <label class="col-sm-2 control-label">发展趋势:</label>
-                                        <div class="col-sm-10">
-                                            <select class="form-control" name="diseaseDetail[0].developmentTrend">
-                                                <option value="稳定">稳定</option>
-                                                <option value="发展">发展</option>
-                                                <option value="新增">新增</option>
-                                                <option value="已维修">已维修</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-3">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `);
-        } else if (quantity > 1 && quantity < 10) {
-            for (var i = 1; i <= quantity; i++) {
+        if (quantity < 10) {
+            for (var i = 0; i < quantity; i++) {
                 detailsContainer.append(`
                     <div class="col-sm-12">
                         <div class="form-group">
-                            <label class="col-sm-2 control-label">缺损-${i}:</label>
-                            <div class="col-sm-10">
+                            <label class="col-sm-1 control-label">缺损-${i}:</label>
+                            <div class="col-sm-11">
                                 <div class="row">
                                     <div class="form-group">
                                         <label class="col-sm-3 control-label">裂缝特征：</label>
                                         <div class="col-sm-8">
-                                            <select class="form-control" name="diseaseDetail[${i}].crackType">
+                                            <select class="form-control" name="diseaseDetails[${i}].crackType">
                                                 <option value="纵向">纵向</option>
                                                 <option value="横向">横向</option>
                                                 <option value="斜向">斜向</option>
@@ -657,16 +514,16 @@
                                     <div class="col-sm-3">
                                         <label class="col-sm-2 control-label">距</label>
                                         <div class="col-sm-10">
-                                            <select class="form-control" name="diseaseDetail[${i}].reference1Location" id="reference1Location">
+                                            <select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location">
                                                 <option value="">请选择</option>
                                             </select>
                                         </div>
                                     </div>
                                     <div class="col-sm-3">
-                                        <input name="diseaseDetail[${i}].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                        <input name="diseaseDetails[${i}].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
                                     </div>
                                     <div class="col-sm-3">
-                                        <input name="diseaseDetail[${i}].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                        <input name="diseaseDetails[${i}].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
                                     </div>
                                 </div>
                                 <div class="row" style="margin-bottom: 20px;">
@@ -674,44 +531,94 @@
                                     <div class="col-sm-3">
                                         <label class="col-sm-2 control-label">距</label>
                                         <div class="col-sm-10">
-                                            <select class="form-control" name="diseaseDetail[${i}].reference2Location" id="reference2Location">
+                                            <select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location">
                                                 <option value="">请选择</option>
                                             </select>
                                         </div>
                                     </div>
                                     <div class="col-sm-3">
-                                        <input name="diseaseDetail[${i}].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                        <input name="diseaseDetails[${i}].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
                                     </div>
                                     <div class="col-sm-3">
-                                        <input name="diseaseDetail[${i}].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                        <input name="diseaseDetails[${i}].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
                                     </div>
                                 </div>
-                                <div class="row" style="margin-bottom: 20px;">
-                                    <div class="col-sm-6">
+                                <div class="row">
+                                    <div class="col-sm-3">
                                         <div class="form-group" style="margin-bottom: 20px;">
-                                            <label class="col-sm-3 control-label">长度:</label>
-                                            <div class="col-sm-9">
-                                                <input name="diseaseDetail[${i}].length" class="form-control" type="number" step="0.01" placeholder="长度">
+                                            <label class="col-sm-4 control-label">长度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].length" class="form-control" type="number" step="0.01" placeholder="长度">
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-sm-6">
+                                    <div class="col-sm-3">
                                         <div class="form-group" style="margin-bottom: 20px;">
-                                            <label class="col-sm-3 control-label">缝宽:</label>
-                                            <div class="col-sm-9">
-                                                <input name="diseaseDetail[${i}].crackWidth" class="form-control" type="number" step="0.0001" placeholder="缝宽">
+                                            <label class="col-sm-4 control-label">宽度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].width" class="form-control" type="number" step="0.01" placeholder="宽度">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">高度/深度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].heightDepth" class="form-control" type="number" step="0.01" placeholder="高度/深度">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">缝宽:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].crackWidth" class="form-control" type="number" step="0.0001" placeholder="缝宽">
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="row">
                                     <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">面积:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].area" class="form-control" type="number" step="0.01" placeholder="面积">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">体积:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].volume" class="form-control" type="number" step="0.01" placeholder="体积">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">角度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].angle" class="form-control" type="number" placeholder="角度">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">百分比:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].percentage" class="form-control" type="number" step="0.01" placeholder="百分比">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row" style="margin-bottom: 20px;">
+                                    <div class="col-sm-3">
                                     </div>
                                     <div class="col-sm-6">
                                          <div class="form-group" style="margin-bottom: 20px;">
                                             <label class="col-sm-2 control-label">发展趋势:</label>
                                             <div class="col-sm-10">
-                                                <select class="form-control" name="diseaseDetail[${i}].developmentTrend">
+                                                <select class="form-control" name="diseaseDetails[${i}].developmentTrend">
                                                     <option value="稳定">稳定</option>
                                                     <option value="发展">发展</option>
                                                     <option value="新增">新增</option>
@@ -736,7 +643,7 @@
                                 <div class="form-group">
                                     <label class="col-sm-3 control-label">裂缝特征：</label>
                                     <div class="col-sm-9">
-                                        <select class="form-control" name="diseaseDetail[0].crackType">
+                                        <select class="form-control" name="diseaseDetails[0].crackType">
                                             <option value="纵向">纵向</option>
                                             <option value="横向">横向</option>
                                             <option value="斜向">斜向</option>
@@ -751,16 +658,16 @@
                                 <div class="col-sm-3">
                                     <label class="col-sm-2 control-label">距</label>
                                     <div class="col-sm-10">
-                                        <select class="form-control" name="diseaseDetail[0].reference1Location" id="reference1Location">
+                                        <select class="form-control" name="diseaseDetails[0].reference1Location" id="reference1Location">
                                             <option value="">请选择</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                    <input name="diseaseDetails[0].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
                                 </div>
                                 <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                    <input name="diseaseDetails[0].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
                                 </div>
                             </div>
                             <div class="row" style="margin-bottom: 20px;">
@@ -768,34 +675,34 @@
                                 <div class="col-sm-3">
                                     <label class="col-sm-2 control-label">距</label>
                                     <div class="col-sm-10">
-                                        <select class="form-control" name="diseaseDetail[0].reference2Location" id="reference2Location">
+                                        <select class="form-control" name="diseaseDetails[0].reference2Location" id="reference2Location">
                                             <option value="">请选择</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                    <input name="diseaseDetails[0].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
                                 </div>
                                 <div class="col-sm-3">
-                                    <input name="diseaseDetail[0].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                    <input name="diseaseDetails[0].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
                                 </div>
                             </div>
                             <div class="row" style="margin-bottom: 20px;">
                                 <label class="col-sm-2 control-label">长度范围：</label>
                                 <div class="col-sm-4">
-                                    <input name="diseaseDetail[0].lengthRangeStart" class="form-control" type="number" step="0.01" placeholder="请填写">
+                                    <input name="diseaseDetails[0].lengthRangeStart" class="form-control" type="number" step="0.01" placeholder="请填写">
                                 </div>
                                 <div class="col-sm-4">
-                                    <input name="diseaseDetail[0].lengthRangeEnd" class="form-control" type="number" step="0.01" placeholder="请填写">
+                                    <input name="diseaseDetails[0].lengthRangeEnd" class="form-control" type="number" step="0.01" placeholder="请填写">
                                 </div>
                             </div>
                             <div class="row" style="margin-bottom: 20px;">
                                 <label class="col-sm-2 control-label">缝宽范围：</label>
                                 <div class="col-sm-4">
-                                    <input name="diseaseDetail[0].crackWidthRangeStart" class="form-control" type="number" step="0.0001" placeholder="请填写">
+                                    <input name="diseaseDetails[0].crackWidthRangeStart" class="form-control" type="number" step="0.0001" placeholder="请填写">
                                 </div>
                                 <div class="col-sm-4">
-                                    <input name="diseaseDetail[0].crackWidthRangeEnd" class="form-control" type="number" step="0.0001" placeholder="请填写">
+                                    <input name="diseaseDetails[0].crackWidthRangeEnd" class="form-control" type="number" step="0.0001" placeholder="请填写">
                                 </div>
                             </div>
                     </div>

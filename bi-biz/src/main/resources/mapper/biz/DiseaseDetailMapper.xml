@@ -100,6 +100,57 @@
         </trim>
     </insert>
 
+    <insert id="insertDiseaseDetails" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_disease_detail (
+        disease_id,
+        crack_type,
+        reference1_location,
+        reference1_location_start,
+        reference1_location_end,
+        reference2_location,
+        reference2_location_start,
+        reference2_location_end,
+        length,
+        width,
+        height_depth,
+        crack_width,
+        area,
+        volume,
+        angle,
+        percentage,
+        development_trend,
+        length_range_start,
+        length_range_end,
+        crack_width_range_start,
+        crack_width_range_end
+        )
+        values
+        <foreach collection="diseaseDetails" item="diseaseDetail" separator=",">
+            (
+            #{diseaseDetail.diseaseId},
+            #{diseaseDetail.crackType},
+            #{diseaseDetail.reference1Location},
+            #{diseaseDetail.reference1LocationStart},
+            #{diseaseDetail.reference1LocationEnd},
+            #{diseaseDetail.reference2Location},
+            #{diseaseDetail.reference2LocationStart},
+            #{diseaseDetail.reference2LocationEnd},
+            #{diseaseDetail.length},
+            #{diseaseDetail.width},
+            #{diseaseDetail.heightDepth},
+            #{diseaseDetail.crackWidth},
+            #{diseaseDetail.area},
+            #{diseaseDetail.volume},
+            #{diseaseDetail.angle},
+            #{diseaseDetail.percentage},
+            #{diseaseDetail.developmentTrend},
+            #{diseaseDetail.lengthRangeStart},
+            #{diseaseDetail.lengthRangeEnd},
+            #{diseaseDetail.crackWidthRangeStart},
+            #{diseaseDetail.crackWidthRangeEnd}
+            )
+        </foreach>
+    </insert>
     <update id="updateDiseaseDetail" parameterType="DiseaseDetail">
         update bi_disease_detail
         <trim prefix="SET" suffixOverrides=",">

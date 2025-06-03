@@ -49,6 +49,7 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Resource
     private DiseaseDetailMapper diseaseDetailMapper;
 
+
     /**
      * 查询病害
      *
@@ -117,7 +118,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             DiseaseDetail diseaseDetail = new DiseaseDetail();
             diseaseDetail.setDiseaseId(ds.getId());
             List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
-            disease.setDiseaseDetails(diseaseDetails);
+            ds.setDiseaseDetails(diseaseDetails);
         });
         return diseases;
     }
@@ -135,7 +136,24 @@ public class DiseaseServiceImpl implements IDiseaseService
         Long diseaseTypeId = disease.getDiseaseTypeId();
         DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
         disease.setType(diseaseType.getName());
-        return diseaseMapper.insertDisease(disease);
+
+        // 新增部件
+        BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+        Component component = disease.getComponent();
+        component.setName(biObject.getName());
+        component.setBiObjectId(disease.getBiObjectId());
+        componentMapper.insertComponent(component);
+
+        disease.setComponentId(component.getId());
+
+        Integer result = diseaseMapper.insertDisease(disease);
+
+        // 添加病害详情
+        List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+        diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+
+        return result;
     }
 
     /**
