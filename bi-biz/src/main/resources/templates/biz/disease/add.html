@@ -222,6 +222,15 @@
             }
         });
 
+        // 这里所有selectpicker都会抛出异常，所以这里加一个try catch，这样程序就能正常运行
+        $("#quantityInput").change(function () {
+            try {
+                $("#position").html('<option value=""></option>').selectpicker('refresh');
+            } catch (e) {
+                loadPositions();
+            }
+        });
+
         // 监听位置选择变化
         $("#position").change(function () {
             var selectedId = $(this).val();
@@ -229,36 +238,92 @@
                 var selectedPosition = positionObjects.find(function (item) {
                     return item.id == selectedId;
                 });
-                console.log(selectedPosition.props)
+
                 if (selectedPosition && selectedPosition.props) {
                     var parsedProps = parseProps(selectedPosition.props);
-                    console.log(parsedProps)
-                    var ref1Select = $("#reference1Location");
-                    var ref2Select = $("#reference2Location");
 
-                    ref1Select.empty();
-                    ref2Select.empty();
+                    var quantity = $("#quantityInput").val();
 
-                    if (parsedProps['ref1']) {
-                        parsedProps['ref1'].forEach(function(item) {
-                            ref1Select.append($('<option></option>').val(item.id).text(item.name));
-                        });
+                    if (quantity == 10) {
+                        var ref1Select = $("#reference1Location");
+                        var ref2Select = $("#reference2Location");
 
-                    }
+                        ref1Select.empty();
+                        ref2Select.empty();
 
-                    console.log("------")
-                    if (parsedProps['ref2']) {
-                        parsedProps['ref2'].forEach(function(item) {
-                            ref2Select.append($('<option></option>').val(item.id).text(item.name));
-                        });
+                        if (parsedProps['ref1']) {
+                            parsedProps['ref1'].forEach(function(item) {
+                                ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                            });
 
-                    }
-                    try {
-                        ref1Select.val(parsedProps['ref1'][0].id).selectpicker('refresh'); // 默认选中第一个选项
-                        ref2Select.val(parsedProps['ref2'][0].id).selectpicker('refresh'); // 默认选中第一个选项
-                    } catch (e) {
-                        // 不做处理，不影响
-                        console.log(e);
+                        }
+
+                        console.log("------")
+                        if (parsedProps['ref2']) {
+                            parsedProps['ref2'].forEach(function(item) {
+                                ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                            });
+
+                        }
+                        try {
+                            ref1Select.val(parsedProps['ref1'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                            ref2Select.val(parsedProps['ref2'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                        } catch (e) {
+                            // 不做处理，不影响
+                            console.log(e);
+                        }
+                    } else {
+                        // 遍历每一个病害的下拉框
+                        for (var i = 0; i < quantity; i++) {
+                            // 1. 处理 reference1Location
+                            var ref1Select = $(`#reference1Location_${i}`);
+                            if (ref1Select.length) { // 确保元素存在
+                                ref1Select.empty();
+                                if (parsedProps['ref1'] && parsedProps['ref1'].length > 0) {
+                                    parsedProps['ref1'].forEach(function(item) {
+                                        ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                                    });
+                                    // 默认选中第一个选项（确保 parsedProps['ref1'][0] 存在）
+                                    if (parsedProps['ref1'][0]) {
+                                        ref1Select.val(parsedProps['ref1'][0].id);
+                                    }
+                                } else {
+                                    ref1Select.append($('<option></option>').val("").text("无可用选项"));
+                                }
+
+                            }
+
+                            // 2. 处理 reference2Location
+                            var ref2Select = $(`#reference2Location_${i}`);
+                            if (ref2Select.length) { // 确保元素存在
+                                ref2Select.empty();
+                                if (parsedProps['ref2'] && parsedProps['ref2'].length > 0) {
+                                    parsedProps['ref2'].forEach(function(item) {
+                                        ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                                    });
+                                    // 默认选中第一个选项（确保 parsedProps['ref2'][0] 存在）
+                                    if (parsedProps['ref2'][0]) {
+                                        ref2Select.val(parsedProps['ref2'][0].id);
+                                    }
+                                } else {
+                                    ref2Select.append($('<option></option>').val("").text("无可用选项"));
+                                }
+
+                            }
+                        }
+
+                        // 有bug在，所以单独刷新
+                        for (var i = 0; i < quantity; i++) {
+                            var ref1Select = $(`#reference1Location_${i}`);
+                            var ref2Select = $(`#reference2Location_${i}`);
+                            try {
+                                ref1Select.val(parsedProps['ref1'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                                ref2Select.val(parsedProps['ref2'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                            } catch (e) {
+                                // 不做处理，不影响
+                                console.log(e);
+                            }
+                        }
                     }
 
                 }
@@ -514,7 +579,7 @@
                                     <div class="col-sm-3">
                                         <label class="col-sm-2 control-label">距</label>
                                         <div class="col-sm-10">
-                                            <select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location">
+                                            <select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}">
                                                 <option value="">请选择</option>
                                             </select>
                                         </div>
@@ -531,7 +596,7 @@
                                     <div class="col-sm-3">
                                         <label class="col-sm-2 control-label">距</label>
                                         <div class="col-sm-10">
-                                            <select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location">
+                                            <select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}">
                                                 <option value="">请选择</option>
                                             </select>
                                         </div>
