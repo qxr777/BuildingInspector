@@ -2,6 +2,8 @@ package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.hibernate.validator.constraints.Length;
 
@@ -11,7 +13,9 @@ import javax.validation.constraints.NotBlank;
  * @author QiXin
  * @date 2025/3/28
  */
+@EqualsAndHashCode(callSuper = true)
 @ToString
+@Data
 public class Component extends BaseEntity {
     /**
      * 构件id
@@ -52,67 +56,5 @@ public class Component extends BaseEntity {
 
     private String parentObjectName;
 
-    public String getParentObjectName() {
-        return parentObjectName;
-    }
-
-    public void setParentObjectName(String parentObjectName) {
-        this.parentObjectName = parentObjectName;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getDelFlag() {
-        return delFlag;
-    }
-
-    public void setDelFlag(String delFlag) {
-        this.delFlag = delFlag;
-    }
-
-    public Long getBiObjectId() {
-        return biObjectId;
-    }
-
-    public void setBiObjectId(Long biObjectId) {
-        this.biObjectId = biObjectId;
-    }
-
-    public BiObject getBiObject() {
-        return biObject;
-    }
-
-    public void setBiObject(BiObject biObject) {
-        this.biObject = biObject;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
+    private String grandObjectName;
 }
