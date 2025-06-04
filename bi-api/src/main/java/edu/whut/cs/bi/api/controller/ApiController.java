@@ -20,6 +20,8 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import javax.annotation.Resource;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -131,16 +133,28 @@ public class ApiController {
         }
 
         List<Disease> diseases = diseaseService.selectDiseaseList(disease);
+        List<DiseasesOfYearVo> result = null;
+        if (year == null) {
+            Map<Integer, List<Disease>> map = diseases.stream()
+                    .collect(Collectors.groupingBy(d -> d.getProject().getYear()));
 
-        DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
-        diseasesOfYearVo.setDiseases(diseases);
-        if (year != null) {
+            result = map.keySet().stream().map(y -> {
+                DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+                diseasesOfYearVo.setYear(y);
+                diseasesOfYearVo.setDiseases(map.get(y));
+                diseasesOfYearVo.setBuildingId(buildingId);
+                return diseasesOfYearVo;
+            }).toList();
+        } else {
+            DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+            diseasesOfYearVo.setDiseases(diseases);
             diseasesOfYearVo.setYear(year);
+            diseasesOfYearVo.setBuildingId(buildingId);
+            result = List.of(diseasesOfYearVo);
         }
 
-        diseasesOfYearVo.setBuildingId(buildingId);
 
-        return AjaxResult.success("查询成功", diseasesOfYearVo);
+        return AjaxResult.success("查询成功", result);
     }
 
     /**
