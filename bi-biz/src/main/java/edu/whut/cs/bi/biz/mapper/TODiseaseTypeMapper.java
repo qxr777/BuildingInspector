@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 模板对象和病害类型Mapper接口
@@ -44,4 +45,20 @@ public interface TODiseaseTypeMapper
      * @return
      */
     int batchDeleteData(@Param("templateObjectId") Long templateObjectId, @Param("diseaseTypeIds") List<Long> diseaseTypeIds);
+
+    /**
+     * 批量查询多个模板对象的病害类型ID
+     *
+     * @param templateObjectIds 模板对象ID列表
+     * @return 模板对象ID到病害类型ID列表的映射
+     */
+    Map<Long, List<Long>> batchSelectByTemplateObjectIds(@Param("templateObjectIds") List<Long> templateObjectIds);
+
+    /**
+     * 批量查询多个模板对象的病害类型关联数据
+     *
+     * @param templateObjectIds 模板对象ID列表
+     * @return 关联数据列表，每项包含template_object_id和disease_type_id
+     */
+    List<Map<String, Object>> selectTemplateObjectDiseaseTypeMappings(@Param("templateObjectIds") List<Long> templateObjectIds);
 }
