@@ -106,6 +106,13 @@
                     visible: false
                 },
                 {
+                    field: 'component.name',
+                    title: '构件名称',
+                    formatter: function(value, row) {
+                        return row.component ? row.component.name : '-';
+                    }
+                },
+                {
                     field: 'component.code',
                     title: '构件编码',
                     formatter: function(value, row) {
@@ -134,6 +141,13 @@
                     }
                 },
                 {
+                    field: 'nature',
+                    title: '病害性质',
+                    formatter: function(value) {
+                        return value || '-';
+                    }
+                },
+                {
                     field: 'description',
                     title: '病害描述',
                     formatter: function(value) {
@@ -143,40 +157,6 @@
                 {
                     field: 'quantity',
                     title: '病害数量',
-                    formatter: function(value) {
-                        return value || '-';
-                    }
-                },
-                {
-                    field: 'length',
-                    title: '长度(m)',
-                    formatter: function(value) {
-                        return value ? value + 'm' : '-';
-                    }
-                },  {
-                    field: 'width',
-                    title: '宽度(m)',
-                    formatter: function(value) {
-                        return value ? value + 'm' : '-';
-                    }
-                },
-                {
-                    field: 'heightOrDepth',
-                    title: '高/深(m)',
-                    formatter: function(value) {
-                        return value ? value + 'm' : '-';
-                    }
-                },
-                {
-                    field: 'slitWidth',
-                    title: '缝宽(mm)',
-                    formatter: function(value) {
-                        return value ? value + 'mm' : '-';
-                    }
-                },
-                {
-                    field: 'trend',
-                    title: '发展趋势',
                     formatter: function(value) {
                         return value || '-';
                     }

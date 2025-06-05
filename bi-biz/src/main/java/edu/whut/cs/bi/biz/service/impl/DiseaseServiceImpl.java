@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.service.impl;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.*;
 
 import edu.whut.cs.bi.biz.mapper.*;
@@ -170,6 +171,21 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Override
     public int updateDisease(Disease disease) {
         disease.setUpdateTime(DateUtils.getNowDate());
+
+        // 更新部件信息
+        Component component = componentMapper.selectComponentById(disease.getComponentId());
+        component.setCode(disease.getComponent().getCode());
+        component.setUpdateTime(DateUtils.getNowDate());
+        component.setUpdateBy(ShiroUtils.getLoginName());
+        componentMapper.updateComponent(component);
+
+        // 删除病害详情
+        List<Long> diseaseDetailIds = disease.getDiseaseDetails().stream().map(d -> d.getId()).toList();
+        diseaseDetailMapper.deleteDiseaseDetailByIds(diseaseDetailIds.toArray(new Long[0]));
+
+        // 新增病害详情
+        diseaseDetailMapper.insertDiseaseDetails(disease.getDiseaseDetails());
+
         return diseaseMapper.updateDisease(disease);
     }
 
@@ -180,8 +196,13 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteDiseaseByIds(String ids) {
-        return diseaseMapper.deleteDiseaseByIds(Convert.toStrArray(ids));
+        String[] strArray = Convert.toStrArray(ids);
+
+
+
+        return diseaseMapper.deleteDiseaseByIds(strArray);
     }
 
     /**
