@@ -22,25 +22,23 @@
         <div class="row mb-4">
             <div class="col-sm-2">
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label is-required">部件类型:</label>
+                    <label class="col-sm-3 control-label is-required">构件名称:</label>
                     <div class="col-sm-8">
                         <input class="form-control" type="text" th:value="${biObject.name}" readonly required>
                         <input type="hidden" name="biObjectId" th:value="${biObject.id}">
                     </div>
                 </div>
             </div>
-            <div class="col-sm-2">
+            <div class="col-sm-3">
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label is-required">构件:</label>
+                    <label class="col-sm-3 control-label">构件编码：</label>
                     <div class="col-sm-8">
-                        <select class="form-control selectpicker" name="componentId" id="componentId"
-                                data-live-search="true" required>
-                            <option value="">请选择构件</option>
-                        </select>
+                        <input name="component.code" class="form-control" type="text"
+                               placeholder="请输入构件编码">
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
+            <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label class="col-sm-3 control-label is-required">病害类型:</label>
                     <div class="col-sm-8">
@@ -53,15 +51,28 @@
             </div>
             <div class="col-sm-3">
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label is-required">数量:</label>
+                    <label class="col-sm-3 control-label">病害位置：</label>
                     <div class="col-sm-8">
+                        <select class="form-control selectpicker" name="position" id="position"
+                                data-live-search="true" required>
+                            <option value="">请选择病害位置</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <h4 class="form-header h4">病害定量数据</h4>
+        <div class="row mb-4">
+            <div class="col-sm-12">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-5 control-label is-required">缺损数量:</label>
+                    <div class="col-sm-7">
                         <div class="input-group">
                             <input name="quantity"
                                    id="quantityInput"
                                    class="form-control"
                                    type="number"
                                    min="1"
-                                   max="9999"
                                    step="1"
                                    value="1"
                                    required
@@ -72,72 +83,25 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-2">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label">发展趋势:</label>
-                    <div class="col-sm-8">
-                        <select class="form-control" name="trend">
-                            <option value="稳定">稳定</option>
-                            <option value="新增">新增</option>
-                        </select>
-                    </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-sm-12">
+                <div class="form-group" id="diseaseDetails">
+                    <!-- 病害详情数据填写区域 -->
                 </div>
             </div>
         </div>
+
+        <h4 class="form-header h4">病害定性数据</h4>
         <div class="row mb-4" style="margin-top: 20px;">
-            <div class="col-sm-6">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label">病害位置：</label>
-                    <div class="col-sm-8">
-                        <input name="position" class="form-control" type="text"
-                               placeholder="请输入病害具体位置">
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label is-required">病害描述(性质、范围、程度等）：</label>
-                    <div class="col-sm-8">
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="col-sm-5 control-label is-required">病害描述(性质、范围、程度等）：</label>
+                    <div class="col-sm-7">
                         <select class="form-control selectpicker" name="description" id="description"
                                 data-live-search="true" required>
                             <option value=""></option>
                         </select>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mb-4" style="margin-top: 20px;">
-            <div class="col-sm-6">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <div class="row">
-                        <div class="col-sm-2">
-                            <label class="control-label">长度(m)</label>
-                            <input name="length" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
-                        </div>
-                        <div class="col-sm-2">
-                            <label class="control-label">宽度(m)</label>
-                            <input name="width" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
-                        </div>
-                        <div class="col-sm-2">
-                            <label class="control-label">缝宽(mm)</label>
-                            <input name="slitWidth" class="form-control" type="number" step="0.0001" min="0.0001" oninput="validatePositiveNumber(this)">
-                        </div>
-                        <div class="col-sm-3">
-                            <label class="control-label">高度/深度(m)</label>
-                            <input name="heightOrDepth" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
-                        </div>
-                        <div class="col-sm-2">
-                            <label class="control-label">面积(㎡)</label>
-                            <input name="area" class="form-control" type="number" step="0.01" min="0.01" oninput="validatePositiveNumber(this)">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-2">
-                <div class="form-group" style="margin-top: 20px;">
-                    <label class="control-label is-required">评定标度：</label>
-                    <div class="btn-group" id="levelGroup" data-toggle="buttons">
-                        <!-- 选项将通过JavaScript动态生成 -->
                     </div>
                 </div>
             </div>
@@ -154,7 +118,15 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-2">
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="control-label is-required">评定标度：</label>
+                    <div class="btn-group" id="levelGroup" data-toggle="buttons">
+                        <!-- 选项将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <div class="row">
                         <div class="col-sm-6">
@@ -169,6 +141,7 @@
                 </div>
             </div>
         </div>
+
         <h4 class="form-header h4">其它信息</h4>
         <div class="row">
             <div class="col-sm-12">
@@ -213,16 +186,19 @@
     var prefix = ctx + "biz/disease"
     var task = [[${task}]]
     var biObject = [[${biObject}]]
+    var positionObjects;
     var diseaseTypes;
 
     $(function () {
         // 初始化病害类型下拉框
         loadDiseaseTypes();
 
-        // 初始化构件列表
-        selectComponent();
+        // 初始化病害位置下拉框
+        loadPositions();
 
         updateLevelGroup();
+
+        updateDiseaseDetails(1);
 
         // 监听病害类型选择变化
         $("#diseaseTypeId").change(function () {
@@ -246,10 +222,123 @@
             }
         });
 
+        // 这里所有selectpicker都会抛出异常，所以这里加一个try catch，这样程序就能正常运行
+        $("#quantityInput").change(function () {
+            try {
+                $("#position").html('<option value=""></option>').selectpicker('refresh');
+            } catch (e) {
+                loadPositions();
+            }
+        });
+
+        // 监听位置选择变化
+        $("#position").change(function () {
+            var selectedId = $(this).val();
+            if (selectedId) {
+                var selectedPosition = positionObjects.find(function (item) {
+                    return item.id == selectedId;
+                });
+
+                if (selectedPosition && selectedPosition.props) {
+                    var parsedProps = parseProps(selectedPosition.props);
+
+                    var quantity = $("#quantityInput").val();
+
+                    if (quantity == 10) {
+                        var ref1Select = $("#reference1Location");
+                        var ref2Select = $("#reference2Location");
+
+                        ref1Select.empty();
+                        ref2Select.empty();
+
+                        if (parsedProps['ref1']) {
+                            parsedProps['ref1'].forEach(function(item) {
+                                ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                            });
+
+                        }
+
+                        console.log("------")
+                        if (parsedProps['ref2']) {
+                            parsedProps['ref2'].forEach(function(item) {
+                                ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                            });
+
+                        }
+                        try {
+                            ref1Select.val(parsedProps['ref1'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                            ref2Select.val(parsedProps['ref2'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                        } catch (e) {
+                            // 不做处理，不影响
+                            console.log(e);
+                        }
+                    } else {
+                        // 遍历每一个病害的下拉框
+                        for (var i = 0; i < quantity; i++) {
+                            // 1. 处理 reference1Location
+                            var ref1Select = $(`#reference1Location_${i}`);
+                            if (ref1Select.length) { // 确保元素存在
+                                ref1Select.empty();
+                                if (parsedProps['ref1'] && parsedProps['ref1'].length > 0) {
+                                    parsedProps['ref1'].forEach(function(item) {
+                                        ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                                    });
+                                    // 默认选中第一个选项（确保 parsedProps['ref1'][0] 存在）
+                                    if (parsedProps['ref1'][0]) {
+                                        ref1Select.val(parsedProps['ref1'][0].id);
+                                    }
+                                } else {
+                                    ref1Select.append($('<option></option>').val("").text("无可用选项"));
+                                }
+
+                            }
+
+                            // 2. 处理 reference2Location
+                            var ref2Select = $(`#reference2Location_${i}`);
+                            if (ref2Select.length) { // 确保元素存在
+                                ref2Select.empty();
+                                if (parsedProps['ref2'] && parsedProps['ref2'].length > 0) {
+                                    parsedProps['ref2'].forEach(function(item) {
+                                        ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                                    });
+                                    // 默认选中第一个选项（确保 parsedProps['ref2'][0] 存在）
+                                    if (parsedProps['ref2'][0]) {
+                                        ref2Select.val(parsedProps['ref2'][0].id);
+                                    }
+                                } else {
+                                    ref2Select.append($('<option></option>').val("").text("无可用选项"));
+                                }
+
+                            }
+                        }
+
+                        // 有bug在，所以单独刷新
+                        for (var i = 0; i < quantity; i++) {
+                            var ref1Select = $(`#reference1Location_${i}`);
+                            var ref2Select = $(`#reference2Location_${i}`);
+                            try {
+                                ref1Select.val(parsedProps['ref1'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                                ref2Select.val(parsedProps['ref2'][0].id).selectpicker('refresh'); // 默认选中第一个选项
+                            } catch (e) {
+                                // 不做处理，不影响
+                                console.log(e);
+                            }
+                        }
+                    }
+
+                }
+            }
+        });
+
+        // 监听数量变化
+        $("#quantityInput").change(function () {
+            var quantity = $(this).val();
+            updateDiseaseDetails(quantity);
+        });
+
         // 表单验证
         $("#form-disease-add").validate({
             rules: {
-                componentId: "required",
                 diseaseTypeId: "required",
                 level: "required"
             },
@@ -304,23 +393,10 @@
         }
     }
 
-    // 选择构件
-    function selectComponent() {
-        $.operate.list(ctx + "biz/component/selectList", {
-            biObjectId: biObject.id
-        }, function (result) {
-            var options = '<option value="">请选择构件</option>';
-            $.each(result, function (i, item) {
-                options += '<option value="' + item.id + '">' + item.code + ' - ' + (item.name || '') + '</option>';
-            });
-            $("#componentId").html(options).selectpicker('refresh');
-        });
-    }
-
     // 加载病害类型
     function loadDiseaseTypes() {
         $.operate.list(ctx + "biz/diseaseType/selectList", {
-            templateObjectId: biObject.templateObjectId
+            biObjectId: biObject.id
         }, function (result) {
             diseaseTypes = result;
             var options = '<option value="">请选择病害类型</option>';
@@ -353,6 +429,20 @@
                 });
             }
             $("#description").html(options).selectpicker('refresh');
+        });
+    }
+
+    // 加载病害位置
+    function loadPositions() {
+        $.operate.list(ctx + "biz/biobject/selectPositionList", {
+            parentId: biObject.id
+        }, function (result) {
+            positionObjects = result;
+            var options = '<option value="">请选择病害位置</option>';
+            $.each(result, function (i, item) {
+                options += '<option value="' + item.id + '">' + item.name + '</option>';
+            });
+            $("#position").html(options).selectpicker('refresh');
         });
     }
 
@@ -458,12 +548,239 @@
         }
     }
 
+    // 更新病害详情数据填写区域
+    function updateDiseaseDetails(quantity) {
+        var detailsContainer = $("#diseaseDetails");
+        detailsContainer.empty();
+
+        if (quantity < 10) {
+            for (var i = 0; i < quantity; i++) {
+                detailsContainer.append(`
+                    <div class="col-sm-12">
+                        <div class="form-group">
+                            <label class="col-sm-1 control-label">缺损-${i}:</label>
+                            <div class="col-sm-11">
+                                <div class="row">
+                                    <div class="form-group">
+                                        <label class="col-sm-3 control-label">裂缝特征：</label>
+                                        <div class="col-sm-8">
+                                            <select class="form-control" name="diseaseDetails[${i}].crackType">
+                                                <option value="纵向">纵向</option>
+                                                <option value="横向">横向</option>
+                                                <option value="斜向">斜向</option>
+                                                <option value="L型">L型</option>
+                                                <option value="U型">U型</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row" style="margin-bottom: 20px;">
+                                    <label class="col-sm-2 control-label">距参考面1位置：</label>
+                                    <div class="col-sm-3">
+                                        <label class="col-sm-2 control-label">距</label>
+                                        <div class="col-sm-10">
+                                            <select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}">
+                                                <option value="">请选择</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <input name="diseaseDetails[${i}].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <input name="diseaseDetails[${i}].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                    </div>
+                                </div>
+                                <div class="row" style="margin-bottom: 20px;">
+                                    <label class="col-sm-2 control-label">距参考面2位置：</label>
+                                    <div class="col-sm-3">
+                                        <label class="col-sm-2 control-label">距</label>
+                                        <div class="col-sm-10">
+                                            <select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}">
+                                                <option value="">请选择</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <input name="diseaseDetails[${i}].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <input name="diseaseDetails[${i}].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">长度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].length" class="form-control" type="number" step="0.01" placeholder="长度">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">宽度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].width" class="form-control" type="number" step="0.01" placeholder="宽度">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">高度/深度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].heightDepth" class="form-control" type="number" step="0.01" placeholder="高度/深度">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">缝宽:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].crackWidth" class="form-control" type="number" step="0.0001" placeholder="缝宽">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">面积:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].area" class="form-control" type="number" step="0.01" placeholder="面积">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">体积:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].volume" class="form-control" type="number" step="0.01" placeholder="体积">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">角度:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].angle" class="form-control" type="number" placeholder="角度">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-4 control-label">百分比:</label>
+                                            <div class="col-sm-8">
+                                                <input name="diseaseDetails[${i}].percentage" class="form-control" type="number" step="0.01" placeholder="百分比">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row" style="margin-bottom: 20px;">
+                                    <div class="col-sm-3">
+                                    </div>
+                                    <div class="col-sm-6">
+                                         <div class="form-group" style="margin-bottom: 20px;">
+                                            <label class="col-sm-2 control-label">发展趋势:</label>
+                                            <div class="col-sm-10">
+                                                <select class="form-control" name="diseaseDetails[${i}].developmentTrend">
+                                                    <option value="稳定">稳定</option>
+                                                    <option value="发展">发展</option>
+                                                    <option value="新增">新增</option>
+                                                    <option value="已维修">已维修</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `);
+            }
+        } else if (quantity >= 10){
+            detailsContainer.append(`
+                <div class="col-sm-12">
+                    <div class="form-group">
+                            <div class="row">
+                                <div class="form-group">
+                                    <label class="col-sm-3 control-label">裂缝特征：</label>
+                                    <div class="col-sm-9">
+                                        <select class="form-control" name="diseaseDetails[0].crackType">
+                                            <option value="纵向">纵向</option>
+                                            <option value="横向">横向</option>
+                                            <option value="斜向">斜向</option>
+                                            <option value="L型">L型</option>
+                                            <option value="U型">U型</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom: 20px;">
+                                <label class="col-sm-2 control-label">距参考面1位置：</label>
+                                <div class="col-sm-3">
+                                    <label class="col-sm-2 control-label">距</label>
+                                    <div class="col-sm-10">
+                                        <select class="form-control" name="diseaseDetails[0].reference1Location" id="reference1Location">
+                                            <option value="">请选择</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <input name="diseaseDetails[0].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                </div>
+                                <div class="col-sm-3">
+                                    <input name="diseaseDetails[0].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom: 20px;">
+                                <label class="col-sm-2 control-label">距参考面2位置：</label>
+                                <div class="col-sm-3">
+                                    <label class="col-sm-2 control-label">距</label>
+                                    <div class="col-sm-10">
+                                        <select class="form-control" name="diseaseDetails[0].reference2Location" id="reference2Location">
+                                            <option value="">请选择</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <input name="diseaseDetails[0].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置">
+                                </div>
+                                <div class="col-sm-3">
+                                    <input name="diseaseDetails[0].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置">
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom: 20px;">
+                                <label class="col-sm-2 control-label">长度范围：</label>
+                                <div class="col-sm-4">
+                                    <input name="diseaseDetails[0].lengthRangeStart" class="form-control" type="number" step="0.01" placeholder="请填写">
+                                </div>
+                                <div class="col-sm-4">
+                                    <input name="diseaseDetails[0].lengthRangeEnd" class="form-control" type="number" step="0.01" placeholder="请填写">
+                                </div>
+                            </div>
+                            <div class="row" style="margin-bottom: 20px;">
+                                <label class="col-sm-2 control-label">缝宽范围：</label>
+                                <div class="col-sm-4">
+                                    <input name="diseaseDetails[0].crackWidthRangeStart" class="form-control" type="number" step="0.0001" placeholder="请填写">
+                                </div>
+                                <div class="col-sm-4">
+                                    <input name="diseaseDetails[0].crackWidthRangeEnd" class="form-control" type="number" step="0.0001" placeholder="请填写">
+                                </div>
+                            </div>
+                    </div>
+                </div>
+            `);
+        }
+    }
 
     // 上传图片
     // 图片选择预览处理
     $("#diseaseImages").change(function() {
         var previewContainer = $("#imagePreview");
-        
+
         if (this.files && this.files.length > 0) {
             var file = this.files[0]; // 每次只取第一张图片
             if (file.type.match('image.*')) {
@@ -485,7 +802,7 @@
                 reader.readAsDataURL(file);
             }
         }
-        
+
         // 清空input，允许再次选择相同的文件
         $(this).val('');
     });
@@ -499,16 +816,16 @@
     function submitHandler() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
-            
+
             // 确保deductPoints是整数
             var deductPoints = $("#deductPoints").val();
             formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
-            
+
             // 添加图片文件
             $("#imagePreview").find('.thumbnail').each(function() {
                 var fileName = $(this).find('input[name="imageFiles"]').val();
                 var imgSrc = $(this).find('img').attr('src');
-                
+
                 // 如果是Base64格式，转换为Blob
                 if (imgSrc.startsWith('data:image')) {
                     var imageBlob = dataURItoBlob(imgSrc);
@@ -553,19 +870,34 @@
         return new Blob([ab], {type: mimeString});
     }
 
+    // 解析字符串以获取下拉框的选项
+    function parseProps(props) {
+        var parsedProps = {};
+        var pairs = props.split('&&');
+        for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split(':=');
+            var key = pair[0];
+            var values = pair[1].split('、');
+            parsedProps[key] = values.map(function(value) {
+                return { id: value, name: value };
+            });
+        }
+        return parsedProps;
+    }
+
     function submitAndCopy() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
-            
+
             // 确保deductPoints是整数
             var deductPoints = $("#deductPoints").val();
             formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
-            
+
             // 添加图片文件
             $("#imagePreview").find('.thumbnail').each(function() {
                 var fileName = $(this).find('input[name="imageFiles"]').val();
                 var imgSrc = $(this).find('img').attr('src');
-                
+
                 // 如果是Base64格式，转换为Blob
                 if (imgSrc.startsWith('data:image')) {
                     var imageBlob = dataURItoBlob(imgSrc);

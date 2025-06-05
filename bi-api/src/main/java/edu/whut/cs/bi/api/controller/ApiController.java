@@ -9,6 +9,7 @@ import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -18,8 +19,8 @@ import org.springframework.web.bind.annotation.*;
 import com.ruoyi.common.core.domain.AjaxResult;
 
 import javax.annotation.Resource;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -48,6 +49,9 @@ public class ApiController {
 
     @Resource
     private DiseaseMapper diseaseMapper;
+
+    @Resource
+    private DiseaseDetailMapper diseaseDetailMapper;
 
     /**
      * 无权限访问
@@ -117,24 +121,42 @@ public class ApiController {
     /**
      * 根据 BuidlingId 和 Year 查询桥梁历史病害
      */
-    @GetMapping("/building/{bid}/disease/{year}")
+    @GetMapping("/building/{bid}/disease")
     @RequiresPermissions("biz:disease:list")
     @ResponseBody
-    public AjaxResult getDisease(@PathVariable("bid") Long buildingId, @PathVariable("year") int year) {
+    public AjaxResult getDisease(@PathVariable("bid") Long buildingId, @RequestParam(required = false, name = "year") Integer year) {
         if (buildingId == null) {
             return AjaxResult.error("参数错误");
         }
         Disease disease = new Disease();
         disease.setBuildingId(buildingId);
-        disease.setYear(year);
+        if (year != null) {
+            disease.setYear(year);
+        }
+
         List<Disease> diseases = diseaseService.selectDiseaseList(disease);
+        List<DiseasesOfYearVo> result = null;
+        if (year == null) {
+            Map<Integer, List<Disease>> map = diseases.stream()
+                    .collect(Collectors.groupingBy(d -> d.getProject().getYear()));
 
-        DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
-        diseasesOfYearVo.setDiseases(diseases);
-        diseasesOfYearVo.setYear(year);
-        diseasesOfYearVo.setBuildingId(buildingId);
+            result = map.keySet().stream().map(y -> {
+                DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+                diseasesOfYearVo.setYear(y);
+                diseasesOfYearVo.setDiseases(map.get(y));
+                diseasesOfYearVo.setBuildingId(buildingId);
+                return diseasesOfYearVo;
+            }).toList();
+        } else {
+            DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+            diseasesOfYearVo.setDiseases(diseases);
+            diseasesOfYearVo.setYear(year);
+            diseasesOfYearVo.setBuildingId(buildingId);
+            result = List.of(diseasesOfYearVo);
+        }
 
-        return AjaxResult.success("查询成功", diseasesOfYearVo);
+
+        return AjaxResult.success("查询成功", result);
     }
 
     /**
@@ -216,24 +238,31 @@ public class ApiController {
                 return AjaxResult.error("参数错误：病害列表为空");
             }
             int successCount = 0;
+            //记录已经插入了的构件
+            HashMap<String,Long> map = new HashMap<>();
             for (Disease disease : diseases) {
-                // 设置创建时间
-                disease.setCreateTime(DateUtils.getNowDate());
-
                 // 通过构件名称查找构件ID
-                if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null) {
-                    Component queryComponent = new Component();
-                    queryComponent.setName(disease.getComponent().getName());
-                    queryComponent.setBiObjectId(disease.getBiObjectId());
-
-                    List<Component> components = componentService.selectComponentList(queryComponent);
-                    if (!components.isEmpty()) {
-                        disease.setComponentId(components.get(0).getId());
-                    }
+                Component component = disease.getComponent();
+                component.setCreateBy(ShiroUtils.getLoginName());
+                component.setUpdateBy(ShiroUtils.getLoginName());
+                if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !map.containsKey(component.getName())) {
+                    componentService.insertComponent(component);
+                    map.put(component.getName(), component.getId());
                 }
-
+                if(disease.getComponent() != null && disease.getComponentId() != null) {
+                    componentService.updateComponent(component);
+                }
+                // 病害类型id为空则默认为其他的病害类型
+                if(disease.getDiseaseTypeId()==null || disease.getDiseaseType().getId()==null || disease.getDiseaseType().getName().equals("其他")) {
+                    disease.setDiseaseTypeId(238L);
+                }
+                disease.setComponentId(map.get(component.getName()));
                 // 插入病害记录
                 successCount += diseaseMapper.insertDisease(disease);
+                // 添加病害详情
+                List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+                diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+                diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
             }
 
             return AjaxResult.success("批量保存病害成功", successCount);

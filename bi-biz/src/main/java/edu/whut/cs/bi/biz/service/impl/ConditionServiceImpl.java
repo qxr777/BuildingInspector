@@ -119,7 +119,7 @@ public class ConditionServiceImpl implements IConditionService {
             return condition;
         }
 
-        // 3. 获取构件数量（用于查找t值）
+        // 获取构件数量（用于查找t值）
         int componentsCount = biObject.getCount();
         condition.setComponentsCount(componentsCount);
 

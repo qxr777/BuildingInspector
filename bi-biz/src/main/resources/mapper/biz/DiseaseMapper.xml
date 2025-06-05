@@ -34,6 +34,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <result property="maxScale" column="dt_max_scale"/>
             <result property="status" column="dt_status"/>
         </association>
+
+        <association property="project" javaType="Project">
+            <result property="year" column="bp_year"/>
+        </association>
     </resultMap>
 
     <sql id="selectDiseaseVo">
@@ -41,7 +45,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
             d.nature , d.participate_assess, d.deduct_points,
             d.project_id, d.bi_object_id, d.building_id, d.component_id, d.remark,
-            d.create_by, d.create_time, d.update_by, d.update_time,
+            d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
             dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
         from bi_disease d
         left join bi_disease_type dt on d.disease_type_id = dt.id

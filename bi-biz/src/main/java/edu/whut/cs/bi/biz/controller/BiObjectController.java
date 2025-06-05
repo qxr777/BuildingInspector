@@ -182,4 +182,11 @@ public class BiObjectController extends BaseController {
         List<Ztree> ztrees = biObjectService.selectBiObjectTree(rootObjectId);
         return ztrees;
     }
+
+    @PostMapping("/selectPositionList")
+    @ResponseBody
+    public List<BiObject> selectPositionList(Long parentId) {
+        List<BiObject> biObjects = biObjectService.selectLeafNodes(parentId);
+        return biObjects;
+    }
 }

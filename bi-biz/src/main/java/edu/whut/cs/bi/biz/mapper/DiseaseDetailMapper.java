@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.DiseaseDetail;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -68,4 +69,12 @@ public interface DiseaseDetailMapper {
      * @return 结果
      */
     int deleteDiseaseDetailByIds(Long[] ids);
+
+    /**
+     * 批量新增病害详情
+     *
+     * @param diseaseDetails 病害详情集合
+     * @return 结果
+     */
+    void insertDiseaseDetails(@Param("diseaseDetails") List<DiseaseDetail> diseaseDetails);
 }

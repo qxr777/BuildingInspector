@@ -264,8 +264,8 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
     }
 
     @Override
-    public List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long templateObjectId) {
-        List<Long> diseaseTypeIds = toDiseaseTypeMapper.selectByTemplateObjectId(templateObjectId);
+    public List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long biObjectId) {
+        List<Long> diseaseTypeIds = toDiseaseTypeMapper.selectByTemplateObjectId(biObjectId);
         if (diseaseTypeIds != null && diseaseTypeIds.size() > 0) {
             return diseaseTypeMapper.selectDiseaseTypeListByIds(diseaseTypeIds);
         }

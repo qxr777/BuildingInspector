@@ -22,10 +22,10 @@ public interface TODiseaseTypeMapper
     /**
      * 查询模板对象和病害类型关联数据
      *
-     * @param templateObjectId
+     * @param biObjectId
      * @return
      */
-    List<Long> selectByTemplateObjectId(Long templateObjectId);
+    List<Long> selectByTemplateObjectId(Long biObjectId);
 
     /**
      * 删除模板对象和病害类型关联数据

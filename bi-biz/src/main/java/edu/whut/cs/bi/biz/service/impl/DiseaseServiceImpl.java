@@ -5,11 +5,9 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import edu.whut.cs.bi.biz.domain.*;
 
-import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
-import edu.whut.cs.bi.biz.mapper.ComponentMapper;
-import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
-import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
+import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.IComponentService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,16 +36,21 @@ public class DiseaseServiceImpl implements IDiseaseService
     private DiseaseTypeMapper diseaseTypeMapper;
 
     @Resource
-    private ComponentMapper componentMapper;
+    private IComponentService componentService;
 
     @Resource
     private BiObjectMapper biObjectMapper;
 
-    @Autowired
+    @Resource
     private IFileMapService fileMapService;
 
-    @Autowired
+    @Resource
     private AttachmentService attachmentService;
+
+    @Resource
+    private DiseaseDetailMapper diseaseDetailMapper;
+
+
     /**
      * 查询病害
      *
@@ -65,8 +68,13 @@ public class DiseaseServiceImpl implements IDiseaseService
             disease.setBiObject(biObjectMapper.selectBiObjectById(biObjectId));
         }
         if (componentId != null) {
-            disease.setComponent(componentMapper.selectComponentById(componentId));
+            disease.setComponent(componentService.selectComponentById(componentId));
         }
+
+        DiseaseDetail diseaseDetail = new DiseaseDetail();
+        diseaseDetail.setDiseaseId(id);
+        List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
+        disease.setDiseaseDetails(diseaseDetails);
 
         return disease;
     }
@@ -100,13 +108,23 @@ public class DiseaseServiceImpl implements IDiseaseService
             Long componentId = ds.getComponentId();
 
             if (componentId != null) {
-                Component component = componentMapper.selectComponentById(componentId);
+                Component component = componentService.selectComponentById(componentId);
                 BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
+
                 if (parent != null) {
                     component.setParentObjectName(parent.getName());
+                    BiObject grandBiObject = biObjectMapper.selectBiObjectById(parent.getParentId());
+                    if (grandBiObject != null) {
+                        component.setGrandObjectName(grandBiObject.getName());
+                    }
                 }
                 ds.setComponent(component);
             }
+
+            DiseaseDetail diseaseDetail = new DiseaseDetail();
+            diseaseDetail.setDiseaseId(ds.getId());
+            List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
+            ds.setDiseaseDetails(diseaseDetails);
         });
         return diseases;
     }
@@ -124,7 +142,24 @@ public class DiseaseServiceImpl implements IDiseaseService
         Long diseaseTypeId = disease.getDiseaseTypeId();
         DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
         disease.setType(diseaseType.getName());
-        return diseaseMapper.insertDisease(disease);
+
+        // 新增部件
+        BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+        Component component = disease.getComponent();
+        component.setName(biObject.getName());
+        component.setBiObjectId(disease.getBiObjectId());
+        componentService.insertComponent(component);
+
+        disease.setComponentId(component.getId());
+
+        Integer result = diseaseMapper.insertDisease(disease);
+
+        // 添加病害详情
+        List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+        diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+
+        return result;
     }
 
     /**

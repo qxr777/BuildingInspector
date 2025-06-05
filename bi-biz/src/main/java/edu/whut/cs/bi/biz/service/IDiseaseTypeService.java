@@ -104,8 +104,8 @@ public interface IDiseaseTypeService
     /**
      * 通过模板对象id查询病害类型
      *
-     * @param templateObjectId
+     * @param biObjectId
      * @return
      */
-    List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long templateObjectId);
+    List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long biObjectId);
 }
