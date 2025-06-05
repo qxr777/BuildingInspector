@@ -97,4 +97,12 @@ public interface ComponentMapper {
      * @return 结果
      */
     public int batchInsertComponents(@Param("components") List<Component> components);
+
+    /**
+     * 批量更新构件
+     *
+     * @param components 构件集合
+     * @return 结果
+     */
+    public int batchUpdateComponents(@Param("components") List<Component> components);
 }

@@ -337,9 +337,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
     private void buildTreeStructure(BiObject node) {
         // 使用selectChildrenByParentId直接获取子节点
         List<BiObject> children = biObjectMapper.selectChildrenByParentId(node.getId());
-        List<Component> components = componentService.selectComponentsByBiObjectIdApi(node.getId());
         List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(node.getTemplateObjectId());
-        node.setComments(components);
         node.setDiseaseTypes(diseaseTypes);
         if (!children.isEmpty()) {
             node.setChildren(children);
@@ -374,25 +372,31 @@ public class BiObjectServiceImpl implements IBiObjectService {
         biObjectMapper.updateBiObject(biObject);
         updateCount++;
 
-        // 2. 处理构件更新
-        List<Component> newComponents = biObject.getComments();
-        if (newComponents != null && !newComponents.isEmpty()) {
-            // 逻辑删除该BiObject下所有的构件（一次数据库操作）
-            componentService.deleteComponentsByBiObjectId(biObject.getId());
-
-            for (Component component : newComponents) {
-                // 设置必要的系统字段
-                component.setCreateBy(ShiroUtils.getLoginName());
-                component.setCreateTime(new Date());
-                component.setUpdateBy(ShiroUtils.getLoginName());
-                component.setUpdateTime(new Date());
-                component.setStatus("0"); // 默认正常状态
-                component.setDelFlag("0"); // 默认存在
-            }
-
-            // 批量插入所有构件（一次数据库操作）
-            componentService.batchInsertComponents(newComponents);
-        }
+//        // 2. 处理构件更新
+//        List<Component> newComponents = biObject.getComments();
+//        List<Component> updateComponents = new ArrayList<>();
+//        List<Component> insertComponents = new ArrayList<>();
+//        if (newComponents != null && !newComponents.isEmpty()) {
+//            for (Component component : newComponents) {
+//                if(component.getId() == null ) {
+//                    // 设置必要的系统字段
+//                    component.setCreateBy(ShiroUtils.getLoginName());
+//                    component.setCreateTime(new Date());
+//                    component.setUpdateBy(ShiroUtils.getLoginName());
+//                    component.setUpdateTime(new Date());
+//                    component.setStatus("0"); // 默认正常状态
+//                    component.setDelFlag("0"); // 默认存在
+//                    insertComponents.add(component);
+//                } else {
+//                    component.setUpdateBy(ShiroUtils.getLoginName());
+//                    component.setUpdateTime(new Date());
+//                    updateComponents.add(component);
+//                }
+//            }
+//            // 批量插入所有构件（一次数据库操作）
+//            componentService.batchInsertComponents(insertComponents);
+//            componentService.batchUpdateComponents(updateComponents);
+//        }
 
         // 3. 递归处理子节点
         List<BiObject> children = biObject.getChildren();

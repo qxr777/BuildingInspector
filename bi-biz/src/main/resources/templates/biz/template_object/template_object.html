@@ -53,6 +53,7 @@
                     });
                 }, 500);
             },
+            expandAll: false,
             columns: [{
                 field: 'selectItem',
                 radio: true
@@ -91,11 +92,8 @@
                         // 创建更多操作菜单
                         var more = [];
                         more.push('<a class="btn btn-default btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="selectDiseaseType(\'' + row.id + '\')"><i class="fa fa-bug"></i>病害类型</a> ');
 
-                        // 如果是叶子节点（没有子节点），添加病害类型按钮
-                        if (!row.children || row.children.length === 0) {
-                            more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="selectDiseaseType(\'' + row.id + '\')"><i class="fa fa-bug"></i>病害类型</a> ');
-                        }
 
                         actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
                         return actions.join('');

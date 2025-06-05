@@ -7,6 +7,7 @@ import edu.whut.cs.bi.biz.domain.*;
 
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.IComponentService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +36,7 @@ public class DiseaseServiceImpl implements IDiseaseService
     private DiseaseTypeMapper diseaseTypeMapper;
 
     @Resource
-    private ComponentMapper componentMapper;
+    private IComponentService componentService;
 
     @Resource
     private BiObjectMapper biObjectMapper;
@@ -67,7 +68,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             disease.setBiObject(biObjectMapper.selectBiObjectById(biObjectId));
         }
         if (componentId != null) {
-            disease.setComponent(componentMapper.selectComponentById(componentId));
+            disease.setComponent(componentService.selectComponentById(componentId));
         }
 
         DiseaseDetail diseaseDetail = new DiseaseDetail();
@@ -107,7 +108,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             Long componentId = ds.getComponentId();
 
             if (componentId != null) {
-                Component component = componentMapper.selectComponentById(componentId);
+                Component component = componentService.selectComponentById(componentId);
                 BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
 
                 if (parent != null) {
@@ -147,7 +148,7 @@ public class DiseaseServiceImpl implements IDiseaseService
         Component component = disease.getComponent();
         component.setName(biObject.getName());
         component.setBiObjectId(disease.getBiObjectId());
-        componentMapper.insertComponent(component);
+        componentService.insertComponent(component);
 
         disease.setComponentId(component.getId());
 
