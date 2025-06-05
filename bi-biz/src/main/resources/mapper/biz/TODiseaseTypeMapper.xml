@@ -41,4 +41,22 @@
         </foreach>
     </delete>
 
+    <select id="batchSelectByTemplateObjectIds" resultType="java.util.HashMap">
+        select template_object_id, disease_type_id
+        from bi_template_object_disease_type
+        where template_object_id in
+        <foreach collection="templateObjectIds" item="templateObjectId" open="(" separator="," close=")">
+            #{templateObjectId}
+        </foreach>
+    </select>
+
+    <select id="selectTemplateObjectDiseaseTypeMappings" resultType="java.util.HashMap">
+        select template_object_id, disease_type_id
+        from bi_template_object_disease_type
+        where template_object_id in
+        <foreach collection="templateObjectIds" item="templateObjectId" open="(" separator="," close=")">
+            #{templateObjectId}
+        </foreach>
+    </select>
+
 </mapper>

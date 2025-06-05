@@ -43,7 +43,7 @@
 
 		.chat-container {
 			position: fixed;
-			bottom: 117px;
+			bottom: 80px;
 			right: 20px;
 			width: 380px;
 			height: 680px;
@@ -120,34 +120,14 @@
 		}
 
 		.chat-messages {
-			height: 320px;
+			height: 420px;
 			padding: 10px;
 			overflow-y: auto;
 			background-color: #f8f9fa;
 			flex: 1;
 		}
 
-		.quick-questions {
-			padding: 6px;
-		}
 
-		.quick-question-btn {
-			display: block;
-			width: 100%;
-			padding: 6px 10px;
-			margin-bottom: 6px;
-			background-color: white;
-			border: 1px solid #e0e0e0;
-			border-radius: 18px;
-			text-align: left;
-			font-size: 13px;
-			cursor: pointer;
-			transition: background-color 0.2s;
-		}
-
-		.quick-question-btn:hover {
-			background-color: #f0f0f0;
-		}
 
 		.chat-input {
 			display: flex;
@@ -510,11 +490,6 @@
 	<div class="chat-messages" id="chatMessages">
 		<!-- 消息将通过JS动态添加 -->
 	</div>
-	<div class="quick-questions">
-		<button class="quick-question-btn" data-question="公司有哪些突出的业务领域？">公司有哪些突出的业务领域？</button>
-		<button class="quick-question-btn" data-question="公司获得过哪些荣誉？">公司获得过哪些荣誉？</button>
-		<button class="quick-question-btn" data-question="公司未来有怎样的发展规划？">公司未来有怎样的发展规划？</button>
-	</div>
 	<div class="chat-input">
 		<input type="text" id="messageInput" placeholder="输入消息...">
 		<label for="fileInput" class="functions-btn" title="上传文件"><i class="fa fa-file"></i></label>
@@ -648,6 +623,8 @@ $(function() {
 // 聊天机器人 js
 const RagUrl = 'http://47.94.205.90:8081';  // springai 项目地址
 const BootUrl = 'http://60.205.13.156:8090';    // 主项目地址
+
+
 async function getUserId() {
 	try {
 		const userIdUrl = BootUrl+'/biz/chat/getUserId';
@@ -687,10 +664,21 @@ async function sendMessage() {
 			return;
 		}
 		// 调用API
+		const params = new URLSearchParams({
+			message: message,  // 包含特殊字符的消息
+			userId: userId
+		});
 		const url = RagUrl+'/api/dialog';
-		const response = await fetch(url+`?message=${encodeURIComponent(message)}&userId=${encodeURIComponent(userId)}`);
-		if (!response.ok) throw new Error('请求失败');
-		const content = await response.text();
+		const response = await fetch(url+`?${params}`,{
+			method : 'GET',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
+	});
+		if (!response.ok){
+			throw new Error('请求失败');
+		}
+		const content =  await response.text();
 
 		// 添加机器人回复
 		addMessage(content, 'received');
@@ -833,34 +821,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		addMessage("嗨，你好！我专注于为你提供精准的企业信息服务，助力你深入了解。", 'received');
 	}, 500);
 
-	// 为预设问题按钮添加点击事件
-	document.querySelectorAll('.quick-question-btn').forEach(function(button) {
-		button.addEventListener('click', function() {
-			const question = this.getAttribute('data-question');
-			// 添加用户消息
-			addMessage(question, 'sent');
-			// 触发发送消息流程
-			getUserId().then(userId => {
-				if (userId === null) {
-					addMessage('无法获取用户ID，请稍后再试', 'received');
-					return;
-				}
-				fetch(RagUrl+`/api/dialog?message=${encodeURIComponent(question)}&userId=${encodeURIComponent(userId)}`)
-						.then(response => {
-							if (!response.ok) throw new Error('请求失败');
-							return response.text();
-						})
-						.then(content => {
-							// 添加机器人回复
-							addMessage(content, 'received');
-						})
-						.catch(error => {
-							addMessage('服务暂时不可用，请稍后再试', 'received');
-							console.error('API请求错误:', error);
-						});
-			});
-		});
-	});
+
 
 	// 文件上传按钮点击事件
 	document.getElementById('fileInput').addEventListener('change', function() {
