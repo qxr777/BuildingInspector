@@ -149,6 +149,7 @@ public class DiseaseServiceImpl implements IDiseaseService
         Component component = disease.getComponent();
         component.setName(biObject.getName());
         component.setBiObjectId(disease.getBiObjectId());
+        component.setCode(biObject.getName() + "#" + component.getCode());
         componentService.insertComponent(component);
 
         disease.setComponentId(component.getId());
@@ -174,11 +175,11 @@ public class DiseaseServiceImpl implements IDiseaseService
         disease.setUpdateTime(DateUtils.getNowDate());
 
         // 更新部件信息
-        Component component = componentMapper.selectComponentById(disease.getComponentId());
+        Component component = componentService.selectComponentById(disease.getComponentId());
         component.setCode(disease.getComponent().getCode());
         component.setUpdateTime(DateUtils.getNowDate());
         component.setUpdateBy(ShiroUtils.getLoginName());
-        componentMapper.updateComponent(component);
+        componentService.updateComponent(component);
 
         // 删除病害详情
         List<Long> diseaseDetailIds = disease.getDiseaseDetails().stream().map(d -> d.getId()).toList();
