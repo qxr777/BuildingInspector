@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
@@ -26,15 +26,58 @@
         <result property="developmentTrend" column="development_trend"/>
         <result property="lengthRangeStart" column="length_range_start"/>
         <result property="lengthRangeEnd" column="length_range_end"/>
+        <result property="widthRangeStart" column="width_range_start"/>
+        <result property="widthRangeEnd" column="width_range_end"/>
+        <result property="heightDepthRangeStart" column="height_depth_range_start"/>
+        <result property="heightDepthRangeEnd" column="height_depth_range_end"/>
         <result property="crackWidthRangeStart" column="crack_width_range_start"/>
         <result property="crackWidthRangeEnd" column="crack_width_range_end"/>
+        <result property="areaRangeStart" column="area_range_start"/>
+        <result property="areaRangeEnd" column="area_range_end"/>
+        <result property="volumeRangeStart" column="volume_range_start"/>
+        <result property="volumeRangeEnd" column="volume_range_end"/>
+        <result property="angleRangeStart" column="angle_range_start"/>
+        <result property="angleRangeEnd" column="angle_range_end"/>
+        <result property="percentageRangeStart" column="percentage_range_start"/>
+        <result property="percentageRangeEnd" column="percentage_range_end"/>
     </resultMap>
 
     <sql id="selectDiseaseDetailVo">
-        select id, disease_id, crack_type, reference1_location, reference1_location_start, reference1_location_end,
-               reference2_location, reference2_location_start, reference2_location_end, length, width, height_depth,
-               crack_width, area, volume, angle, percentage, development_trend, length_range_start, length_range_end,
-               crack_width_range_start, crack_width_range_end
+        select
+            id,
+            disease_id,
+            crack_type,
+            reference1_location,
+            reference1_location_start,
+            reference1_location_end,
+            reference2_location,
+            reference2_location_start,
+            reference2_location_end,
+            length,
+            width,
+            height_depth,
+            crack_width,
+            area,
+            volume,
+            angle,
+            percentage,
+            development_trend,
+            length_range_start,
+            length_range_end,
+            width_range_start,
+            width_range_end,
+            height_depth_range_start,
+            height_depth_range_end,
+            crack_width_range_start,
+            crack_width_range_end,
+            area_range_start,
+            area_range_end,
+            volume_range_start,
+            volume_range_end,
+            angle_range_start,
+            angle_range_end,
+            percentage_range_start,
+            percentage_range_end
         from bi_disease_detail
     </sql>
 
@@ -72,8 +115,20 @@
             <if test="developmentTrend != null and developmentTrend != ''">development_trend,</if>
             <if test="lengthRangeStart != null">length_range_start,</if>
             <if test="lengthRangeEnd != null">length_range_end,</if>
+            <if test="widthRangeStart != null">width_range_start,</if>
+            <if test="widthRangeEnd != null">width_range_end,</if>
+            <if test="heightDepthRangeStart != null">height_depth_range_start,</if>
+            <if test="heightDepthRangeEnd != null">height_depth_range_end,</if>
             <if test="crackWidthRangeStart != null">crack_width_range_start,</if>
             <if test="crackWidthRangeEnd != null">crack_width_range_end,</if>
+            <if test="areaRangeStart != null">area_range_start,</if>
+            <if test="areaRangeEnd != null">area_range_end,</if>
+            <if test="volumeRangeStart != null">volume_range_start,</if>
+            <if test="volumeRangeEnd != null">volume_range_end,</if>
+            <if test="angleRangeStart != null">angle_range_start,</if>
+            <if test="angleRangeEnd != null">angle_range_end,</if>
+            <if test="percentageRangeStart != null">percentage_range_start,</if>
+            <if test="percentageRangeEnd != null">percentage_range_end,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="diseaseId != null">#{diseaseId},</if>
@@ -95,8 +150,20 @@
             <if test="developmentTrend != null and developmentTrend != ''">#{developmentTrend},</if>
             <if test="lengthRangeStart != null">#{lengthRangeStart},</if>
             <if test="lengthRangeEnd != null">#{lengthRangeEnd},</if>
+            <if test="widthRangeStart != null">#{widthRangeStart},</if>
+            <if test="widthRangeEnd != null">#{widthRangeEnd},</if>
+            <if test="heightDepthRangeStart != null">#{heightDepthRangeStart},</if>
+            <if test="heightDepthRangeEnd != null">#{heightDepthRangeEnd},</if>
             <if test="crackWidthRangeStart != null">#{crackWidthRangeStart},</if>
             <if test="crackWidthRangeEnd != null">#{crackWidthRangeEnd},</if>
+            <if test="areaRangeStart != null">#{areaRangeStart},</if>
+            <if test="areaRangeEnd != null">#{areaRangeEnd},</if>
+            <if test="volumeRangeStart != null">#{volumeRangeStart},</if>
+            <if test="volumeRangeEnd != null">#{volumeRangeEnd},</if>
+            <if test="angleRangeStart != null">#{angleRangeStart},</if>
+            <if test="angleRangeEnd != null">#{angleRangeEnd},</if>
+            <if test="percentageRangeStart != null">#{percentageRangeStart},</if>
+            <if test="percentageRangeEnd != null">#{percentageRangeEnd},</if>
         </trim>
     </insert>
 
@@ -121,8 +188,20 @@
         development_trend,
         length_range_start,
         length_range_end,
+        width_range_start,
+        width_range_end,
+        height_depth_range_start,
+        height_depth_range_end,
         crack_width_range_start,
-        crack_width_range_end
+        crack_width_range_end,
+        area_range_start,
+        area_range_end,
+        volume_range_start,
+        volume_range_end,
+        angle_range_start,
+        angle_range_end,
+        percentage_range_start,
+        percentage_range_end
         )
         values
         <foreach collection="diseaseDetails" item="diseaseDetail" separator=",">
@@ -146,11 +225,24 @@
             #{diseaseDetail.developmentTrend},
             #{diseaseDetail.lengthRangeStart},
             #{diseaseDetail.lengthRangeEnd},
+            #{diseaseDetail.widthRangeStart},
+            #{diseaseDetail.widthRangeEnd},
+            #{diseaseDetail.heightDepthRangeStart},
+            #{diseaseDetail.heightDepthRangeEnd},
             #{diseaseDetail.crackWidthRangeStart},
-            #{diseaseDetail.crackWidthRangeEnd}
+            #{diseaseDetail.crackWidthRangeEnd},
+            #{diseaseDetail.areaRangeStart},
+            #{diseaseDetail.areaRangeEnd},
+            #{diseaseDetail.volumeRangeStart},
+            #{diseaseDetail.volumeRangeEnd},
+            #{diseaseDetail.angleRangeStart},
+            #{diseaseDetail.angleRangeEnd},
+            #{diseaseDetail.percentageRangeStart},
+            #{diseaseDetail.percentageRangeEnd}
             )
         </foreach>
     </insert>
+
     <update id="updateDiseaseDetail" parameterType="DiseaseDetail">
         update bi_disease_detail
         <trim prefix="SET" suffixOverrides=",">
@@ -173,8 +265,20 @@
             <if test="developmentTrend != null and developmentTrend != ''">development_trend = #{developmentTrend},</if>
             <if test="lengthRangeStart != null">length_range_start = #{lengthRangeStart},</if>
             <if test="lengthRangeEnd != null">length_range_end = #{lengthRangeEnd},</if>
+            <if test="widthRangeStart != null">width_range_start = #{widthRangeStart},</if>
+            <if test="widthRangeEnd != null">width_range_end = #{widthRangeEnd},</if>
+            <if test="heightDepthRangeStart != null">height_depth_range_start = #{heightDepthRangeStart},</if>
+            <if test="heightDepthRangeEnd != null">height_depth_range_end = #{heightDepthRangeEnd},</if>
             <if test="crackWidthRangeStart != null">crack_width_range_start = #{crackWidthRangeStart},</if>
             <if test="crackWidthRangeEnd != null">crack_width_range_end = #{crackWidthRangeEnd},</if>
+            <if test="areaRangeStart != null">area_range_start = #{areaRangeStart},</if>
+            <if test="areaRangeEnd != null">area_range_end = #{areaRangeEnd},</if>
+            <if test="volumeRangeStart != null">volume_range_start = #{volumeRangeStart},</if>
+            <if test="volumeRangeEnd != null">volume_range_end = #{volumeRangeEnd},</if>
+            <if test="angleRangeStart != null">angle_range_start = #{angleRangeStart},</if>
+            <if test="angleRangeEnd != null">angle_range_end = #{angleRangeEnd},</if>
+            <if test="percentageRangeStart != null">percentage_range_start = #{percentageRangeStart},</if>
+            <if test="percentageRangeEnd != null">percentage_range_end = #{percentageRangeEnd},</if>
         </trim>
         where id = #{id}
     </update>
@@ -193,5 +297,4 @@
             #{id}
         </foreach>
     </delete>
-
 </mapper>

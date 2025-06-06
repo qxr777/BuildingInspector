@@ -70,10 +70,45 @@ public class DiseaseDetail extends BaseEntity {
     // 长度范围终点
     private BigDecimal lengthRangeEnd;
 
+    // 宽度范围起点
+    private BigDecimal widthRangeStart;
+
+    // 宽度范围终点
+    private BigDecimal widthRangeEnd;
+
+    // 高度/深度范围起点
+    private BigDecimal heightDepthRangeStart;
+
+    // 高度/深度范围终点
+    private BigDecimal heightDepthRangeEnd;
+
     // 缝宽范围起点
     private BigDecimal crackWidthRangeStart;
 
     // 缝宽范围终点
     private BigDecimal crackWidthRangeEnd;
 
+    // 面积范围起点
+    private BigDecimal areaRangeStart;
+
+    // 面积范围终点
+    private BigDecimal areaRangeEnd;
+
+    // 体积范围起点
+    private BigDecimal volumeRangeStart;
+
+    // 体积范围终点
+    private BigDecimal volumeRangeEnd;
+
+    // 角度范围起点
+    private BigDecimal angleRangeStart;
+
+    // 角度范围终点
+    private BigDecimal angleRangeEnd;
+
+    // 百分比范围起点
+    private BigDecimal percentageRangeStart;
+
+    // 百分比范围终点
+    private BigDecimal percentageRangeEnd;
 }
