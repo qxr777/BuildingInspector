@@ -272,4 +272,65 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
 
         return List.of();
     }
+
+    @Override
+    public Map<Long, List<DiseaseType>> batchSelectDiseaseTypeListByTemplateObjectIds(List<Long> templateObjectIds) {
+        if (templateObjectIds == null || templateObjectIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        Map<Long, List<DiseaseType>> result = new HashMap<>();
+
+        // 获取模板对象和病害类型的映射关系
+        List<Map<String, Object>> mappings = toDiseaseTypeMapper.selectTemplateObjectDiseaseTypeMappings(templateObjectIds);
+        if (mappings == null || mappings.isEmpty()) {
+            return result;
+        }
+
+        // 构建模板对象ID到病害类型ID的映射
+        Map<Long, List<Long>> templateToDiseaseTypeIds = new HashMap<>();
+        Set<Long> allDiseaseTypeIds = new HashSet<>();
+
+        for (Map<String, Object> mapping : mappings) {
+            Long templateObjectId = ((Number) mapping.get("template_object_id")).longValue();
+            Long diseaseTypeId = ((Number) mapping.get("disease_type_id")).longValue();
+
+            templateToDiseaseTypeIds.computeIfAbsent(templateObjectId, k -> new ArrayList<>()).add(diseaseTypeId);
+            allDiseaseTypeIds.add(diseaseTypeId);
+        }
+
+        if (allDiseaseTypeIds.isEmpty()) {
+            return result;
+        }
+
+        // 一次性查询所有疾病类型
+        List<DiseaseType> allDiseaseTypes = diseaseTypeMapper.selectDiseaseTypeListByIds(new ArrayList<>(allDiseaseTypeIds));
+        if (allDiseaseTypes == null || allDiseaseTypes.isEmpty()) {
+            return result;
+        }
+
+        // 创建疾病类型ID到疾病类型的映射
+        Map<Long, DiseaseType> diseaseTypeMap = new HashMap<>();
+        for (DiseaseType diseaseType : allDiseaseTypes) {
+            diseaseTypeMap.put(diseaseType.getId(), diseaseType);
+        }
+
+        // 构建最终结果
+        for (Map.Entry<Long, List<Long>> entry : templateToDiseaseTypeIds.entrySet()) {
+            Long templateId = entry.getKey();
+            List<Long> diseaseTypeIds = entry.getValue();
+            List<DiseaseType> diseaseTypes = new ArrayList<>();
+
+            for (Long diseaseTypeId : diseaseTypeIds) {
+                DiseaseType diseaseType = diseaseTypeMap.get(diseaseTypeId);
+                if (diseaseType != null) {
+                    diseaseTypes.add(diseaseType);
+                }
+            }
+
+            result.put(templateId, diseaseTypes);
+        }
+
+        return result;
+    }
 }

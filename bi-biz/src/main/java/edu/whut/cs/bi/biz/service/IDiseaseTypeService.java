@@ -6,6 +6,7 @@ import edu.whut.cs.bi.biz.domain.DiseaseType;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 病害类型 业务层
@@ -108,4 +109,12 @@ public interface IDiseaseTypeService
      * @return
      */
     List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long biObjectId);
+
+    /**
+     * 批量查询多个模板对象的病害类型
+     *
+     * @param templateObjectIds 模板对象ID列表
+     * @return 模板对象ID到病害类型列表的映射
+     */
+    Map<Long, List<DiseaseType>> batchSelectDiseaseTypeListByTemplateObjectIds(List<Long> templateObjectIds);
 }
