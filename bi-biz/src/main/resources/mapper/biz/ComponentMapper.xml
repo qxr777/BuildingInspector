@@ -91,6 +91,15 @@
         ) and c.del_flag = '0'
     </select>
 
+    <select id="selectComponent" resultType="edu.whut.cs.bi.biz.domain.Component">
+        <include refid="selectComponentVo"/>
+        <where>
+            <if test="biObjectId != null  and biObjectId != ''"> and c.bi_object_id = #{biObjectId}</if>
+            <if test="code != null  and code != ''"> and c.code = #{code}</if>
+            and c.del_flag = '0'
+        </where>
+    </select>
+
     <insert id="insertComponent" parameterType="Component" useGeneratedKeys="true" keyProperty="id">
         insert into bi_component
         <trim prefix="(" suffix=")" suffixOverrides=",">
