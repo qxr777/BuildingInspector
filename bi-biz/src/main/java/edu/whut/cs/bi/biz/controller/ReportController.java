@@ -377,12 +377,27 @@ public class ReportController extends BaseController {
     try {
       // 1. 根据buildingId查找对应的根属性节点
       Building building = buildingService.selectBuildingById(bid);
+      if (building == null) {
+        response.setStatus(404);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":404,\"msg\":\"未找到对应的建筑信息\"}");
+        return;
+      }
+
       Property property = propertyService.selectPropertyById(building.getRootPropertyId());
+      if (property == null) {
+        response.setStatus(404);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":404,\"msg\":\"未找到对应的属性信息\"}");
+        return;
+      }
+
       List<Property> properties = propertyService.selectPropertyList(property);
 
-      // 读取模板文件
       Resource resource = new ClassPathResource("word.biz/桥梁模板.docx");
       XWPFDocument document = new XWPFDocument(resource.getInputStream());
+
+      // 读取模板文件
       long t = 0L;
       Property temp = null;
       for (Property property1 : properties) {
