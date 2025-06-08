@@ -22,9 +22,20 @@
         <div class="row mb-4">
             <div class="col-sm-2">
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label is-required">构件名称:</label>
+                    <label class="col-sm-4 control-label is-required">构件名称:</label>
                     <div class="col-sm-8">
-                        <input class="form-control" type="text" th:value="${biObject.name}" readonly required>
+                        <input class="form-control"
+                            type="text"
+                            th:if="${biObject.name == '其他'}"
+                            name="biObjectName"
+                            th:value="${biObject.name}"
+                            required>
+                        <input class="form-control"
+                            type="text"
+                            th:if="${biObject.name != '其他'}"
+                            th:value="${biObject.name}"
+                            readonly
+                            required>
                         <input type="hidden" name="biObjectId" th:value="${biObject.id}">
                     </div>
                 </div>
@@ -46,6 +57,8 @@
                                 data-live-search="true" required>
                             <option value="">请选择病害类型</option>
                         </select>
+                        <input type="text" class="form-control" id="customDiseaseType" name="type"
+                                placeholder="请输入自定义病害类型" style="display:none">
                     </div>
                 </div>
             </div>
@@ -57,6 +70,8 @@
                                 data-live-search="true" required>
                             <option value="">请选择病害位置</option>
                         </select>
+                        <input type="text" class="form-control" id="customPosition" name="customPosition"
+                        placeholder="请输入自定义病害位置" style="display:none">
                     </div>
                 </div>
             </div>
@@ -98,14 +113,12 @@
                 <div class="form-group" style="margin-top: 20px;">
                     <label class="col-sm-5 control-label is-required">病害描述(性质、范围、程度等）：</label>
                     <div class="col-sm-7">
-                        <select class="form-control selectpicker" name="description" id="description"
-                                data-live-search="true" required>
-                            <option value=""></option>
-                        </select>
+                        <input class="form-control" name="description" id="description" required
+                               placeholder="请输入病害描述">
                     </div>
                 </div>
             </div>
-            <div class="col-sm-2">
+            <div class="col-sm-2" th:if="${biObject.name != '其他'}">
                 <div class="form-group" style="margin-top: 20px;">
                     <label class="control-label is-required">参与评定：</label>
                     <div class="btn-group" data-toggle="buttons">
@@ -118,7 +131,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
+            <div class="col-sm-3" th:if="${biObject.name != '其他'}">
                 <div class="form-group" style="margin-top: 20px;">
                     <label class="control-label is-required">评定标度：</label>
                     <div class="btn-group" id="levelGroup" data-toggle="buttons">
@@ -131,11 +144,13 @@
                     <div class="row">
                         <div class="col-sm-6">
                             <label class="control-label">最大标度：</label>
-                            <input name="maxScale" class="form-control" type="text" id="maxScale" readonly>
+                            <input name="maxScale" class="form-control" type="text" id="maxScale" readonly
+                                    th:value="${biObject.name == '其他' ? 1 : ''}">
                         </div>
                         <div class="col-sm-6">
                             <label class="control-label">构件扣分：</label>
-                            <input name="deductPoints" class="form-control" type="text" id="deductPoints" readonly>
+                            <input name="deductPoints" class="form-control" type="text" id="deductPoints" readonly
+                                    th:value="${biObject.name == '其他' ? 0 : ''}">
                         </div>
                     </div>
                 </div>
@@ -190,6 +205,7 @@
     var diseaseTypes;
 
     $(function () {
+
         // 初始化病害类型下拉框
         loadDiseaseTypes();
 
@@ -200,25 +216,37 @@
 
         updateDiseaseDetails(1);
 
+        if (biObject.name === '其他') {
+            $("#maxScale").val(1);
+            $("#deductPoints").val(0);
+            $("input[name='level']").remove();
+            $("#form-disease-add").append('<input type="hidden" name="level" value="1">');
+        }
+
         // 监听病害类型选择变化
         $("#diseaseTypeId").change(function () {
-            var selectedId = $(this).val();
-            if (selectedId) {
-                updateLevelGroup(selectedId);
-                var selectedType = diseaseTypes.find(function (item) {
-                    return item.id == selectedId;
-                });
-                $("#maxScale").val(selectedType.maxScale);
-                if (selectedType) {
-                    loadDiseaseScales(selectedType.code, selectedType.maxScale);
-                } else {
-                    // 清空描述选项
-                    $("#description").html('<option value=""></option>').selectpicker('refresh');
-                }
+            var selectedText = $("#diseaseTypeId option:selected").text().trim();
+            if (selectedText === "其他" || selectedText === "其它") {
+                $("#customDiseaseType").show().attr("required", true);
             } else {
-                // 清空描述选项
-                $("#description").html('<option value=""></option>').selectpicker('refresh');
-                updateLevelGroup();
+                $("#customDiseaseType").hide().removeAttr("required").val('');
+                var selectedId = $(this).val();
+                if (selectedId) {
+                    updateLevelGroup(selectedId);
+                    var selectedType = diseaseTypes.find(function (item) {
+                        return item.id == selectedId;
+                    });
+                    $("#maxScale").val(selectedType.maxScale);
+                    if (selectedType) {
+                        loadDiseaseScales(selectedType.code, selectedType.maxScale);
+                    }
+                    // else {
+                    //     $("#description").html('<option value=""></option>').selectpicker('refresh');
+                    // }
+                } else {
+                    // $("#description").html('<option value=""></option>').selectpicker('refresh');
+                    updateLevelGroup();
+                }
             }
         });
 
@@ -233,6 +261,14 @@
 
         // 监听位置选择变化
         $("#position").change(function () {
+            var selectedText = $("#position option:selected").text().trim();
+            if (selectedText === "其他" || selectedText === "其它") {
+                $("#customPosition").show().attr("required", true);
+            } else {
+                $("#customPosition").hide().removeAttr("required").val('');
+            }
+
+
             var selectedId = $(this).val();
             if (selectedId) {
                 var selectedPosition = positionObjects.find(function (item) {
@@ -403,6 +439,7 @@
             $.each(result, function (i, item) {
                 options += '<option value="' + item.id + '">' + item.name + '</option>';
             });
+
             $("#diseaseTypeId").html(options).selectpicker('refresh');
         });
     }
@@ -553,6 +590,8 @@
         var detailsContainer = $("#diseaseDetails");
         detailsContainer.empty();
 
+        var isCustomPosition = (biObject.name === "其他" || biObject.name === "其它");
+
         if (quantity < 10) {
             for (var i = 0; i < quantity; i++) {
                 detailsContainer.append(`
@@ -579,9 +618,12 @@
                                     <div class="col-sm-3">
                                         <label class="col-sm-2 control-label">距</label>
                                         <div class="col-sm-10">
-                                            <select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}">
-                                                <option value="">请选择</option>
-                                            </select>
+                                            ${isCustomPosition
+                                                ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference1Location" placeholder="请输入参考面1位置">`
+                                                : `<select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}">
+                                                        <option value="">请选择</option>
+                                                </select>`
+                                            }
                                         </div>
                                     </div>
                                     <div class="col-sm-3">
@@ -596,9 +638,12 @@
                                     <div class="col-sm-3">
                                         <label class="col-sm-2 control-label">距</label>
                                         <div class="col-sm-10">
-                                            <select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}">
-                                                <option value="">请选择</option>
-                                            </select>
+                                            ${isCustomPosition
+                                                ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference2Location" placeholder="请输入参考面2位置">`
+                                                : `<select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}">
+                                                        <option value="">请选择</option>
+                                                </select>`
+                                            }
                                         </div>
                                     </div>
                                     <div class="col-sm-3">
@@ -723,9 +768,12 @@
                                 <div class="col-sm-3">
                                     <label class="col-sm-2 control-label">距</label>
                                     <div class="col-sm-10">
-                                        <select class="form-control" name="diseaseDetails[0].reference1Location" id="reference1Location">
-                                            <option value="">请选择</option>
-                                        </select>
+                                            ${isCustomPosition
+                                                        ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference1Location" placeholder="请输入参考面1位置">`
+                                                        : `<select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}">
+                                                             <option value="">请选择</option>
+                                                            </select>`
+                                            }
                                     </div>
                                 </div>
                                 <div class="col-sm-3">
@@ -740,9 +788,12 @@
                                 <div class="col-sm-3">
                                     <label class="col-sm-2 control-label">距</label>
                                     <div class="col-sm-10">
-                                        <select class="form-control" name="diseaseDetails[0].reference2Location" id="reference2Location">
-                                            <option value="">请选择</option>
-                                        </select>
+                                            ${isCustomPosition
+                                                ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference2Location" placeholder="请输入参考面2位置">`
+                                                : `<select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}">
+                                                        <option value="">请选择</option>
+                                                </select>`
+                                            }
                                     </div>
                                 </div>
                                 <div class="col-sm-3">
@@ -816,6 +867,12 @@
     function submitHandler() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
+            var positionText = $("#position option:selected").text().trim();
+            if (positionText === "其他" || positionText === "其它") {
+                formData.set("position", $("#customPosition").val());
+            } else{
+                formData.set("position", positionText);
+            }
 
             // 确保deductPoints是整数
             var deductPoints = $("#deductPoints").val();
@@ -888,6 +945,10 @@
     function submitAndCopy() {
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
+            var positionText = $("#position option:selected").text().trim();
+            if (positionText === "其他" || positionText === "其它") {
+                formData.set("position", $("#customPosition").val());
+            }
 
             // 确保deductPoints是整数
             var deductPoints = $("#deductPoints").val();

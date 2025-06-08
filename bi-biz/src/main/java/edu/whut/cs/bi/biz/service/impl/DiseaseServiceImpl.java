@@ -140,19 +140,33 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Transactional
     public Integer insertDisease(Disease disease) {
         disease.setCreateTime(DateUtils.getNowDate());
-        Long diseaseTypeId = disease.getDiseaseTypeId();
-        DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
-        disease.setType(diseaseType.getName());
+        if(disease.getType() == null || disease.getType().equals("")) {
+            Long diseaseTypeId = disease.getDiseaseTypeId();
+            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
+            disease.setType(diseaseType.getName());
+        }
 
         // 新增部件
+        // 判断数据库是否存在相应构件
         BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
         Component component = disease.getComponent();
-        component.setName(biObject.getName());
+
         component.setBiObjectId(disease.getBiObjectId());
         component.setCode(biObject.getName() + "#" + component.getCode());
-        componentService.insertComponent(component);
+        Component old = componentService.selectComponent(component);
+        if (old == null) {
+            component.setName(biObject.getName());
+            componentService.insertComponent(component);
+            disease.setComponentId(component.getId());
+        } else {
+            disease.setComponentId(old.getId());
+        }
 
-        disease.setComponentId(component.getId());
+        if (disease.getBiObjectName() ==  null ||  disease.getBiObjectName().equals("")) {
+            disease.setBiObjectName(biObject.getName());
+        }
+
+
 
         Integer result = diseaseMapper.insertDisease(disease);
 

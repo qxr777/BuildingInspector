@@ -290,4 +290,9 @@ public class ComponentServiceImpl implements IComponentService {
     public int batchUpdateComponents(List<Component> components) {
         return componentMapper.batchUpdateComponents(components);
     }
+
+    @Override
+    public Component selectComponent(Component component) {
+        return componentMapper.selectComponent(component);
+    }
 }

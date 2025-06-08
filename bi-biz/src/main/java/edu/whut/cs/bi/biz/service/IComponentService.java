@@ -116,4 +116,6 @@ public interface IComponentService {
      * @return 结果
      */
     public int batchUpdateComponents(@Param("components") List<Component> components);
+
+    Component selectComponent(Component component);
 }
