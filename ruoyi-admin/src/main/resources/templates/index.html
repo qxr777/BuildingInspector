@@ -212,6 +212,31 @@
 			color: #999;
 			border-top: 1px solid #f0f0f0;
 		}
+		.message-reference {
+			margin-top: 5px;
+			padding: 10px;
+			background: #f5f5f5;
+			border-radius: 6px;
+			box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* 轻微投影 */
+			transition: all 0.3s ease;
+
+			/* 内容缩进 + 图标强化 */
+			text-indent: -1em;
+			padding-left: 2em;
+			position: relative;
+		}
+
+		/* 可选：添加来源图标 */
+		.message-reference::before {
+			content: "📖"; /* 图书 emoji 或自定义图标 */
+			display: inline-block;
+			margin-right: 6px;
+			color: #999;
+		}
+
+		.message-container{
+			margin-bottom: 20px;
+		}
 
 		/* 适配移动设备 */
 		@media screen and (max-width: 600px) {
@@ -501,6 +526,8 @@
 	</div>
 </div>
 <!-- 全局js -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!--md语法解析-->
 <script th:src="@{/js/jquery.min.js}"></script>
 <script th:src="@{/js/bootstrap.min.js}"></script>
 <script th:src="@{/js/plugins/metisMenu/jquery.metisMenu.js}"></script>
@@ -625,6 +652,8 @@ const RagUrl = 'http://47.94.205.90:8081';  // springai 项目地址
 const BootUrl = 'http://60.205.13.156:8090';    // 主项目地址
 
 
+
+
 async function getUserId() {
 	try {
 		const userIdUrl = BootUrl+'/biz/chat/getUserId';
@@ -644,7 +673,6 @@ const closeChat = document.getElementById('closeChat');
 const messageInput = document.getElementById('messageInput');
 const sendMessageButton = document.getElementById('sendMessage');
 const chatMessages = document.getElementById('chatMessages');
-
 
 
 
@@ -678,10 +706,13 @@ async function sendMessage() {
 		if (!response.ok){
 			throw new Error('请求失败');
 		}
-		const content =  await response.text();
+		// 解析JSON响应
+		const data = await response.json();
+		const content = data.content || '';
+		const reference = data.reference || '';
 
-		// 添加机器人回复
-		addMessage(content, 'received');
+		// 添加机器人回复（包含来源）
+		addMessageWithReference(content, reference, 'received');
 	} catch (error) {
 		addMessage('服务暂时不可用，请稍后再试', 'received');
 		console.error('API请求错误:', error);
@@ -694,6 +725,30 @@ function addMessage(content, type) {
 	messageDiv.className = `message ${type}`;
 	messageDiv.textContent = content;
 	chatMessages.appendChild(messageDiv);
+	chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 新增：支持显示来源的消息添加函数
+function addMessageWithReference(content, reference, type) {
+	const chatMessages = document.getElementById('chatMessages');
+	const messageDiv = document.createElement('div');
+	messageDiv.className = `message-container`;
+
+	// 消息内容
+	const contentDiv = document.createElement('div');
+	contentDiv.className = `message ${type}}`;
+	contentDiv.innerHTML = marked.parse(content);
+
+	// 来源信息
+	const referenceDiv = document.createElement('div');
+	referenceDiv.className = 'message-reference';
+	referenceDiv.innerHTML = reference;
+
+	messageDiv.appendChild(contentDiv);
+	messageDiv.appendChild(referenceDiv);
+	chatMessages.appendChild(messageDiv);
+
+	// 滚动到底部
 	chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
