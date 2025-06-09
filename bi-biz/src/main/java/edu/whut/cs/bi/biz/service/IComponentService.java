@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.service;
 
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.dto.CodeSegment;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -107,4 +108,14 @@ public interface IComponentService {
      * @return 结果
      */
     public int deleteComponentsByBiObjectId(Long biObjectId);
+
+    /**
+     * 批量更新构件
+     *
+     * @param components 构件集合
+     * @return 结果
+     */
+    public int batchUpdateComponents(@Param("components") List<Component> components);
+
+    Component selectComponent(Component component);
 }

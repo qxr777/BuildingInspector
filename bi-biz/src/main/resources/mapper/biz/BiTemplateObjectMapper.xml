@@ -45,19 +45,9 @@
     <select id="selectBiTemplateObjectList" parameterType="BiTemplateObject" resultMap="BiTemplateObjectResult">
         SELECT
         t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
-        t.weight, t.props, t.remark, t.create_by, t.create_time, t.update_by, t.update_time,
-        c.id as child_id, c.name as child_name, c.parent_id as child_parent_id,
-        c.ancestors as child_ancestors, c.order_num as child_order_num,
-        c.status as child_status, c.del_flag as child_del_flag,
-        c.weight as child_weight, c.props as child_props, c.remark as child_remark,
-        c.create_by as child_create_by, c.create_time as child_create_time,
-        c.update_by as child_update_by, c.update_time as child_update_time
+        t.weight, t.props, t.remark
         FROM bi_template_object t
-        LEFT JOIN bi_template_object c ON t.id = c.parent_id AND c.del_flag = '0'
         <where>
-            <if test="name != null and name != ''">
-                AND t.name like concat('%', #{name}, '%')
-            </if>
             <if test="status != null and status != ''">
                 AND t.status = #{status}
             </if>

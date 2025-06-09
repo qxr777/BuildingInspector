@@ -2,9 +2,8 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Date;
-import java.util.List;
-import java.util.ArrayList;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -13,6 +12,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.bean.BeanUtils;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +40,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
     @Autowired
     private DiseaseTypeServiceImpl diseaseTypeService;
+
+    @Autowired
+    private IBiObjectService biObjectService;
 
     /**
      * 查询对象
@@ -322,32 +325,71 @@ public class BiObjectServiceImpl implements IBiObjectService {
             throw new Exception("未找到指定的构件");
         }
 
+        // 一次性获取所有节点，避免递归查询
+        List<BiObject> allNodes = biObjectService.selectBiObjectAndChildren(id);
+
+        // 获取所有节点的ID
+        List<Long> allNodeIds = allNodes.stream()
+                .map(BiObject::getId)
+                .collect(Collectors.toList());
+
+        // 一次性获取所有节点的疾病类型
+        Map<Long, List<DiseaseType>> diseaseTypeMap = new HashMap<>();
+        if (!allNodeIds.isEmpty()) {
+            // 获取所有模板对象ID
+            List<Long> templateObjectIds = allNodes.stream()
+                    .filter(node -> node.getTemplateObjectId() != null)
+                    .map(BiObject::getTemplateObjectId)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            if (!templateObjectIds.isEmpty()) {
+                // 批量查询所有疾病类型
+                Map<Long, List<DiseaseType>> tempDiseaseTypeMap = diseaseTypeService.batchSelectDiseaseTypeListByTemplateObjectIds(templateObjectIds);
+                if (tempDiseaseTypeMap != null) {
+                    diseaseTypeMap = tempDiseaseTypeMap;
+                }
+            }
+        }
+
+        // 构建节点ID到节点的映射
+        Map<Long, BiObject> nodeMap = new HashMap<>();
+        for (BiObject node : allNodes) {
+            // 深拷贝节点，避免修改原始数据
+            BiObject newNode = new BiObject();
+            BeanUtils.copyProperties(node, newNode);
+            newNode.setChildren(new ArrayList<>());
+
+            // 设置疾病类型
+            if (node.getTemplateObjectId() != null && diseaseTypeMap.containsKey(node.getTemplateObjectId())) {
+                newNode.setDiseaseTypes(diseaseTypeMap.get(node.getTemplateObjectId()));
+            } else {
+                newNode.setDiseaseTypes(new ArrayList<>());
+            }
+
+            nodeMap.put(newNode.getId(), newNode);
+        }
+
         // 构建树结构
-        buildTreeStructure(root);
+        BiObject rootNode = null;
+        for (BiObject node : allNodes) {
+            BiObject newNode = nodeMap.get(node.getId());
+
+            if (node.getId().equals(id)) {
+                rootNode = newNode; // 找到根节点
+            }
+
+            // 将当前节点添加到父节点的children列表中
+            if (node.getParentId() != null && node.getParentId() != 0 && nodeMap.containsKey(node.getParentId())) {
+                BiObject parent = nodeMap.get(node.getParentId());
+                parent.getChildren().add(newNode);
+            }
+        }
 
         // 配置序列化选项
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        return objectMapper.writeValueAsString(root);
-    }
-
-    /**
-     * 递归构建树结构
-     */
-    private void buildTreeStructure(BiObject node) {
-        // 使用selectChildrenByParentId直接获取子节点
-        List<BiObject> children = biObjectMapper.selectChildrenByParentId(node.getId());
-        List<Component> components = componentService.selectComponentsByBiObjectIdApi(node.getId());
-        List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(node.getTemplateObjectId());
-        node.setComments(components);
-        node.setDiseaseTypes(diseaseTypes);
-        if (!children.isEmpty()) {
-            node.setChildren(children);
-            // 递归处理每个子节点
-            for (BiObject child : children) {
-                buildTreeStructure(child);
-            }
-        }
+        return objectMapper.writeValueAsString(rootNode);
     }
 
     /**
@@ -374,25 +416,31 @@ public class BiObjectServiceImpl implements IBiObjectService {
         biObjectMapper.updateBiObject(biObject);
         updateCount++;
 
-        // 2. 处理构件更新
-        List<Component> newComponents = biObject.getComments();
-        if (newComponents != null && !newComponents.isEmpty()) {
-            // 逻辑删除该BiObject下所有的构件（一次数据库操作）
-            componentService.deleteComponentsByBiObjectId(biObject.getId());
-
-            for (Component component : newComponents) {
-                // 设置必要的系统字段
-                component.setCreateBy(ShiroUtils.getLoginName());
-                component.setCreateTime(new Date());
-                component.setUpdateBy(ShiroUtils.getLoginName());
-                component.setUpdateTime(new Date());
-                component.setStatus("0"); // 默认正常状态
-                component.setDelFlag("0"); // 默认存在
-            }
-
-            // 批量插入所有构件（一次数据库操作）
-            componentService.batchInsertComponents(newComponents);
-        }
+//        // 2. 处理构件更新
+//        List<Component> newComponents = biObject.getComments();
+//        List<Component> updateComponents = new ArrayList<>();
+//        List<Component> insertComponents = new ArrayList<>();
+//        if (newComponents != null && !newComponents.isEmpty()) {
+//            for (Component component : newComponents) {
+//                if(component.getId() == null ) {
+//                    // 设置必要的系统字段
+//                    component.setCreateBy(ShiroUtils.getLoginName());
+//                    component.setCreateTime(new Date());
+//                    component.setUpdateBy(ShiroUtils.getLoginName());
+//                    component.setUpdateTime(new Date());
+//                    component.setStatus("0"); // 默认正常状态
+//                    component.setDelFlag("0"); // 默认存在
+//                    insertComponents.add(component);
+//                } else {
+//                    component.setUpdateBy(ShiroUtils.getLoginName());
+//                    component.setUpdateTime(new Date());
+//                    updateComponents.add(component);
+//                }
+//            }
+//            // 批量插入所有构件（一次数据库操作）
+//            componentService.batchInsertComponents(insertComponents);
+//            componentService.batchUpdateComponents(updateComponents);
+//        }
 
         // 3. 递归处理子节点
         List<BiObject> children = biObject.getChildren();

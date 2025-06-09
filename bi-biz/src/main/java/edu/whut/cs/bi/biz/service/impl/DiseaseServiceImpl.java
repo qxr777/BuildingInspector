@@ -3,10 +3,12 @@ package edu.whut.cs.bi.biz.service.impl;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.*;
 
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.IComponentService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,9 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 
@@ -35,7 +40,7 @@ public class DiseaseServiceImpl implements IDiseaseService
     private DiseaseTypeMapper diseaseTypeMapper;
 
     @Resource
-    private ComponentMapper componentMapper;
+    private IComponentService componentService;
 
     @Resource
     private BiObjectMapper biObjectMapper;
@@ -67,7 +72,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             disease.setBiObject(biObjectMapper.selectBiObjectById(biObjectId));
         }
         if (componentId != null) {
-            disease.setComponent(componentMapper.selectComponentById(componentId));
+            disease.setComponent(componentService.selectComponentById(componentId));
         }
 
         DiseaseDetail diseaseDetail = new DiseaseDetail();
@@ -107,7 +112,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             Long componentId = ds.getComponentId();
 
             if (componentId != null) {
-                Component component = componentMapper.selectComponentById(componentId);
+                Component component = componentService.selectComponentById(componentId);
                 BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
 
                 if (parent != null) {
@@ -138,18 +143,36 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Transactional
     public Integer insertDisease(Disease disease) {
         disease.setCreateTime(DateUtils.getNowDate());
-        Long diseaseTypeId = disease.getDiseaseTypeId();
-        DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
-        disease.setType(diseaseType.getName());
+        if(disease.getType() == null || disease.getType().equals("")) {
+            Long diseaseTypeId = disease.getDiseaseTypeId();
+            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
+            disease.setType(diseaseType.getName());
+        }
 
         // 新增部件
+        // 判断数据库是否存在相应构件
         BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
         Component component = disease.getComponent();
-        component.setName(biObject.getName());
-        component.setBiObjectId(disease.getBiObjectId());
-        componentMapper.insertComponent(component);
 
-        disease.setComponentId(component.getId());
+        component.setBiObjectId(disease.getBiObjectId());
+
+        Component old = componentService.selectComponent(component);
+        if (old == null) {
+            if (disease.getBiObjectName() ==  null ||  disease.getBiObjectName().equals("")) {
+                component.setName(biObject.getName() + "#" + component.getCode());
+            } else {
+                component.setName(disease.getBiObjectName() + "#" + component.getCode());
+            }
+
+            componentService.insertComponent(component);
+            disease.setComponentId(component.getId());
+        } else {
+            disease.setComponentId(old.getId());
+        }
+
+        if (disease.getBiObjectName() ==  null ||  disease.getBiObjectName().equals("")) {
+            disease.setBiObjectName(biObject.getName());
+        }
 
         Integer result = diseaseMapper.insertDisease(disease);
 
@@ -168,8 +191,36 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @return 结果
      */
     @Override
+    @Transactional
     public int updateDisease(Disease disease) {
+        Disease old = diseaseMapper.selectDiseaseById(disease.getId());
+        if (old.getDiseaseTypeId().equals(disease.getDiseaseTypeId())) {
+            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
+            if (!diseaseType.getName().equals("其他")) {
+                disease.setType(diseaseType.getName());
+            }
+        }
+
         disease.setUpdateTime(DateUtils.getNowDate());
+
+        // 更新部件信息
+        Component component = componentService.selectComponentById(disease.getComponentId());
+        if (disease.getBiObjectName() != null || !disease.getBiObjectName().equals("")) {
+            component.setName(disease.getBiObjectName() + "#" + disease.getComponent().getCode());
+        }
+        component.setCode(disease.getComponent().getCode());
+        component.setUpdateTime(DateUtils.getNowDate());
+        component.setUpdateBy(ShiroUtils.getLoginName());
+        componentService.updateComponent(component);
+
+        // 删除病害详情
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
+
+        // 新增病害详情
+        List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+        diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+
         return diseaseMapper.updateDisease(disease);
     }
 
@@ -180,8 +231,24 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteDiseaseByIds(String ids) {
-        return diseaseMapper.deleteDiseaseByIds(Convert.toStrArray(ids));
+        String[] strArray = Convert.toStrArray(ids);
+
+        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() / 2);
+
+        List<CompletableFuture<Void>> futures = Arrays.stream(strArray)
+                .map(id -> CompletableFuture.runAsync(() -> {
+                    Disease disease = diseaseMapper.selectDiseaseById(Long.parseLong(id));
+                    diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
+                }, executor))
+                .toList();
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        executor.shutdown();
+
+        return diseaseMapper.deleteDiseaseByIds(strArray);
     }
 
     /**
@@ -191,7 +258,11 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteDiseaseById(Long id) {
+        Disease disease = diseaseMapper.selectDiseaseById(id);
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
+
         return diseaseMapper.deleteDiseaseById(id);
     }
 

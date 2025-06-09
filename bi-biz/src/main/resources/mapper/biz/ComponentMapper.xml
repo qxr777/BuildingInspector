@@ -91,6 +91,15 @@
         ) and c.del_flag = '0'
     </select>
 
+    <select id="selectComponent" resultType="edu.whut.cs.bi.biz.domain.Component">
+        <include refid="selectComponentVo"/>
+        <where>
+            <if test="biObjectId != null  and biObjectId != ''"> and c.bi_object_id = #{biObjectId}</if>
+            <if test="code != null  and code != ''"> and c.code = #{code}</if>
+            and c.del_flag = '0'
+        </where>
+    </select>
+
     <insert id="insertComponent" parameterType="Component" useGeneratedKeys="true" keyProperty="id">
         insert into bi_component
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -155,4 +164,21 @@
             #{component.updateBy}, #{component.updateTime}, #{component.remark})
         </foreach>
     </insert>
+
+    <update id="batchUpdateComponents" parameterType="java.util.List">
+        <foreach collection="components" item="component" separator=";">
+            update bi_component
+            <set>
+                <if test="component.biObjectId != null">bi_object_id = #{component.biObjectId},</if>
+                <if test="component.name != null">name = #{component.name},</if>
+                <if test="component.code != null">code = #{component.code},</if>
+                <if test="component.status != null">status = #{component.status},</if>
+                <if test="component.delFlag != null">del_flag = #{component.delFlag},</if>
+                <if test="component.updateBy != null">update_by = #{component.updateBy},</if>
+                <if test="component.updateTime != null">update_time = #{component.updateTime},</if>
+                <if test="component.remark != null">remark = #{component.remark},</if>
+            </set>
+            where id = #{component.id} and del_flag = '0'
+        </foreach>
+    </update>
 </mapper>

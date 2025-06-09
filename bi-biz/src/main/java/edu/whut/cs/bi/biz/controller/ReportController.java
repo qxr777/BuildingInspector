@@ -39,6 +39,8 @@ import java.io.FileInputStream;
 @RequestMapping("/biz/report")
 public class ReportController extends BaseController {
 
+  private int tableCounter = 1; // 添加表格计数器
+
   @Autowired
   private IPropertyService propertyService;
 
@@ -144,28 +146,52 @@ public class ReportController extends BaseController {
       XWPFRun runBold = introPara.createRun();
       runBold.setText("经检查，" + node.getName() + " 主要病害为:");
       runBold.setBold(true);
-      runBold.setFontSize(10); // 设置字号与后面一致
+      runBold.setFontSize(12); // 设置字号与后面一致
 
       // Part 2: 遍历病害，每个条目一行
       int summarySeqNum = 1;
       for (Disease d : nodeDiseases) {
-        XWPFRun runNewline = introPara.createRun();
-        runNewline.addCarriageReturn(); // 添加换行符
+        // 创建新的段落并设置首行缩进
+        XWPFParagraph diseasePara = doc.createParagraph();
+        CTPPr diseasePpr = diseasePara.getCTP().getPPr();
+        if (diseasePpr == null) {
+          diseasePpr = diseasePara.getCTP().addNewPPr();
+        }
+        CTInd ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
+        ind.setFirstLine(BigInteger.valueOf(480)); // 设置首行缩进为480（约2个字符）
 
-        XWPFRun runItem = introPara.createRun();
-        runItem.setText(summarySeqNum++ + ") "
-            + (d.getPosition() != null ? d.getPosition() : "/") + " "
+        XWPFRun runItem = diseasePara.createRun();
+        runItem.setText(summarySeqNum++ + "） "
+            + (d.getComponent() != null ? d.getComponent().getName().split("（")[0] : "/") + " "
             + (d.getType() != null ? d.getType() : "/") + " "
             + (d.getQuantity() > 0 ? d.getQuantity() : "/") + " 处; "
             + (d.getDescription() != null ? d.getDescription() : "/") + "; ");
-        runItem.setFontSize(10); // 设置字号
+        runItem.setFontSize(12); // 设置字号
       }
 
       // Part 3: 表格引用部分
-      XWPFRun runTableRef = introPara.createRun();
-      runTableRef.addCarriageReturn(); // 添加换行符
-      runTableRef.setText("具体检测结果见下表 " + prefix + ":");
+      XWPFParagraph tableRefPara = doc.createParagraph();
+
+      // 设置1.5倍行距
+      CTPPr ppr1 = tableRefPara.getCTP().getPPr();
+      if (ppr1 == null) {
+        ppr1 = tableRefPara.getCTP().addNewPPr();
+      }
+      CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
+      spacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距（240 * 1.5 = 360）
+
+      String tableNumber = "4." + tableCounter++; // 生成表格编号
+      XWPFRun runTableRef = tableRefPara.createRun();
+      runTableRef.setText("具体检测结果见下表 " + tableNumber + ":");
       runTableRef.setFontSize(12); // 设置字号
+
+      // 添加表格编号
+      XWPFParagraph tableNumPara = doc.createParagraph();
+      tableNumPara.setAlignment(ParagraphAlignment.CENTER); // 设置居中对齐
+      XWPFRun runTableNum = tableNumPara.createRun();
+      runTableNum.setText("表 " + tableNumber);
+      runTableNum.setFontSize(12);
+      runTableNum.setBold(true);
 
       // --- 原有的表格创建代码开始 --- //
       XWPFTable table = doc.createTable(1, 8); // 1 row (header), 8 columns
@@ -181,6 +207,10 @@ public class ReportController extends BaseController {
       borders.addNewTop().setVal(STBorder.SINGLE);
       borders.addNewInsideH().setVal(STBorder.SINGLE);
       borders.addNewInsideV().setVal(STBorder.SINGLE);
+
+      // 设置表格居中对齐
+      CTJc jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
+      jc.setVal(STJc.CENTER);
 
       // 设置表头
       XWPFTableRow headerRow = table.getRow(0);
@@ -347,12 +377,27 @@ public class ReportController extends BaseController {
     try {
       // 1. 根据buildingId查找对应的根属性节点
       Building building = buildingService.selectBuildingById(bid);
+      if (building == null) {
+        response.setStatus(404);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":404,\"msg\":\"未找到对应的建筑信息\"}");
+        return;
+      }
+
       Property property = propertyService.selectPropertyById(building.getRootPropertyId());
+      if (property == null) {
+        response.setStatus(404);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":404,\"msg\":\"未找到对应的属性信息\"}");
+        return;
+      }
+
       List<Property> properties = propertyService.selectPropertyList(property);
 
-      // 读取模板文件
       Resource resource = new ClassPathResource("word.biz/桥梁模板.docx");
       XWPFDocument document = new XWPFDocument(resource.getInputStream());
+
+      // 读取模板文件
       long t = 0L;
       Property temp = null;
       for (Property property1 : properties) {

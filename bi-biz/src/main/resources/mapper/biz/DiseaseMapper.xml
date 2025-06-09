@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper
-PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.whut.cs.bi.biz.mapper.DiseaseMapper">
 
     <resultMap type="Disease" id="DiseaseResult">
@@ -17,6 +17,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="deductPoints" column="deduct_points"/>
         <result property="projectId" column="project_id"/>
         <result property="biObjectId" column="bi_object_id"/>
+        <result property="biObjectName" column="bi_object_name"/>
         <result property="buildingId" column="building_id"/>
         <result property="componentId" column="component_id"/>
         <result property="remark" column="remark"/>
@@ -42,11 +43,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <sql id="selectDiseaseVo">
         select
-            d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
-            d.nature , d.participate_assess, d.deduct_points,
-            d.project_id, d.bi_object_id, d.building_id, d.component_id, d.remark,
-            d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
-            dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
+        d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
+        d.nature , d.participate_assess, d.deduct_points,
+        d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.remark, <!-- 添加bi_object_name列 -->
+        d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
+        dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
         from bi_disease d
         left join bi_disease_type dt on d.disease_type_id = dt.id
         left join bi.bi_project bp on d.project_id = bp.id
@@ -82,7 +83,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by d.create_time desc
     </select>
 
-
     <insert id="insertDisease" parameterType="Disease" useGeneratedKeys="true" keyProperty="id">
         insert into bi_disease
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -97,6 +97,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deductPoints != null">deduct_points,</if>
             <if test="projectId != null">project_id,</if>
             <if test="biObjectId != null">bi_object_id,</if>
+            <if test="biObjectName != null and biObjectName != ''">bi_object_name,</if> <!-- 添加biObjectName字段 -->
             <if test="buildingId != null">building_id,</if>
             <if test="componentId != null">component_id,</if>
             <if test="remark != null">remark,</if>
@@ -117,6 +118,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deductPoints != null">#{deductPoints},</if>
             <if test="projectId != null">#{projectId},</if>
             <if test="biObjectId != null">#{biObjectId},</if>
+            <if test="biObjectName != null and biObjectName != ''">#{biObjectName},</if> <!-- 添加biObjectName字段 -->
             <if test="buildingId != null">#{buildingId},</if>
             <if test="componentId != null">#{componentId},</if>
             <if test="remark != null">#{remark},</if>
@@ -141,6 +143,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deductPoints != null">deduct_points = #{deductPoints},</if>
             <if test="projectId != null">project_id = #{projectId},</if>
             <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
+            <if test="biObjectName != null">bi_object_name = #{biObjectName},</if> <!-- 添加biObjectName字段 -->
             <if test="buildingId != null">building_id = #{buildingId},</if>
             <if test="componentId != null">component_id = #{componentId},</if>
             <if test="remark != null">remark = #{remark},</if>
@@ -149,7 +152,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </trim>
         where id = #{id}
     </update>
-
 
     <delete id="deleteDiseaseById" parameterType="Long">
         delete from bi_disease where id = #{id}
@@ -161,5 +163,4 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
-
 </mapper>

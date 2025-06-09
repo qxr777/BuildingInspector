@@ -57,10 +57,10 @@
 <div class="ui-layout-center">
     <div class="container-div">
         <div class="row">
-                <form id="formId">
-                    <input type="hidden" id="id" name="id" th:value="${id}">
-                    <input type="hidden" id="parentId" name="parentId">
-                </form>
+            <form id="formId">
+                <input type="hidden" id="id" name="id" th:value="${id}">
+                <input type="hidden" id="parentId" name="parentId">
+            </form>
 
             <div class="btn-group-sm" id="toolbar" role="group">
 
@@ -82,13 +82,13 @@
                    th:if="${building}">
                     <i class="fa fa-download"></i>导出桥梁卡
                 </a>
-<!--                <a class="btn btn-warning" shiro:hasPermission="biz:property:add" onclick="importJson()">-->
-<!--                    <i class="fa fa-upload"></i> 导入JSON-->
-<!--                </a>-->
+                <!--                <a class="btn btn-warning" shiro:hasPermission="biz:property:add" onclick="importJson()">-->
+                <!--                    <i class="fa fa-upload"></i> 导入JSON-->
+                <!--                </a>-->
                 <!-- 添加导出Word按钮 -->
-<!--                <a class="btn btn-info" onclick="exportWord()">-->
-<!--                    <i class="fa fa-file-word-o"></i> 导出Word-->
-<!--                </a>-->
+                <!--                <a class="btn btn-info" onclick="exportWord()">-->
+                <!--                    <i class="fa fa-file-word-o"></i> 导出Word-->
+                <!--                </a>-->
 
             </div>
             <div class="col-sm-12 select-table table-striped">
@@ -361,8 +361,61 @@
     function downLoadWord(){
         var id = building.id;
         $.modal.confirm("确认要导出桥梁卡吗？", function() {
-            window.location.href = ctx + "biz/report/exportPropertyWord/" + id;
-            $.modal.msgSuccess("正在导出，请稍候...");
+            $.ajax({
+                url: ctx + "biz/report/exportPropertyWord/" + id,
+                type: 'GET',
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                beforeSend: function() {
+                    $.modal.loading("正在导出，请稍候...");
+                },
+                complete: function() {
+                    $.modal.closeLoading();
+                },
+                success: function(response, status, xhr) {
+                    var contentType = xhr.getResponseHeader('Content-Type');
+
+                    // 检查是否是JSON响应（错误情况）
+                    if (contentType && contentType.includes('application/json')) {
+                        var reader = new FileReader();
+                        reader.onload = function() {
+                            try {
+                                var result = JSON.parse(reader.result);
+                                if (result.code === 404) {
+                                    $.modal.alertWarning(result.msg || "未找到桥梁信息");
+                                } else {
+                                    $.modal.alertError(result.msg || "导出失败");
+                                }
+                            } catch (e) {
+                                $.modal.alertError("导出失败: " + reader.result);
+                            }
+                        };
+                        reader.readAsText(response);
+                        return;
+                    }
+
+                    // 正常文件下载处理
+                    var blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+                    var link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = "桥梁基本状况卡.docx";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(link.href);
+                    $.modal.msgSuccess("导出成功");
+                },
+                error: function(xhr) {
+                    var errorMsg = "导出失败";
+                    if (xhr.status === 404) {
+                        errorMsg = "未找到对应的桥梁信息";
+                    } else if (xhr.status === 500) {
+                        errorMsg = "服务器处理失败，请稍后再试";
+                    }
+                    $.modal.alertError(errorMsg);
+                }
+            });
         });
     }
 </script>

@@ -10,10 +10,7 @@ import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.config.MinioConfig;
-import edu.whut.cs.bi.biz.domain.Attachment;
-import edu.whut.cs.bi.biz.domain.Disease;
-import edu.whut.cs.bi.biz.domain.FileMap;
-import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -134,8 +131,26 @@ public class DiseaseController extends BaseController
     public String edit(@PathVariable("id") Long id, ModelMap mmap)
     {
         Disease disease = diseaseService.selectDiseaseById(id);
+
+        BiObject biObject = disease.getBiObject();
+        mmap.put("biObject", biObject);
+        if (!biObject.getName().equals("其他")) {
+            BiObject select = new BiObject();
+            select.setParentId(biObject.getId());
+            select.setName(disease.getPosition());
+            List<BiObject> biObjects = biObjectService.selectBiObjectList(select);
+            if (biObjects != null && biObjects.size() > 0) {
+                disease.setPosition(String.valueOf(biObjects.get(0).getId()));
+            }
+        } else {
+            String customPosition = disease.getPosition();
+            disease.setPosition(String.valueOf(biObject.getChildren().get(0).getId()));
+            mmap.put("customPosition", customPosition);
+        }
+
+        // 位置
         mmap.put("disease", disease);
-        mmap.put("biObject", disease.getBiObject());
+
         return prefix + "/edit";
     }
 

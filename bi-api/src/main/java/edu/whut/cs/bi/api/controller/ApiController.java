@@ -9,6 +9,7 @@ import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -18,9 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import com.ruoyi.common.core.domain.AjaxResult;
 
 import javax.annotation.Resource;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -50,6 +49,9 @@ public class ApiController {
 
     @Resource
     private DiseaseMapper diseaseMapper;
+
+    @Resource
+    private DiseaseDetailMapper diseaseDetailMapper;
 
     /**
      * 无权限访问
@@ -236,24 +238,31 @@ public class ApiController {
                 return AjaxResult.error("参数错误：病害列表为空");
             }
             int successCount = 0;
+            //记录已经插入了的构件
+            HashMap<String,Long> map = new HashMap<>();
             for (Disease disease : diseases) {
-                // 设置创建时间
-                disease.setCreateTime(DateUtils.getNowDate());
-
                 // 通过构件名称查找构件ID
-                if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null) {
-                    Component queryComponent = new Component();
-                    queryComponent.setName(disease.getComponent().getName());
-                    queryComponent.setBiObjectId(disease.getBiObjectId());
-
-                    List<Component> components = componentService.selectComponentList(queryComponent);
-                    if (!components.isEmpty()) {
-                        disease.setComponentId(components.get(0).getId());
-                    }
+                Component component = disease.getComponent();
+                component.setCreateBy(ShiroUtils.getLoginName());
+                component.setUpdateBy(ShiroUtils.getLoginName());
+                if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !map.containsKey(component.getName())) {
+                    componentService.insertComponent(component);
+                    map.put(component.getName(), component.getId());
                 }
-
+                if(disease.getComponent() != null && disease.getComponentId() != null) {
+                    componentService.updateComponent(component);
+                }
+                // 病害类型id为空则默认为其他的病害类型
+                if(disease.getDiseaseTypeId()==null || disease.getDiseaseType().getId()==null || disease.getDiseaseType().getName().equals("其他")) {
+                    disease.setDiseaseTypeId(238L);
+                }
+                disease.setComponentId(map.get(component.getName()));
                 // 插入病害记录
                 successCount += diseaseMapper.insertDisease(disease);
+                // 添加病害详情
+                List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+                diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+                diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
             }
 
             return AjaxResult.success("批量保存病害成功", successCount);

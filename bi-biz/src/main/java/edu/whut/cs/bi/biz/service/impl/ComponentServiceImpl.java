@@ -90,11 +90,6 @@ public class ComponentServiceImpl implements IComponentService {
     @Override
     public int insertComponent(Component component) {
         component.setCreateTime(DateUtils.getNowDate());
-        BiObject biObject = biObjectMapper.selectBiObjectById(component.getBiObjectId());
-        biObject.setCount(biObject.getCount() + 1);
-        biObject.setUpdateBy(ShiroUtils.getLoginName());
-        biObject.setUpdateTime(DateUtils.getNowDate());
-        biObjectMapper.updateBiObject(biObject);
         return componentMapper.insertComponent(component);
     }
 
@@ -118,15 +113,6 @@ public class ComponentServiceImpl implements IComponentService {
      */
     @Override
     public int deleteComponentByIds(String ids) {
-        String[] strArray = Convert.toStrArray(ids);
-        for (String str : strArray) {
-            Component component = selectComponentById(Long.parseLong(str));
-            BiObject biObject = biObjectMapper.selectBiObjectById(component.getBiObjectId());
-            biObject.setCount(biObject.getCount() - 1);
-            biObject.setUpdateBy(ShiroUtils.getLoginName());
-            biObject.setUpdateTime(DateUtils.getNowDate());
-            biObjectMapper.updateBiObject(biObject);
-        }
         return componentMapper.deleteComponentByIds(Convert.toStrArray(ids));
     }
 
@@ -298,5 +284,15 @@ public class ComponentServiceImpl implements IComponentService {
 
         // 批量删除
         return componentMapper.deleteComponentByIds(ids);
+    }
+
+    @Override
+    public int batchUpdateComponents(List<Component> components) {
+        return componentMapper.batchUpdateComponents(components);
+    }
+
+    @Override
+    public Component selectComponent(Component component) {
+        return componentMapper.selectComponent(component);
     }
 }
