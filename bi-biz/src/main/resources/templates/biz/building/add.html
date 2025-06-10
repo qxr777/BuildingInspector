@@ -11,7 +11,7 @@
             <label class="col-sm-3 control-label">父桥：</label>
             <div class="col-sm-8">
                 <select name="parentId" class="form-control" id="parentId">
-                    <option value="">请选择</option>
+                    <option value="">主目录</option>
                     <option th:each="parent : ${parents}"
                             th:value="${parent.id}"
                             th:text="${parent.name}">
@@ -105,7 +105,6 @@
             <label class="col-sm-3 control-label is-required">桥梁类型模板：</label>
             <div class="col-sm-8">
                 <select id="templateId" name="templateId" class="form-control" required>
-                    <option value="">请选择</option>
                     <option th:each="template : ${templates}"
                             th:value="${template.id}"
                             th:text="${template.name}">
@@ -190,7 +189,7 @@
         if (typeValue === "1") {  // 桥幅
             parentBridgeDiv.show();
             templateDiv.show();
-            parentId.attr("required", "required");
+            parentId.removeAttr("required"); //桥幅的父桥不是必填项
             templateId.attr("required", "required");
         } else if (typeValue === "0") {  // 组合桥
             parentBridgeDiv.show(); // 组合桥也显示父桥选项，但不是必填

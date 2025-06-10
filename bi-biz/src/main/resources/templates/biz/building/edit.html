@@ -178,8 +178,7 @@
             <label class="col-sm-3 control-label">父桥：</label>
             <div class="col-sm-8">
                 <select id="parentId" name="parentId" class="form-control">
-                    <!-- 只有组合桥才有"请选择"选项 -->
-                    <option th:if="${building.isLeaf != '1'}" value="">主目录</option>
+                    <option value="">主目录</option>
 
                     <option th:each="parent : ${parents}"
                             th:value="${parent.id}"

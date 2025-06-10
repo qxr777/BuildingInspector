@@ -51,6 +51,12 @@ public class TaskServiceImpl implements ITaskService {
     @Resource
     private PropertyMapper propertyMapper;
 
+    @Resource
+    private IBiObjectService biObjectService;
+
+    @Resource
+    private IBiTemplateObjectService biTemplateObjectService;
+
     /**
      * 查询任务
      *
@@ -177,7 +183,42 @@ public class TaskServiceImpl implements ITaskService {
                                 });
                                 return null;
                             }
-                    );
+                    )
+                    .thenComposeAsync(aVoid -> {
+                        // 异步获取桥梁类型
+                        return CompletableFuture.supplyAsync(() -> {
+                            try {
+                                Building building = t.getBuilding();
+                                if (building != null && building.getRootObjectId() != null) {
+                                    // 获取根对象
+                                    BiObject rootObject = biObjectService.selectBiObjectById(building.getRootObjectId());
+                                    if (rootObject != null && rootObject.getTemplateObjectId() != null) {
+                                        // 获取模板对象
+                                        BiTemplateObject templateObject = biTemplateObjectService.selectBiTemplateObjectById(rootObject.getTemplateObjectId());
+                                        if (templateObject != null && templateObject.getName() != null) {
+                                            String templateName = templateObject.getName();
+                                            // 根据模板名称设置桥梁类型
+                                            if (templateName.length() >= 3) {
+                                                String suffix = templateName.substring(templateName.length() - 3);
+                                                if ("梁式桥".equals(suffix)) {
+                                                    building.setBridgeType(1);
+                                                } else if (templateName.length() >= 2 && "拱桥".equals(templateName.substring(templateName.length() - 2))) {
+                                                    building.setBridgeType(2);
+                                                } else if ("悬索桥".equals(suffix)) {
+                                                    building.setBridgeType(3);
+                                                } else if ("斜拉桥".equals(suffix)) {
+                                                    building.setBridgeType(4);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (Exception e) {
+                                // 忽略异常，保持桥梁类型为null
+                            }
+                            return null;
+                        });
+                    });
 
             futures.add(future);
         }

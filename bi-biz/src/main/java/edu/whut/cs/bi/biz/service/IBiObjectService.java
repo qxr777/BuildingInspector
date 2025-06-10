@@ -142,4 +142,23 @@ public interface IBiObjectService {
      * @return
      */
     public Boolean isLeafNode(Long id);
+
+    /**
+     * 批量更新子节点的ancestors
+     *
+     * @param rootObjectId       根节点ID
+     * @param oldAncestorsPrefix 旧的ancestors前缀
+     * @param newAncestorsPrefix 新的ancestors前缀
+     * @param updateBy           更新人
+     * @return 更新的记录数
+     */
+    public int batchUpdateAncestors(Long rootObjectId, String oldAncestorsPrefix, String newAncestorsPrefix, String updateBy);
+
+    /**
+     * 批量插入BiObject对象
+     *
+     * @param biObjects 要插入的BiObject对象列表
+     * @return 插入的记录数
+     */
+    public int batchInsertBiObjects(List<BiObject> biObjects);
 }
