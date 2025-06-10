@@ -6,7 +6,9 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
+import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
+import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
@@ -53,6 +55,9 @@ public class ApiController {
     @Resource
     private DiseaseDetailMapper diseaseDetailMapper;
 
+    @Resource
+    private FileMapController fileMapController;
+
     /**
      * 无权限访问
      *
@@ -92,7 +97,18 @@ public class ApiController {
             return AjaxResult.error("参数错误");
         }
         Building building = buildingService.selectBuildingById(buildingId);
-        return AjaxResult.success("查询成功", propertyService.selectPropertyTree(building.getRootPropertyId()));
+        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
+        Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
+                image -> image.getOldName().split("_")[1],
+                Collectors.mapping(FileMap::getNewName, Collectors.toList())
+        ));
+        Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
+
+        // 封装返回结果
+        PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
+        propertyTreeVo.setProperty(property);
+        propertyTreeVo.setImages(collect);
+        return AjaxResult.success("查询成功", propertyTreeVo);
     }
 
     /**

@@ -50,6 +50,7 @@ public class Disease extends BaseEntity {
 
     /** 病害图片 */
     private List<String> images;
+    private List<String> ADImgs;
 
     /** 关联对象 */
     private Long biObjectId;
@@ -82,4 +83,6 @@ public class Disease extends BaseEntity {
 
     /** 病害详情 */
      private List<DiseaseDetail> diseaseDetails;
+
+
 }
