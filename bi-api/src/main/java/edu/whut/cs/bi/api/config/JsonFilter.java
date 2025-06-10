@@ -33,8 +33,7 @@ public class JsonFilter implements Filter {
                     .forEach(c -> {
                         MappingJackson2HttpMessageConverter converter = (MappingJackson2HttpMessageConverter) c;
                         ObjectMapper mapper = converter.getObjectMapper();
-                        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL)
-                                .setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
+                        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
                     });
         }
 
