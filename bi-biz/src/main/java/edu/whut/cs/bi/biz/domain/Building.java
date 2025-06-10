@@ -145,6 +145,11 @@ public class Building extends BaseEntity {
     /** 桥梁长度 */
     private String bridgeLength;
 
+    /**
+     * 桥梁类型（1梁式桥 2拱桥 3悬索桥 4斜拉桥）
+     */
+    private Integer bridgeType;
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)

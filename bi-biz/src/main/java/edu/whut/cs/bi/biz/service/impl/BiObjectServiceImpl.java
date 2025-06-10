@@ -457,4 +457,35 @@ public class BiObjectServiceImpl implements IBiObjectService {
     public Boolean isLeafNode(Long id) {
         return biObjectMapper.isLeafNode(id);
     }
+
+    /**
+     * 批量更新子节点的ancestors
+     *
+     * @param rootObjectId       根节点ID
+     * @param oldAncestorsPrefix 旧的ancestors前缀
+     * @param newAncestorsPrefix 新的ancestors前缀
+     * @param updateBy           更新人
+     * @return 更新的记录数
+     */
+    @Override
+    public int batchUpdateAncestors(Long rootObjectId, String oldAncestorsPrefix, String newAncestorsPrefix, String updateBy) {
+        // 使用SQL批量更新，避免逐个查询和更新
+        return biObjectMapper.batchUpdateAncestors(rootObjectId, oldAncestorsPrefix, newAncestorsPrefix, updateBy);
+    }
+
+    /**
+     * 批量插入BiObject对象
+     *
+     * @param biObjects 要插入的BiObject对象列表
+     * @return 插入的记录数
+     */
+    @Override
+    public int batchInsertBiObjects(List<BiObject> biObjects) {
+        if (biObjects == null || biObjects.isEmpty()) {
+            return 0;
+        }
+
+        // 使用批量插入SQL，提高性能
+        return biObjectMapper.batchInsertBiObjects(biObjects);
+    }
 }

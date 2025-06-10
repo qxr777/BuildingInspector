@@ -1,9 +1,11 @@
 package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.framework.shiro.service.SysPasswordService;
+import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
@@ -21,6 +23,9 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import javax.annotation.Resource;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.ruoyi.common.utils.ShiroUtils.getSysUser;
+import static com.ruoyi.common.utils.ShiroUtils.setSysUser;
 
 @RestController
 @RequestMapping("/api")
@@ -52,6 +57,13 @@ public class ApiController {
 
     @Resource
     private DiseaseDetailMapper diseaseDetailMapper;
+
+    @Resource
+    private ISysUserService userService;
+
+    @Resource
+    private SysPasswordService passwordService;
+
 
     /**
      * 无权限访问
@@ -188,9 +200,6 @@ public class ApiController {
     @ResponseBody
     public AjaxResult getProject() {
         Long userId = ShiroUtils.getUserId();
-        if (userId == null) {
-            return AjaxResult.error("参数错误");
-        }
 
         List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
 
@@ -270,5 +279,41 @@ public class ApiController {
             return AjaxResult.error("批量保存病害失败：" + e.getMessage());
         }
     }
+    /**
+     * 用户退出
+     */
+    @PostMapping("/user/logOut")
+    @ResponseBody
+    public AjaxResult userLogOut() {
+        ShiroUtils.logout();
+        return AjaxResult.success("退出成功");
+    }
 
+    /**
+     * 用户退出
+     */
+    @PostMapping("/user/resetPassword")
+    @ResponseBody
+    @Transactional
+    public AjaxResult resetPwd(String oldPassword, String newPassword)
+    {
+        SysUser user = getSysUser();
+        if (!passwordService.matches(user, oldPassword))
+        {
+            return AjaxResult.error("修改密码失败，旧密码错误");
+        }
+        if (passwordService.matches(user, newPassword))
+        {
+            return AjaxResult.error("新密码不能与旧密码相同");
+        }
+        user.setSalt(ShiroUtils.randomSalt());
+        user.setPassword(passwordService.encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
+        user.setPwdUpdateDate(DateUtils.getNowDate());
+        if (userService.resetUserPwd(user) > 0)
+        {
+            setSysUser(userService.selectUserById(user.getUserId()));
+            return  AjaxResult.success("修改密码成功");
+        }
+        return AjaxResult.error("修改密码异常，请联系管理员");
+    }
 }

@@ -203,7 +203,7 @@
             /* 基本查询：直接子桥 */
             SELECT b.id, b.name, b.root_object_id, b.status, b.create_time, b.is_leaf, 1 AS level
             FROM  bi_building b
-                     JOIN bi_object o ON b.root_object_id = o.id
+                      JOIN bi_object o ON b.root_object_id = o.id
             WHERE o.parent_id = #{rootObjectId}
               AND b.del_flag = '0'
               AND o.del_flag = '0'
@@ -218,7 +218,7 @@
             WHERE b.del_flag = '0'
               AND o.del_flag = '0'
         )
-        SELECT DISTINCT id, name, root_object_id as rootObjectId, status, create_time as createTime, is_leaf as isLeaf
+        SELECT DISTINCT id, name, root_object_id as rootObjectId, status, create_time as createTime, is_leaf as isLeaf, level
         FROM bridge_hierarchy
         ORDER BY level
     </select>
