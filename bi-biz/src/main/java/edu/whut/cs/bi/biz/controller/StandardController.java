@@ -231,6 +231,7 @@ public class StandardController extends BaseController
         response.setContentType("application/octet-stream");
         response.setHeader("Content-Disposition", "attachment; filename=" + 
                 URLEncoder.encode(filemap.getOldName(), "UTF-8"));
+        response.setHeader("X-FileName", URLEncoder.encode(filemap.getOldName(), "UTF-8"));
 
         try (OutputStream outputStream = response.getOutputStream()) {
             outputStream.write(fileBytes);
