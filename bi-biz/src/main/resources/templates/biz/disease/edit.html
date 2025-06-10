@@ -557,7 +557,7 @@
                 // 如果有对应的diseaseDetails数据，设置表单值
                 if (diseaseDetails && diseaseDetails[i]) {
                     var detail = diseaseDetails[i];
-                    console.log(detail);
+
                     detailDiv.find(`select[name="diseaseDetails[${i}].crackType"]`).val(detail.crackType || "");
                     if (customPosition) {
                         detailDiv.find(`input[name="diseaseDetails[${i}].reference1Location"]`).val(detail.reference1Location || "");
