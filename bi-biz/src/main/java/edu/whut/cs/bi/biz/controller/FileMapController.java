@@ -10,6 +10,7 @@ import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -168,6 +169,19 @@ public class FileMapController extends BaseController {
     @PostMapping("/uploadImage")
     @ResponseBody
     public AjaxResult uploadAttachment(@RequestParam("id") Long id, @RequestParam("file") MultipartFile file,@RequestParam("type") String type,@RequestParam("index") int index) {
+        return uploadAttachmetBuildImage(id, file, type, index);
+    }
+
+    /**
+     * 上传附件并构建图片信息，用于处理图片上传逻辑，包括新增或更新附件记录，并将文件信息存储到数据库和文件系统中。
+     *
+     * @param id    主体ID，表示该附件所属的业务实体（如某个表单或对象）的唯一标识 建筑id
+     * @param file  MultipartFile类型，表示上传的文件本身
+     * @param type  附件类型，用于区分上传的图片属于哪一类（如front正面、side侧面等）
+     * @param index 索引值，用于标识该附件在一组附件中的位置或顺序（0或者1）
+     * @return AjaxResult 返回操作结果，包含成功或失败的信息以及相关文件数据
+     */
+    private AjaxResult uploadAttachmetBuildImage(Long id, MultipartFile file, String type, int index) {
         try {
             if (file.isEmpty()) {
                 return error("上传文件不能为空");
@@ -177,7 +191,7 @@ public class FileMapController extends BaseController {
                 if (value.getName().split("_")[0].equals(String.valueOf(index))&&value.getName().split("_")[1].equals(type)) {
                     FileMap fileMap = fileMapService.handleFileUpload(file);
                     value.setMinioId(Long.valueOf(fileMap.getId()));
-                    value.setName(index+"_"+type+"_"+file.getOriginalFilename());
+                    value.setName(index +"_"+ type +"_"+ file.getOriginalFilename());
                     attachmentService.updateAttachment(value);
                     AjaxResult ajaxResult = success("上传成功");
                     ajaxResult.put("fileId", fileMap.getId());
@@ -190,7 +204,7 @@ public class FileMapController extends BaseController {
             }
             Attachment attachment = new Attachment();
             attachment.setType(6);
-            attachment.setName(index+"_"+type+"_"+file.getOriginalFilename());
+            attachment.setName(index +"_"+ type +"_"+ file.getOriginalFilename());
             attachment.setSubjectId(id);
             FileMap fileMap = fileMapService.handleFileUpload(file);
             // 构建更详细的返回信息
@@ -406,6 +420,26 @@ public class FileMapController extends BaseController {
     @GetMapping("/getImages")
     @ResponseBody
     public AjaxResult getImages(@RequestParam("id") Long id) {
+        List<FileMap> fileMapList = getImageMaps(id);
+        return AjaxResult.success(fileMapList);
+    }
+
+    /**
+     * 获取与指定主体ID关联的图片文件列表。
+     * 该方法从附件列表中筛选出类型为"front"(正面)或"side"(侧面)的附件，
+     * 并根据附件中的Minio ID查询对应的FileMap对象，构造可访问的图片URL，
+     * 最终返回包含图片信息的FileMap对象列表。
+     *
+     * @param id 主体ID，表示需要获取图片的业务实体（如建筑、设备等）的唯一标识
+     * @return List<FileMap> 返回与指定主体ID关联的图片FileMap对象列表
+     * 根据side和front来判断正立面照，0，1来判断第一张还是第二张正面或者立面照片
+     * 例子：FileMap(id=163, oldName=1_side_OIP-C.jpg, newName=http://60.205.13.156:9000/public/e7/e77b080c5ceb48f3bd079f7116d71cc1.jpg, createTime=Sat Apr 26 09:45:44 SGT 2025, updateTime=null, createBy=admin)
+     * FileMap(id=176, oldName=1_front_学海楼307.jpg, newName=http://60.205.13.156:9000/public/9a/9a55286e12f24c2caf49e3eb0c73020a.jpg, createTime=Mon Apr 28 23:10:24 SGT 2025, updateTime=null, createBy=admin)
+     * FileMap(id=288, oldName=0_side_OIP-C.jpg, newName=http://60.205.13.156:9000/public/35/3576c7f8ff704ecfacc892c1de3c7246.jpg, createTime=Sat May 10 09:54:30 SGT 2025, updateTime=null, createBy=admin)
+     * FileMap(id=289, oldName=0_front_1-200R1141258.jpg, newName=http://60.205.13.156:9000/public/24/24f8142839744eef80b8843c25b826d1.jpg, createTime=Sat May 10 09:56:37 SGT 2025, updateTime=null, createBy=admin)
+     */
+    @NotNull
+    private List<FileMap> getImageMaps(Long id) {
         List<Attachment> bySubjectId = attachmentService.getAttachmentList(id);
         List<FileMap> fileMapList = bySubjectId.stream()
                 .filter(e->{
@@ -428,7 +462,7 @@ public class FileMapController extends BaseController {
             }
         }
         System.out.println(bySubjectId.size());
-        return AjaxResult.success(fileMapList);
+        return fileMapList;
     }
 
 }

@@ -301,6 +301,12 @@ public class DiseaseServiceImpl implements IDiseaseService
         };
     }
 
+    /**
+     * 处理病害附件
+     *
+     * @param files 文件
+     * @param id    病害id
+     */
     @Override
     public void handleDiseaseAttachment(MultipartFile[] files,Long id) {
         if(files == null)return;
