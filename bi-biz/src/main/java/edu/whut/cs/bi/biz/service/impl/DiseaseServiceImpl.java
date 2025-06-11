@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
@@ -138,8 +139,22 @@ public class DiseaseServiceImpl implements IDiseaseService
             List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
             ds.setDiseaseDetails(diseaseDetails);
 
+            List<String> images = new ArrayList<>();
+            List<String> ADImgs = new ArrayList<>();
             List<Map<String, Object>> diseaseImage = diseaseController.getDiseaseImage(ds.getId());
+            if (CollUtil.isNotEmpty(diseaseImage)) {
+                diseaseImage.forEach(di -> {
+                    Integer type = (Integer) di.get("type");
+                    if (type.equals(7)) {
+                        ADImgs.add((String) di.get("url"));
+                    } else {
+                        images.add((String) di.get("url"));
+                    }
+                });
 
+                ds.setImages(images);
+                ds.setADImgs(ADImgs);
+            }
         });
         return diseases;
     }
@@ -192,6 +207,7 @@ public class DiseaseServiceImpl implements IDiseaseService
         diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
         diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
 
+
         return result;
     }
 
@@ -231,6 +247,7 @@ public class DiseaseServiceImpl implements IDiseaseService
         List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
         diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
         diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+
 
         return diseaseMapper.updateDisease(disease);
     }

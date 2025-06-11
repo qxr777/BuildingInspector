@@ -39,6 +39,9 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -65,6 +68,8 @@ public class PropertyServiceImpl implements IPropertyService {
 
     @Resource
     private FileMapController fileMapController;
+
+
     /**
      * 查询属性
      *
@@ -452,26 +457,35 @@ public class PropertyServiceImpl implements IPropertyService {
 
         extractImagesFromWord(file, buildingId);
 
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+
         // todo 之后根据ai解析出来的结果调整name值（正立面照）
-        Property p1 = propertyMapper.selectByRootIdAndName(rootId, "桥梁总体照片");
-        Property p2 = propertyMapper.selectByRootIdAndName(rootId, "桥梁正面照片");
+        CompletableFuture.runAsync(() -> {
+            Property p1 = propertyMapper.selectByRootIdAndName(rootId, "桥梁总体照片");
+            Property p2 = propertyMapper.selectByRootIdAndName(rootId, "桥梁正面照片");
 
-        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
+            List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
 
-        Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
-                image -> image.getOldName().split("_")[1],
-                Collectors.mapping(FileMap::getNewName, Collectors.toList())
-        ));
+            Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
+                    image -> image.getOldName().split("_")[1],
+                    Collectors.mapping(FileMap::getNewName, Collectors.toList())
+            ));
 
-        if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty()) {
-            p1.setValue(collect.get("front").get(0));
-            propertyMapper.updateProperty(p1);
-        }
-        if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty()) {
-            p2.setValue(collect.get("side").get(0));
-            propertyMapper.updateProperty(p2);
-        }
-
+            if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty()) {
+                p1.setValue(collect.get("front").get(0));
+                propertyMapper.updateProperty(p1);
+            }
+            if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty()) {
+                p2.setValue(collect.get("side").get(0));
+                propertyMapper.updateProperty(p2);
+            }
+        }, executorService)
+                .whenComplete((r, ex) -> {
+                    executorService.shutdown();
+                    if (ex != null) {
+                        log.error("添加桥梁属性正立面照失败！", ex);
+                    }
+                });
 
         return true;
     }
