@@ -29,6 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
@@ -69,6 +70,8 @@ public class PropertyServiceImpl implements IPropertyService {
     @Resource
     private FileMapController fileMapController;
 
+    @Resource
+    private TransactionTemplate transactionTemplate;
 
     /**
      * 查询属性
@@ -422,47 +425,60 @@ public class PropertyServiceImpl implements IPropertyService {
      * @return
      */
     @Override
-    @Transactional
     public Boolean readWordFile(MultipartFile file, Property property, Long buildingId) {
         String jsonData = getJsonData(file);
+
+        if (StringUtils.isEmpty(jsonData)) {
+            throw new ServiceException("word解析失败！");
+        }
 
         // 使用正则表达式去除多余的前缀和后缀
         jsonData = jsonData.replaceAll("^```json", "").replaceAll("```$", "");
 
-        // 先删除原本的属性树
-        Building bd = buildingMapper.selectBuildingById(buildingId);
-        Long oldRootId = bd.getRootPropertyId();
-        if (oldRootId != null) {
-            // 预防建筑属性所有节点全被删除情况
-            this.deletePropertyById(oldRootId);
-        }
+        String finalJsonData = jsonData;
+        final Long[] rootId = new Long[1];
+        transactionTemplate.execute(status -> {
+            try {
+                // 先删除原本的属性树
+                Building bd = buildingMapper.selectBuildingById(buildingId);
+                Long oldRootId = bd.getRootPropertyId();
+                if (oldRootId != null) {
+                    // 预防建筑属性所有节点全被删除情况
+                    this.deletePropertyById(oldRootId);
+                }
 
+                // 解析json数据
+                JSONObject jsonObject = JSONUtil.parseObj(finalJsonData, false);
+                rootId[0] = buildTree(jsonObject, property);
+                // 更新建筑的root_property_id
+                Building building = new Building();
+                building.setId(buildingId);
+                building.setRootPropertyId(rootId[0]);
+                building.setUpdateBy(ShiroUtils.getLoginName());
+                buildingMapper.updateBuilding(building);
 
+                // 同时更新属性树根节点的名称值
+                Property p = new Property();
+                p.setId(rootId[0]);
+                p.setName(bd.getName());
+                propertyMapper.updateProperty(p);
 
-        // 解析json数据
-        JSONObject jsonObject = JSONUtil.parseObj(jsonData, false);
-        Long rootId = buildTree(jsonObject, property);
-        // 更新建筑的root_property_id
-        Building building = new Building();
-        building.setId(buildingId);
-        building.setRootPropertyId(rootId);
-        building.setUpdateBy(ShiroUtils.getLoginName());
-        buildingMapper.updateBuilding(building);
+                return true;
+            } catch (Exception e) {
+                status.setRollbackOnly();
+                throw new ServiceException(e.getMessage());
+            }
+        });
 
-        // 同时更新属性树根节点的名称值
-        Property p = new Property();
-        p.setId(rootId);
-        p.setName(bd.getName());
-        propertyMapper.updateProperty(p);
-
-        extractImagesFromWord(file, buildingId);
 
         ExecutorService executorService = Executors.newFixedThreadPool(1);
 
         // todo 之后根据ai解析出来的结果调整name值（正立面照）
         CompletableFuture.runAsync(() -> {
-            Property p1 = propertyMapper.selectByRootIdAndName(rootId, "桥梁总体照片");
-            Property p2 = propertyMapper.selectByRootIdAndName(rootId, "桥梁正面照片");
+            extractImagesFromWord(file, buildingId);
+
+            Property p1 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁总体照片");
+            Property p2 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁正面照片");
 
             List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
 
