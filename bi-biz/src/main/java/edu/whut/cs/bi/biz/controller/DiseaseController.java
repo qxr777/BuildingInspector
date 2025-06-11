@@ -13,6 +13,7 @@ import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -115,7 +116,7 @@ public class DiseaseController extends BaseController
     {
         disease.setCreateBy(ShiroUtils.getLoginName());
         diseaseService.insertDisease(disease);
-        System.out.println(disease.getId());
+
         if(files!=null) {
             diseaseService.handleDiseaseAttachment(files,disease.getId());
         }
@@ -221,27 +222,42 @@ public class DiseaseController extends BaseController
     {
         try {
             // 获取病害对应的附件列表
-            List<Attachment> attachments = attachmentService.getAttachmentList(id).stream().filter(e->e.getName().startsWith("disease")).toList();
-
-            // 转换为前端需要的格式
-            List<Map<String, Object>> result = new ArrayList<>();
-            for (Attachment attachment : attachments) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("id", attachment.getId());
-                map.put("fileName", attachment.getName().split("_")[1]);
-                FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
-                if(fileMap == null)continue;
-                String s = fileMap.getNewName();
-                map.put("url",minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s);
-                // 根据文件后缀判断是否为图片
-                map.put("isImage", isImageFile(attachment.getName()));
-                result.add(map);
-            }
+            List<Map<String, Object>> result = getDiseaseImage(id);
 
             return AjaxResult.success(result);
         } catch (Exception e) {
             return AjaxResult.error("获取附件列表失败：" + e.getMessage());
         }
+    }
+
+
+    /**
+     * 获取与指定病害ID关联的附件信息，特别是以 "disease" 开头的图片类附件。
+     * 该接口会返回包含附件ID、文件名、访问URL及是否为图片类型的附件列表，
+     * 供前端展示病害相关的图片和其他附件信息。
+     *
+     * @param id 病害的唯一标识
+     * 返回的List立面有个map，map.get(“url”)就是病害图片的url，要看一下map.get(”isImage“)是否为true
+     */
+    @NotNull
+    public List<Map<String, Object>> getDiseaseImage(Long id) {
+        List<Attachment> attachments = attachmentService.getAttachmentList(id).stream().filter(e->e.getName().startsWith("disease")).toList();
+
+        // 转换为前端需要的格式
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Attachment attachment : attachments) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", attachment.getId());
+            map.put("fileName", attachment.getName().split("_")[1]);
+            FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
+            if(fileMap == null)continue;
+            String s = fileMap.getNewName();
+            map.put("url",minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s);
+            // 根据文件后缀判断是否为图片
+            map.put("isImage", isImageFile(attachment.getName()));
+            result.add(map);
+        }
+        return result;
     }
 
     // 判断文件是否为图片的辅助方法

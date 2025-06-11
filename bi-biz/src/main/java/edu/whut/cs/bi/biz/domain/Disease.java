@@ -4,6 +4,7 @@ import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.math.BigDecimal;
@@ -50,6 +51,7 @@ public class Disease extends BaseEntity {
 
     /** 病害图片 */
     private List<String> images;
+    private List<String> ADImgs;
 
     /** 关联对象 */
     private Long biObjectId;
@@ -82,4 +84,6 @@ public class Disease extends BaseEntity {
 
     /** 病害详情 */
      private List<DiseaseDetail> diseaseDetails;
+
+
 }

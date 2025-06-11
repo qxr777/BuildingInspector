@@ -354,4 +354,33 @@
         )
     </select>
 
+    <!-- 批量更新子节点的ancestors -->
+    <update id="batchUpdateAncestors">
+        UPDATE bi_object
+        SET ancestors = REPLACE(ancestors, #{oldAncestorsPrefix}, #{newAncestorsPrefix}),
+            update_by = #{updateBy},
+            update_time = sysdate()
+        WHERE id != #{rootObjectId}
+          AND ancestors LIKE CONCAT(#{oldAncestorsPrefix}, '%')
+          AND del_flag = '0'
+    </update>
+
+    <!-- 批量插入BiObject对象 -->
+    <insert id="batchInsertBiObjects" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_object (
+        name, parent_id, ancestors, order_num, status, del_flag,
+        longitude, latitude, altitude, position, area, admin_dept,
+        weight, video_feed, props, create_by, create_time, update_by,
+        update_time, remark, template_object_id
+        ) values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.name}, #{item.parentId}, #{item.ancestors}, #{item.orderNum}, #{item.status}, '0',
+            #{item.longitude}, #{item.latitude}, #{item.altitude}, #{item.position}, #{item.area}, #{item.adminDept},
+            #{item.weight}, #{item.videoFeed}, #{item.props}, #{item.createBy}, #{item.createTime}, #{item.updateBy},
+            #{item.updateTime}, #{item.remark}, #{item.templateObjectId}
+            )
+        </foreach>
+    </insert>
+
 </mapper>

@@ -65,6 +65,7 @@
             <if test="projectId != null"> and d.project_id = #{projectId}</if>
             <if test="biObjectId != null"> and d.bi_object_id = #{biObjectId}</if>
             <if test="componentId != null"> and d.component_id = #{componentId}</if>
+            <if test="participateAssess != null"> and d.participate_assess = #{participateAssess}</if>
         </where>
         order by d.create_time desc
     </select>

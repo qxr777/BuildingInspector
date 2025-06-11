@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
@@ -22,6 +23,7 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.ProjectUserAssignment;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.*;
+import org.apache.shiro.util.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -228,19 +230,28 @@ public class ProjectServiceImpl implements IProjectService {
         project.setInspectors(inspectors);
 
         // 报告编写人员
-        Long authorId = projectUserMapper.selectUserIdsByProjectAndRole(id, ProjectUserRoleEnum.AUTHOR.getValue()).get(0);
-        SysUser author = sysUserMapper.selectUserById(authorId);
-        project.setAuthor(author);
+        List<Long> authors = projectUserMapper.selectUserIdsByProjectAndRole(id, ProjectUserRoleEnum.AUTHOR.getValue());
+        if (!CollectionUtils.isEmpty(authors)) {
+            Long authorId = authors.get(0);
+            SysUser author = sysUserMapper.selectUserById(authorId);
+            project.setAuthor(author);
+        }
 
         // 报告审核人员
-        Long reviewerId = projectUserMapper.selectUserIdsByProjectAndRole(id, ProjectUserRoleEnum.REVIEWER.getValue()).get(0);
-        SysUser reviewer = sysUserMapper.selectUserById(reviewerId);
-        project.setReviewer(reviewer);
+        List<Long> reviewers = projectUserMapper.selectUserIdsByProjectAndRole(id, ProjectUserRoleEnum.REVIEWER.getValue());
+        if (!CollectionUtils.isEmpty(reviewers)) {
+            Long reviewerId = reviewers.get(0);
+            SysUser reviewer = sysUserMapper.selectUserById(reviewerId);
+            project.setReviewer(reviewer);
+        }
 
         // 报告批准人员
-        Long approverId = projectUserMapper.selectUserIdsByProjectAndRole(id, ProjectUserRoleEnum.APPROVER.getValue()).get(0);
-        SysUser approver = sysUserMapper.selectUserById(approverId);
-        project.setApprover(approver);
+        List<Long> approvers = projectUserMapper.selectUserIdsByProjectAndRole(id, ProjectUserRoleEnum.APPROVER.getValue());
+        if (!CollectionUtils.isEmpty(approvers)) {
+            Long approverId = approvers.get(0);
+            SysUser approver = sysUserMapper.selectUserById(approverId);
+            project.setApprover(approver);
+        }
 
         // 关联的任务列表
         List<Task> tasks = taskMapper.selectTaskListByProjectId(id);

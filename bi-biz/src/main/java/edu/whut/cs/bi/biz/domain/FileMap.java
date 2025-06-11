@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.domain;
 
 import lombok.Data;
+import lombok.ToString;
 
 import java.util.Date;
 
@@ -11,6 +12,7 @@ import java.util.Date;
  * @date 2025-03-29
  */
 @Data
+@ToString
 public class FileMap {
     private Integer id;
     private String oldName;
