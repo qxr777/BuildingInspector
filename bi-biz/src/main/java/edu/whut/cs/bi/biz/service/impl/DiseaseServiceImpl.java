@@ -4,6 +4,8 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.biz.controller.DiseaseController;
+import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 
 import edu.whut.cs.bi.biz.mapper.*;
@@ -20,6 +22,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,6 +57,8 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Resource
     private DiseaseDetailMapper diseaseDetailMapper;
 
+    @Resource
+    private DiseaseController diseaseController;
 
     /**
      * 查询病害
@@ -79,6 +84,9 @@ public class DiseaseServiceImpl implements IDiseaseService
         diseaseDetail.setDiseaseId(id);
         List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
         disease.setDiseaseDetails(diseaseDetails);
+
+//        List<Map<String, Object>> diseaseImage = diseaseController.getDiseaseImage(disease.getId());
+
 
         return disease;
     }

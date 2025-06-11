@@ -439,7 +439,7 @@ public class FileMapController extends BaseController {
      * FileMap(id=289, oldName=0_front_1-200R1141258.jpg, newName=http://60.205.13.156:9000/public/24/24f8142839744eef80b8843c25b826d1.jpg, createTime=Sat May 10 09:56:37 SGT 2025, updateTime=null, createBy=admin)
      */
     @NotNull
-    private List<FileMap> getImageMaps(Long id) {
+    public List<FileMap> getImageMaps(Long id) {
         List<Attachment> bySubjectId = attachmentService.getAttachmentList(id);
         List<FileMap> fileMapList = bySubjectId.stream()
                 .filter(e->{

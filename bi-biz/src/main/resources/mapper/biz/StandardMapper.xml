@@ -30,9 +30,9 @@
         <include refid="selectStandardVo"/>
         <where>
             <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
-            <if test="standardNo != null  and standardNo != ''"> and standard_no = #{standardNo}</if>
+            <if test="standardNo != null  and standardNo != ''"> and standard_no like  concat('%',#{standardNo},'%') </if>
             <if test="params.beginYear != null and params.beginYear != '' and params.endYear != null and params.endYear != ''"> and year between #{params.beginYear} and #{params.endYear}</if>
-            <if test="publisher != null  and publisher != ''"> and publisher = #{publisher}</if>
+            <if test="publisher != null  and publisher != ''"> and publisher like concat('%',#{publisher},'%')</if>
         </where>
     </select>
 

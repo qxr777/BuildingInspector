@@ -415,23 +415,15 @@ public class PropertyServiceImpl implements IPropertyService {
     public Boolean readWordFile(MultipartFile file, Property property, Long buildingId) {
         String jsonData = getJsonData(file);
 
-        if (jsonData.startsWith("```json")) {
-            jsonData = jsonData.substring(7);
-        }
-        // 去除尾部的 ```json
-        if (jsonData.endsWith("```")) {
-            jsonData = jsonData.substring(0, jsonData.length() - 3);
-        }
+        // 使用正则表达式去除多余的前缀和后缀
+        jsonData = jsonData.replaceAll("^```json", "").replaceAll("```$", "");
 
         // 先删除原本的属性树
         Building bd = buildingMapper.selectBuildingById(buildingId);
         Long oldRootId = bd.getRootPropertyId();
         if (oldRootId != null) {
             // 预防建筑属性所有节点全被删除情况
-            Property oldProperty = this.selectPropertyById(oldRootId);
-            if (oldProperty != null) {
-                this.deletePropertyById(oldRootId);
-            }
+            this.deletePropertyById(oldRootId);
         }
 
         // 解析json数据
@@ -459,15 +451,13 @@ public class PropertyServiceImpl implements IPropertyService {
      * 从word中提取图片
      *
      * @param file
-     * @return
-     * @throws IOException
+     * @param buildingId
      */
-    public void extractImagesFromWord(MultipartFile file, Long buildingId)  {
+    public void extractImagesFromWord(MultipartFile file, Long buildingId) {
         List<MultipartFile> images = new ArrayList<>();
 
         // 将MultipartFile转换成InputStream
         try (InputStream inputStream = file.getInputStream()) {
-            // 使用
             XWPFDocument document = new XWPFDocument(inputStream);
 
             // 遍历文档中的所有图片
@@ -484,30 +474,30 @@ public class PropertyServiceImpl implements IPropertyService {
                 images.add(imageFile);
             }
         } catch (IOException e) {
+            log.error("从word中提取图片失败", e);
             throw new ServiceException("从word中提取图片失败");
         }
 
         List<FileMap> fileMaps = fileMapService.handleBatchFileUpload(images.toArray(new MultipartFile[0]));
         // 持久化
-        AtomicInteger index = new AtomicInteger();
-        AtomicReference<String> str = new AtomicReference<>("front");
-        fileMaps.forEach(fileMap -> {
-            if(index.get()==2){
-                index.set(0);
-                str.set("side");
-            }
+        String[] directions = {"front", "side"};
+        for (int i = 0; i < fileMaps.size(); i++) {
+            FileMap fileMap = fileMaps.get(i);
             Attachment attachment = new Attachment();
-            attachment.setName(index+"_"+str +"_"+ fileMap.getOldName());
+            attachment.setName(i + "_" + directions[i % 2] + "_" + fileMap.getOldName());
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setSubjectId(buildingId);
             attachment.setType(2);
             attachmentService.insertAttachment(attachment);
-            index.getAndIncrement();
-
-        });
-
+        }
     }
 
+    /**
+     * 获取json数据
+     *
+     * @param file
+     * @return
+     */
     public String getJsonData(MultipartFile file) {
         String host = "47.94.205.90";
         int port = 8081;

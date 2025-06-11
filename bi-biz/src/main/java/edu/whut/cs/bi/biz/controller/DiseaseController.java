@@ -116,7 +116,7 @@ public class DiseaseController extends BaseController
     {
         disease.setCreateBy(ShiroUtils.getLoginName());
         diseaseService.insertDisease(disease);
-        System.out.println(disease.getId());
+
         if(files!=null) {
             diseaseService.handleDiseaseAttachment(files,disease.getId());
         }
@@ -240,7 +240,7 @@ public class DiseaseController extends BaseController
      * 返回的List立面有个map，map.get(“url”)就是病害图片的url，要看一下map.get(”isImage“)是否为true
      */
     @NotNull
-    private List<Map<String, Object>> getDiseaseImage(Long id) {
+    public List<Map<String, Object>> getDiseaseImage(Long id) {
         List<Attachment> attachments = attachmentService.getAttachmentList(id).stream().filter(e->e.getName().startsWith("disease")).toList();
 
         // 转换为前端需要的格式

@@ -6,6 +6,7 @@ import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.Condition;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Score;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.ScoreMapper;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IComponentService;
@@ -31,16 +32,7 @@ public class ScoreServiceImpl implements IScoreService {
     private ScoreMapper scoreMapper;
 
     @Autowired
-    private IComponentService componentService;
-
-    @Autowired
-    private IDiseaseService diseaseService;
-
-    @Autowired
-    private IBiObjectService biObjectService;
-
-    @Autowired
-    private IConditionService conditionService;
+    private DiseaseMapper diseaseMapper;
 
     @Override
     public Score selectScoreById(Long id) {
@@ -89,7 +81,8 @@ public class ScoreServiceImpl implements IScoreService {
                 // 获取构件的病害记录
                 Disease queryDisease = new Disease();
                 queryDisease.setComponentId(component.getId());
-                List<Disease> diseases = diseaseService.selectDiseaseList(queryDisease);
+                queryDisease.setParticipateAssess("0");
+                List<Disease> diseases = diseaseMapper.selectDiseaseList(queryDisease);;
                 // 只处理有病害记录的构件
                 if (diseases != null && !diseases.isEmpty()) {
                     Score score = calculateComponentScore(component, diseases, conditionId);
@@ -130,7 +123,7 @@ public class ScoreServiceImpl implements IScoreService {
 
             // 如果单项扣分为100，则直接判定为0分
             if (deduction.compareTo(new BigDecimal("100")) == 0) {
-                finalScore = BigDecimal.ZERO;
+                totalDeduction = new BigDecimal("100");
                 break;
             }
 
@@ -162,7 +155,7 @@ public class ScoreServiceImpl implements IScoreService {
         }
 
         // 计算最终得分
-        finalScore = new BigDecimal("100").subtract(totalDeduction);
+        finalScore = finalScore.subtract(totalDeduction);
 
         // 确保分数不小于0
         if (finalScore.compareTo(BigDecimal.ZERO) < 0) {
