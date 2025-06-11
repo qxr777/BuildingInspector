@@ -3,20 +3,22 @@
 PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.whut.cs.bi.biz.mapper.FileMapMapper">
-    
+
     <resultMap type="FileMap" id="FileMapResult">
-        <result property="id"    column="id"    />
-        <result property="oldName"    column="oldName"    />
-        <result property="newName"    column="newName"    />
-        <result property="createBy"    column="createBy"    />
-        <result property="createTime"    column="createTime"    />
-        <result property="updateTime"    column="updateTime"    />
+        <result property="id" column="id"/>
+        <result property="oldName" column="oldName"/>
+        <result property="newName" column="newName"/>
+        <result property="createBy" column="createBy"/>
+        <result property="createTime" column="createTime"/>
+        <result property="updateTime" column="updateTime"/>
+        <result property="fileType" column="fileType"/>
     </resultMap>
 
-    <sql id="selectFileMapVo">
-        select id, oldName, newName, createBy, createTime, updateTime from bi_file_map
-    </sql>
 
+    <sql id="selectFileMapVo">
+        select id, oldName, newName, createBy, createTime, updateTime, fileType from bi_file_map
+    </sql>
+    
     <select id="selectFileMapList" parameterType="FileMap" resultMap="FileMapResult">
         <include refid="selectFileMapVo"/>
         <where>  
@@ -26,6 +28,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="createBy != null  and createBy != ''"> and createBy = #{createBy}</if>
             <if test="createTime != null "> and createTime = #{createTime}</if>
             <if test="updateTime != null "> and updateTime = #{updateTime}</if>
+            <if test="fileType != null and fileType != ''"> and fileType = #{fileType}</if>
         </where>
     </select>
     
@@ -42,6 +45,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="createBy != null">createBy,</if>
             <if test="createTime != null">createTime,</if>
             <if test="updateTime != null">updateTime,</if>
+            <if test="fileType != null and fileType != ''">fileType,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="oldName != null and oldName != ''">#{oldName},</if>
@@ -49,6 +53,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
+            <if test="fileType != null and fileType != ''">#{fileType},</if>
          </trim>
     </insert>
 
@@ -60,6 +65,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="createBy != null">createBy = #{createBy},</if>
             <if test="createTime != null">createTime = #{createTime},</if>
             <if test="updateTime != null">updateTime = #{updateTime},</if>
+            <if test="fileType != null and fileType != ''">fileType = #{fileType},</if>
         </trim>
         where id = #{id}
     </update>

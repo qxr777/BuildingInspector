@@ -7,7 +7,7 @@ import java.util.Date;
 
 /**
  * 文件管理对象 file_map
- * 
+ *
  * @author zzzz
  * @date 2025-03-29
  */
@@ -20,4 +20,5 @@ public class FileMap {
     private Date createTime;
     private Date updateTime;
     private String createBy;
+    private String fileType; // 新增的文件类型字段
 }
