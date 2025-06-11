@@ -76,6 +76,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             find_in_set(#{id}, ancestors)
     </select>
 
+    <select id="selectByRootIdAndName" resultType="edu.whut.cs.bi.biz.domain.Property">
+        select * from bi_property
+        where
+            name = #{name}
+            and find_in_set(#{propertyRootId}, ancestors)
+    </select>
+
 
     <insert id="insertProperty" parameterType="Property" useGeneratedKeys="true" keyProperty="id">
         insert into bi_property

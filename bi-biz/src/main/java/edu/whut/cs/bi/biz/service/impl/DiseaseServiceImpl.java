@@ -137,6 +137,9 @@ public class DiseaseServiceImpl implements IDiseaseService
             diseaseDetail.setDiseaseId(ds.getId());
             List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
             ds.setDiseaseDetails(diseaseDetails);
+
+            List<Map<String, Object>> diseaseImage = diseaseController.getDiseaseImage(ds.getId());
+
         });
         return diseases;
     }

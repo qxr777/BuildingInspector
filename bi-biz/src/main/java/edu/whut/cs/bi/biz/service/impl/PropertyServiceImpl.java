@@ -1,5 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
@@ -9,6 +11,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.FileMap;
@@ -59,6 +62,9 @@ public class PropertyServiceImpl implements IPropertyService {
 
     @Resource
     private AttachmentService attachmentService;
+
+    @Resource
+    private FileMapController fileMapController;
     /**
      * 查询属性
      *
@@ -426,6 +432,8 @@ public class PropertyServiceImpl implements IPropertyService {
             this.deletePropertyById(oldRootId);
         }
 
+
+
         // 解析json数据
         JSONObject jsonObject = JSONUtil.parseObj(jsonData, false);
         Long rootId = buildTree(jsonObject, property);
@@ -443,6 +451,27 @@ public class PropertyServiceImpl implements IPropertyService {
         propertyMapper.updateProperty(p);
 
         extractImagesFromWord(file, buildingId);
+
+        // todo 之后根据ai解析出来的结果调整name值（正立面照）
+        Property p1 = propertyMapper.selectByRootIdAndName(rootId, "桥梁总体照片");
+        Property p2 = propertyMapper.selectByRootIdAndName(rootId, "桥梁正面照片");
+
+        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
+
+        Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
+                image -> image.getOldName().split("_")[1],
+                Collectors.mapping(FileMap::getNewName, Collectors.toList())
+        ));
+
+        if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty()) {
+            p1.setValue(collect.get("front").get(0));
+            propertyMapper.updateProperty(p1);
+        }
+        if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty()) {
+            p2.setValue(collect.get("side").get(0));
+            propertyMapper.updateProperty(p2);
+        }
+
 
         return true;
     }
@@ -490,6 +519,7 @@ public class PropertyServiceImpl implements IPropertyService {
             attachment.setType(2);
             attachmentService.insertAttachment(attachment);
         }
+
     }
 
     /**
