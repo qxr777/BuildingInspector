@@ -251,10 +251,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
     @Override
     public List<BiObject> selectBiObjectAndChildrenRemoveLeaf(Long rootId) {
         List<BiObject> list = new ArrayList<>();
-        // 添加根节点
+        // 验证根节点
         BiObject rootNode = selectBiObjectById(rootId);
         if (rootNode != null) {
-            list.add(rootNode);
             // 查询所有子节点
             list.addAll(biObjectMapper.selectChildrenByIdRemoveLeaf(rootId));
         }
@@ -391,66 +390,57 @@ public class BiObjectServiceImpl implements IBiObjectService {
         objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         return objectMapper.writeValueAsString(rootNode);
     }
-
     /**
-     * 递归更新BiObject树结构
+     * 递归更新BiObject树结构（批量更新版本）
      *
      * @param biObject 当前处理的节点
      * @return 更新的节点数量
      */
     @Override
     public int updateBiObjectTreeRecursively(BiObject biObject) {
-        if (biObject.getStatus() == null || biObject.getStatus().equals("3")) {
-            throw new RuntimeException(biObject.getName() + "结构已初始化，不允许修改");
-        }
-        int updateCount = 0;
-
-        // 1. 更新当前节点
+        // 1. 检查根节点是否存在
         BiObject existingObject = biObjectMapper.selectBiObjectById(biObject.getId());
         if (existingObject == null) {
             throw new RuntimeException("未找到ID为 " + biObject.getId() + " 的节点");
         }
 
-        biObject.setUpdateBy(ShiroUtils.getLoginName());
-        biObject.setUpdateTime(new Date());
-        biObjectMapper.updateBiObject(biObject);
-        updateCount++;
+        // 2. 收集所有需要更新的节点
+        List<BiObject> nodesToUpdate = new ArrayList<>();
+        collectNodesToUpdate(biObject, nodesToUpdate);
 
-//        // 2. 处理构件更新
-//        List<Component> newComponents = biObject.getComments();
-//        List<Component> updateComponents = new ArrayList<>();
-//        List<Component> insertComponents = new ArrayList<>();
-//        if (newComponents != null && !newComponents.isEmpty()) {
-//            for (Component component : newComponents) {
-//                if(component.getId() == null ) {
-//                    // 设置必要的系统字段
-//                    component.setCreateBy(ShiroUtils.getLoginName());
-//                    component.setCreateTime(new Date());
-//                    component.setUpdateBy(ShiroUtils.getLoginName());
-//                    component.setUpdateTime(new Date());
-//                    component.setStatus("0"); // 默认正常状态
-//                    component.setDelFlag("0"); // 默认存在
-//                    insertComponents.add(component);
-//                } else {
-//                    component.setUpdateBy(ShiroUtils.getLoginName());
-//                    component.setUpdateTime(new Date());
-//                    updateComponents.add(component);
-//                }
-//            }
-//            // 批量插入所有构件（一次数据库操作）
-//            componentService.batchInsertComponents(insertComponents);
-//            componentService.batchUpdateComponents(updateComponents);
-//        }
+        // 3. 设置更新时间和更新人
+        String updateBy = ShiroUtils.getLoginName();
+        Date updateTime = new Date();
+        for (BiObject node : nodesToUpdate) {
+            node.setUpdateBy(updateBy);
+            node.setUpdateTime(updateTime);
+        }
 
-        // 3. 递归处理子节点
+        // 4. 批量更新节点
+        if (!nodesToUpdate.isEmpty()) {
+            biObjectMapper.updateBiObjects(nodesToUpdate);
+        }
+
+        return nodesToUpdate.size();
+    }
+
+    /**
+     * 递归收集需要更新的节点
+     *
+     * @param biObject 当前节点
+     * @param nodesToUpdate 收集的节点列表
+     */
+    private void collectNodesToUpdate(BiObject biObject, List<BiObject> nodesToUpdate) {
+        // 添加当前节点
+        nodesToUpdate.add(biObject);
+
+        // 递归处理子节点
         List<BiObject> children = biObject.getChildren();
         if (children != null && !children.isEmpty()) {
             for (BiObject child : children) {
-                updateCount += updateBiObjectTreeRecursively(child);
+                collectNodesToUpdate(child, nodesToUpdate);
             }
         }
-
-        return updateCount;
     }
 
     @Override

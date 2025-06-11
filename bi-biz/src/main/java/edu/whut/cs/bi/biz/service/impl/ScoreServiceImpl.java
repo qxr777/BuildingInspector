@@ -73,7 +73,7 @@ public class ScoreServiceImpl implements IScoreService {
 
     @Override
     @Transactional
-    public List<Score> calculateScore(List<Component> components, Long conditionId) {
+    public List<Score> calculateScore(List<Component> components, Long conditionId,Long projectId) {
         List<Score> allScores = new ArrayList<>();
         if (components != null && !components.isEmpty()) {
             List<Score> componentScores = new ArrayList<>();
@@ -82,6 +82,7 @@ public class ScoreServiceImpl implements IScoreService {
                 Disease queryDisease = new Disease();
                 queryDisease.setComponentId(component.getId());
                 queryDisease.setParticipateAssess("0");
+                queryDisease.setProjectId(projectId);
                 List<Disease> diseases = diseaseMapper.selectDiseaseList(queryDisease);;
                 // 只处理有病害记录的构件
                 if (diseases != null && !diseases.isEmpty()) {

@@ -83,7 +83,6 @@ public class Disease extends BaseEntity {
     private List<Attachment> attachments;
 
     /** 病害详情 */
-     private List<DiseaseDetail> diseaseDetails;
-
+    private List<DiseaseDetail> diseaseDetails;
 
 }

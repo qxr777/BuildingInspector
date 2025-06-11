@@ -316,7 +316,7 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @param id    病害id
      */
     @Override
-    public void handleDiseaseAttachment(MultipartFile[] files,Long id) {
+    public void handleDiseaseAttachment(MultipartFile[] files,Long id,int type) {
         if(files == null)return;
         Arrays.stream(files).forEach(e->{
             FileMap fileMap = fileMapService.handleFileUpload(e);
@@ -324,7 +324,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setName("disease_"+fileMap.getOldName());
             attachment.setSubjectId(id);
-            attachment.setType(1);
+            attachment.setType(type);
             attachmentService.insertAttachment(attachment);
         });
     }

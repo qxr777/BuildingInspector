@@ -4,6 +4,7 @@ import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.BiEvaluation;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Condition;
+import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.BiEvaluationMapper;
 import edu.whut.cs.bi.biz.service.IBiEvaluationService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
@@ -33,7 +34,7 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
     private IConditionService conditionService;
 
     @Autowired
-    private IScoreService scoreService;
+    private TaskServiceImpl taskService;
 
     private static BigDecimal superWeight;
     private static BigDecimal subWeight;
@@ -83,6 +84,9 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
      * 计算桥幅得分
      */
     public BiEvaluation calculateBiEvaluation(Long taskId, Long rootObjectId) {
+        Task task = taskService.selectTaskById(taskId);
+        Long projectId = task.getProjectId();
+
         // 1. 获取或创建评定记录
         BiEvaluation biEvaluation = selectBiEvaluationByTaskId(taskId);
         if (biEvaluation == null) {
@@ -98,7 +102,7 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
         for (int i = 0; i < secondLevelObject.size(); i++) {
             BiObject object = secondLevelObject.get(i);
             if (object.getWeight() != null) {
-                calculatePartScore(object, biEvaluation);
+                calculatePartScore(object, biEvaluation,projectId);
             }
         }
 
@@ -116,7 +120,7 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
     /**
      * 计算部分（上部结构、下部结构、桥面系统）得分
      */
-    private void calculatePartScore(BiObject part, BiEvaluation biEvaluation) {
+    private void calculatePartScore(BiObject part, BiEvaluation biEvaluation,Long projectId) {
         // 获取该部分下所有孩子节点
         List<BiObject> leafNodes = biObjectService.selectDirectChildrenByParentId(part.getId());
 
@@ -127,7 +131,7 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
 
         for (BiObject leaf : leafNodes) {
             // 计算部件得分
-            Condition condition = conditionService.calculateCondition(leaf, biEvaluation.getId());
+            Condition condition = conditionService.calculateCondition(leaf, biEvaluation.getId(),projectId);
             if (condition != null) {
                 BigDecimal weight = leaf.getWeight() != null ? leaf.getWeight() : BigDecimal.ZERO;
                 totalWeight = totalWeight.add(weight);

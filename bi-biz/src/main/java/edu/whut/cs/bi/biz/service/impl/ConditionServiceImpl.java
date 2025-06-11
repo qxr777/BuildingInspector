@@ -83,7 +83,7 @@ public class ConditionServiceImpl implements IConditionService {
 
     @Override
     @Transactional
-    public Condition calculateCondition(BiObject biObject, Long biEvaluationId) {
+    public Condition calculateCondition(BiObject biObject, Long biEvaluationId,Long projectId) {
         // 1. 获取或创建部件的Condition记录
         Condition condition = selectConditionByBiObjectId(biObject.getId());
         if (condition == null) {
@@ -100,7 +100,7 @@ public class ConditionServiceImpl implements IConditionService {
         List<Component> components = componentService.selectComponentsByBiObjectIdAndChildren(biObject.getId());
         List<Score> scores = new ArrayList<>();
         if (components.size() > 0) {
-            scores = scoreService.calculateScore(components, condition.getId());
+            scores = scoreService.calculateScore(components, condition.getId(),projectId);
         }
         if (scores == null || scores.isEmpty()) {
             // 如果没有构件得分记录，说明没有病害记录，返回满分

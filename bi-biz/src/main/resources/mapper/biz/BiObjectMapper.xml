@@ -110,50 +110,37 @@
     </select>
 
     <select id="selectChildrenByIdRemoveLeaf" parameterType="Long" resultMap="BiObjectResult">
-        WITH RECURSIVE valid_nodes AS (
-            -- 找出所有status不为1的节点
-            SELECT id, parent_id, ancestors
-            FROM bi_object
-            WHERE del_flag = '0' AND (status != '1' OR status IS NULL)
-        ),
-                       filtered_tree AS (
-                           -- 选择根节点下的子节点，且这些子节点的status不为1
-                           SELECT t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
-                                  t.longitude, t.latitude, t.altitude, t.position, t.area, t.admin_dept,
-                                  t.weight, t.video_feed, t.props, t.create_by, t.create_time, t.update_by,
-                                  t.update_time, t.remark, t.template_object_id, t.count
-                           FROM bi_object t
-                           WHERE FIND_IN_SET(#{id}, t.ancestors)
-                             AND t.del_flag = '0'
-                             AND (t.status != '1' OR t.status IS NULL)
-                             -- 确保所有祖先节点都不是status=1
-                             AND NOT EXISTS (
-                               SELECT 1
-                               FROM bi_object p
-                               WHERE FIND_IN_SET(p.id, t.ancestors)
-                                 AND p.status = '1'
-                                 AND p.del_flag = '0'
-                           )
-                       )
-        SELECT t.*
-        FROM filtered_tree t
-        -- 只返回非叶子节点
-        WHERE EXISTS (
-            SELECT 1
-            FROM valid_nodes c
-            WHERE c.parent_id = t.id
+        WITH RECURSIVE filtered_tree AS (
+        <!-- 查询根节点 -->
+        SELECT t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
+        t.longitude, t.latitude, t.altitude, t.position, t.area, t.admin_dept,
+        t.weight, t.video_feed, t.props, t.create_by, t.create_time, t.update_by,
+        t.update_time, t.remark, t.template_object_id, t.count,
+        1 AS level
+        FROM bi_object t
+        WHERE t.id = #{id}
+        AND t.del_flag = '0'
+        AND (t.status != '1' OR t.status IS NULL)
+
+        UNION ALL
+
+        <!-- 递归查询子节点，并计算层级 -->
+        SELECT c.id, c.name, c.parent_id, c.ancestors, c.order_num, c.status, c.del_flag,
+        c.longitude, c.latitude, c.altitude, c.position, c.area, c.admin_dept,
+        c.weight, c.video_feed, c.props, c.create_by, c.create_time, c.update_by,
+        c.update_time, c.remark, c.template_object_id, c.count,
+        p.level + 1
+        FROM bi_object c
+        JOIN filtered_tree p ON c.parent_id = p.id
+        WHERE c.del_flag = '0'
+        AND (c.status != '1' OR c.status IS NULL)
+        AND p.level &lt; 4
         )
+        SELECT DISTINCT t.*
+        FROM filtered_tree t
         ORDER BY t.parent_id, t.order_num
     </select>
 
-    <select id="selectParentById" parameterType="Long" resultMap="BiObjectResult">
-        <include refid="selectBiObjectVo"/>
-        where id in (
-        select regexp_substr(ancestors, '[^,]+', 1, level)
-        from (select ancestors from bi_object where id = #{id}) t
-        connect by regexp_substr(ancestors, '[^,]+', 1, level) is not null
-        )
-    </select>
 
     <insert id="insertBiObject" parameterType="BiObject" useGeneratedKeys="true" keyProperty="id">
         insert into bi_object
@@ -239,17 +226,29 @@
     <update id="updateBiObjects" parameterType="java.util.List">
         update bi_object
         <set>
-            weight =
+            `weight` =
             <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
                 WHEN #{item.id} THEN #{item.weight}
             </foreach>
-            update_time =
+
+            `update_time` =
             <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
                 WHEN #{item.id} THEN #{item.updateTime}
             </foreach>
-            update_by =
-            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END">
+
+            `update_by` =
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
                 WHEN #{item.id} THEN #{item.updateBy}
+            </foreach>
+
+            `status` =
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
+                WHEN #{item.id} THEN #{item.status}
+            </foreach>
+
+            `count` =
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END">
+                WHEN #{item.id} THEN #{item.count}
             </foreach>
         </set>
         where id in
@@ -257,6 +256,8 @@
             #{item.id}
         </foreach>
     </update>
+
+
 
     <delete id="deleteBiObjectById" parameterType="Long">
         update bi_object set del_flag = '1' where id = #{id}
