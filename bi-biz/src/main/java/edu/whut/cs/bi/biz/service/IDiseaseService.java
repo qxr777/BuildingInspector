@@ -73,5 +73,5 @@ public interface IDiseaseService {
      */
     public int computeDeductPoints(int maxScale, int scale);
 
-    public void handleDiseaseAttachment(MultipartFile[] files,Long id);
+    public void handleDiseaseAttachment(MultipartFile[] files,Long id,int type);
 }

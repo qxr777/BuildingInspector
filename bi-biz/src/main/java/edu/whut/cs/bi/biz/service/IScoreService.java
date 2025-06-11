@@ -72,5 +72,5 @@ public interface IScoreService {
      * @param conditionId 部件评定ID
      * @return 构件得分
      */
-    public List<Score> calculateScore(List<Component> components, Long conditionId);
+    public List<Score> calculateScore(List<Component> components, Long conditionId,Long projectId);
 }

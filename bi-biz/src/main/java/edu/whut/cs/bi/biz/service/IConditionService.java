@@ -75,5 +75,5 @@ public interface IConditionService {
      * @param biEvaluationId 桥幅评定ID
      * @return 部件评定
      */
-    public Condition calculateCondition(BiObject biObject, Long biEvaluationId);
+    public Condition calculateCondition(BiObject biObject, Long biEvaluationId,Long projectId);
 }

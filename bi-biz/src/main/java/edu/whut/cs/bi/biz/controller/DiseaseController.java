@@ -118,7 +118,7 @@ public class DiseaseController extends BaseController
         diseaseService.insertDisease(disease);
 
         if(files!=null) {
-            diseaseService.handleDiseaseAttachment(files,disease.getId());
+            diseaseService.handleDiseaseAttachment(files,disease.getId(),1);
         }
         return toAjax(Math.toIntExact(disease.getId()));
     }
@@ -169,7 +169,7 @@ public class DiseaseController extends BaseController
             @RequestParam(value = "deletedAttachmentIds", required = false) String[] deletedAttachmentIds
     ) {
         disease.setUpdateBy(ShiroUtils.getLoginName());
-        diseaseService.handleDiseaseAttachment(files,disease.getId());
+        diseaseService.handleDiseaseAttachment(files,disease.getId(),1);
         return toAjax(diseaseService.updateDisease(disease));
     }
 
@@ -255,6 +255,7 @@ public class DiseaseController extends BaseController
             map.put("url",minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s);
             // 根据文件后缀判断是否为图片
             map.put("isImage", isImageFile(attachment.getName()));
+            map.put("type", attachment.getType());
             result.add(map);
         }
         return result;

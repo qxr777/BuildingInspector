@@ -109,6 +109,8 @@ public class SysLoginController extends BaseController
         SysDept sysDept = new SysDept();
         if(split.length >= 3){
             sysDept = deptService.selectDeptById(Long.valueOf(split[2]));
+        } else {
+            sysDept = user.getDept();
         }
         if (UserStatus.DELETED.getCode().equals(user.getDelFlag()))
         {
