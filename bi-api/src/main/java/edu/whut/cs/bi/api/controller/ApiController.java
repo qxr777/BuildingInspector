@@ -436,7 +436,8 @@ public class ApiController {
                 for (Disease disease : diseases) {
                     List<String> images = disease.getImages();
                     List<String> ADImages = disease.getADImgs();
-                    List<MultipartFile> multipartFiles = new ArrayList<>();
+                    List<MultipartFile> multipartImagesFiles = new ArrayList<>();
+                    List<MultipartFile> multipartADImagesFiles = new ArrayList<>();
                     if (images != null && !images.isEmpty()) {
                         for (String imagePath : images) {
                             if (imagePath != null && !imagePath.isEmpty()) {
@@ -453,20 +454,20 @@ public class ApiController {
                                             imageFile.getName(),
                                             Files.probeContentType(imageFile.toPath()),
                                             fileContent);
-                                    multipartFiles.add(mockFile);
+                                    multipartImagesFiles.add(mockFile);
                                 }
                             }
                         }
                         // 调用handleDiseaseAttachment方法
-                        if (!multipartFiles.isEmpty()) {
+                        if (!multipartImagesFiles.isEmpty()) {
                             diseaseService.handleDiseaseAttachment(
-                                    multipartFiles.toArray(new MultipartFile[0]),
+                                    multipartImagesFiles.toArray(new MultipartFile[0]),
                                     disease.getId(),
                                     1
                             );
                         }
                     }
-                    if (images != null && !images.isEmpty()) {
+                    if (ADImages != null && !ADImages.isEmpty()) {
                         for (String imagePath : ADImages) {
                             if (imagePath != null && !imagePath.isEmpty()) {
                                 // 检查路径是否已经包含buildingId
@@ -482,14 +483,14 @@ public class ApiController {
                                             imageFile.getName(),
                                             Files.probeContentType(imageFile.toPath()),
                                             fileContent);
-                                    multipartFiles.add(mockFile);
+                                    multipartADImagesFiles.add(mockFile);
                                 }
                             }
                         }
                         // 调用handleDiseaseAttachment方法
-                        if (!multipartFiles.isEmpty()) {
+                        if (!multipartADImagesFiles.isEmpty()) {
                             diseaseService.handleDiseaseAttachment(
-                                    multipartFiles.toArray(new MultipartFile[0]),
+                                    multipartADImagesFiles.toArray(new MultipartFile[0]),
                                     disease.getId(),
                                     7
                             );
