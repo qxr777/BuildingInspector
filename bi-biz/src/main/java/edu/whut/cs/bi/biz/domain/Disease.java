@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.domain;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -51,6 +52,8 @@ public class Disease extends BaseEntity {
 
     /** 病害图片 */
     private List<String> images;
+
+    @JsonProperty("ADImgs")
     private List<String> ADImgs;
 
     /** 关联对象 */
