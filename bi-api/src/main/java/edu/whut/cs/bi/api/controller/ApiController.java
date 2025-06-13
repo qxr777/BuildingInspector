@@ -248,7 +248,11 @@ public class ApiController {
             }
             int successCount = 0;
             //记录已经插入了的构件
-            HashMap<String, Long> map = new HashMap<>();
+            HashMap<String, Long> map = new HashMap<>(16);
+            List<Component> components = componentService.selectComponentList(new Component());
+            for (Component component : components) {
+                map.put(component.getName(), component.getId());
+            }
             for (Disease disease : diseases) {
                 // 通过构件名称查找构件ID
                 Component component = disease.getComponent();

@@ -113,7 +113,7 @@
                     title: '构件数量',
                     align: 'left',
                     formatter: function(value, row, index) {
-                        if (row.children || row.children.length !== 0) {
+                        if (value > 0) {
                             return value;
                         }
                         return '';

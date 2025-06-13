@@ -44,7 +44,15 @@
             <div class="form-group">
                 <label class="col-sm-3 control-label">权重：</label>
                 <div class="col-sm-8">
-                    <input name="weight" th:field="*{weight}" class="form-control" type="number" step="0.0001">
+                    <input name="weight" th:field="*{weight}" class="form-control" type="number" step="0.0001" id="weight" min="0">
+                </div>
+            </div>
+        </div>
+        <div class="col-xs-12" id="countDiv" style="display: none;">
+            <div class="form-group">
+                <label class="col-sm-3 control-label">构件数量：</label>
+                <div class="col-sm-8">
+                    <input name="count" th:field="*{count}" class="form-control" type="number" min="1">
                 </div>
             </div>
         </div>
@@ -68,6 +76,24 @@
 
     $("#form-biobject-edit").validate({
         focusCleanup: true
+    });
+
+    // 监听权重输入框变化
+    $("#weight").on('input', function() {
+        var weight = parseFloat($(this).val());
+        if (weight > 0) {
+            $("#countDiv").show();
+        } else {
+            $("#countDiv").hide();
+        }
+    });
+
+    // 页面加载时检查权重值
+    $(document).ready(function() {
+        var weight = parseFloat($("#weight").val());
+        if (weight > 0) {
+            $("#countDiv").show();
+        }
     });
 
     function submitHandler() {

@@ -412,6 +412,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
         String updateBy = ShiroUtils.getLoginName();
         Date updateTime = new Date();
         for (BiObject node : nodesToUpdate) {
+            if(biObject.getWeight()==null||biObject.getWeight().equals(BigDecimal.ZERO)) {
+                biObject.setCount(0);
+            }
             node.setUpdateBy(updateBy);
             node.setUpdateTime(updateTime);
         }
