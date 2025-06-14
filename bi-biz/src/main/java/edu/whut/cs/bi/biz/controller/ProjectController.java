@@ -114,6 +114,19 @@ public class ProjectController extends BaseController {
     }
 
     /**
+     * 修改项目
+     */
+    @RequiresPermissions("biz:project:view")
+    @GetMapping("/detail/{id}")
+    public String detail(@PathVariable("id") Long id, ModelMap mmap) {
+        Project project = projectService.selectProjectVOById(id);
+
+        mmap.put("project", project);
+        return prefix + "/detail";
+    }
+
+
+    /**
      * 删除项目
      */
     @RequiresPermissions("biz:project:remove")
