@@ -30,6 +30,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
@@ -444,6 +445,8 @@ public class PropertyServiceImpl implements IPropertyService {
                 if (oldRootId != null) {
                     // 预防建筑属性所有节点全被删除情况
                     this.deletePropertyById(oldRootId);
+                    deleteBuildIMage(oldRootId);
+
                 }
 
                 // 解析json数据
@@ -503,6 +506,17 @@ public class PropertyServiceImpl implements IPropertyService {
                 });
 
         return true;
+    }
+
+    private void deleteBuildIMage(Long oldRootId) {
+        List<Attachment> attachmentList = attachmentService.getAttachmentList(oldRootId);
+        if(!CollectionUtils.isEmpty(attachmentList)){
+            for(Attachment value: attachmentList){
+                if(value.getName().startsWith("0_side")||value.getName().startsWith("0_front")||value.getName().startsWith("1_front")||value.getName().startsWith("1_side")){
+                    attachmentService.deleteAttachmentById(value.getId());
+                }
+            }
+        }
     }
 
     /**
