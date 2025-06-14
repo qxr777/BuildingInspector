@@ -94,8 +94,9 @@
                         more.push('<a class="btn btn-default btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="selectDiseaseType(\'' + row.id + '\')"><i class="fa fa-bug"></i>病害类型</a> ');
 
-
-                        actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
+                        if(more.length > 0) {
+                            actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
+                        }
                         return actions.join('');
                     }
                 }]

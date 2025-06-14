@@ -129,7 +129,9 @@
                         // 创建更多操作菜单
                         var more = [];
                         more.push('<a class="btn btn-default btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="deleteObject(\'' + row.id + '\', ' + (row.children && row.children.length > 0) + ')"><i class="fa fa-remove"></i>删除</a> ');
-                        actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
+                        if(more.length > 0) {
+                            actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
+                        }
                         return actions.join('');
                     }
                 }]

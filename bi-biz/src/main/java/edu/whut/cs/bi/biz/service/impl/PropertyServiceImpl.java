@@ -204,11 +204,10 @@ public class PropertyServiceImpl implements IPropertyService {
                     }
                 }
 
-                // 养护处治记录，暂时不知道都有什么值，暂不处理！！！
-                if (property.getName().equals("养护处治记录")) {
-                    property.setValue(value.toString());
-                    propertyMapper.insertProperty(property);
-                }
+//                if (property.getName().equals("养护处治记录")) {
+//                    property.setValue(value.toString());
+//                    propertyMapper.insertProperty(property);
+//                }
             } else {
                 String valueString = value.toString();
                 // value为String值，即树的叶子节点

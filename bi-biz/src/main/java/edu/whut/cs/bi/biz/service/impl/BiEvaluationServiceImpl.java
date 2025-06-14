@@ -9,7 +9,6 @@ import edu.whut.cs.bi.biz.mapper.BiEvaluationMapper;
 import edu.whut.cs.bi.biz.service.IBiEvaluationService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IConditionService;
-import edu.whut.cs.bi.biz.service.IScoreService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,8 +83,20 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
      * 计算桥幅得分
      */
     public BiEvaluation calculateBiEvaluation(Long taskId, Long rootObjectId) {
+        // 检查参数
+        if (taskId == null || rootObjectId == null) {
+            throw new RuntimeException("计算失败：任务ID或根对象ID为空");
+        }
+
         Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            throw new RuntimeException("计算失败：未找到任务信息");
+        }
+
         Long projectId = task.getProjectId();
+        if (projectId == null) {
+            throw new RuntimeException("计算失败：任务未关联项目");
+        }
 
         // 1. 获取或创建评定记录
         BiEvaluation biEvaluation = selectBiEvaluationByTaskId(taskId);
@@ -99,10 +110,25 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
 
         // 2. 获取所有第二层的节点
         List<BiObject> secondLevelObject = biObjectService.selectDirectChildrenByParentId(rootObjectId);
+        if (secondLevelObject == null || secondLevelObject.isEmpty()) {
+            throw new RuntimeException("计算失败：未找到桥梁结构的子节点");
+        }
+
+        // 重置权重变量，避免使用上次计算的值
+        superWeight = null;
+        subWeight = null;
+        deckWeight = null;
+
         for (int i = 0; i < secondLevelObject.size(); i++) {
             BiObject object = secondLevelObject.get(i);
+            if (object == null) {
+                throw new RuntimeException("计算失败：子节点对象为空");
+            }
+
             if (object.getWeight() != null) {
-                calculatePartScore(object, biEvaluation,projectId);
+                calculatePartScore(object, biEvaluation, projectId);
+            } else {
+                throw new RuntimeException("计算失败：" + object.getName() + "的权重为空");
             }
         }
 
@@ -120,21 +146,49 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
     /**
      * 计算部分（上部结构、下部结构、桥面系统）得分
      */
-    private void calculatePartScore(BiObject part, BiEvaluation biEvaluation,Long projectId) {
+    private void calculatePartScore(BiObject part, BiEvaluation biEvaluation, Long projectId) {
+        // 检查参数
+        if (part == null) {
+            throw new RuntimeException("计算失败：部件对象为空");
+        }
+
+        if (biEvaluation == null || biEvaluation.getId() == null) {
+            throw new RuntimeException("计算失败：评定记录为空或ID为空");
+        }
+
+        if (projectId == null) {
+            throw new RuntimeException("计算失败：项目ID为空");
+        }
+
         // 获取该部分下所有孩子节点
         List<BiObject> leafNodes = biObjectService.selectDirectChildrenByParentId(part.getId());
+        if (leafNodes == null || leafNodes.isEmpty()) {
+            throw new RuntimeException("计算失败：" + part.getName() + "下没有子节点");
+        }
 
         // 计算加权平均分
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal weightedScore = BigDecimal.ZERO;
         Integer worstLevel = 1;
+        boolean hasValidCondition = false;
 
         for (BiObject leaf : leafNodes) {
+            if (leaf == null) {
+                continue;
+            }
+
             // 计算部件得分
-            Condition condition = conditionService.calculateCondition(leaf, biEvaluation.getId(),projectId);
+            Condition condition = conditionService.calculateCondition(leaf, biEvaluation.getId(), projectId);
             if (condition != null) {
+                hasValidCondition = true;
+
                 BigDecimal weight = leaf.getWeight() != null ? leaf.getWeight() : BigDecimal.ZERO;
                 totalWeight = totalWeight.add(weight);
+
+                if (condition.getScore() == null) {
+                    throw new RuntimeException("计算失败：" + leaf.getName() + "的评分为空");
+                }
+
                 weightedScore = weightedScore.add(condition.getScore().multiply(weight));
 
                 // 更新最差等级
@@ -144,11 +198,20 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
             }
         }
 
+        if (!hasValidCondition) {
+            throw new RuntimeException("计算失败：" + part.getName() + "下没有有效的评定数据");
+        }
+
         // 计算最终得分
         BigDecimal finalScore = totalWeight.compareTo(BigDecimal.ZERO) > 0 ?
                 weightedScore.divide(totalWeight, 2, RoundingMode.HALF_UP) : new BigDecimal("100");
         int level = calculateLevel(finalScore);
+
         // 设置得分和等级
+        if (part.getName() == null) {
+            throw new RuntimeException("计算失败：部件名称为空");
+        }
+
         switch (part.getName()) {
             case "上部结构":
                 biEvaluation.setSuperstructureScore(finalScore);
@@ -172,10 +235,28 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
      * 计算桥梁总体技术状况得分
      */
     private void calculateOverallScore(BiEvaluation biEvaluation) {
+        if (biEvaluation == null) {
+            throw new RuntimeException("计算失败：评定记录为空");
+        }
+
         // 1. 计算系统总分
         BigDecimal superScore = biEvaluation.getSuperstructureScore();
         BigDecimal subScore = biEvaluation.getSubstructureScore();
         BigDecimal deckScore = biEvaluation.getDeckSystemScore();
+
+        if (superScore == null || subScore == null || deckScore == null) {
+            throw new RuntimeException("计算失败：上部结构、下部结构或桥面系统的得分为空");
+        }
+
+        if (superWeight == null || subWeight == null || deckWeight == null) {
+            throw new RuntimeException("计算失败：数据异常，权重数据为空");
+        }
+
+        // 检查权重总和是否为1
+        BigDecimal totalWeight = superWeight.add(subWeight).add(deckWeight);
+        if (totalWeight.compareTo(BigDecimal.ONE) != 0) {
+            throw new RuntimeException("计算失败：权重之和不等于1，当前总和为" + totalWeight);
+        }
 
         BigDecimal systemScore = superScore.multiply(superWeight)
                 .add(subScore.multiply(subWeight))
@@ -184,14 +265,15 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
         biEvaluation.setSystemScore(systemScore);
 
         // 2. 确定最差部位等级
-        int worstLevel = Math.max(
-                Math.max(
-                        biEvaluation.getSuperstructureLevel(),
-                        biEvaluation.getSubstructureLevel()
-                ),
-                biEvaluation.getDeckSystemLevel()
-        );
+        Integer superLevel = biEvaluation.getSuperstructureLevel();
+        Integer subLevel = biEvaluation.getSubstructureLevel();
+        Integer deckLevel = biEvaluation.getDeckSystemLevel();
 
+        if (superLevel == null || subLevel == null || deckLevel == null) {
+            throw new RuntimeException("计算失败：上部结构、下部结构或桥面系统的等级为空");
+        }
+
+        int worstLevel = Math.max(Math.max(superLevel, subLevel), deckLevel);
         biEvaluation.setWorstPartLevel(worstLevel);
 
         // 3. 设置系统等级（取决于系统得分）
@@ -200,9 +282,6 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
         if (biEvaluation.getSuperstructureLevel() == 3 && biEvaluation.getSubstructureLevel() == 3 && biEvaluation.getDeckSystemLevel() == 4 && biEvaluation.getSystemLevel() == 4) {
             biEvaluation.setSystemLevel(3);
         }
-
-        // 4. 设置总体等级（取最差等级）
-        //biEvaluation.setLevel(worstLevel);
     }
 
     /**
