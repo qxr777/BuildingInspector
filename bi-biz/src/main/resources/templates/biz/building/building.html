@@ -149,8 +149,9 @@
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="property(\'' + row.id + '\')"><i class="fa fa-search"></i>桥梁卡</a> ');
 
-
-                        actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
+                        if(more.length > 0) {
+                            actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
+                        }
                         return actions.join('');
                     }
                 }]
