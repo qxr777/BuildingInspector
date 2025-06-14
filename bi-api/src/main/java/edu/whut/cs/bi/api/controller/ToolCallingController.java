@@ -1,11 +1,13 @@
 package edu.whut.cs.bi.api.controller;
 
+import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Property;
+import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.IPropertyService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -34,6 +36,8 @@ public class ToolCallingController {
     private IBuildingService buildingService;
     @Resource
     private IPropertyService propertyService;
+    @Resource
+    private IBiObjectService biObjectService;
 
     @GetMapping("/building/{bName}/property")
     @ResponseBody
@@ -58,5 +62,29 @@ public class ToolCallingController {
         propertyTreeVo.setImages(collect);
         return AjaxResult.success("查询成功", propertyTreeVo);
     }
+
+
+    @GetMapping("/building/{bName}/object")
+    @ResponseBody
+    public AjaxResult getObjectTree(@PathVariable("bName") String bName) {
+        try {
+            // 查询建筑物的root_object_id
+            Building building_query = new Building();
+            building_query.setName(bName);
+            Building building = buildingService.selectBuildingList(building_query).get(0);
+            if (building == null || building.getRootObjectId() == null) {
+                return AjaxResult.error("未找到指定的建筑物或其结构信息");
+            }
+
+            // 获取对象树的JSON结构
+            String jsonTree = biObjectService.bridgeStructureJson(building.getRootObjectId());
+            JSONObject jsonObject = JSONObject.parseObject(jsonTree);
+            return AjaxResult.success("ObjectTree success", jsonObject);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+
 
 }
