@@ -139,7 +139,7 @@ public class ConditionServiceImpl implements IConditionService {
         // 获取构件数量（用于查找t值）
         Integer count = biObject.getCount();
         if (count == null || count <= 0) {
-            throw new RuntimeException("计算失败：部件 " + biObject.getName() + " 无构件数量");
+            throw new RuntimeException("计算失败：部件 " + biObject.getName() + " 构件数量为0");
         }
 
         int componentsCount = count;
