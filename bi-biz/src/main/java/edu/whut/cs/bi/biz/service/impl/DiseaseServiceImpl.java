@@ -256,7 +256,6 @@ public class DiseaseServiceImpl implements IDiseaseService
         diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
         diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
 
-
         return diseaseMapper.updateDisease(disease);
     }
 
@@ -277,6 +276,7 @@ public class DiseaseServiceImpl implements IDiseaseService
                 .map(id -> CompletableFuture.runAsync(() -> {
                     Disease disease = diseaseMapper.selectDiseaseById(Long.parseLong(id));
                     diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
+                    deleteDeaseImage(disease);
                 }, executor))
                 .toList();
 
@@ -285,6 +285,15 @@ public class DiseaseServiceImpl implements IDiseaseService
         executor.shutdown();
 
         return diseaseMapper.deleteDiseaseByIds(strArray);
+    }
+
+    private void deleteDeaseImage(Disease disease) {
+        List<Attachment> attachmentList = attachmentService.getAttachmentList(disease.getId());
+        for (Attachment value : attachmentList) {
+            if (value.getName().startsWith("disease")) {
+                attachmentService.deleteAttachmentById(value.getId());
+            }
+        }
     }
 
     /**

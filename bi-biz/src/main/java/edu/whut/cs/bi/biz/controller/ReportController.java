@@ -20,6 +20,7 @@ import org.springframework.core.io.Resource;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
+import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,6 +50,9 @@ public class ReportController extends BaseController {
 
   @Autowired
   IFileMapService iFileMapService;
+
+  @Autowired
+  DiseaseController diseaseController;
 
   @Autowired
   AttachmentService attachmentService;
@@ -88,7 +92,6 @@ public class ReportController extends BaseController {
 
       // 4. 递归写入树结构和病害信息
       writeBiObjectTreeToWord(doc, root, biObjects, properties, "4.1", 1);
-
       // 5. 导出Word
       response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       response.setHeader("Content-Disposition", "attachment; filename=report.docx");
@@ -270,7 +273,6 @@ public class ReportController extends BaseController {
           CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
           tcW.setW(BigInteger.valueOf((int) Math.round(num[i] * 567)));
           tcW.setType(STTblWidth.DXA);
-
           // 设置单元格内容居中
           XWPFParagraph cellP = cell.getParagraphs().get(0);
           cellP.setAlignment(ParagraphAlignment.CENTER);
@@ -304,6 +306,78 @@ public class ReportController extends BaseController {
             case 7:
               cellR.setText("");
               break;
+          }
+        }
+      }
+      // 在表格下方插入病害图片（不用表格，每行两个图片+标题，图片和标题均用段落并排）
+      if (!nodeDiseases.isEmpty()) {
+        int imageSeq = 1;
+        List<byte[]> imageDatas = new ArrayList<>();
+        List<String> imageTitles = new ArrayList<>();
+        for (Disease d : nodeDiseases) {
+          List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+          if (images != null) {
+            for (Map<String, Object> img : images) {
+              if (Boolean.TRUE.equals(img.get("isImage"))) {
+                String url = (String) img.get("url");
+                String newName = url.substring(url.lastIndexOf("/") + 1);
+                byte[] imageData = iFileMapService.handleFileDownloadByNewName(newName);
+                if (imageData != null && imageData.length > 0) {
+                  imageDatas.add(imageData);
+                  String desc = d.getDescription() != null ? d.getDescription() : "";
+                  imageTitles.add("图" + tableNumber + "-" + imageSeq + "  " + desc);
+                  imageSeq++;
+                }
+              }
+            }
+          }
+        }
+        int total = imageDatas.size();
+        for (int i = 0; i < total; i += 2) {
+          // 一行插入两个图片
+          XWPFParagraph imageRow = doc.createParagraph();
+          imageRow.setAlignment(ParagraphAlignment.CENTER);
+          for (int j = 0; j < 2; j++) {
+            if (i + j < total) {
+              XWPFRun imageRun = imageRow.createRun();
+              try {
+                BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(imageDatas.get(i + j)));
+                int maxWidth = (int) (6 * 37.8); // 6cm
+                int maxHeight = (int) (5 * 37.8); // 5cm
+                int width = originalImage.getWidth();
+                int height = originalImage.getHeight();
+                double ratio = Math.min((double) maxWidth / width, (double) maxHeight / height);
+                int newWidth = (int) (width * ratio);
+                int newHeight = (int) (height * ratio);
+                java.awt.Image scaled = originalImage.getScaledInstance(newWidth, newHeight,
+                    java.awt.Image.SCALE_SMOOTH);
+                BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+                scaledImage.getGraphics().drawImage(scaled, 0, 0, null);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                ImageIO.write(scaledImage, "jpg", baos);
+                byte[] scaledImageData = baos.toByteArray();
+                imageRun.addPicture(
+                    new ByteArrayInputStream(scaledImageData),
+                    XWPFDocument.PICTURE_TYPE_JPEG,
+                    "disease.jpg",
+                    6 * 360000,
+                    5 * 360000);
+                imageRun.addTab(); // 图片之间加tab分隔
+              } catch (Exception ex) {
+                logger.error("插入病害图片失败", ex);
+              }
+            }
+          }
+          // 一行插入两个标题
+          XWPFParagraph titleRow = doc.createParagraph();
+          titleRow.setAlignment(ParagraphAlignment.CENTER);
+          for (int j = 0; j < 2; j++) {
+            if (i + j < total) {
+              XWPFRun titleRun = titleRow.createRun();
+              titleRun.setText(imageTitles.get(i + j));
+              titleRun.setFontSize(10);
+              titleRun.addTab();
+            }
           }
         }
       }

@@ -134,7 +134,7 @@ public class StandardController extends BaseController
     private String uploadFileToExternalService(MultipartFile file) {
         try {
             // 暂定的url
-            String url = springai_url+"/api/upload";
+            String url = springai_url+"/api-ai/upload";
             // 创建请求的文件资源
 
             byte[] fileContent = file.getBytes();

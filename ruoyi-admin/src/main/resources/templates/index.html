@@ -696,8 +696,8 @@ async function sendMessage() {
 			message: message,  // 包含特殊字符的消息
 			userId: userId
 		});
-		const url = RagUrl+'/api/dialog';
-		const response = await fetch(url+`?${params}`,{
+		const url = RagUrl+'/api-ai/dialog';
+		const response = await fetch(url +`?${params}`,{
 			method : 'GET',
 			headers: {
 				'Content-Type': 'application/x-www-form-urlencoded',

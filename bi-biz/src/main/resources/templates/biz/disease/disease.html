@@ -261,13 +261,26 @@
         var taskId = task.id;
         var url = ctx + "biz/report/export/" + taskId;
         $.modal.loading("正在导出报告，请稍候...");
+
+        // 移除旧的iframe
+        $('#download-iframe').remove();
+
+        // 创建新的iframe
+        var iframe = $('<iframe id="download-iframe" style="display:none;"></iframe>');
+        $('body').append(iframe);
+
+        // 监听iframe加载完成
+        iframe.on('load', function() {
+            $.modal.closeLoading();
+        });
+
+        // 触发下载
+        iframe.attr('src', url);
+
+        // 兜底：10秒后自动关闭loading
         setTimeout(function() {
-            window.location.href = url;
-            // 2秒后关闭 loading（可根据实际情况调整时间）
-            setTimeout(function() {
-                $.modal.closeLoading();
-            }, 2000);
-        }, 500);
+            $.modal.closeLoading();
+        }, 10000);
     }
 </script>
 </body>

@@ -403,7 +403,8 @@ public class BiObjectServiceImpl implements IBiObjectService {
         if (existingObject == null) {
             throw new RuntimeException("未找到ID为 " + biObject.getId() + " 的节点");
         }
-
+        //根节点状态为3代表桥梁结构已确认
+        biObject.setStatus("3");
         // 2. 收集所有需要更新的节点
         List<BiObject> nodesToUpdate = new ArrayList<>();
         collectNodesToUpdate(biObject, nodesToUpdate);
