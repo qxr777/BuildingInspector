@@ -9,15 +9,22 @@ import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 
+import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IComponentService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
@@ -35,6 +42,7 @@ import java.util.stream.Collectors;
  *
  */
 @Service
+@Slf4j
 public class DiseaseServiceImpl implements IDiseaseService
 {
     @Resource
@@ -349,4 +357,31 @@ public class DiseaseServiceImpl implements IDiseaseService
         });
     }
 
+    /**
+     * 获取成因分析
+     *
+     * @param causeQuery
+     * @return
+     */
+    @Override
+    public String getCauseAnalysis(CauseQuery causeQuery) {
+        String host = "47.94.205.90";
+        int port = 8081;
+        String url = "http://" + host + ":" + port + "/api-ai/disease/cause";
+
+        try {
+            String response = WebClient.create()
+                    .post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromValue(causeQuery)) // 直接发送对象作为 JSON
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            return response;
+        } catch (Exception e) {
+            throw new RuntimeException("请求失败: " + e.getMessage());
+        }
+    }
 }

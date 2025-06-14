@@ -11,6 +11,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
@@ -56,6 +57,10 @@ public class DiseaseController extends BaseController
 
     @Autowired
     private MinioConfig minioConfig;
+
+    @Resource
+    private IBiTemplateObjectService biTemplateObjectService;
+
     @RequiresPermissions("biz:disease:view")
     @GetMapping()
     public String disease()
@@ -274,7 +279,6 @@ public class DiseaseController extends BaseController
                 extension.endsWith(".bmp");
     }
 
-
     @DeleteMapping("/attachment/delete/{fileId}")
     @ResponseBody  // 添加此注解以返回JSON数据
     public AjaxResult deleteAttachment(@PathVariable("fileId") Long id)
@@ -282,4 +286,25 @@ public class DiseaseController extends BaseController
         attachmentService.deleteAttachmentById(id);
         return AjaxResult.success("success");
     }
+
+    @PostMapping("/causeAnalysis")
+    @ResponseBody
+    public AjaxResult getCauseAnalysis(@RequestBody CauseQuery causeQuery)
+    {
+        // 获取根对象
+        BiObject rootObject = biObjectService.selectBiObjectById(causeQuery.getObjectId());
+        String[] split = rootObject.getAncestors().split(",");
+        if (split.length > 1) {
+            rootObject = biObjectService.selectBiObjectById(Long.parseLong(split[1]));
+        }
+        if (rootObject != null && rootObject.getTemplateObjectId() != null) {
+            // 获取模板对象
+            BiTemplateObject templateObject = biTemplateObjectService.selectBiTemplateObjectById(rootObject.getTemplateObjectId());
+            if (templateObject != null && templateObject.getName() != null) {
+                causeQuery.setTemplate(templateObject.getName());
+            }
+        }
+        return AjaxResult.success(diseaseService.getCauseAnalysis(causeQuery));
+    }
+
 }

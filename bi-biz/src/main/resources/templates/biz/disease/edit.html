@@ -156,6 +156,17 @@
         <div class="row">
             <div class="col-sm-12">
                 <div class="form-group">
+                    <label class="control-label">成因分析：</label>
+                    <div style="display: flex; align-items: flex-start;">
+                        <div id="causeAnalysisBox" style="flex:1; min-height: 120px; border: 1px solid #ddd; background: #fafbfc; padding: 10px; border-radius: 4px; overflow-x: auto;"></div>
+                        <button type="button" class="btn btn-info" id="refreshCauseBtn" style="margin-left: 15px;">刷新成因分析</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
                     <label class="control-label">备注：</label>
                     <textarea name="remark" maxlength="500" class="form-control" rows="3" th:field="*{remark}"></textarea>
                 </div>
@@ -190,6 +201,7 @@
 <th:block th:include="include :: select2-js"/>
 <!-- bootstrap-select -->
 <script th:src="@{/js/bootstrap-select.min.js}"></script>
+<script th:src="@{/js/marked.min.js}"></script>
 <script th:src="@{/js/i18n/defaults-zh_CN.min.js}"></script>
 <script th:inline="javascript">
     var prefix = ctx + "biz/disease"
@@ -315,6 +327,41 @@
             console.log('收集到 ' + previewImageList.length + ' 张图片，当前索引: ' + previewImageIndex);
         });
 
+        $("#refreshCauseBtn").on("click", function() {
+            var data = {
+                objectId: biObject.id,
+                parentObject: biObject.parentName || "",
+                object: biObject.name || "",
+                type: $("#diseaseTypeId option:selected").text().trim(),
+                description: $("#description").val(),
+                position: $("#position option:selected").text().trim(),
+                // area: disease.diseaseDetails[0].area,
+                level: $("input[name='level']:checked").val(),
+                componentCode: $("input[name='component.code']").val(),
+                componentName: $("input[name='biObjectName']").val(),
+                // trend: $("select[name='diseaseDetails[0].developmentTrend']").val()
+            };
+            // 显示正在生成提示
+            $("#causeAnalysisBox").html('<span style="color:#888;">正在生成...</span>');
+            $.ajax({
+                url: ctx + "biz/disease/causeAnalysis", // 后端接口
+                type: "post",
+                contentType: "application/json",
+                data: JSON.stringify(data),
+                success: function(res) {
+                    // 清除提示并显示结果
+                    if(res.code === 0) {
+                        $("#causeAnalysisBox").html(marked.parse(res.msg));
+                    } else {
+                        $("#causeAnalysisBox").html('<span style="color:red;">未获取到成因分析</span>');
+                    }
+                },
+                error: function() {
+                    // 清除提示并显示错误
+                    $("#causeAnalysisBox").html('<span style="color:red;">请求失败</span>');
+                }
+            });
+        });
     });
 
     // 选择构件
@@ -1441,5 +1488,6 @@
     </div>
   </div>
 </div>
+
 </body>
 </html>

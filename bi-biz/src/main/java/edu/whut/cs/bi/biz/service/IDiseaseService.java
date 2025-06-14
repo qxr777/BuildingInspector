@@ -4,6 +4,7 @@ package edu.whut.cs.bi.biz.service;
 import com.ruoyi.common.core.domain.Ztree;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -73,5 +74,20 @@ public interface IDiseaseService {
      */
     public int computeDeductPoints(int maxScale, int scale);
 
+    /**
+     * 处理病害附件
+     *
+     * @param files
+     * @param id
+     * @param type
+     */
     public void handleDiseaseAttachment(MultipartFile[] files,Long id,int type);
+
+    /**
+     * 获取病害原因分析
+     *
+     * @param causeQuery
+     * @return
+     */
+    public String getCauseAnalysis(CauseQuery causeQuery);
 }
