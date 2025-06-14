@@ -56,25 +56,29 @@
                 and date_format(create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
             </if>
         </where>
+        order by code desc
     </select>
 
     <select id="selectDiseaseTypeAll" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
+        order by code desc
     </select>
 
     <select id="selectDiseaseTypeById" parameterType="Long" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
         where id = #{id}
+        order by code desc
     </select>
 
     <select id="selectDiseaseTypeByCode" parameterType="String" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
         where code = #{code}
+        order by code desc
     </select>
 
     <select id="checkDiseaseTypeUnique" parameterType="String" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
-        where code = #{code} limit 1
+        where code = #{code} and status = '0' limit 1
     </select>
 
     <select id="selectDiseaseTypeListByIds" resultMap="DiseaseTypeResult">
@@ -84,6 +88,7 @@
             #{id}
         </foreach>
         and status = '0'
+        order by code desc
     </select>
 
     <delete id="deleteDiseaseTypeById" parameterType="Long">
