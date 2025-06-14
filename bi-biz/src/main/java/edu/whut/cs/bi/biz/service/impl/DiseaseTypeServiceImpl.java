@@ -28,6 +28,8 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 病害类型 业务层处理
@@ -267,7 +269,11 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
     public List<DiseaseType> selectDiseaseTypeListByTemplateObjectId(Long biObjectId) {
         List<Long> diseaseTypeIds = toDiseaseTypeMapper.selectByTemplateObjectId(biObjectId);
         if (diseaseTypeIds != null && diseaseTypeIds.size() > 0) {
-            return diseaseTypeMapper.selectDiseaseTypeListByIds(diseaseTypeIds);
+            List<DiseaseType> diseaseTypes = diseaseTypeMapper.selectDiseaseTypeListByIds(diseaseTypeIds);
+//            return diseaseTypes.stream()
+//                    .collect(Collectors.toMap(DiseaseType::getName, Function.identity(), (existing, replacement) -> existing))
+//                    .values().stream().toList();
+            return diseaseTypes;
         }
 
         return List.of();
