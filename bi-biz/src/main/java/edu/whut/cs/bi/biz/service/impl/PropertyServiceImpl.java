@@ -482,7 +482,7 @@ public class PropertyServiceImpl implements IPropertyService {
             Property p1 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁总体照片");
             Property p2 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁正面照片");
 
-            List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
+            List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId,  "front", "side");
 
             Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
                     image -> image.getOldName().split("_")[1],
