@@ -45,7 +45,7 @@ public class ToolCallingController {
         building_name.setName(bName);
         Long buildingId = buildingService.selectBuildingList(building_name).get(0).getId();
         Building building = buildingService.selectBuildingById(buildingId);
-        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
+        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId,"newfront","newside");
         Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
                 image -> image.getOldName().split("_")[1],
                 Collectors.mapping(FileMap::getNewName, Collectors.toList())

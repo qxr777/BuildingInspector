@@ -18,6 +18,7 @@ import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -116,7 +117,7 @@ public class ApiController {
             return AjaxResult.error("参数错误");
         }
         Building building = buildingService.selectBuildingById(buildingId);
-        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId);
+        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId,"newfront","newside");
         Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
                 image -> image.getOldName().split("_")[1],
                 Collectors.mapping(FileMap::getNewName, Collectors.toList())
@@ -519,5 +520,37 @@ public class ApiController {
                 }
             }
         }
+    }
+    // id 是buildId
+    @PostMapping("/upload/bridgeDataImage")
+    @ResponseBody
+    public AjaxResult uploadBridgeDataImage(@RequestParam("id") long id,@RequestParam("front") MultipartFile frontFile[],@RequestParam("side") MultipartFile sideFile[]){
+        for (int i = 0; i < frontFile.length&&i<2; i++) {
+            fileMapController.uploadAttachment(id, frontFile[i], "newfront", i);
+        }
+        for (int i = 0; i < sideFile.length&&i<2; i++) {
+            fileMapController.uploadAttachment(id, sideFile[i], "newside", i);
+        }
+        return AjaxResult.success("上传成功");
+    }
+
+    // id 是buildId
+    @GetMapping("/DataImage")
+    @ResponseBody
+    public AjaxResult getDataImage(@RequestParam("id") long id){
+        List<FileMap> Images = fileMapController.getImageMaps(id, "newfront", "newside");
+        Map<String, List<String>>map = new HashMap<>();
+        List<String> frontImagesList = new ArrayList<>();
+        List<String> sideImagesList = new ArrayList<>();
+        for (FileMap frontImage : Images){
+            if(frontImage.getOldName().split("_")[1].equals("newfront")){
+                frontImagesList.add(frontImage.getNewName());
+            }else{
+                sideImagesList.add(frontImage.getNewName());
+            }
+        }
+        map.put("frontImages",frontImagesList);
+        map.put("sideImages",sideImagesList);
+        return AjaxResult.success("查询成功",map);
     }
 }

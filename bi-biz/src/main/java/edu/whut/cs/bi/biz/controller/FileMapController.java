@@ -420,7 +420,7 @@ public class FileMapController extends BaseController {
     @GetMapping("/getImages")
     @ResponseBody
     public AjaxResult getImages(@RequestParam("id") Long id) {
-        List<FileMap> fileMapList = getImageMaps(id);
+        List<FileMap> fileMapList = getImageMaps(id,"front","side");
         return AjaxResult.success(fileMapList);
     }
 
@@ -439,12 +439,12 @@ public class FileMapController extends BaseController {
      * FileMap(id=289, oldName=0_front_1-200R1141258.jpg, newName=http://60.205.13.156:9000/public/24/24f8142839744eef80b8843c25b826d1.jpg, createTime=Sat May 10 09:56:37 SGT 2025, updateTime=null, createBy=admin)
      */
     @NotNull
-    public List<FileMap> getImageMaps(Long id) {
+    public List<FileMap> getImageMaps(Long id,String type1,String type2) {
         List<Attachment> bySubjectId = attachmentService.getAttachmentList(id);
         List<FileMap> fileMapList = bySubjectId.stream()
                 .filter(e->{
                     String[] s = e.getName().split("_");
-                    if(s.length>=2&&(s[1].equals("front")||s[1].equals("side"))){
+                    if(s.length>=2&&(s[1].equals(type1)||s[1].equals(type2))){
                         return true;
                     }
                     return false;
