@@ -44,6 +44,9 @@ public class Disease extends BaseEntity {
     /** 病害性质 */
     private String nature;
 
+    /** 病害成因  */
+    private String cause;
+
     /** 是否参与评定  0是 1否*/
     private String participateAssess;
 

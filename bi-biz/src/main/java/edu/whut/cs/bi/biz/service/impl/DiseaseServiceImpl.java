@@ -378,6 +378,7 @@ public class DiseaseServiceImpl implements IDiseaseService
         int port = 8081;
         String url = "http://" + host + ":" + port + "/api-ai/disease/cause";
 
+        causeQuery.setObjectId(null);
         try {
             String response = WebClient.create()
                     .post()

@@ -156,10 +156,13 @@
         <div class="row">
             <div class="col-sm-12">
                 <div class="form-group">
-                    <label class="control-label">成因分析：</label>
+                    <label class="control-label">成因：</label>
                     <div style="display: flex; align-items: flex-start;">
-                        <div id="causeAnalysisBox" style="flex:1; min-height: 120px; border: 1px solid #ddd; background: #fafbfc; padding: 10px; border-radius: 4px; overflow-x: auto;"></div>
-                        <button type="button" class="btn btn-info" id="refreshCauseBtn" style="margin-left: 15px;">刷新成因分析</button>
+                        <div id="causeAnalysisBox"
+                             style="flex:1; min-height: 120px;
+                             border: 1px solid #ddd; background: #fafbfc;
+                             padding: 10px; border-radius: 4px; overflow-x: auto;"></div>
+                        <button type="button" class="btn btn-info" id="refreshCauseBtn" style="margin-left: 15px;">成因分析</button>
                     </div>
                 </div>
             </div>
@@ -201,7 +204,7 @@
 <th:block th:include="include :: select2-js"/>
 <!-- bootstrap-select -->
 <script th:src="@{/js/bootstrap-select.min.js}"></script>
-<script th:src="@{/js/marked.min.js}"></script>
+<!--<script th:src="@{/js/marked.min.js}"></script>-->
 <script th:src="@{/js/i18n/defaults-zh_CN.min.js}"></script>
 <script th:inline="javascript">
     var prefix = ctx + "biz/disease"
@@ -232,6 +235,10 @@
         loadExistingAttachments();
         // 渲染病害详情区
         updateDiseaseDetails($('#quantityInput').val() || 1);
+
+        if (disease.cause) {
+            $("#causeAnalysisBox").html(disease.cause);
+        }
 
         // 病害类型自定义输入显示隐藏
         $('#diseaseTypeId').on('change', function () {
@@ -351,7 +358,8 @@
                 success: function(res) {
                     // 清除提示并显示结果
                     if(res.code === 0) {
-                        $("#causeAnalysisBox").html(marked.parse(res.msg));
+                        // $("#causeAnalysisBox").html(marked.parse(res.msg)); md 文档格式显示
+                        $("#causeAnalysisBox").html(res.msg);
                     } else {
                         $("#causeAnalysisBox").html('<span style="color:red;">未获取到成因分析</span>');
                     }
@@ -1043,6 +1051,10 @@
             } else {
                 formData.set("position", positionText);
             }
+
+            // 病害成因
+            var causeAnalysis = $("#causeAnalysisBox").html();
+            formData.append("cause", causeAnalysis);
 
             // 确保deductPoints是整数
             var deductPoints = $("#deductPoints").val();
