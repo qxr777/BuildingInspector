@@ -241,11 +241,6 @@
                 WHEN #{item.id} THEN #{item.updateBy}
             </foreach>
 
-            `status` =
-            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
-                WHEN #{item.id} THEN #{item.status}
-            </foreach>
-
             `count` =
             <foreach collection="objects" item="item" separator=" " open="CASE id " close="END">
                 WHEN #{item.id} THEN #{item.count}
