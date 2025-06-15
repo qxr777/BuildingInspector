@@ -161,4 +161,5 @@ public interface IBiObjectService {
      * @return 插入的记录数
      */
     public int batchInsertBiObjects(List<BiObject> biObjects);
+
 }

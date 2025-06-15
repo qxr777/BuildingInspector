@@ -574,7 +574,7 @@ public class PropertyServiceImpl implements IPropertyService {
     public String getJsonData(MultipartFile file) {
         String host = "47.94.205.90";
         int port = 8081;
-        String url = "http://" + host + ":" + port + "/api/word2Json";
+        String url = "http://" + host + ":" + port + "/api-ai/word2Json";
 
         try {
             // 构建Multipart请求体

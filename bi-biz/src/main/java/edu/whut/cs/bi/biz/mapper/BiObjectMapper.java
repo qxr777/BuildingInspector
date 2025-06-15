@@ -149,4 +149,5 @@ public interface BiObjectMapper {
      * @return 插入的记录数
      */
     public int batchInsertBiObjects(@Param("list") List<BiObject> biObjects);
+
 }
