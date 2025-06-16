@@ -312,6 +312,24 @@ public class DiseaseServiceImpl implements IDiseaseService
     }
 
     /**
+     * 批量删除病害
+     *
+     * @param ids 需要删除的病害主键
+     * @return 结果
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteDiseaseByDiseaseIds(String ids) {
+        if(ids==null || ids.equals("")) {
+            return 0;
+        }
+        String[] strArray = Convert.toStrArray(ids);
+        Long[] longArray = Convert.toLongArray(ids);
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseIds(longArray);
+        return diseaseMapper.deleteDiseaseByIds(strArray);
+    }
+
+    /**
      * 计算扣分
      *
      * @param maxScale 最大分值

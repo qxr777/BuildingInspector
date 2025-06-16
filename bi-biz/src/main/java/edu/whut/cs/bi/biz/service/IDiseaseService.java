@@ -90,4 +90,12 @@ public interface IDiseaseService {
      * @return
      */
     public String getCauseAnalysis(CauseQuery causeQuery);
+
+    /**
+     * 获取病害原因分析
+     *
+     * @param ids
+     * @return
+     */
+    public int deleteDiseaseByDiseaseIds(String ids);
 }

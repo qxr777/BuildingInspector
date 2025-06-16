@@ -77,4 +77,12 @@ public interface DiseaseDetailMapper {
      * @return 结果
      */
     void insertDiseaseDetails(@Param("diseaseDetails") List<DiseaseDetail> diseaseDetails);
+
+    /**
+     * 批量根据病害ID删除病害详情
+     *
+     * @param diseaseIds 病害ID数组
+     * @return 结果
+     */
+    public int deleteDiseaseDetailByDiseaseIds(Long[] diseaseIds);
 }

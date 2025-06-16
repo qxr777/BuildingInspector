@@ -297,4 +297,12 @@
             #{id}
         </foreach>
     </delete>
+
+    <delete id="deleteDiseaseDetailByDiseaseIds" parameterType="Long">
+        delete from bi_disease_detail where disease_id in
+        <foreach item="diseaseId" collection="array" open="(" separator="," close=")">
+            #{diseaseId}
+        </foreach>
+    </delete>
+
 </mapper>

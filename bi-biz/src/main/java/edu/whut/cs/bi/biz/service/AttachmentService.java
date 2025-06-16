@@ -11,7 +11,7 @@ import java.util.List;
 public interface AttachmentService  {
     // 可以在这里添加业务方法
     List<Attachment> getAttachmentList();
-    Attachment getAttachmentBySubjectId(Long subjectId);
+    List<Attachment> getAttachmentBySubjectId(Long subjectId);
     Attachment getAttachmentById(Long id);
     int deleteAttachmentByIds(String ids);
     void deleteAttachmentById(Long id);

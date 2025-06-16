@@ -20,6 +20,8 @@
         <result property="biObjectName" column="bi_object_name"/>
         <result property="buildingId" column="building_id"/>
         <result property="componentId" column="component_id"/>
+        <result property="commitType" column="commit_type"/>
+        <result property="localId" column="local_id"/>
         <result property="remark" column="remark"/>
         <result property="cause" column="cause"/> <!-- 新增字段 -->
         <result property="createBy" column="create_by"/>
@@ -46,7 +48,7 @@
         select
         d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
         d.nature , d.participate_assess, d.deduct_points,
-        d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.remark,
+        d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
         d.cause, <!-- 新增字段 -->
         d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
         dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
@@ -68,6 +70,8 @@
             <if test="biObjectId != null"> and d.bi_object_id = #{biObjectId}</if>
             <if test="componentId != null"> and d.component_id = #{componentId}</if>
             <if test="participateAssess != null"> and d.participate_assess = #{participateAssess}</if>
+            <if test="commitType != null"> and d.commit_type = #{commitType}</if>
+            <if test="localId != null"> and d.local_id = #{localId}</if>
         </where>
         order by d.create_time desc
     </select>
@@ -103,6 +107,8 @@
             <if test="biObjectName != null and biObjectName != ''">bi_object_name,</if>
             <if test="buildingId != null">building_id,</if>
             <if test="componentId != null">component_id,</if>
+            <if test="commitType != null">commit_type,</if>
+            <if test="localId != null">local_id,</if>
             <if test="remark != null">remark,</if>
             <if test="cause != null and cause != ''">cause,</if> <!-- 新增字段 -->
             <if test="createBy != null">create_by,</if>
@@ -125,6 +131,8 @@
             <if test="biObjectName != null and biObjectName != ''">#{biObjectName},</if>
             <if test="buildingId != null">#{buildingId},</if>
             <if test="componentId != null">#{componentId},</if>
+            <if test="commitType != null">#{commitType},</if>
+            <if test="localId != null">#{localId},</if>
             <if test="remark != null">#{remark},</if>
             <if test="cause != null and cause != ''">#{cause},</if> <!-- 新增字段 -->
             <if test="createBy != null">#{createBy},</if>
@@ -151,6 +159,8 @@
             <if test="biObjectName != null">bi_object_name = #{biObjectName},</if>
             <if test="buildingId != null">building_id = #{buildingId},</if>
             <if test="componentId != null">component_id = #{componentId},</if>
+            <if test="commitType != null">commit_type = #{commitType},</if>
+            <if test="localId != null">local_id = #{localId},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="cause != null">cause = #{cause},</if> <!-- 新增字段 -->
             <if test="updateBy != null">update_by = #{updateBy},</if>
