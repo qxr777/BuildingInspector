@@ -158,10 +158,11 @@
                 <div class="form-group">
                     <label class="control-label">成因：</label>
                     <div style="display: flex; align-items: flex-start;">
-                        <div id="causeAnalysisBox"
-                             style="flex:1; min-height: 120px;
-                             border: 1px solid #ddd; background: #fafbfc;
-                             padding: 10px; border-radius: 4px; overflow-x: auto;"></div>
+                        <textarea id="causeAnalysisBox"
+                            name="cause"
+                            style="flex:1; min-height: 120px; border: 1px solid #ddd; background: #fafbfc; padding: 10px; border-radius: 4px; overflow-x: auto; resize: vertical;"
+                            class="form-control"
+                            rows="5"></textarea>
                         <button type="button" class="btn btn-info" id="refreshCauseBtn" style="margin-left: 15px;">成因分析</button>
                     </div>
                 </div>
@@ -349,24 +350,22 @@
                 // trend: $("select[name='diseaseDetails[0].developmentTrend']").val()
             };
             // 显示正在生成提示
-            $("#causeAnalysisBox").html('<span style="color:#888;">正在生成...</span>');
+            $("#causeAnalysisBox").val('正在生成...')
             $.ajax({
                 url: ctx + "biz/disease/causeAnalysis", // 后端接口
                 type: "post",
                 contentType: "application/json",
                 data: JSON.stringify(data),
                 success: function(res) {
-                    // 清除提示并显示结果
                     if(res.code === 0) {
                         // $("#causeAnalysisBox").html(marked.parse(res.msg)); md 文档格式显示
-                        $("#causeAnalysisBox").html(res.msg);
+                        $("#causeAnalysisBox").val(res.msg);
                     } else {
-                        $("#causeAnalysisBox").html('<span style="color:red;">未获取到成因分析</span>');
+                        $("#causeAnalysisBox").val('未获取到成因分析');
                     }
                 },
                 error: function() {
-                    // 清除提示并显示错误
-                    $("#causeAnalysisBox").html('<span style="color:red;">请求失败</span>');
+                    $("#causeAnalysisBox").val('请求失败');
                 }
             });
         });
@@ -1053,7 +1052,7 @@
             }
 
             // 病害成因
-            var causeAnalysis = $("#causeAnalysisBox").html();
+            var causeAnalysis = $("#causeAnalysisBox").val();
             formData.append("cause", causeAnalysis);
 
             // 确保deductPoints是整数
