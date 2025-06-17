@@ -1,22 +1,20 @@
 package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
+import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
+import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.controller.FileMapController;
-import edu.whut.cs.bi.biz.domain.Building;
-import edu.whut.cs.bi.biz.domain.FileMap;
-import edu.whut.cs.bi.biz.domain.Property;
-import edu.whut.cs.bi.biz.service.IBiObjectService;
-import edu.whut.cs.bi.biz.service.IBuildingService;
-import edu.whut.cs.bi.biz.service.IPropertyService;
+import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import java.util.List;
@@ -27,7 +25,8 @@ import java.util.stream.Collectors;
  * @author Junbo
  * @date 2025/6/11
  */
-@Controller
+@CrossOrigin(origins = "*")
+@RestController
 @RequestMapping("/toolCallingApi")
 public class ToolCallingController {
     @Resource
@@ -38,9 +37,14 @@ public class ToolCallingController {
     private IPropertyService propertyService;
     @Resource
     private IBiObjectService biObjectService;
+    @Resource
+    private IProjectService projectService;
+    @Resource
+    private ITaskService taskService;
 
     @GetMapping("/building/{bName}/property")
     @ResponseBody
+    @Anonymous
     public AjaxResult getProperty(@PathVariable("bName") String bName) {
         if (bName == null) {
             return AjaxResult.error("参数错误");
@@ -84,6 +88,35 @@ public class ToolCallingController {
             return AjaxResult.error(e.getMessage());
         }
     }
+
+    @GetMapping("/project/{id}")
+    @ResponseBody
+    public AjaxResult getProject(@PathVariable("id") Long userId) {
+
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
+        projectsOfUserVo.setProjects(projects);
+        projectsOfUserVo.setUserId(userId);
+        return AjaxResult.success("查询成功", projectsOfUserVo);
+    }
+
+    @GetMapping("/project/{projectId}/task")
+    @ResponseBody
+    public AjaxResult getTask(@PathVariable("projectId") Long projectId) {
+        if (projectId == null) {
+            return AjaxResult.error("参数错误");
+        }
+        Task task = new Task();
+        task.setProjectId(projectId);
+        List<Task> tasks = taskService.selectTaskVOList(task);
+
+        TasksOfProjectVo tasksOfProjectVo = new TasksOfProjectVo();
+        tasksOfProjectVo.setTasks(tasks);
+        tasksOfProjectVo.setProjectId(projectId);
+
+        return AjaxResult.success("查询成功", tasksOfProjectVo);
+    }
+
 
 
 
