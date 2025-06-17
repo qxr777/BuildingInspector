@@ -91,4 +91,10 @@ public class Disease extends BaseEntity {
     /** 病害详情 */
     private List<DiseaseDetail> diseaseDetails;
 
+    /** 标记 */
+    private Integer commitType;
+
+    /** 本地ID */
+    private Long localId;
+
 }

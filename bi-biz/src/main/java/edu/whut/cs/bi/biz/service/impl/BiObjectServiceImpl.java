@@ -177,10 +177,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
                 // 准备批量更新的对象
                 for (BiObject sibling : siblingToUpdate) {
                     // 计算新权重：原权重 + (删除权重 * 原权重/剩余总权重)
-                    BigDecimal newWeight = sibling.getWeight().add(
-                            deletedWeight.multiply(sibling.getWeight())
-                                    .divide(totalRemainingWeight, 4, RoundingMode.HALF_UP)
-                    );
+                    BigDecimal newWeight = sibling.getWeight().add(deletedWeight.multiply(sibling.getWeight()).divide(totalRemainingWeight, 4, RoundingMode.HALF_UP));
 
                     sibling.setWeight(newWeight);
                     sibling.setUpdateTime(DateUtils.getNowDate());
@@ -328,19 +325,13 @@ public class BiObjectServiceImpl implements IBiObjectService {
         List<BiObject> allNodes = biObjectService.selectBiObjectAndChildren(id);
 
         // 获取所有节点的ID
-        List<Long> allNodeIds = allNodes.stream()
-                .map(BiObject::getId)
-                .collect(Collectors.toList());
+        List<Long> allNodeIds = allNodes.stream().map(BiObject::getId).collect(Collectors.toList());
 
         // 一次性获取所有节点的疾病类型
         Map<Long, List<DiseaseType>> diseaseTypeMap = new HashMap<>();
         if (!allNodeIds.isEmpty()) {
             // 获取所有模板对象ID
-            List<Long> templateObjectIds = allNodes.stream()
-                    .filter(node -> node.getTemplateObjectId() != null)
-                    .map(BiObject::getTemplateObjectId)
-                    .distinct()
-                    .collect(Collectors.toList());
+            List<Long> templateObjectIds = allNodes.stream().filter(node -> node.getTemplateObjectId() != null).map(BiObject::getTemplateObjectId).distinct().collect(Collectors.toList());
 
             if (!templateObjectIds.isEmpty()) {
                 // 批量查询所有疾病类型
@@ -390,6 +381,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
         objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         return objectMapper.writeValueAsString(rootNode);
     }
+
     /**
      * 递归更新BiObject树结构（批量更新版本）
      *
@@ -398,13 +390,15 @@ public class BiObjectServiceImpl implements IBiObjectService {
      */
     @Override
     public int updateBiObjectTreeRecursively(BiObject biObject) {
+        // 结构信息已确认的桥梁不让再次修改
+        if ("3".equals(biObject.getStatus())) {
+            return 0;
+        }
         // 1. 检查根节点是否存在
         BiObject existingObject = biObjectMapper.selectBiObjectById(biObject.getId());
         if (existingObject == null) {
             throw new RuntimeException("未找到ID为 " + biObject.getId() + " 的节点");
         }
-        //根节点状态为3代表桥梁结构已确认
-        biObject.setStatus("3");
         // 2. 收集所有需要更新的节点
         List<BiObject> nodesToUpdate = new ArrayList<>();
         collectNodesToUpdate(biObject, nodesToUpdate);
@@ -413,7 +407,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
         String updateBy = ShiroUtils.getLoginName();
         Date updateTime = new Date();
         for (BiObject node : nodesToUpdate) {
-            if(biObject.getWeight()==null||biObject.getWeight().equals(BigDecimal.ZERO)) {
+            if (biObject.getWeight() == null || biObject.getWeight().equals(BigDecimal.ZERO)) {
                 biObject.setCount(0);
             }
             node.setUpdateBy(updateBy);
@@ -431,7 +425,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
     /**
      * 递归收集需要更新的节点
      *
-     * @param biObject 当前节点
+     * @param biObject      当前节点
      * @param nodesToUpdate 收集的节点列表
      */
     private void collectNodesToUpdate(BiObject biObject, List<BiObject> nodesToUpdate) {
@@ -442,7 +436,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
         List<BiObject> children = biObject.getChildren();
         if (children != null && !children.isEmpty()) {
             for (BiObject child : children) {
-                collectNodesToUpdate(child, nodesToUpdate);
+                if (child.getCount() > 0) {
+                    collectNodesToUpdate(child, nodesToUpdate);
+                }
             }
         }
     }

@@ -38,6 +38,9 @@
                 <div class="radio-box">
                     <input type="radio" name="status" value="1" th:field="*{status}"> 停用
                 </div>
+                <div class="radio-box" th:if="${biObject.parentId == 0}">
+                    <input type="radio" name="status" value="3" th:field="*{status}"> 结构信息已锁定
+                </div>
             </div>
         </div>
         <div class="col-xs-12">

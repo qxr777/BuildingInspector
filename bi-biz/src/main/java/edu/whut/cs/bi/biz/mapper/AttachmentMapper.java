@@ -14,7 +14,7 @@ import java.util.List;
 public interface AttachmentMapper{
     public List<Attachment> selectAll();
     public Attachment selectById(Long id);
-    public Attachment selectBySubjectId(Long id);
+    public List<Attachment> selectBySubjectId(Long id);
     public Long getMinioId (Long id);
     public String[] selectMinioIdsByIds (String[] ids);
     public int insert(Attachment attachment);

@@ -31,7 +31,7 @@ public class AttachmentServiceImpl  implements AttachmentService {
     }
 
     @Override
-    public Attachment getAttachmentBySubjectId(Long subjectId) {
+    public List<Attachment> getAttachmentBySubjectId(Long subjectId) {
         return attachmentMapper.selectBySubjectId(subjectId);
     }
 
