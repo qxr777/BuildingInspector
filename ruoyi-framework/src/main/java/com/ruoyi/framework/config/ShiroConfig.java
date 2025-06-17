@@ -321,6 +321,7 @@ public class ShiroConfig
 
         // jwt 请求单独验证
         filterChainDefinitionMap.put("/api/**", "jwt");
+        filterChainDefinitionMap.put("/toolCallingApi/**", "jwt");
         
         // 所有请求需要认证
         filterChainDefinitionMap.put("/**", "user,kickout,onlineSession,syncOnlineSession");
