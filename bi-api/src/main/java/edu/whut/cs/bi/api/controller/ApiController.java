@@ -2,6 +2,7 @@ package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.entity.SysUser;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
@@ -125,7 +126,13 @@ public class ApiController {
                 image -> image.getOldName().split("_")[1],
                 Collectors.mapping(FileMap::getNewName, Collectors.toList())
         ));
-        Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
+
+        Property property;
+        try {
+            property = propertyService.selectPropertyTree(building.getRootPropertyId());
+        } catch (ServiceException e) {
+            return AjaxResult.error(e.getMessage());
+        }
 
         // 封装返回结果
         PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
