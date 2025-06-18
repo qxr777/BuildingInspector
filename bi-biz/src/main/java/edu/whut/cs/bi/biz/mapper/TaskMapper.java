@@ -95,4 +95,19 @@ public interface TaskMapper
      * @return
      */
     List<Task> selectTaskListByProjectId(Long id);
+
+    /**
+     * 更新任务的更新时间
+     *
+     * @param buildingId
+     */
+    void updateTaskTime(Long buildingId);
+
+    /**
+     * 通过ids查询任务列表
+     *
+     * @param ids
+     * @return
+     */
+    List<Task> selectTaskByIds(@Param("ids") String ids);
 }

@@ -83,6 +83,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             and find_in_set(#{propertyRootId}, ancestors)
     </select>
 
+    <select id="selectPropertyListByIds" resultType="edu.whut.cs.bi.biz.domain.Property">
+        select * from bi_property
+        where
+            id IN
+            <foreach item="id" collection="idArray" index="index"
+                     separator="," open="(" close=")">
+                #{id}
+            </foreach>
+    </select>
+
 
     <insert id="insertProperty" parameterType="Property" useGeneratedKeys="true" keyProperty="id">
         insert into bi_property
@@ -127,17 +137,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </update>
 
     <update id="updateObjectChildren" parameterType="java.util.List">
-        update bi_property set ancestors =
+        UPDATE bi_property
+        SET
+        ancestors =
         <foreach collection="objects" item="item" index="index"
-                 separator=" " open="case id" close="end">
-            when #{item.id} then #{item.ancestors}
-        </foreach>
-        where id in
+                 separator=" " open="CASE id" close="END">
+            WHEN #{item.id} THEN #{item.ancestors}
+        </foreach>,
+        update_time = NOW()
+        WHERE id IN
         <foreach collection="objects" item="item" index="index"
                  separator="," open="(" close=")">
             #{item.id}
         </foreach>
     </update>
+
 
     <delete id="deletePropertyById" parameterType="Long">
         delete from bi_property where id = #{id}

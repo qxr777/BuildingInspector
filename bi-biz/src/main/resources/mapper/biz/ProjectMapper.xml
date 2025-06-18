@@ -149,6 +149,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = #{id} and del_flag = '0'
     </update>
 
+    <update id="updateProjectTime">
+        UPDATE bi_project bp
+            INNER JOIN (
+                SELECT project_id
+                FROM bi.bi_task bt
+                where bt.building_id = #{buildingId}
+            ) AS subquery
+            ON bp.id = subquery.project_id
+        SET bp.update_time = NOW()
+        WHERE start_date &lt;= CURDATE() AND end_date &gt;= CURDATE()
+    </update>
+
 
     <delete id="deleteProjectById" parameterType="Long">
         update bi_project set del_flag = '1' where id = #{id} and del_flag = '0'

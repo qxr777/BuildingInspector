@@ -61,4 +61,11 @@ public interface ProjectMapper
      * @return 结果
      */
     public int deleteProjectByIds(String[] ids);
+
+    /**
+     * 修改项目时间
+     *
+     * @param buildingId
+     */
+    void updateProjectTime(Long buildingId);
 }

@@ -1,7 +1,8 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.ObjUtil;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
@@ -17,7 +18,9 @@ import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.mapper.PropertyMapper;
+import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.IPropertyService;
@@ -25,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFPictureData;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -40,12 +44,14 @@ import org.springframework.web.reactive.function.client.WebClient;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -73,6 +79,10 @@ public class PropertyServiceImpl implements IPropertyService {
 
     @Resource
     private TransactionTemplate transactionTemplate;
+    @Autowired
+    private TaskMapper taskMapper;
+    @Autowired
+    private ProjectMapper projectMapper;
 
     /**
      * 查询属性
@@ -265,7 +275,25 @@ public class PropertyServiceImpl implements IPropertyService {
         int count = propertyMapper.getOrderNum(property.getParentId());
         property.setOrderNum(count + 1);
 
-        return propertyMapper.insertProperty(property);
+        int result = propertyMapper.insertProperty(property);
+
+        updateTime(property);
+
+        return result;
+    }
+
+    public void updateTime(Property property) {
+        // 先找根节点
+        Long rootId;
+        if (ObjectUtil.isNotEmpty(property.getAncestors())) {
+            rootId = Long.valueOf(property.getAncestors().split(",")[1]);
+        } else {
+            rootId = property.getId();
+        }
+        Building building = new Building();
+        building.setRootPropertyId(rootId);
+        Long buildingId = buildingMapper.selectBuildingList(building).get(0).getId();
+        updateTaskAndProject(buildingId);
     }
 
     /**
@@ -275,6 +303,7 @@ public class PropertyServiceImpl implements IPropertyService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int updateProperty(Property property) {
         Property newParentObject = propertyMapper.selectPropertyById(property.getParentId());
         Property oldObject = propertyMapper.selectPropertyById(property.getId());
@@ -287,7 +316,9 @@ public class PropertyServiceImpl implements IPropertyService {
             updateObjectChildren(property.getId(), newAncestors, oldAncestors);
         }
         property.setUpdateTime(DateUtils.getNowDate());
-        // 这里property的显示顺序字段重复不会造成什么影响，所以这里不做校验
+
+        updateTime(property);
+
         return propertyMapper.updateProperty(property);
     }
 
@@ -318,6 +349,10 @@ public class PropertyServiceImpl implements IPropertyService {
     @Transactional
     public int deletePropertyByIds(String ids) {
         String[] idArray = Convert.toStrArray(ids);
+
+        List<Property> propertyList =  propertyMapper.selectPropertyListByIds(idArray);
+        propertyList.forEach(this::updateTime);
+
         propertyMapper.deleteObjectChildrenByIds(idArray);
 
         return propertyMapper.deletePropertyByIds(idArray);
@@ -336,6 +371,8 @@ public class PropertyServiceImpl implements IPropertyService {
         if (property == null) {
             throw new ServiceException("所要删除的桥梁属性不存在");
         }
+        updateTime(property);
+
         // 至少也要删除其子树的数据
         propertyMapper.deleteObjectChildren(id);
 
@@ -446,7 +483,6 @@ public class PropertyServiceImpl implements IPropertyService {
                     // 预防建筑属性所有节点全被删除情况
                     this.deletePropertyById(oldRootId);
                     deleteBuildIMage(oldRootId);
-
                 }
 
                 // 解析json数据
@@ -475,7 +511,7 @@ public class PropertyServiceImpl implements IPropertyService {
 
         ExecutorService executorService = Executors.newFixedThreadPool(1);
 
-        // todo 之后根据ai解析出来的结果调整name值（正立面照）
+        // 桥梁属性正立面照
         CompletableFuture.runAsync(() -> {
             extractImagesFromWord(file, buildingId);
 
@@ -505,7 +541,28 @@ public class PropertyServiceImpl implements IPropertyService {
                     }
                 });
 
+        // 更新项目和任务的updateTime
+        updateTaskAndProject(buildingId);
+
         return true;
+    }
+
+    /**
+     * 更新项目和任务的更新时间
+     */
+    public void updateTaskAndProject(Long buildingId) {
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+        CompletableFuture.runAsync(() -> {
+                    taskMapper.updateTaskTime(buildingId);
+                    projectMapper.updateProjectTime(buildingId);
+                }, executorService)
+                .whenComplete((r, ex) -> {
+                    executorService.shutdown();
+                    if (ex != null) {
+                        log.error("更新项目和任务的更新时间失败！", ex);
+                    }
+                });
     }
 
     private void deleteBuildIMage(Long oldRootId) {

@@ -137,4 +137,12 @@ public interface PropertyMapper {
      * @return 属性
      */
     Property selectByRootIdAndName(@Param("propertyRootId") Long propertyRootId, @Param("name") String name);
+
+    /**
+     * 根据属性ID数组查询属性列表
+     *
+     * @param idArray 属性ID数组
+     * @return 属性列表
+     */
+    List<Property> selectPropertyListByIds(@Param("idArray") String[] idArray);
 }

@@ -11,10 +11,7 @@ import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysUserMapper;
 import edu.whut.cs.bi.biz.domain.*;
-import edu.whut.cs.bi.biz.mapper.BiEvaluationMapper;
-import edu.whut.cs.bi.biz.mapper.BuildingMapper;
-import edu.whut.cs.bi.biz.mapper.PropertyMapper;
-import edu.whut.cs.bi.biz.mapper.TaskMapper;
+import edu.whut.cs.bi.biz.mapper.*;
 
 import edu.whut.cs.bi.biz.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +53,8 @@ public class TaskServiceImpl implements ITaskService {
 
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
+    @Autowired
+    private ProjectMapper projectMapper;
 
     /**
      * 查询任务
@@ -254,7 +253,11 @@ public class TaskServiceImpl implements ITaskService {
     @Transactional
     public int insertTask(Task task) {
         task.setCreateTime(DateUtils.getNowDate());
-        return taskMapper.insertTask(task);
+        int result = taskMapper.insertTask(task);
+
+        projectMapper.updateProjectTime(task.getBuildingId());
+
+        return result;
     }
 
     /**
@@ -264,8 +267,12 @@ public class TaskServiceImpl implements ITaskService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int updateTask(Task task) {
         task.setUpdateTime(DateUtils.getNowDate());
+
+        projectMapper.updateProjectTime(task.getBuildingId());
+
         return taskMapper.updateTask(task);
     }
 
@@ -276,7 +283,13 @@ public class TaskServiceImpl implements ITaskService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteTaskByIds(String ids) {
+        List<Task> taskList = taskMapper.selectTaskByIds(ids);
+        for (Task task : taskList) {
+            projectMapper.updateProjectTime(task.getBuildingId());
+        }
+
         return taskMapper.deleteTaskByIds(Convert.toStrArray(ids));
     }
 
@@ -287,7 +300,11 @@ public class TaskServiceImpl implements ITaskService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteTaskById(Long id) {
+        Task task = taskMapper.selectTaskById(id);
+        projectMapper.updateProjectTime(task.getBuildingId());
+
         return taskMapper.deleteTaskById(id);
     }
 
@@ -299,10 +316,15 @@ public class TaskServiceImpl implements ITaskService {
      * @return
      */
     @Override
+    @Transactional
     public int batchInsertTasks(Long projectId, List<Long> buildingIds) {
         if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingIds)) {
             throw new ServiceException("传入的参数不能为空");
         }
+
+        Project project = projectMapper.selectProjectById(projectId);
+        project.setUpdateTime(DateUtils.getNowDate());
+        projectMapper.updateProject(project);
 
         return taskMapper.batchInsertTask(projectId, buildingIds, ShiroUtils.getLoginName());
     }
@@ -315,10 +337,15 @@ public class TaskServiceImpl implements ITaskService {
      * @return
      */
     @Override
+    @Transactional
     public int removeTask(Long projectId, Long buildingId) {
         if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingId)) {
             throw new ServiceException("传入的参数不能为空");
         }
+
+        Project project = projectMapper.selectProjectById(projectId);
+        project.setUpdateTime(DateUtils.getNowDate());
+        projectMapper.updateProject(project);
 
         return taskMapper.deleteTaskByProjectIdAndBuildingId(projectId, buildingId);
     }
@@ -335,6 +362,10 @@ public class TaskServiceImpl implements ITaskService {
         if (ObjUtil.isEmpty(projectId) || ObjUtil.isEmpty(buildingIds)) {
             throw new ServiceException("传入的参数不能为空");
         }
+
+        Project project = projectMapper.selectProjectById(projectId);
+        project.setUpdateTime(DateUtils.getNowDate());
+        projectMapper.updateProject(project);
 
         return taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
     }
