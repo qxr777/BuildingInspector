@@ -446,11 +446,20 @@ public class ApiController {
                 biObjectService.updateBiObjectTreeRecursively(rootObject);
             }
 
-            // 处理病害数据 - 查找disease目录下的任意JSON文件
+            // 处理病害数据 - 根据当前年份获取对应的JSON文件
             String diseaseDir = buildingId + "/disease/";
+            Calendar calendar = Calendar.getInstance();
+            int currentYear = calendar.get(Calendar.YEAR);
+            String yearJsonFileName = currentYear + ".json";
+
             Optional<String> jsonFilePathOpt = extractedFiles.keySet().stream()
-                    .filter(path -> path.startsWith(diseaseDir) && path.toLowerCase().endsWith(".json"))
+                    .filter(path -> path.startsWith(diseaseDir) && path.endsWith(yearJsonFileName))
                     .findFirst();
+
+            // 如果没有找到当前年份的文件，则直接返回
+            if (!jsonFilePathOpt.isPresent()) {
+                return AjaxResult.success("桥梁数据上传成功");
+            }
 
             if (jsonFilePathOpt.isPresent()) {
                 String jsonFilePath = jsonFilePathOpt.get();
