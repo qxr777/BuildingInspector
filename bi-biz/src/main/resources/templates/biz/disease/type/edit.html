@@ -34,6 +34,22 @@
 					<textarea id="remark" name="remark" class="form-control">[[*{remark}]]</textarea>
 				</div>
 			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">选择字段：</label>
+				<div class="col-sm-8">
+					<div class="checkbox">
+						<label><input type="checkbox" class="selectColumn" value="1"> 裂缝特征</label>
+						<label><input type="checkbox" class="selectColumn" value="2"> 长度</label>
+						<label><input type="checkbox" class="selectColumn" value="4"> 宽度</label>
+						<label><input type="checkbox" class="selectColumn" value="8"> 高度/深度</label>
+						<label><input type="checkbox" class="selectColumn" value="16"> 缝宽</label>
+						<label><input type="checkbox" class="selectColumn" value="32"> 面积</label>
+						<label><input type="checkbox" class="selectColumn" value="64"> 体积</label>
+						<label><input type="checkbox" class="selectColumn" value="128"> 角度</label>
+					</div>
+				</div>
+			</div>
+			<input type="hidden" name="selectColumn" id="selectColumn" th:value="*{selectColumn}" />
 		</form>
 	</div>
 	<th:block th:include="include :: footer" />
@@ -68,7 +84,28 @@
 		    focusCleanup: true
 		});
 		
+		function updateSelectColumn() {
+			var result = 0;
+			$(".selectColumn:checked").each(function() {
+				result |= parseInt($(this).val());
+			});
+			$("#selectColumn").val(result);
+		}
+		$(".selectColumn").on("change", updateSelectColumn);
+
+		// 页面加载时根据selectColumn值自动勾选checkbox
+		$(function() {
+			var selectColumn = parseInt($("#selectColumn").val() || 0);
+			$(".selectColumn").each(function() {
+				var v = parseInt($(this).val());
+				if ((selectColumn & v) === v) {
+					$(this).prop("checked", true);
+				}
+			});
+		});
+		
 		function submitHandler() {
+			updateSelectColumn();
 	        if ($.validate.form()) {
 	        	$.operate.save(prefix + "/edit", $('#form-diseaseType-edit').serialize());
 	        }

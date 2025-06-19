@@ -50,6 +50,8 @@ public class DiseaseType extends BaseEntity {
      */
     private String status;
 
+    private Integer selectColumn;
+
     // 关联的病害标度
     private List<DiseaseScale> diseaseScales;
 

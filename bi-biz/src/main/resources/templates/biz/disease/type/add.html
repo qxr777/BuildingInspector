@@ -28,6 +28,22 @@
 				</div>
 			</div>
 			<div class="form-group">
+				<label class="col-sm-3 control-label">选择字段：</label>
+				<div class="col-sm-8">
+					<div class="checkbox">
+						<label><input type="checkbox" class="selectColumn" value="1"> 裂缝特征</label>
+						<label><input type="checkbox" class="selectColumn" value="2"> 长度</label>
+						<label><input type="checkbox" class="selectColumn" value="4"> 宽度</label>
+						<label><input type="checkbox" class="selectColumn" value="8"> 高度/深度</label>
+						<label><input type="checkbox" class="selectColumn" value="16"> 缝宽</label>
+						<label><input type="checkbox" class="selectColumn" value="32"> 面积</label>
+						<label><input type="checkbox" class="selectColumn" value="64"> 体积</label>
+						<label><input type="checkbox" class="selectColumn" value="128"> 角度</label>
+					</div>
+				</div>
+			</div>
+			<input type="hidden" name="selectColumn" id="selectColumn">
+			<div class="form-group">
 				<label class="col-sm-3 control-label">备注：</label>
 				<div class="col-sm-8">
 					<textarea id="remark" name="remark" class="form-control"></textarea>
@@ -65,10 +81,20 @@
 		});
 		
 		function submitHandler() {
+			updateSelectColumn();
 	        if ($.validate.form()) {
 	        	$.operate.save(prefix + "/add", $('#form-diseaseType-add').serialize());
 	        }
 	    }
+
+		function updateSelectColumn() {
+			var result = 0;
+			$(".selectColumn:checked").each(function() {
+				result |= parseInt($(this).val());
+			});
+			$("#selectColumn").val(result);
+		}
+		$(".selectColumn").on("change", updateSelectColumn);
 	</script>
 </body>
 </html>

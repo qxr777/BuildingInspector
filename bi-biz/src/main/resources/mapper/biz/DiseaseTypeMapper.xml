@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
@@ -16,6 +16,7 @@
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
+        <result property="selectColumn" column="select_column"/> <!-- 添加新字段 -->
     </resultMap>
 
     <resultMap type="TemplateDiseaseTypeVO" id="TemplateDiseaseTypeVOResult" extends="DiseaseTypeResult">
@@ -24,16 +25,17 @@
 
     <sql id="selectDiseaseTypeVo">
         select id,
-               name,
-               code,
-               max_scale,
-               min_scale,
-               status,
-               create_by,
-               create_time,
-               update_by,
-               update_time,
-               remark
+        name,
+        code,
+        max_scale,
+        min_scale,
+        status,
+        create_by,
+        create_time,
+        update_by,
+        update_time,
+        remark,
+        select_column <!-- 添加新字段 -->
         from bi_disease_type
     </sql>
 
@@ -114,6 +116,7 @@
             <if test="status != null and status != ''">status = #{status},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="selectColumn != null">select_column = #{selectColumn},</if>
             update_time = sysdate()
         </set>
         where id = #{id}
@@ -135,6 +138,7 @@
             <if test="status != null and status != ''">status,</if>
             <if test="remark != null and remark != ''">remark,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="selectColumn != null">select_column,</if> <!-- 添加新字段 -->
         </trim>
         values
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -145,6 +149,7 @@
             <if test="status != null and status != ''">#{status},</if>
             <if test="remark != null and remark != ''">#{remark},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="selectColumn != null">#{selectColumn},</if> <!-- 添加新字段 -->
         </trim>
     </insert>
 
@@ -152,6 +157,7 @@
         SELECT
         d.id, d.name, d.code, d.max_scale, d.min_scale, d.status,
         d.remark, d.create_by, d.create_time, d.update_by, d.update_time,
+        d.select_column, <!-- 添加新字段 -->
         CASE WHEN td.template_object_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
         FROM bi_disease_type d
         LEFT JOIN bi_template_object_disease_type td ON d.id = td.disease_type_id
