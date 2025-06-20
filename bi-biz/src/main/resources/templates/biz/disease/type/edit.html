@@ -29,12 +29,6 @@
 				</div>
 			</div>
 			<div class="form-group">
-				<label class="col-sm-3 control-label">备注：</label>
-				<div class="col-sm-8">
-					<textarea id="remark" name="remark" class="form-control">[[*{remark}]]</textarea>
-				</div>
-			</div>
-			<div class="form-group">
 				<label class="col-sm-3 control-label">选择字段：</label>
 				<div class="col-sm-8">
 					<div class="checkbox">
@@ -50,6 +44,12 @@
 				</div>
 			</div>
 			<input type="hidden" name="selectColumn" id="selectColumn" th:value="*{selectColumn}" />
+			<div class="form-group">
+				<label class="col-sm-3 control-label">备注：</label>
+				<div class="col-sm-8">
+					<textarea id="remark" name="remark" class="form-control">[[*{remark}]]</textarea>
+				</div>
+			</div>
 		</form>
 	</div>
 	<th:block th:include="include :: footer" />

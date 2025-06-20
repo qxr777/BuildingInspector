@@ -23,7 +23,8 @@
         <result property="commitType" column="commit_type"/>
         <result property="localId" column="local_id"/>
         <result property="remark" column="remark"/>
-        <result property="cause" column="cause"/> <!-- 新增字段 -->
+        <result property="cause" column="cause"/>
+        <result property="repairRecommendation" column="repair_recommendation"/> <!-- 新增字段 -->
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -49,7 +50,7 @@
         d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
         d.nature , d.participate_assess, d.deduct_points,
         d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
-        d.cause, <!-- 新增字段 -->
+        d.cause, d.repair_recommendation, <!-- 新增字段 -->
         d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
         dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
         from bi_disease d
@@ -110,7 +111,8 @@
             <if test="commitType != null">commit_type,</if>
             <if test="localId != null">local_id,</if>
             <if test="remark != null">remark,</if>
-            <if test="cause != null and cause != ''">cause,</if> <!-- 新增字段 -->
+            <if test="cause != null and cause != ''">cause,</if>
+            <if test="repairRecommendation != null and repairRecommendation != ''">repair_recommendation,</if> <!-- 新增字段 -->
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -134,7 +136,8 @@
             <if test="commitType != null">#{commitType},</if>
             <if test="localId != null">#{localId},</if>
             <if test="remark != null">#{remark},</if>
-            <if test="cause != null and cause != ''">#{cause},</if> <!-- 新增字段 -->
+            <if test="cause != null and cause != ''">#{cause},</if>
+            <if test="repairRecommendation != null and repairRecommendation != ''">#{repairRecommendation},</if> <!-- 新增字段 -->
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -162,7 +165,8 @@
             <if test="commitType != null">commit_type = #{commitType},</if>
             <if test="localId != null">local_id = #{localId},</if>
             <if test="remark != null">remark = #{remark},</if>
-            <if test="cause != null">cause = #{cause},</if> <!-- 新增字段 -->
+            <if test="cause != null">cause = #{cause},</if>
+            <if test="repairRecommendation != null">repair_recommendation = #{repairRecommendation},</if> <!-- 新增字段 -->
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>

@@ -49,8 +49,11 @@ public class DiseaseDetail extends BaseEntity {
     // 缝宽
     private BigDecimal crackWidth;
 
-    // 面积
-    private BigDecimal area;
+    // 面积_长
+    private BigDecimal areaLength;
+
+    // 面积_宽
+    private BigDecimal areaWidth;
 
     // 体积
     private BigDecimal volume;

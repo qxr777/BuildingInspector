@@ -19,7 +19,8 @@
         <result property="width" column="width"/>
         <result property="heightDepth" column="height_depth"/>
         <result property="crackWidth" column="crack_width"/>
-        <result property="area" column="area"/>
+        <result property="areaLength" column="area_length"/> <!-- 修改字段 -->
+        <result property="areaWidth" column="area_width"/> <!-- 修改字段 -->
         <result property="volume" column="volume"/>
         <result property="angle" column="angle"/>
         <result property="percentage" column="percentage"/>
@@ -44,40 +45,41 @@
 
     <sql id="selectDiseaseDetailVo">
         select
-            id,
-            disease_id,
-            crack_type,
-            reference1_location,
-            reference1_location_start,
-            reference1_location_end,
-            reference2_location,
-            reference2_location_start,
-            reference2_location_end,
-            length,
-            width,
-            height_depth,
-            crack_width,
-            area,
-            volume,
-            angle,
-            percentage,
-            development_trend,
-            length_range_start,
-            length_range_end,
-            width_range_start,
-            width_range_end,
-            height_depth_range_start,
-            height_depth_range_end,
-            crack_width_range_start,
-            crack_width_range_end,
-            area_range_start,
-            area_range_end,
-            volume_range_start,
-            volume_range_end,
-            angle_range_start,
-            angle_range_end,
-            percentage_range_start,
-            percentage_range_end
+        id,
+        disease_id,
+        crack_type,
+        reference1_location,
+        reference1_location_start,
+        reference1_location_end,
+        reference2_location,
+        reference2_location_start,
+        reference2_location_end,
+        length,
+        width,
+        height_depth,
+        crack_width,
+        area_length, <!-- 修改字段 -->
+        area_width, <!-- 修改字段 -->
+        volume,
+        angle,
+        percentage,
+        development_trend,
+        length_range_start,
+        length_range_end,
+        width_range_start,
+        width_range_end,
+        height_depth_range_start,
+        height_depth_range_end,
+        crack_width_range_start,
+        crack_width_range_end,
+        area_range_start,
+        area_range_end,
+        volume_range_start,
+        volume_range_end,
+        angle_range_start,
+        angle_range_end,
+        percentage_range_start,
+        percentage_range_end
         from bi_disease_detail
     </sql>
 
@@ -108,7 +110,8 @@
             <if test="width != null">width,</if>
             <if test="heightDepth != null">height_depth,</if>
             <if test="crackWidth != null">crack_width,</if>
-            <if test="area != null">area,</if>
+            <if test="areaLength != null">area_length,</if> <!-- 修改字段 -->
+            <if test="areaWidth != null">area_width,</if> <!-- 修改字段 -->
             <if test="volume != null">volume,</if>
             <if test="angle != null">angle,</if>
             <if test="percentage != null">percentage,</if>
@@ -143,7 +146,8 @@
             <if test="width != null">#{width},</if>
             <if test="heightDepth != null">#{heightDepth},</if>
             <if test="crackWidth != null">#{crackWidth},</if>
-            <if test="area != null">#{area},</if>
+            <if test="areaLength != null">#{areaLength},</if> <!-- 修改字段 -->
+            <if test="areaWidth != null">#{areaWidth},</if> <!-- 修改字段 -->
             <if test="volume != null">#{volume},</if>
             <if test="angle != null">#{angle},</if>
             <if test="percentage != null">#{percentage},</if>
@@ -181,7 +185,8 @@
         width,
         height_depth,
         crack_width,
-        area,
+        area_length, <!-- 修改字段 -->
+        area_width, <!-- 修改字段 -->
         volume,
         angle,
         percentage,
@@ -218,7 +223,8 @@
             #{diseaseDetail.width},
             #{diseaseDetail.heightDepth},
             #{diseaseDetail.crackWidth},
-            #{diseaseDetail.area},
+            #{diseaseDetail.areaLength}, <!-- 修改字段 -->
+            #{diseaseDetail.areaWidth}, <!-- 修改字段 -->
             #{diseaseDetail.volume},
             #{diseaseDetail.angle},
             #{diseaseDetail.percentage},
@@ -258,7 +264,8 @@
             <if test="width != null">width = #{width},</if>
             <if test="heightDepth != null">height_depth = #{heightDepth},</if>
             <if test="crackWidth != null">crack_width = #{crackWidth},</if>
-            <if test="area != null">area = #{area},</if>
+            <if test="areaLength != null">area_length = #{areaLength},</if> <!-- 修改字段 -->
+            <if test="areaWidth != null">area_width = #{areaWidth},</if> <!-- 修改字段 -->
             <if test="volume != null">volume = #{volume},</if>
             <if test="angle != null">angle = #{angle},</if>
             <if test="percentage != null">percentage = #{percentage},</if>
