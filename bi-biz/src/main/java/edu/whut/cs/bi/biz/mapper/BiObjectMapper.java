@@ -29,6 +29,14 @@ public interface BiObjectMapper {
     public List<BiObject> selectBiObjectList(BiObject biObject);
 
     /**
+     * 查询对象列表
+     *
+     * @param biObject 对象
+     * @return 对象集合
+     */
+    public List<BiObject> selectBiObjectListByName(BiObject biObject);
+
+    /**
      * 新增对象
      *
      * @param biObject 对象

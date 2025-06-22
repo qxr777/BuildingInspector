@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
@@ -11,11 +12,12 @@ import edu.whut.cs.bi.biz.domain.*;
 
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.mapper.*;
-import edu.whut.cs.bi.biz.service.AttachmentService;
-import edu.whut.cs.bi.biz.service.IComponentService;
-import edu.whut.cs.bi.biz.service.IDiseaseService;
-import edu.whut.cs.bi.biz.service.IFileMapService;
+import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.shiro.subject.Subject;
+import org.apache.shiro.util.ThreadContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,10 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.Resource;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -68,6 +74,12 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Resource
     private DiseaseController diseaseController;
+
+    @Resource
+    private BuildingMapper buildingMapper;
+
+    @Resource
+    private IBuildingService buildingService;
 
     /**
      * 查询病害
@@ -411,5 +423,231 @@ public class DiseaseServiceImpl implements IDiseaseService
         } catch (Exception e) {
             throw new RuntimeException("请求失败: " + e.getMessage());
         }
+    }
+
+
+    @Transactional
+    @Override
+    public void readExcel(MultipartFile file) throws IOException {
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0); // 获取第一个工作表
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            Subject subject = ThreadContext.getSubject();
+
+            // 跳过表头行（前3行）
+            for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    // 解决多线程无上下文信息
+                    ThreadContext.bind(subject);
+
+                    String buildingName = getCellValueAsString(row.getCell(1));
+                    String side = getCellValueAsString(row.getCell(3));
+                    String component_2 = getCellValueAsString(row.getCell(4));
+                    String component_3 = getCellValueAsString(row.getCell(5));
+                    String location = getCellValueAsString(row.getCell(6));
+                    String diseaseType = getCellValueAsString(row.getCell(7));
+                    String diseaseNumber = getCellValueAsString(row.getCell(8));
+                    String length = getCellValueAsString(row.getCell(9)); // 这里是暂存
+                    String diseaseDescription = getCellValueAsString(row.getCell(11));
+                    String defectLevel = getCellValueAsString(row.getCell(12));
+                    String repairSuggestion = getCellValueAsString(row.getCell(13));
+
+
+                    // 新增建筑
+                    Building building = new Building();
+                    building.setName(buildingName);
+                    List<Building> buildings = buildingMapper.selectBuildingList(building);
+                    if (CollUtil.isEmpty(buildings) || buildings.size() == 0) {
+                        // 默认组合桥
+                        building.setStatus("0");
+                        building.setArea("420100");
+                        building.setLine("G70");
+                        building.setIsLeaf("0");
+                        buildingService.insertBuilding(building);
+                    } else {
+                        building = buildings.get(0);
+                    }
+                    Long parentBuildingId = building.getId();
+
+                    building = new Building();
+                    if (side == null || side.equals("/") || side.equals("") || side.equals("L-梁") || side.equals("左幅")) {
+                        building.setName(buildingName + "-左幅");
+                    } else {
+                        building.setName(buildingName + "-" + side);
+                    }
+
+                    buildings = buildingMapper.selectBuildingList(building);
+                    if (CollUtil.isEmpty(buildings) || buildings.size() == 0) {
+                        // 默认组合桥
+                        building.setStatus("0");
+                        building.setArea("420100");
+                        building.setLine("G70");
+                        building.setIsLeaf("1");
+                        building.setTemplateId(1L);
+                        building.setParentId(parentBuildingId);
+                        buildingService.insertBuilding(building);
+                    } else {
+                        building = buildings.get(0);
+                    }
+
+                    BiObject rootBiObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                    BiObject query = new BiObject();
+                    query.setParentId(rootBiObject.getId());
+                    query.setName(component_2);
+                    List<BiObject> biObjects = biObjectMapper.selectBiObjectListByName(query);
+                    if (biObjects != null && biObjects.size() > 0) {
+                        BiObject biObject = biObjects.get(0);
+                        query.setName(component_3);
+                        query.setParentId(biObject.getId());
+                        biObjects = biObjectMapper.selectBiObjectList(query);
+                        if (biObjects != null && biObjects.size() > 0) {
+                            // 第四层节点
+
+                            // 新增部件
+                            Component component = handleDefectLocation(location);
+                            String componentName = component.getName();
+                            String code = component.getCode();
+
+                            // 查询绑定的biObject对象
+                            query.setName(componentName);
+                            query.setParentId(biObjects.get(0).getId());
+                            biObjects = biObjectMapper.selectBiObjectList(query);
+                            biObject = biObjects.get(0);
+
+
+                            component.setBiObjectId(biObject.getId());
+                            component.setCode(null);
+                            if (code != null && !code.equals("")) {
+                                component.setName(code + "#" + componentName);
+                            }
+                            log.info(component.toString());
+                            Component old = componentService.selectComponent(component);
+                            if (old == null) {
+                                component.setCode(code);
+                                componentService.insertComponent(component);
+                            }
+
+                            Disease disease = new Disease();
+                            disease.setPosition(location);
+                            disease.setType(diseaseType);
+                            disease.setComponentId(component.getId());
+                            disease.setBuildingId(building.getId());
+                            disease.setProjectId(11L);
+                            disease.setBiObjectName(componentName);
+                            disease.setBiObjectId(component.getBiObjectId());
+                            disease.setRepairRecommendation(repairSuggestion);
+                            if (defectLevel.equals("/")) {
+                                disease.setLevel(1);
+                            } else {
+                                disease.setLevel(Integer.parseInt(defectLevel));
+                            }
+
+                            disease.setDescription(diseaseDescription);
+                            disease.setQuantity(Integer.parseInt(diseaseNumber));
+
+                            diseaseMapper.insertDisease(disease);
+
+                            DiseaseDetail diseaseDetail = new DiseaseDetail();
+                            diseaseDetail.setDiseaseId(disease.getId());
+                            if (length != null && !length.equals("/")) {
+                                BigDecimal decimal = new BigDecimal(length);
+                                diseaseDetail.setLength(decimal);
+                            }
+
+                            diseaseDetailMapper.insertDiseaseDetail(diseaseDetail);
+                        }
+                    }
+                });
+                futures.add(future);
+            }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        }
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                } else {
+                    return String.valueOf((int) cell.getNumericCellValue());
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
+        }
+    }
+
+    final String regex = "^.+#.+";
+
+    private Component handleDefectLocation(String location) {
+        Component component = new Component();
+        if (location.matches(regex)) {
+            String[] split = location.split("#");
+            component.setName(split[1]);
+            component.setCode(split[0]);
+            return component;
+        }
+
+        switch (location) {
+            case "R-1#台":
+                component.setName("台身");
+                component.setCode("R-1");
+                break;
+            case "L-0#台":
+                component.setName("台身");
+                component.setCode("L-0");
+                break;
+            case "R-0#台":
+                component.setName("台身");
+                component.setCode("R-0");
+                break;
+            case "R-梁":
+                component.setName("T梁");
+                component.setCode("R");
+                break;
+            case "L-梁":
+                component.setName("T梁");
+                component.setCode("L");
+                break;
+            case "通道内":
+                component.setName("通道内");
+                break;
+            case "进水口":
+                component.setName("出水口");
+                break;
+            case "出水口":
+                component.setName("出水口");
+                break;
+            case "桥台":
+                component.setName("桥身");
+                break;
+            case "其他":
+                component.setName("其他");
+                break;
+            case "顶板":
+                component.setName("实心板");
+                break;
+            default:
+                component.setName("其他");
+                break;
+        }
+
+        return component;
     }
 }

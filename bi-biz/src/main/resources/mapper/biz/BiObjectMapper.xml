@@ -350,6 +350,21 @@
         )
     </select>
 
+    <select id="selectBiObjectListByName" resultType="edu.whut.cs.bi.biz.domain.BiObject">
+        SELECT t.*
+        FROM bi_object t
+        <where>
+            <if test="name != null and name != ''">
+                AND t.name = #{name}
+            </if>
+            <if test="parentId != null">
+                AND t.parent_id = #{parentId}
+            </if>
+            AND t.del_flag = '0'
+        </where>
+        order by t.parent_id, t.order_num
+    </select>
+
     <!-- 批量更新子节点的ancestors -->
     <update id="batchUpdateAncestors">
         UPDATE bi_object

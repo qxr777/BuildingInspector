@@ -607,4 +607,17 @@ public class ApiController {
         map.put("sideImages", sideImagesList);
         return AjaxResult.success("查询成功", map);
     }
+
+    @PostMapping("/upload/excel")
+    @ResponseBody
+    public AjaxResult uploadExcel(@RequestParam("file") MultipartFile file) {
+        try {
+            diseaseService.readExcel(file);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return AjaxResult.success("上传成功");
+    }
+
 }

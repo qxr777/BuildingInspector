@@ -7,6 +7,7 @@ import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -98,4 +99,7 @@ public interface IDiseaseService {
      * @return
      */
     public int deleteDiseaseByDiseaseIds(String ids);
+
+
+    void readExcel(MultipartFile file) throws IOException;
 }

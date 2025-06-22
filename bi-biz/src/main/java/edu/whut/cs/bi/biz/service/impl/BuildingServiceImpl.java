@@ -89,15 +89,11 @@ public class BuildingServiceImpl implements IBuildingService {
     public int insertBuilding(Building building) {
         building.setCreateTime(DateUtils.getNowDate());
 
-        // 预先设置默认值，减少后续判断
-        String loginName = ShiroUtils.getLoginName();
-
         // 1. 创建BiObject根节点
         BiObject rootObject = new BiObject();
         rootObject.setName(building.getName());
         rootObject.setOrderNum(0); // 默认排序号
         rootObject.setStatus("0"); // 默认状态为正常
-        rootObject.setCreateBy(loginName);
         rootObject.setCreateTime(DateUtils.getNowDate());
 
         if ("0".equals(building.getIsLeaf())) {
