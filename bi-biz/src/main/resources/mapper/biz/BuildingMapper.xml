@@ -190,7 +190,7 @@
     <!-- 获取指定根节点下的直接子桥（一级子桥） -->
     <select id="selectDirectChildrenById" resultType="java.util.Map" parameterType="java.lang.Long">
         SELECT b.id, b.name, b.root_object_id
-        FROM building b
+        FROM bi_building b
                  JOIN bi_object o ON b.root_object_id = o.id
         WHERE o.parent_id = #{rootObjectId}
           AND b.del_flag = '0'
@@ -235,5 +235,21 @@
                  LEFT JOIN bi_building pb ON pb.root_object_id = o.parent_id
         WHERE b.id = #{id}
           AND b.del_flag = '0'
+    </select>
+
+    <select id="selectBuildingByNames" resultMap="BuildingWithParentResult" parameterType="java.util.Set">
+        select b.id, b.name,
+            b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude, b.address, b.area,
+            b.line, b.admin_dept, b.weight, b.root_object_id
+        from bi_building b
+        where
+        b.del_flag = '0'
+        and b.is_leaf = '1'
+        <if test="buildingSet != null">
+            and b.name in
+            <foreach item="name" collection="buildingSet" open="(" separator="," close=")">
+                #{name}
+            </foreach>
+        </if>
     </select>
 </mapper>

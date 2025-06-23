@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 病害Mapper接口
@@ -72,4 +73,12 @@ public interface DiseaseMapper {
      * @return
      */
     List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds);
+
+    /**
+     * 批量插入病害
+     *
+     * @param diseaseSet
+     * @return
+     */
+    int batchInsertDiseases(@Param("diseaseSet") Set<Disease> diseaseSet);
 }

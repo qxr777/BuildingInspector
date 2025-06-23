@@ -14,6 +14,7 @@ import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
@@ -608,14 +609,18 @@ public class ApiController {
         return AjaxResult.success("查询成功", map);
     }
 
-    @PostMapping("/upload/excel")
+    @PostMapping("/upload/diseaseExcel")
     @ResponseBody
-    public AjaxResult uploadExcel(@RequestParam("file") MultipartFile file) {
-        try {
-            diseaseService.readExcel(file);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file) {
+        diseaseService.readDiseaseExcel(file);
+
+        return AjaxResult.success("上传成功");
+    }
+
+    @PostMapping("/upload/bridgeExcel")
+    @ResponseBody
+    public AjaxResult uploadBridgeExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
+        buildingService.readBuildingExcel(file, projectId);
 
         return AjaxResult.success("上传成功");
     }

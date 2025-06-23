@@ -19,6 +19,7 @@
         <association property="biObject" javaType="BiObject">
             <result property="id" column="bi_object_id"/>
             <result property="name" column="bi_object_name"/>
+            <result property="ancestors" column="bi_object_ancestors"/>
         </association>
     </resultMap>
 
@@ -38,7 +39,7 @@
 
     <sql id="selectComponentVo">
         select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
-               c.update_by, c.update_time, c.remark, o.name as bi_object_name
+               c.update_by, c.update_time, c.remark, o.name as bi_object_name , o.ancestors as bi_object_ancestors
         from bi_component c
                  left join bi_object o on o.id = c.bi_object_id
     </sql>

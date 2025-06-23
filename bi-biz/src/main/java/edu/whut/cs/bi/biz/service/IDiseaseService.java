@@ -101,5 +101,5 @@ public interface IDiseaseService {
     public int deleteDiseaseByDiseaseIds(String ids);
 
 
-    void readExcel(MultipartFile file) throws IOException;
+    void readDiseaseExcel(MultipartFile file);
 }

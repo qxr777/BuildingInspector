@@ -4,90 +4,97 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper">
 
-    <!-- DiseaseDetail Result Map -->
-    <resultMap id="DiseaseDetailResult" type="DiseaseDetail">
-        <result property="id" column="id"/>
+    <resultMap type="DiseaseDetail" id="DiseaseDetailResult">
+        <id property="id" column="id"/>
         <result property="diseaseId" column="disease_id"/>
-        <result property="crackType" column="crack_type"/>
         <result property="reference1Location" column="reference1_location"/>
         <result property="reference1LocationStart" column="reference1_location_start"/>
         <result property="reference1LocationEnd" column="reference1_location_end"/>
         <result property="reference2Location" column="reference2_location"/>
         <result property="reference2LocationStart" column="reference2_location_start"/>
         <result property="reference2LocationEnd" column="reference2_location_end"/>
-        <result property="length" column="length"/>
+        <result property="length1" column="length1"/>
+        <result property="length2" column="length2"/>
+        <result property="length3" column="length3"/>
         <result property="width" column="width"/>
         <result property="heightDepth" column="height_depth"/>
         <result property="crackWidth" column="crack_width"/>
-        <result property="areaLength" column="area_length"/> <!-- 修改字段 -->
-        <result property="areaWidth" column="area_width"/> <!-- 修改字段 -->
-        <result property="volume" column="volume"/>
+        <result property="areaLength" column="area_length"/>
+        <result property="areaWidth" column="area_width"/>
+        <result property="deformation" column="deformation"/>
         <result property="angle" column="angle"/>
-        <result property="percentage" column="percentage"/>
-        <result property="developmentTrend" column="development_trend"/>
+        <result property="numeratorRatio" column="numerator_ratio"/>
+        <result property="denominatorRatio" column="denominator_ratio"/>
         <result property="lengthRangeStart" column="length_range_start"/>
         <result property="lengthRangeEnd" column="length_range_end"/>
-        <result property="widthRangeStart" column="width_range_start"/>
-        <result property="widthRangeEnd" column="width_range_end"/>
         <result property="heightDepthRangeStart" column="height_depth_range_start"/>
         <result property="heightDepthRangeEnd" column="height_depth_range_end"/>
         <result property="crackWidthRangeStart" column="crack_width_range_start"/>
         <result property="crackWidthRangeEnd" column="crack_width_range_end"/>
         <result property="areaRangeStart" column="area_range_start"/>
         <result property="areaRangeEnd" column="area_range_end"/>
-        <result property="volumeRangeStart" column="volume_range_start"/>
-        <result property="volumeRangeEnd" column="volume_range_end"/>
+        <result property="deformationRangeStart" column="deformation_range_start"/>
+        <result property="deformationRangeEnd" column="deformation_range_end"/>
         <result property="angleRangeStart" column="angle_range_start"/>
         <result property="angleRangeEnd" column="angle_range_end"/>
-        <result property="percentageRangeStart" column="percentage_range_start"/>
-        <result property="percentageRangeEnd" column="percentage_range_end"/>
     </resultMap>
 
     <sql id="selectDiseaseDetailVo">
-        select
-        id,
-        disease_id,
-        crack_type,
-        reference1_location,
-        reference1_location_start,
-        reference1_location_end,
-        reference2_location,
-        reference2_location_start,
-        reference2_location_end,
-        length,
-        width,
-        height_depth,
-        crack_width,
-        area_length, <!-- 修改字段 -->
-        area_width, <!-- 修改字段 -->
-        volume,
-        angle,
-        percentage,
-        development_trend,
-        length_range_start,
-        length_range_end,
-        width_range_start,
-        width_range_end,
-        height_depth_range_start,
-        height_depth_range_end,
-        crack_width_range_start,
-        crack_width_range_end,
-        area_range_start,
-        area_range_end,
-        volume_range_start,
-        volume_range_end,
-        angle_range_start,
-        angle_range_end,
-        percentage_range_start,
-        percentage_range_end
+        select id,
+               disease_id,
+               reference1_location,
+               reference1_location_start,
+               reference1_location_end,
+               reference2_location,
+               reference2_location_start,
+               reference2_location_end,
+               length1,
+               length2,
+               length3,
+               width,
+               height_depth,
+               crack_width,
+               area_length,
+               area_width,
+               deformation,
+               angle,
+               numerator_ratio,
+               denominator_ratio,
+               length_range_start,
+               length_range_end,
+               height_depth_range_start,
+               height_depth_range_end,
+               crack_width_range_start,
+               crack_width_range_end,
+               area_range_start,
+               area_range_end,
+               deformation_range_start,
+               deformation_range_end,
+               angle_range_start,
+               angle_range_end
         from bi_disease_detail
     </sql>
 
     <select id="selectDiseaseDetailList" parameterType="DiseaseDetail" resultMap="DiseaseDetailResult">
         <include refid="selectDiseaseDetailVo"/>
         <where>
-            <if test="diseaseId != null"> and disease_id = #{diseaseId}</if>
+            <if test="diseaseId != null">
+                AND disease_id = #{diseaseId}
+            </if>
+            <if test="reference1Location != null and reference1Location != ''">
+                AND reference1_location = #{reference1Location}
+            </if>
+            <if test="reference2Location != null and reference2Location != ''">
+                AND reference2_location = #{reference2Location}
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
+            </if>
         </where>
+        order by id asc
     </select>
 
     <select id="selectDiseaseDetailById" parameterType="Long" resultMap="DiseaseDetailResult">
@@ -95,221 +102,140 @@
         where id = #{id}
     </select>
 
-    <insert id="insertDiseaseDetail" parameterType="DiseaseDetail" useGeneratedKeys="true" keyProperty="id">
-        insert into bi_disease_detail
-        <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="diseaseId != null">disease_id,</if>
-            <if test="crackType != null and crackType != ''">crack_type,</if>
-            <if test="reference1Location != null and reference1Location != ''">reference1_location,</if>
-            <if test="reference1LocationStart != null">reference1_location_start,</if>
-            <if test="reference1LocationEnd != null">reference1_location_end,</if>
-            <if test="reference2Location != null and reference2Location != ''">reference2_location,</if>
-            <if test="reference2LocationStart != null">reference2_location_start,</if>
-            <if test="reference2LocationEnd != null">reference2_location_end,</if>
-            <if test="length != null">length,</if>
-            <if test="width != null">width,</if>
-            <if test="heightDepth != null">height_depth,</if>
-            <if test="crackWidth != null">crack_width,</if>
-            <if test="areaLength != null">area_length,</if> <!-- 修改字段 -->
-            <if test="areaWidth != null">area_width,</if> <!-- 修改字段 -->
-            <if test="volume != null">volume,</if>
-            <if test="angle != null">angle,</if>
-            <if test="percentage != null">percentage,</if>
-            <if test="developmentTrend != null and developmentTrend != ''">development_trend,</if>
-            <if test="lengthRangeStart != null">length_range_start,</if>
-            <if test="lengthRangeEnd != null">length_range_end,</if>
-            <if test="widthRangeStart != null">width_range_start,</if>
-            <if test="widthRangeEnd != null">width_range_end,</if>
-            <if test="heightDepthRangeStart != null">height_depth_range_start,</if>
-            <if test="heightDepthRangeEnd != null">height_depth_range_end,</if>
-            <if test="crackWidthRangeStart != null">crack_width_range_start,</if>
-            <if test="crackWidthRangeEnd != null">crack_width_range_end,</if>
-            <if test="areaRangeStart != null">area_range_start,</if>
-            <if test="areaRangeEnd != null">area_range_end,</if>
-            <if test="volumeRangeStart != null">volume_range_start,</if>
-            <if test="volumeRangeEnd != null">volume_range_end,</if>
-            <if test="angleRangeStart != null">angle_range_start,</if>
-            <if test="angleRangeEnd != null">angle_range_end,</if>
-            <if test="percentageRangeStart != null">percentage_range_start,</if>
-            <if test="percentageRangeEnd != null">percentage_range_end,</if>
-        </trim>
-        <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="diseaseId != null">#{diseaseId},</if>
-            <if test="crackType != null and crackType != ''">#{crackType},</if>
-            <if test="reference1Location != null and reference1Location != ''">#{reference1Location},</if>
-            <if test="reference1LocationStart != null">#{reference1LocationStart},</if>
-            <if test="reference1LocationEnd != null">#{reference1LocationEnd},</if>
-            <if test="reference2Location != null and reference2Location != ''">#{reference2Location},</if>
-            <if test="reference2LocationStart != null">#{reference2LocationStart},</if>
-            <if test="reference2LocationEnd != null">#{reference2LocationEnd},</if>
-            <if test="length != null">#{length},</if>
-            <if test="width != null">#{width},</if>
-            <if test="heightDepth != null">#{heightDepth},</if>
-            <if test="crackWidth != null">#{crackWidth},</if>
-            <if test="areaLength != null">#{areaLength},</if> <!-- 修改字段 -->
-            <if test="areaWidth != null">#{areaWidth},</if> <!-- 修改字段 -->
-            <if test="volume != null">#{volume},</if>
-            <if test="angle != null">#{angle},</if>
-            <if test="percentage != null">#{percentage},</if>
-            <if test="developmentTrend != null and developmentTrend != ''">#{developmentTrend},</if>
-            <if test="lengthRangeStart != null">#{lengthRangeStart},</if>
-            <if test="lengthRangeEnd != null">#{lengthRangeEnd},</if>
-            <if test="widthRangeStart != null">#{widthRangeStart},</if>
-            <if test="widthRangeEnd != null">#{widthRangeEnd},</if>
-            <if test="heightDepthRangeStart != null">#{heightDepthRangeStart},</if>
-            <if test="heightDepthRangeEnd != null">#{heightDepthRangeEnd},</if>
-            <if test="crackWidthRangeStart != null">#{crackWidthRangeStart},</if>
-            <if test="crackWidthRangeEnd != null">#{crackWidthRangeEnd},</if>
-            <if test="areaRangeStart != null">#{areaRangeStart},</if>
-            <if test="areaRangeEnd != null">#{areaRangeEnd},</if>
-            <if test="volumeRangeStart != null">#{volumeRangeStart},</if>
-            <if test="volumeRangeEnd != null">#{volumeRangeEnd},</if>
-            <if test="angleRangeStart != null">#{angleRangeStart},</if>
-            <if test="angleRangeEnd != null">#{angleRangeEnd},</if>
-            <if test="percentageRangeStart != null">#{percentageRangeStart},</if>
-            <if test="percentageRangeEnd != null">#{percentageRangeEnd},</if>
-        </trim>
-    </insert>
+    <select id="countDiseaseDetailByDiseaseId" parameterType="Long" resultType="int">
+        select count(1)
+        from bi_disease_detail
+        where disease_id = #{diseaseId}
+    </select>
 
-    <insert id="insertDiseaseDetails" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
-        insert into bi_disease_detail (
-        disease_id,
-        crack_type,
-        reference1_location,
-        reference1_location_start,
-        reference1_location_end,
-        reference2_location,
-        reference2_location_start,
-        reference2_location_end,
-        length,
-        width,
-        height_depth,
-        crack_width,
-        area_length, <!-- 修改字段 -->
-        area_width, <!-- 修改字段 -->
-        volume,
-        angle,
-        percentage,
-        development_trend,
-        length_range_start,
-        length_range_end,
-        width_range_start,
-        width_range_end,
-        height_depth_range_start,
-        height_depth_range_end,
-        crack_width_range_start,
-        crack_width_range_end,
-        area_range_start,
-        area_range_end,
-        volume_range_start,
-        volume_range_end,
-        angle_range_start,
-        angle_range_end,
-        percentage_range_start,
-        percentage_range_end
-        )
-        values
-        <foreach collection="diseaseDetails" item="diseaseDetail" separator=",">
-            (
-            #{diseaseDetail.diseaseId},
-            #{diseaseDetail.crackType},
-            #{diseaseDetail.reference1Location},
-            #{diseaseDetail.reference1LocationStart},
-            #{diseaseDetail.reference1LocationEnd},
-            #{diseaseDetail.reference2Location},
-            #{diseaseDetail.reference2LocationStart},
-            #{diseaseDetail.reference2LocationEnd},
-            #{diseaseDetail.length},
-            #{diseaseDetail.width},
-            #{diseaseDetail.heightDepth},
-            #{diseaseDetail.crackWidth},
-            #{diseaseDetail.areaLength}, <!-- 修改字段 -->
-            #{diseaseDetail.areaWidth}, <!-- 修改字段 -->
-            #{diseaseDetail.volume},
-            #{diseaseDetail.angle},
-            #{diseaseDetail.percentage},
-            #{diseaseDetail.developmentTrend},
-            #{diseaseDetail.lengthRangeStart},
-            #{diseaseDetail.lengthRangeEnd},
-            #{diseaseDetail.widthRangeStart},
-            #{diseaseDetail.widthRangeEnd},
-            #{diseaseDetail.heightDepthRangeStart},
-            #{diseaseDetail.heightDepthRangeEnd},
-            #{diseaseDetail.crackWidthRangeStart},
-            #{diseaseDetail.crackWidthRangeEnd},
-            #{diseaseDetail.areaRangeStart},
-            #{diseaseDetail.areaRangeEnd},
-            #{diseaseDetail.volumeRangeStart},
-            #{diseaseDetail.volumeRangeEnd},
-            #{diseaseDetail.angleRangeStart},
-            #{diseaseDetail.angleRangeEnd},
-            #{diseaseDetail.percentageRangeStart},
-            #{diseaseDetail.percentageRangeEnd}
-            )
+    <delete id="deleteDiseaseDetailById" parameterType="Long">
+        delete
+        from bi_disease_detail
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteDiseaseDetailByIds" parameterType="String">
+        delete from bi_disease_detail where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
         </foreach>
-    </insert>
+    </delete>
 
     <update id="updateDiseaseDetail" parameterType="DiseaseDetail">
         update bi_disease_detail
-        <trim prefix="SET" suffixOverrides=",">
+        <set>
             <if test="diseaseId != null">disease_id = #{diseaseId},</if>
-            <if test="crackType != null and crackType != ''">crack_type = #{crackType},</if>
-            <if test="reference1Location != null and reference1Location != ''">reference1_location = #{reference1Location},</if>
+            <if test="reference1Location != null and reference1Location != ''">reference1_location =
+                #{reference1Location},
+            </if>
             <if test="reference1LocationStart != null">reference1_location_start = #{reference1LocationStart},</if>
             <if test="reference1LocationEnd != null">reference1_location_end = #{reference1LocationEnd},</if>
-            <if test="reference2Location != null and reference2Location != ''">reference2_location = #{reference2Location},</if>
+            <if test="reference2Location != null and reference2Location != ''">reference2_location =
+                #{reference2Location},
+            </if>
             <if test="reference2LocationStart != null">reference2_location_start = #{reference2LocationStart},</if>
             <if test="reference2LocationEnd != null">reference2_location_end = #{reference2LocationEnd},</if>
-            <if test="length != null">length = #{length},</if>
+            <if test="length1 != null">length1 = #{length1},</if>
+            <if test="length2 != null">length2 = #{length2},</if>
+            <if test="length3 != null">length3 = #{length3},</if>
             <if test="width != null">width = #{width},</if>
             <if test="heightDepth != null">height_depth = #{heightDepth},</if>
             <if test="crackWidth != null">crack_width = #{crackWidth},</if>
-            <if test="areaLength != null">area_length = #{areaLength},</if> <!-- 修改字段 -->
-            <if test="areaWidth != null">area_width = #{areaWidth},</if> <!-- 修改字段 -->
-            <if test="volume != null">volume = #{volume},</if>
+            <if test="areaLength != null">area_length = #{areaLength},</if>
+            <if test="areaWidth != null">area_width = #{areaWidth},</if>
+            <if test="deformation != null">deformation = #{deformation},</if>
             <if test="angle != null">angle = #{angle},</if>
-            <if test="percentage != null">percentage = #{percentage},</if>
-            <if test="developmentTrend != null and developmentTrend != ''">development_trend = #{developmentTrend},</if>
+            <if test="numeratorRatio != null">numerator_ratio = #{numeratorRatio},</if>
+            <if test="denominatorRatio != null">denominator_ratio = #{denominatorRatio},</if>
             <if test="lengthRangeStart != null">length_range_start = #{lengthRangeStart},</if>
             <if test="lengthRangeEnd != null">length_range_end = #{lengthRangeEnd},</if>
-            <if test="widthRangeStart != null">width_range_start = #{widthRangeStart},</if>
-            <if test="widthRangeEnd != null">width_range_end = #{widthRangeEnd},</if>
             <if test="heightDepthRangeStart != null">height_depth_range_start = #{heightDepthRangeStart},</if>
             <if test="heightDepthRangeEnd != null">height_depth_range_end = #{heightDepthRangeEnd},</if>
             <if test="crackWidthRangeStart != null">crack_width_range_start = #{crackWidthRangeStart},</if>
             <if test="crackWidthRangeEnd != null">crack_width_range_end = #{crackWidthRangeEnd},</if>
             <if test="areaRangeStart != null">area_range_start = #{areaRangeStart},</if>
             <if test="areaRangeEnd != null">area_range_end = #{areaRangeEnd},</if>
-            <if test="volumeRangeStart != null">volume_range_start = #{volumeRangeStart},</if>
-            <if test="volumeRangeEnd != null">volume_range_end = #{volumeRangeEnd},</if>
+            <if test="deformationRangeStart != null">deformation_range_start = #{deformationRangeStart},</if>
+            <if test="deformationRangeEnd != null">deformation_range_end = #{deformationRangeEnd},</if>
             <if test="angleRangeStart != null">angle_range_start = #{angleRangeStart},</if>
             <if test="angleRangeEnd != null">angle_range_end = #{angleRangeEnd},</if>
-            <if test="percentageRangeStart != null">percentage_range_start = #{percentageRangeStart},</if>
-            <if test="percentageRangeEnd != null">percentage_range_end = #{percentageRangeEnd},</if>
-        </trim>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
         where id = #{id}
     </update>
 
-    <delete id="deleteDiseaseDetailById" parameterType="Long">
-        delete from bi_disease_detail where id = #{id}
-    </delete>
-
-    <delete id="deleteDiseaseDetailByDiseaseId" parameterType="Long">
-        delete from bi_disease_detail where disease_id = #{diseaseId}
-    </delete>
-
-    <delete id="deleteDiseaseDetailByIds" parameterType="String">
-        delete from bi_disease_detail where id in
-        <foreach item="id" collection="array" open="(" separator="," close=")">
-            #{id}
-        </foreach>
-    </delete>
-
-    <delete id="deleteDiseaseDetailByDiseaseIds" parameterType="Long">
-        delete from bi_disease_detail where disease_id in
-        <foreach item="diseaseId" collection="array" open="(" separator="," close=")">
-            #{diseaseId}
-        </foreach>
-    </delete>
+    <insert id="insertDiseaseDetail" parameterType="DiseaseDetail" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_disease_detail
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="diseaseId != null">disease_id,</if>
+            <if test="reference1Location != null and reference1Location != ''">reference1_location,</if>
+            <if test="reference1LocationStart != null">reference1_location_start,</if>
+            <if test="reference1LocationEnd != null">reference1_location_end,</if>
+            <if test="reference2Location != null and reference2Location != ''">reference2_location,</if>
+            <if test="reference2LocationStart != null">reference2_location_start,</if>
+            <if test="reference2LocationEnd != null">reference2_location_end,</if>
+            <if test="length1 != null">length1,</if>
+            <if test="length2 != null">length2,</if>
+            <if test="length3 != null">length3,</if>
+            <if test="width != null">width,</if>
+            <if test="heightDepth != null">height_depth,</if>
+            <if test="crackWidth != null">crack_width,</if>
+            <if test="areaLength != null">area_length,</if>
+            <if test="areaWidth != null">area_width,</if>
+            <if test="deformation != null">deformation,</if>
+            <if test="angle != null">angle,</if>
+            <if test="numeratorRatio != null">numerator_ratio,</if>
+            <if test="denominatorRatio != null">denominator_ratio,</if>
+            <if test="lengthRangeStart != null">length_range_start,</if>
+            <if test="lengthRangeEnd != null">length_range_end,</if>
+            <if test="heightDepthRangeStart != null">height_depth_range_start,</if>
+            <if test="heightDepthRangeEnd != null">height_depth_range_end,</if>
+            <if test="crackWidthRangeStart != null">crack_width_range_start,</if>
+            <if test="crackWidthRangeEnd != null">crack_width_range_end,</if>
+            <if test="areaRangeStart != null">area_range_start,</if>
+            <if test="areaRangeEnd != null">area_range_end,</if>
+            <if test="deformationRangeStart != null">deformation_range_start,</if>
+            <if test="deformationRangeEnd != null">deformation_range_end,</if>
+            <if test="angleRangeStart != null">angle_range_start,</if>
+            <if test="angleRangeEnd != null">angle_range_end,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+        </trim>
+        values
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="diseaseId != null">#{diseaseId},</if>
+            <if test="reference1Location != null and reference1Location != ''">#{reference1Location},</if>
+            <if test="reference1LocationStart != null">#{reference1LocationStart},</if>
+            <if test="reference1LocationEnd != null">#{reference1LocationEnd},</if>
+            <if test="reference2Location != null and reference2Location != ''">#{reference2Location},</if>
+            <if test="reference2LocationStart != null">#{reference2LocationStart},</if>
+            <if test="reference2LocationEnd != null">#{reference2LocationEnd},</if>
+            <if test="length1 != null">#{length1},</if>
+            <if test="length2 != null">#{length2},</if>
+            <if test="length3 != null">#{length3},</if>
+            <if test="width != null">#{width},</if>
+            <if test="heightDepth != null">#{heightDepth},</if>
+            <if test="crackWidth != null">#{crackWidth},</if>
+            <if test="areaLength != null">#{areaLength},</if>
+            <if test="areaWidth != null">#{areaWidth},</if>
+            <if test="deformation != null">#{deformation},</if>
+            <if test="angle != null">#{angle},</if>
+            <if test="numeratorRatio != null">#{numeratorRatio},</if>
+            <if test="denominatorRatio != null">#{denominatorRatio},</if>
+            <if test="lengthRangeStart != null">#{lengthRangeStart},</if>
+            <if test="lengthRangeEnd != null">#{lengthRangeEnd},</if>
+            <if test="heightDepthRangeStart != null">#{heightDepthRangeStart},</if>
+            <if test="heightDepthRangeEnd != null">#{heightDepthRangeEnd},</if>
+            <if test="crackWidthRangeStart != null">#{crackWidthRangeStart},</if>
+            <if test="crackWidthRangeEnd != null">#{crackWidthRangeEnd},</if>
+            <if test="areaRangeStart != null">#{areaRangeStart},</if>
+            <if test="areaRangeEnd != null">#{areaRangeEnd},</if>
+            <if test="deformationRangeStart != null">#{deformationRangeStart},</if>
+            <if test="deformationRangeEnd != null">#{deformationRangeEnd},</if>
+            <if test="angleRangeStart != null">#{angleRangeStart},</if>
+            <if test="angleRangeEnd != null">#{angleRangeEnd},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+        </trim>
+    </insert>
 
 </mapper>

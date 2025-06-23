@@ -11,11 +11,15 @@ import java.util.HashSet;
 import java.util.Date;
 import java.util.HashMap;
 
+import cn.hutool.core.collection.CollUtil;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
+import edu.whut.cs.bi.biz.service.ITaskService;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,11 +54,12 @@ public class BuildingServiceImpl implements IBuildingService {
     @Autowired
     private IBiObjectService biObjectService;
 
-    @Resource
-    private ProjectBuildingMapper projectBuildingMapper;
-
     @Autowired
     private IBiTemplateObjectService biTemplateObjectService;
+
+    @Resource
+    private ITaskService taskService;
+
 
     /**
      * 查询建筑
@@ -688,6 +693,90 @@ public class BuildingServiceImpl implements IBuildingService {
     @Override
     public Building selectBuildingWithParentInfo(Long id) {
         return buildingMapper.selectBuildingWithParentInfo(id);
+    }
+
+    @Override
+    @Transactional
+    public void readBuildingExcel(MultipartFile file, Long projectId) {
+        List<Long> buildings = new ArrayList<>();
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
+                Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
+
+                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+
+                    String buildingName = getCellValueAsString(row.getCell(0));
+                    String side = getCellValueAsString(row.getCell(1));
+
+                    Building building = new Building();
+                    building.setName(buildingName);
+
+                    List<Building> mianBuilidng = buildingMapper.selectBuildingList(building);
+
+                    if (CollUtil.isEmpty(mianBuilidng) || mianBuilidng.size() == 0) {
+                        building.setStatus("0");
+                        building.setArea("420100");
+                        building.setLine("G70");
+                        building.setIsLeaf("0");
+                        building.setCreateBy(ShiroUtils.getLoginName());
+                        this.insertBuilding(building);
+                    } else {
+                        building = mianBuilidng.get(0);
+                    }
+
+                    Building childBuilding = new Building();
+                    childBuilding.setName(buildingName + "-" + side);
+                    childBuilding.setParentId(building.getId());
+
+                    List<Building> sideBuilding = buildingMapper.selectBuildingList(childBuilding);
+
+                    if (CollUtil.isEmpty(sideBuilding) || sideBuilding.size() == 0) {
+                        childBuilding.setStatus("0");
+                        childBuilding.setArea("420100");
+                        childBuilding.setLine("G70");
+                        childBuilding.setIsLeaf("1");
+                        childBuilding.setTemplateId(1L);
+
+                        childBuilding.setParentId(building.getId());
+                        this.insertBuilding(childBuilding);
+                    } else {
+                        childBuilding = sideBuilding.get(0);
+                    }
+
+                    buildings.add(childBuilding.getId());
+                }
+            }
+        } catch (IOException e) {
+            log.error("导入失败", e);
+            throw new RuntimeException("导入失败" + e.getMessage());
+        }
+
+        taskService.batchInsertTasks(projectId, buildings);
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                } else {
+                    return String.valueOf((int) cell.getNumericCellValue());
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
+        }
     }
 }
 

@@ -95,4 +95,11 @@ public interface IBuildingService {
      * @return 带有父桥信息的建筑
      */
     public Building selectBuildingWithParentInfo(Long id);
+
+    /**
+     * excel导入建筑信息
+     *
+     * @param file
+     */
+    public void readBuildingExcel(MultipartFile file, Long projectId);
 }

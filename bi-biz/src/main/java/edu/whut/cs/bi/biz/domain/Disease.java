@@ -41,7 +41,7 @@ public class Disease extends BaseEntity {
     /** 病害类型 */
     private String type;
 
-    /** 病害性质 */
+    /** 病害性质（结构病害 / 非结构病害） */
     private String nature;
 
     /** 病害成因  */
@@ -50,8 +50,17 @@ public class Disease extends BaseEntity {
     /** 维修建议 */
     private String repairRecommendation;
 
+    /** 检测方法 */
+    private String detectionMethod;
+
     /** 是否参与评定  0是 1否*/
     private String participateAssess;
+
+    // 裂缝特征 (纵向、横向、斜向、L型、U型）
+    private String crackType;
+
+    // 发展趋势 （稳定、发展、新增、已维修、部分维修、未找到)
+    private String developmentTrend;
 
     /** 扣分 */
     private int deductPoints;

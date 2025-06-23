@@ -24,7 +24,10 @@
         <result property="localId" column="local_id"/>
         <result property="remark" column="remark"/>
         <result property="cause" column="cause"/>
-        <result property="repairRecommendation" column="repair_recommendation"/> <!-- 新增字段 -->
+        <result property="repairRecommendation" column="repair_recommendation"/>
+        <result property="crackType" column="crack_type"/>
+        <result property="developmentTrend" column="development_trend"/>
+        <result property="detectionMethod" column="detection_method"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -50,7 +53,7 @@
         d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
         d.nature , d.participate_assess, d.deduct_points,
         d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
-        d.cause, d.repair_recommendation, <!-- 新增字段 -->
+        d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method, <!-- 新增字段 -->
         d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
         dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
         from bi_disease d
@@ -112,7 +115,10 @@
             <if test="localId != null">local_id,</if>
             <if test="remark != null">remark,</if>
             <if test="cause != null and cause != ''">cause,</if>
-            <if test="repairRecommendation != null and repairRecommendation != ''">repair_recommendation,</if> <!-- 新增字段 -->
+            <if test="repairRecommendation != null and repairRecommendation != ''">repair_recommendation,</if>
+            <if test="crackType != null and crackType != ''">crack_type,</if>
+            <if test="developmentTrend != null and developmentTrend != ''">development_trend,</if>
+            <if test="detectionMethod != null and detectionMethod != ''">detection_method,</if> <!-- 新增字段 -->
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -137,12 +143,82 @@
             <if test="localId != null">#{localId},</if>
             <if test="remark != null">#{remark},</if>
             <if test="cause != null and cause != ''">#{cause},</if>
-            <if test="repairRecommendation != null and repairRecommendation != ''">#{repairRecommendation},</if> <!-- 新增字段 -->
+            <if test="repairRecommendation != null and repairRecommendation != ''">#{repairRecommendation},</if>
+            <if test="crackType != null and crackType != ''">#{crackType},</if>
+            <if test="developmentTrend != null and developmentTrend != ''">#{developmentTrend},</if>
+            <if test="detectionMethod != null and detectionMethod != ''">#{detectionMethod},</if> <!-- 新增字段 -->
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
         </trim>
+    </insert>
+
+    <insert id="batchInsertDiseases" parameterType="java.util.Set" useGeneratedKeys="true" keyProperty="id">
+        <if test="diseaseSet != null and !diseaseSet.isEmpty()">
+            INSERT INTO bi_disease
+            <trim prefix="(" suffix=")" suffixOverrides=",">
+                <if test="diseaseSet.iterator().next().position != null and diseaseSet.iterator().next().position != ''">position,</if>
+                <if test="diseaseSet.iterator().next().type != null and diseaseSet.iterator().next().type != ''">type,</if>
+                <if test="diseaseSet.iterator().next().diseaseTypeId != null">disease_type_id,</if>
+                <if test="diseaseSet.iterator().next().description != null and diseaseSet.iterator().next().description != ''">description,</if>
+                <if test="diseaseSet.iterator().next().nature != null and diseaseSet.iterator().next().nature != ''">nature,</if>
+                <if test="diseaseSet.iterator().next().level != null">level,</if>
+                <if test="diseaseSet.iterator().next().quantity != null">quantity,</if>
+                <if test="diseaseSet.iterator().next().participateAssess != null and diseaseSet.iterator().next().participateAssess != ''">participate_assess,</if>
+                <if test="diseaseSet.iterator().next().deductPoints != null">deduct_points,</if>
+                <if test="diseaseSet.iterator().next().projectId != null">project_id,</if>
+                <if test="diseaseSet.iterator().next().biObjectId != null">bi_object_id,</if>
+                <if test="diseaseSet.iterator().next().biObjectName != null and diseaseSet.iterator().next().biObjectName != ''">bi_object_name,</if>
+                <if test="diseaseSet.iterator().next().buildingId != null">building_id,</if>
+                <if test="diseaseSet.iterator().next().componentId != null">component_id,</if>
+                <if test="diseaseSet.iterator().next().commitType != null">commit_type,</if>
+                <if test="diseaseSet.iterator().next().localId != null">local_id,</if>
+                <if test="diseaseSet.iterator().next().remark != null">remark,</if>
+                <if test="diseaseSet.iterator().next().cause != null and diseaseSet.iterator().next().cause != ''">cause,</if>
+                <if test="diseaseSet.iterator().next().repairRecommendation != null and diseaseSet.iterator().next().repairRecommendation != ''">repair_recommendation,</if>
+                <if test="diseaseSet.iterator().next().crackType != null and diseaseSet.iterator().next().crackType != ''">crack_type,</if>
+                <if test="diseaseSet.iterator().next().developmentTrend != null and diseaseSet.iterator().next().developmentTrend != ''">development_trend,</if>
+                <if test="diseaseSet.iterator().next().detectionMethod != null and diseaseSet.iterator().next().detectionMethod != ''">detection_method,</if> <!-- 新增字段 -->
+                <if test="diseaseSet.iterator().next().createBy != null">create_by,</if>
+                <if test="diseaseSet.iterator().next().createTime != null">create_time,</if>
+                <if test="diseaseSet.iterator().next().updateBy != null">update_by,</if>
+                <if test="diseaseSet.iterator().next().updateTime != null">update_time,</if>
+            </trim>
+            VALUES
+            <foreach collection="diseaseSet" item="disease" separator=",">
+                (
+                <trim suffixOverrides=",">
+                    <if test="disease.position != null and disease.position != ''">#{disease.position},</if>
+                    <if test="disease.type != null and disease.type != ''">#{disease.type},</if>
+                    <if test="disease.diseaseTypeId != null">#{disease.diseaseTypeId},</if>
+                    <if test="disease.description != null and disease.description != ''">#{disease.description},</if>
+                    <if test="disease.nature != null and disease.nature != ''">#{disease.nature},</if>
+                    <if test="disease.level != null">#{disease.level},</if>
+                    <if test="disease.quantity != null">#{disease.quantity},</if>
+                    <if test="disease.participateAssess != null and disease.participateAssess != ''">#{disease.participateAssess},</if>
+                    <if test="disease.deductPoints != null">#{disease.deductPoints},</if>
+                    <if test="disease.projectId != null">#{disease.projectId},</if>
+                    <if test="disease.biObjectId != null">#{disease.biObjectId},</if>
+                    <if test="disease.biObjectName != null and disease.biObjectName != ''">#{disease.biObjectName},</if>
+                    <if test="disease.buildingId != null">#{disease.buildingId},</if>
+                    <if test="disease.componentId != null">#{disease.componentId},</if>
+                    <if test="disease.commitType != null">#{disease.commitType},</if>
+                    <if test="disease.localId != null">#{disease.localId},</if>
+                    <if test="disease.remark != null">#{disease.remark},</if>
+                    <if test="disease.cause != null and disease.cause != ''">#{disease.cause},</if>
+                    <if test="disease.repairRecommendation != null and disease.repairRecommendation != ''">#{disease.repairRecommendation},</if>
+                    <if test="disease.crackType != null and disease.crackType != ''">#{disease.crackType},</if>
+                    <if test="disease.developmentTrend != null and disease.developmentTrend != ''">#{disease.developmentTrend},</if>
+                    <if test="disease.detectionMethod != null and disease.detectionMethod != ''">#{disease.detectionMethod},</if> <!-- 新增字段 -->
+                    <if test="disease.createBy != null">#{disease.createBy},</if>
+                    <if test="disease.createTime != null">#{disease.createTime},</if>
+                    <if test="disease.updateBy != null">#{disease.updateBy},</if>
+                    <if test="disease.updateTime != null">#{disease.updateTime},</if>
+                </trim>
+                )
+            </foreach>
+        </if>
     </insert>
 
     <update id="updateDisease" parameterType="Disease">
@@ -166,7 +242,10 @@
             <if test="localId != null">local_id = #{localId},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="cause != null">cause = #{cause},</if>
-            <if test="repairRecommendation != null">repair_recommendation = #{repairRecommendation},</if> <!-- 新增字段 -->
+            <if test="repairRecommendation != null">repair_recommendation = #{repairRecommendation},</if>
+            <if test="crackType != null">crack_type = #{crackType},</if>
+            <if test="developmentTrend != null">development_trend = #{developmentTrend},</if>
+            <if test="detectionMethod != null">detection_method = #{detectionMethod},</if> <!-- 新增字段 -->
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>

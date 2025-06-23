@@ -16,9 +16,6 @@ public class DiseaseDetail extends BaseEntity {
     // 病害id
     private Long diseaseId;
 
-    // 裂缝特征 (纵向、横向、斜向、L型、U型）
-    private String crackType;
-
     // 参考面1位置
     private String reference1Location;
 
@@ -38,7 +35,9 @@ public class DiseaseDetail extends BaseEntity {
     private BigDecimal reference2LocationEnd;
 
     // 长度
-    private BigDecimal length;
+    private BigDecimal length1;
+    private BigDecimal length2;
+    private BigDecimal length3;
 
     // 宽度
     private BigDecimal width;
@@ -55,17 +54,17 @@ public class DiseaseDetail extends BaseEntity {
     // 面积_宽
     private BigDecimal areaWidth;
 
-    // 体积
-    private BigDecimal volume;
+    // 变形/位移
+    private BigDecimal deformation;
 
     // 角度
     private Integer angle;
 
-    // 百分比
-    private BigDecimal percentage;
+    // 比例-分子
+    private Integer numeratorRatio;
 
-    // 发展趋势 （稳定、发展、新增、已维修)
-    private String developmentTrend;
+    // 比例-分母
+    private Integer denominatorRatio;
 
     // 长度范围起点
     private BigDecimal lengthRangeStart;
@@ -73,10 +72,10 @@ public class DiseaseDetail extends BaseEntity {
     // 长度范围终点
     private BigDecimal lengthRangeEnd;
 
-    // 宽度范围起点
+    // 宽度范围起点 （废弃）
     private BigDecimal widthRangeStart;
 
-    // 宽度范围终点
+    // 宽度范围终点（废弃）
     private BigDecimal widthRangeEnd;
 
     // 高度/深度范围起点
@@ -97,21 +96,15 @@ public class DiseaseDetail extends BaseEntity {
     // 面积范围终点
     private BigDecimal areaRangeEnd;
 
-    // 体积范围起点
-    private BigDecimal volumeRangeStart;
+    // 变形/位移范围起点
+    private BigDecimal deformationRangeStart;
 
-    // 体积范围终点
-    private BigDecimal volumeRangeEnd;
+    // 变形/位移范围终点
+    private BigDecimal deformationRangeEnd;
 
     // 角度范围起点
     private BigDecimal angleRangeStart;
 
     // 角度范围终点
     private BigDecimal angleRangeEnd;
-
-    // 百分比范围起点
-    private BigDecimal percentageRangeStart;
-
-    // 百分比范围终点
-    private BigDecimal percentageRangeEnd;
 }

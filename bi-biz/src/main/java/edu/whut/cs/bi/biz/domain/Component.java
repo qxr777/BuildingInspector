@@ -57,4 +57,5 @@ public class Component extends BaseEntity {
     private String parentObjectName;
 
     private String grandObjectName;
+
 }

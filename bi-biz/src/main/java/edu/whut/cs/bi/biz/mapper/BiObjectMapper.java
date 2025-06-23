@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import java.util.List;
+import java.util.Set;
 
 import edu.whut.cs.bi.biz.domain.BiObject;
 import org.apache.ibatis.annotations.Param;
@@ -157,5 +158,10 @@ public interface BiObjectMapper {
      * @return 插入的记录数
      */
     public int batchInsertBiObjects(@Param("list") List<BiObject> biObjects);
+
+    /**
+     * 查询biObject树列表
+     */
+    List<BiObject> selectBiObjects(@Param("rootObjectIds") Set<Long> rootObjectIds);
 
 }

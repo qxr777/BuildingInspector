@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ConcurrentHashSet;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
@@ -14,6 +15,7 @@ import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
@@ -33,13 +35,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
@@ -80,6 +80,8 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Resource
     private IBuildingService buildingService;
+    @Autowired
+    private ComponentMapper componentMapper;
 
     /**
      * 查询病害
@@ -428,146 +430,213 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Transactional
     @Override
-    public void readExcel(MultipartFile file) throws IOException {
+    public void readDiseaseExcel(MultipartFile file) {
+
+        List<Component> components = componentService.selectComponentList(new Component());
+        Map<String, List<Component>> componentMap = components.stream()
+                .collect(Collectors.groupingBy(Component::getName));
+        Set<Component> componentSet = new ConcurrentHashSet<>();
+        Set<Disease> diseaseSet = new ConcurrentHashSet<>();
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0); // 获取第一个工作表
+            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
+                Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
 
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
+                Set<String> buildingSet = new HashSet<>();
+                for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null) continue;
 
-            Subject subject = ThreadContext.getSubject();
+                    // 用来查询building
+                    String buildingName = getCellValueAsString(row.getCell(1));
+                    String side = getCellValueAsString(row.getCell(3));
+                    buildingSet.add(buildingName + '-' + side);
+                }
 
-            // 跳过表头行（前3行）
-            for (int i = 3; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) continue;
 
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    // 解决多线程无上下文信息
-                    ThreadContext.bind(subject);
+                List<Building> buildings = buildingMapper.selectBuildingByNames(buildingSet);
+                Map<String, Building> buildingMap = buildings.stream().collect(Collectors.toMap(Building::getName, Function.identity()));
+
+                Set<Long> rootObjectIds = buildings.stream().map(building -> building.getRootObjectId()).collect(Collectors.toSet());
+                List<BiObject> biObjects = biObjectMapper.selectBiObjects(rootObjectIds);
+                Map<Long, BiObject> biObjectMap = biObjects.stream().collect(Collectors.toMap(BiObject::getId, Function.identity()));
+
+                for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null) continue;
 
                     String buildingName = getCellValueAsString(row.getCell(1));
                     String side = getCellValueAsString(row.getCell(3));
                     String component_2 = getCellValueAsString(row.getCell(4));
                     String component_3 = getCellValueAsString(row.getCell(5));
                     String location = getCellValueAsString(row.getCell(6));
-                    String diseaseType = getCellValueAsString(row.getCell(7));
-                    String diseaseNumber = getCellValueAsString(row.getCell(8));
-                    String length = getCellValueAsString(row.getCell(9)); // 这里是暂存
-                    String diseaseDescription = getCellValueAsString(row.getCell(11));
-                    String defectLevel = getCellValueAsString(row.getCell(12));
-                    String repairSuggestion = getCellValueAsString(row.getCell(13));
 
-
-                    // 新增建筑
-                    Building building = new Building();
-                    building.setName(buildingName);
-                    List<Building> buildings = buildingMapper.selectBuildingList(building);
-                    if (CollUtil.isEmpty(buildings) || buildings.size() == 0) {
-                        // 默认组合桥
-                        building.setStatus("0");
-                        building.setArea("420100");
-                        building.setLine("G70");
-                        building.setIsLeaf("0");
-                        buildingService.insertBuilding(building);
-                    } else {
-                        building = buildings.get(0);
+                    Building building = buildingMap.get(buildingName + '-' + side);
+                    if (building == null) {
+                        // 跳过
+                        return;
                     }
-                    Long parentBuildingId = building.getId();
-
-                    building = new Building();
-                    if (side == null || side.equals("/") || side.equals("") || side.equals("L-梁") || side.equals("左幅")) {
-                        building.setName(buildingName + "-左幅");
-                    } else {
-                        building.setName(buildingName + "-" + side);
+                    BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
+                    List<BiObject> children = rootBiObject.getChildren();
+                    BiObject biObject2 = children.stream()
+                            .filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName()))
+                            .findFirst()
+                            .orElse(null);
+                    if (biObject2 == null) {
+                        log.info("未找到对应的子对象, parentId:{}, name:{}", rootBiObject.getId(), component_2);
+                        return;
                     }
 
-                    buildings = buildingMapper.selectBuildingList(building);
-                    if (CollUtil.isEmpty(buildings) || buildings.size() == 0) {
-                        // 默认组合桥
-                        building.setStatus("0");
-                        building.setArea("420100");
-                        building.setLine("G70");
-                        building.setIsLeaf("1");
-                        building.setTemplateId(1L);
-                        building.setParentId(parentBuildingId);
-                        buildingService.insertBuilding(building);
-                    } else {
-                        building = buildings.get(0);
+                    BiObject biObject3 = children.stream()
+                            .filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName()))
+                            .findFirst()
+                            .orElse(null);
+                    if (biObject3 == null) {
+                        log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
+                        return;
                     }
 
-                    BiObject rootBiObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
-                    BiObject query = new BiObject();
-                    query.setParentId(rootBiObject.getId());
-                    query.setName(component_2);
-                    List<BiObject> biObjects = biObjectMapper.selectBiObjectListByName(query);
-                    if (biObjects != null && biObjects.size() > 0) {
-                        BiObject biObject = biObjects.get(0);
-                        query.setName(component_3);
-                        query.setParentId(biObject.getId());
-                        biObjects = biObjectMapper.selectBiObjectList(query);
-                        if (biObjects != null && biObjects.size() > 0) {
-                            // 第四层节点
 
-                            // 新增部件
-                            Component component = handleDefectLocation(location);
-                            String componentName = component.getName();
-                            String code = component.getCode();
+                    // 新增部件
+                    Component component = handleDefectLocation(location);
+                    String biObjectName = component.getName().split("#")[1];
 
-                            // 查询绑定的biObject对象
-                            query.setName(componentName);
-                            query.setParentId(biObjects.get(0).getId());
-                            biObjects = biObjectMapper.selectBiObjectList(query);
-                            biObject = biObjects.get(0);
+                    BiObject biObject4 = children.stream()
+                            .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
+                            .findFirst()
+                            .orElse(null);
+                    if (biObject4 == null) {
+                        log.info("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
+                        return;
+                    }
 
+                    List<Component> oldComponents = componentMap.get(component.getName());
 
-                            component.setBiObjectId(biObject.getId());
-                            component.setCode(null);
-                            if (code != null && !code.equals("")) {
-                                component.setName(code + "#" + componentName);
-                            }
-                            log.info(component.toString());
-                            Component old = componentService.selectComponent(component);
-                            if (old == null) {
-                                component.setCode(code);
-                                componentService.insertComponent(component);
-                            }
+                    if (oldComponents != null && oldComponents.size() > 0) {
+                        Set<String> oldComponentRootObjectIds = oldComponents.stream()
+                                .map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1])
+                                .collect(Collectors.toSet());
 
-                            Disease disease = new Disease();
-                            disease.setPosition(location);
-                            disease.setType(diseaseType);
-                            disease.setComponentId(component.getId());
-                            disease.setBuildingId(building.getId());
-                            disease.setProjectId(11L);
-                            disease.setBiObjectName(componentName);
-                            disease.setBiObjectId(component.getBiObjectId());
-                            disease.setRepairRecommendation(repairSuggestion);
-                            if (defectLevel.equals("/")) {
-                                disease.setLevel(1);
-                            } else {
-                                disease.setLevel(Integer.parseInt(defectLevel));
-                            }
-
-                            disease.setDescription(diseaseDescription);
-                            disease.setQuantity(Integer.parseInt(diseaseNumber));
-
-                            diseaseMapper.insertDisease(disease);
-
-                            DiseaseDetail diseaseDetail = new DiseaseDetail();
-                            diseaseDetail.setDiseaseId(disease.getId());
-                            if (length != null && !length.equals("/")) {
-                                BigDecimal decimal = new BigDecimal(length);
-                                diseaseDetail.setLength(decimal);
-                            }
-
-                            diseaseDetailMapper.insertDiseaseDetail(diseaseDetail);
+                        if (oldComponentRootObjectIds.contains(rootBiObject.getId())) {
+                            continue;
                         }
+
                     }
-                });
-                futures.add(future);
+
+                    component.setBiObjectId(biObject4.getId());
+                    component.setCreateBy(ShiroUtils.getLoginName());
+                    component.setStatus("0");
+                    componentSet.add(component);
+                }
+                // 持久化
+                List<Component> componentList = componentSet.stream().toList();
+                componentService.batchInsertComponents(componentList);
+
+                components = componentService.selectComponentList(new Component());
+                Map<String, List<Component>> newComponentMap = components.stream()
+                        .collect(Collectors.groupingBy(Component::getName));
+
+
+                // 新增病害
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                Subject subject = ThreadContext.getSubject();
+                // 跳过表头行（前3行）
+                for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null) continue;
+
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        // 解决多线程无上下文信息
+                        ThreadContext.bind(subject);
+
+                        String buildingName = getCellValueAsString(row.getCell(1));
+                        String side = getCellValueAsString(row.getCell(3));
+                        String component_2 = getCellValueAsString(row.getCell(4));
+                        String component_3 = getCellValueAsString(row.getCell(5));
+                        String location = getCellValueAsString(row.getCell(6));
+                        String diseaseType = getCellValueAsString(row.getCell(7));
+                        String diseaseNumber = getCellValueAsString(row.getCell(8));
+                        String length = getCellValueAsString(row.getCell(9)); // 这里是暂存
+                        String diseaseDescription = getCellValueAsString(row.getCell(11));
+                        String defectLevel = getCellValueAsString(row.getCell(12));
+                        String repairSuggestion = getCellValueAsString(row.getCell(13));
+
+                        Building building = buildingMap.get(buildingName + '-' + side);
+                        if (building == null) {
+                            // 跳过
+                            return;
+                        }
+
+                        Component com = handleDefectLocation(location);
+                        String biObjectName = com.getName().split("#")[1];
+
+                        BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
+                        List<BiObject> children = rootBiObject.getChildren();
+                        BiObject biObject = children.stream()
+                                .filter(child -> biObjectName.equals(child.getName()))
+                                .findFirst()
+                                .orElse(null);
+
+
+
+                        List<Component> oldComponents = newComponentMap.get(com.getName());
+
+                        Component component = oldComponents.stream()
+                                .filter(oldComponent -> oldComponent.getBiObjectId().equals(biObject.getId())).findFirst().orElse(null);
+
+
+                        Disease disease = new Disease();
+                        disease.setPosition(location);
+                        disease.setType(diseaseType);
+                        disease.setComponentId(component.getId());
+                        disease.setBuildingId(building.getId());
+                        disease.setProjectId(11L);
+                        disease.setBiObjectName(biObjectName);
+                        disease.setBiObjectId(component.getBiObjectId());
+                        disease.setRepairRecommendation(repairSuggestion);
+                        if (defectLevel.equals("/")) {
+                            disease.setLevel(1);
+                        } else {
+                            disease.setLevel(Integer.parseInt(defectLevel));
+                        }
+
+                        disease.setDescription(diseaseDescription);
+                        disease.setQuantity(Integer.parseInt(diseaseNumber));
+
+                        DiseaseDetail diseaseDetail = new DiseaseDetail();
+                        diseaseDetail.setDiseaseId(disease.getId());
+                        if (length != null && !length.equals("/")) {
+                            BigDecimal decimal = new BigDecimal(length);
+                            diseaseDetail.setLength1(decimal);
+                        }
+
+                        List<DiseaseDetail> diseaseDetails = new ArrayList<>();
+                        diseaseDetails.add(diseaseDetail);
+                        disease.setDiseaseDetails(diseaseDetails);
+
+                        diseaseSet.add(disease);
+                    });
+                    futures.add(future);
+                }
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             }
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (IOException e) {
+            log.error("读取Excel文件时出错", e);
+            throw new RuntimeException(e);
         }
+
+        if (!diseaseSet.isEmpty()) {
+            diseaseMapper.batchInsertDiseases(diseaseSet);
+
+            List<DiseaseDetail> allDetails = diseaseSet.stream()
+                    .flatMap(disease -> disease.getDiseaseDetails().stream()
+                            .peek(detail -> detail.setDiseaseId(disease.getId())))
+                    .collect(Collectors.toList());
+            if (!allDetails.isEmpty()) {
+                diseaseDetailMapper.insertDiseaseDetails(allDetails);
+            }
+        }
+
     }
 
     private String getCellValueAsString(Cell cell) {
@@ -597,32 +666,26 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     private Component handleDefectLocation(String location) {
         Component component = new Component();
-        if (location.matches(regex)) {
-            String[] split = location.split("#");
-            component.setName(split[1]);
-            component.setCode(split[0]);
-            return component;
-        }
 
         switch (location) {
             case "R-1#台":
-                component.setName("台身");
+                component.setName("R-1#台身");
                 component.setCode("R-1");
                 break;
             case "L-0#台":
-                component.setName("台身");
+                component.setName("L-0#台身");
                 component.setCode("L-0");
                 break;
             case "R-0#台":
-                component.setName("台身");
+                component.setName("R-0#台身");
                 component.setCode("R-0");
                 break;
             case "R-梁":
-                component.setName("T梁");
+                component.setName("R#T梁");
                 component.setCode("R");
                 break;
             case "L-梁":
-                component.setName("T梁");
+                component.setName("L#T梁");
                 component.setCode("L");
                 break;
             case "通道内":
@@ -644,6 +707,12 @@ public class DiseaseServiceImpl implements IDiseaseService
                 component.setName("实心板");
                 break;
             default:
+                if (location.matches(regex)) {
+                    String[] split = location.split("#");
+                    component.setName(location);
+                    component.setCode(split[0]);
+                    return component;
+                }
                 component.setName("其他");
                 break;
         }

@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.mapper;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
@@ -89,5 +90,8 @@ public interface BuildingMapper {
      */
     public Building selectBuildingWithParentInfo(Long id);
 
-
+    /**
+     * 根据名称查询建筑信息
+     */
+    List<Building> selectBuildingByNames(@Param("buildingSet") Set<String> buildingSet);
 }

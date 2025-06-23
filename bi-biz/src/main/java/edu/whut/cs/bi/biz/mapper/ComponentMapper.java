@@ -4,6 +4,7 @@ import edu.whut.cs.bi.biz.domain.Component;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 构件管理Mapper接口
@@ -113,4 +114,5 @@ public interface ComponentMapper {
      * @return 构件
      */
     Component selectComponent(Component component);
+
 }
