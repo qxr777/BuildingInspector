@@ -166,6 +166,17 @@
         </foreach>
     </insert>
 
+    <insert id="batchAddComponents" parameterType="java.util.Set">
+        insert into bi_component
+        (bi_object_id, name, code, status, del_flag, create_by, create_time, update_by, update_time, remark)
+        values
+        <foreach collection="components" item="component" separator=",">
+            (#{component.biObjectId}, #{component.name}, #{component.code}, #{component.status},
+            #{component.delFlag}, #{component.createBy}, #{component.createTime},
+            #{component.updateBy}, #{component.updateTime}, #{component.remark})
+        </foreach>
+    </insert>
+
     <update id="batchUpdateComponents" parameterType="java.util.List">
         <foreach collection="components" item="component" separator=";">
             update bi_component

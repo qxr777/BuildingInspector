@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
@@ -79,7 +80,10 @@ public class DiseaseServiceImpl implements IDiseaseService
     private BuildingMapper buildingMapper;
 
     @Resource
-    private IBuildingService buildingService;
+    private IDiseaseTypeService diseaseTypeService;
+
+    @Resource
+    private TransactionTemplate transactionTemplate;
     @Autowired
     private ComponentMapper componentMapper;
 
@@ -428,7 +432,6 @@ public class DiseaseServiceImpl implements IDiseaseService
     }
 
 
-    @Transactional
     @Override
     public void readDiseaseExcel(MultipartFile file) {
 
@@ -450,9 +453,12 @@ public class DiseaseServiceImpl implements IDiseaseService
                     // 用来查询building
                     String buildingName = getCellValueAsString(row.getCell(1));
                     String side = getCellValueAsString(row.getCell(3));
-                    buildingSet.add(buildingName + '-' + side);
+                    if (side != null && !side.equals("")) {
+                        buildingSet.add(buildingName + '-' + side);
+                    } else {
+                        buildingSet.add(buildingName);
+                    }
                 }
-
 
                 List<Building> buildings = buildingMapper.selectBuildingByNames(buildingSet);
                 Map<String, Building> buildingMap = buildings.stream().collect(Collectors.toMap(Building::getName, Function.identity()));
@@ -471,11 +477,17 @@ public class DiseaseServiceImpl implements IDiseaseService
                     String component_3 = getCellValueAsString(row.getCell(5));
                     String location = getCellValueAsString(row.getCell(6));
 
-                    Building building = buildingMap.get(buildingName + '-' + side);
+                    Building building = null;
+                    if (side != null && !side.equals("")) {
+                        building = buildingMap.get(buildingName + '-' + side);
+                    } else {
+                        building = buildingMap.get(buildingName);
+                    }
                     if (building == null) {
                         // 跳过
                         return;
                     }
+
                     BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
                     List<BiObject> children = rootBiObject.getChildren();
                     BiObject biObject2 = children.stream()
@@ -492,7 +504,7 @@ public class DiseaseServiceImpl implements IDiseaseService
                             .findFirst()
                             .orElse(null);
                     if (biObject3 == null) {
-                        log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
+                        log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
                         return;
                     }
 
@@ -501,12 +513,20 @@ public class DiseaseServiceImpl implements IDiseaseService
                     Component component = handleDefectLocation(location);
                     String biObjectName = component.getName().split("#")[1];
 
-                    BiObject biObject4 = children.stream()
-                            .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
-                            .findFirst()
-                            .orElse(null);
+                    BiObject biObject4 = null;
+                    if (biObject3.getName().equals("其他")) {
+                        biObject4 = children.stream()
+                                .filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                                .findFirst()
+                                .orElse(null);
+                    } else {
+                        biObject4 = children.stream()
+                                .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
+                                .findFirst()
+                                .orElse(null);
+                    }
                     if (biObject4 == null) {
-                        log.info("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
+                        log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
                         return;
                     }
 
@@ -529,13 +549,12 @@ public class DiseaseServiceImpl implements IDiseaseService
                     componentSet.add(component);
                 }
                 // 持久化
-                List<Component> componentList = componentSet.stream().toList();
-                componentService.batchInsertComponents(componentList);
+                componentMapper.batchAddComponents(componentSet);
 
                 components = componentService.selectComponentList(new Component());
                 Map<String, List<Component>> newComponentMap = components.stream()
                         .collect(Collectors.groupingBy(Component::getName));
-
+                componentMap = newComponentMap;
 
                 // 新增病害
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -561,7 +580,12 @@ public class DiseaseServiceImpl implements IDiseaseService
                         String defectLevel = getCellValueAsString(row.getCell(12));
                         String repairSuggestion = getCellValueAsString(row.getCell(13));
 
-                        Building building = buildingMap.get(buildingName + '-' + side);
+                        Building building = null;
+                        if (side != null && !side.equals("")) {
+                            building = buildingMap.get(buildingName + '-' + side);
+                        } else {
+                            building = buildingMap.get(buildingName);
+                        }
                         if (building == null) {
                             // 跳过
                             return;
@@ -578,7 +602,6 @@ public class DiseaseServiceImpl implements IDiseaseService
                                 .orElse(null);
 
 
-
                         List<Component> oldComponents = newComponentMap.get(com.getName());
 
                         Component component = oldComponents.stream()
@@ -587,7 +610,13 @@ public class DiseaseServiceImpl implements IDiseaseService
 
                         Disease disease = new Disease();
                         disease.setPosition(location);
+
+                        // 病害类型
+                        List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject.getId());
+                        DiseaseType queryDiseaseType = diseaseTypes.stream().filter(dt -> dt.getName().equals(diseaseType)).findFirst().orElse(null);
                         disease.setType(diseaseType);
+                        disease.setDiseaseTypeId(queryDiseaseType.getId());
+
                         disease.setComponentId(component.getId());
                         disease.setBuildingId(building.getId());
                         disease.setProjectId(11L);
@@ -626,15 +655,20 @@ public class DiseaseServiceImpl implements IDiseaseService
         }
 
         if (!diseaseSet.isEmpty()) {
-            diseaseMapper.batchInsertDiseases(diseaseSet);
+            transactionTemplate.execute(status -> {
+                diseaseMapper.batchInsertDiseases(diseaseSet);
 
-            List<DiseaseDetail> allDetails = diseaseSet.stream()
-                    .flatMap(disease -> disease.getDiseaseDetails().stream()
-                            .peek(detail -> detail.setDiseaseId(disease.getId())))
-                    .collect(Collectors.toList());
-            if (!allDetails.isEmpty()) {
-                diseaseDetailMapper.insertDiseaseDetails(allDetails);
-            }
+                List<DiseaseDetail> allDetails = diseaseSet.stream()
+                        .flatMap(disease -> disease.getDiseaseDetails().stream()
+                                .peek(detail -> detail.setDiseaseId(disease.getId())))
+                        .collect(Collectors.toList());
+                if (!allDetails.isEmpty()) {
+                    diseaseDetailMapper.insertDiseaseDetails(allDetails);
+                }
+
+                return true;
+            });
+
         }
 
     }

@@ -84,8 +84,6 @@
         // 加载部门用户数据
         loadDeptUsers();
 
-        // 加载已有的分配数据
-        loadExistingAssignment();
     });
 
     function loadDeptUsers() {
@@ -107,7 +105,8 @@
                     approverSelect.append('<option value="' + user.userId + '">' + user.userName + '</option>');
                 });
 
-                $('.selectpicker').selectpicker('refresh');
+                // 加载已有的分配数据
+                loadExistingAssignment();
             }
         });
     }

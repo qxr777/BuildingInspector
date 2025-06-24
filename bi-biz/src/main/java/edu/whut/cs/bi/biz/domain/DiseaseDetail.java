@@ -90,10 +90,10 @@ public class DiseaseDetail extends BaseEntity {
     // 缝宽范围终点
     private BigDecimal crackWidthRangeEnd;
 
-    // 面积范围起点
+    // 面积范围起点（废弃）
     private BigDecimal areaRangeStart;
 
-    // 面积范围终点
+    // 面积范围终点（废弃）
     private BigDecimal areaRangeEnd;
 
     // 变形/位移范围起点

@@ -115,4 +115,13 @@ public interface ComponentMapper {
      */
     Component selectComponent(Component component);
 
+
+    /**
+     * 批量插入构件
+     *
+     * @param components 构件集合
+     * @return 结果
+     */
+    public int batchAddComponents(@Param("components") Set<Component> components);
+
 }

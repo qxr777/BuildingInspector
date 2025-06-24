@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
@@ -14,24 +15,23 @@ import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
-import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import com.ruoyi.common.core.domain.AjaxResult;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
-import java.io.*;
-import java.nio.file.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -589,28 +589,10 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
-    // id 是buildId
-    @GetMapping("/DataImage")
-    @ResponseBody
-    public AjaxResult getDataImage(@RequestParam("id") long id) {
-        List<FileMap> Images = fileMapController.getImageMaps(id, "newfront", "newside");
-        Map<String, List<String>> map = new HashMap<>();
-        List<String> frontImagesList = new ArrayList<>();
-        List<String> sideImagesList = new ArrayList<>();
-        for (FileMap frontImage : Images) {
-            if (frontImage.getOldName().split("_")[1].equals("newfront")) {
-                frontImagesList.add(frontImage.getNewName());
-            } else {
-                sideImagesList.add(frontImage.getNewName());
-            }
-        }
-        map.put("frontImages", frontImagesList);
-        map.put("sideImages", sideImagesList);
-        return AjaxResult.success("查询成功", map);
-    }
 
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
+    @Transactional
     public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file) {
         diseaseService.readDiseaseExcel(file);
 
