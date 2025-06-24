@@ -105,9 +105,10 @@
             <label class="col-sm-3 control-label is-required">桥梁类型模板：</label>
             <div class="col-sm-8">
                 <select id="templateId" name="templateId" class="form-control" required>
-                    <option th:each="template : ${templates}"
+                    <option th:each="template,templateStat : ${templates}"
                             th:value="${template.id}"
-                            th:text="${template.name}">
+                            th:text="${template.name}"
+                            th:selected="${templateStat.first}">
                     </option>
                 </select>
             </div>
@@ -167,6 +168,11 @@
 
         // 页面加载时初始化显示状态
         handleTypeChange($("select[name='isLeaf']"));
+
+        // 如果模板列表不为空，默认选择第一个模板
+        if ($("#templateId option").length > 0) {
+            $("#templateId option:first").prop("selected", true);
+        }
     });
 
     $("#form-building-add").validate({
