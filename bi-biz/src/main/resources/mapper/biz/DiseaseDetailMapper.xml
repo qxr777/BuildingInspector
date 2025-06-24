@@ -159,8 +159,6 @@
             <if test="deformationRangeEnd != null">deformation_range_end = #{deformationRangeEnd},</if>
             <if test="angleRangeStart != null">angle_range_start = #{angleRangeStart},</if>
             <if test="angleRangeEnd != null">angle_range_end = #{angleRangeEnd},</if>
-            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
-            update_time = sysdate()
         </set>
         where id = #{id}
     </update>
@@ -199,7 +197,6 @@
             <if test="deformationRangeEnd != null">deformation_range_end,</if>
             <if test="angleRangeStart != null">angle_range_start,</if>
             <if test="angleRangeEnd != null">angle_range_end,</if>
-            <if test="createBy != null and createBy != ''">create_by,</if>
         </trim>
         values
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -234,8 +231,81 @@
             <if test="deformationRangeEnd != null">#{deformationRangeEnd},</if>
             <if test="angleRangeStart != null">#{angleRangeStart},</if>
             <if test="angleRangeEnd != null">#{angleRangeEnd},</if>
-            <if test="createBy != null and createBy != ''">#{createBy},</if>
         </trim>
+    </insert>
+
+
+    <insert id="insertDiseaseDetails" parameterType="java.util.List">
+        INSERT INTO bi_disease_detail
+        (
+        disease_id,
+        reference1_location,
+        reference1_location_start,
+        reference1_location_end,
+        reference2_location,
+        reference2_location_start,
+        reference2_location_end,
+        length1,
+        length2,
+        length3,
+        width,
+        height_depth,
+        crack_width,
+        area_length,
+        area_width,
+        deformation,
+        angle,
+        numerator_ratio,
+        denominator_ratio,
+        length_range_start,
+        length_range_end,
+        height_depth_range_start,
+        height_depth_range_end,
+        crack_width_range_start,
+        crack_width_range_end,
+        area_range_start,
+        area_range_end,
+        deformation_range_start,
+        deformation_range_end,
+        angle_range_start,
+        angle_range_end
+        )
+        VALUES
+        <foreach collection="diseaseDetails" item="detail" separator=",">
+            (
+            #{detail.diseaseId},
+            #{detail.reference1Location},
+            #{detail.reference1LocationStart},
+            #{detail.reference1LocationEnd},
+            #{detail.reference2Location},
+            #{detail.reference2LocationStart},
+            #{detail.reference2LocationEnd},
+            #{detail.length1},
+            #{detail.length2},
+            #{detail.length3},
+            #{detail.width},
+            #{detail.heightDepth},
+            #{detail.crackWidth},
+            #{detail.areaLength},
+            #{detail.areaWidth},
+            #{detail.deformation},
+            #{detail.angle},
+            #{detail.numeratorRatio},
+            #{detail.denominatorRatio},
+            #{detail.lengthRangeStart},
+            #{detail.lengthRangeEnd},
+            #{detail.heightDepthRangeStart},
+            #{detail.heightDepthRangeEnd},
+            #{detail.crackWidthRangeStart},
+            #{detail.crackWidthRangeEnd},
+            #{detail.areaRangeStart},
+            #{detail.areaRangeEnd},
+            #{detail.deformationRangeStart},
+            #{detail.deformationRangeEnd},
+            #{detail.angleRangeStart},
+            #{detail.angleRangeEnd}
+            )
+        </foreach>
     </insert>
 
 </mapper>

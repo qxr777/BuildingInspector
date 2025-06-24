@@ -549,7 +549,9 @@ public class DiseaseServiceImpl implements IDiseaseService
                     componentSet.add(component);
                 }
                 // 持久化
-                componentMapper.batchAddComponents(componentSet);
+                for(Component component:componentSet) {
+                    componentService.insertComponent(component);
+                }
 
                 components = componentService.selectComponentList(new Component());
                 Map<String, List<Component>> newComponentMap = components.stream()
@@ -596,45 +598,71 @@ public class DiseaseServiceImpl implements IDiseaseService
 
                         BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
                         List<BiObject> children = rootBiObject.getChildren();
-                        BiObject biObject = children.stream()
-                                .filter(child -> biObjectName.equals(child.getName()))
+                        BiObject biObject2 = children.stream()
+                                .filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName()))
                                 .findFirst()
                                 .orElse(null);
+
+                        BiObject biObject3 = children.stream()
+                                .filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName()))
+                                .findFirst()
+                                .orElse(null);
+
+                        BiObject biObject4 = null;
+                        if (biObject3.getName().equals("其他")) {
+                            biObject4 = children.stream()
+                                    .filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                                    .findFirst()
+                                    .orElse(null);
+                        } else {
+                            biObject4 = children.stream()
+                                    .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
+                                    .findFirst()
+                                    .orElse(null);
+                        }
+
 
 
                         List<Component> oldComponents = newComponentMap.get(com.getName());
 
+                        BiObject finalBiObject = biObject4;
                         Component component = oldComponents.stream()
-                                .filter(oldComponent -> oldComponent.getBiObjectId().equals(biObject.getId())).findFirst().orElse(null);
-
+                                .filter(oldComponent -> oldComponent.getBiObjectId().equals(finalBiObject.getId())).findFirst().orElse(null);
 
                         Disease disease = new Disease();
                         disease.setPosition(location);
 
                         // 病害类型
-                        List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject.getId());
-                        DiseaseType queryDiseaseType = diseaseTypes.stream().filter(dt -> dt.getName().equals(diseaseType)).findFirst().orElse(null);
+                        List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject4.getId());
+
+                        DiseaseType queryDiseaseType = null;
+                        if (biObject3.getName().equals("其他")) {
+                            queryDiseaseType = diseaseTypes.stream().filter(dt -> dt.getName().equals("其他")).findFirst().orElse(null);
+                        } else {
+                            queryDiseaseType = diseaseTypes.stream().filter(dt -> dt.getName().equals(diseaseType)).findFirst().orElse(null);
+                        }
+
                         disease.setType(diseaseType);
                         disease.setDiseaseTypeId(queryDiseaseType.getId());
 
                         disease.setComponentId(component.getId());
                         disease.setBuildingId(building.getId());
-                        disease.setProjectId(11L);
+                        disease.setProjectId(12L);
                         disease.setBiObjectName(biObjectName);
                         disease.setBiObjectId(component.getBiObjectId());
                         disease.setRepairRecommendation(repairSuggestion);
-                        if (defectLevel.equals("/")) {
+                        if (defectLevel == null || defectLevel.equals("/") || defectLevel.equals("")) {
                             disease.setLevel(1);
                         } else {
-                            disease.setLevel(Integer.parseInt(defectLevel));
+                            disease.setLevel((int) Double.parseDouble(defectLevel));
                         }
 
                         disease.setDescription(diseaseDescription);
-                        disease.setQuantity(Integer.parseInt(diseaseNumber));
+                        disease.setQuantity((int) Double.parseDouble(diseaseNumber));
 
                         DiseaseDetail diseaseDetail = new DiseaseDetail();
                         diseaseDetail.setDiseaseId(disease.getId());
-                        if (length != null && !length.equals("/")) {
+                        if (length != null && !length.equals("/") && !length.equals("")) {
                             BigDecimal decimal = new BigDecimal(length);
                             diseaseDetail.setLength1(decimal);
                         }
@@ -685,7 +713,7 @@ public class DiseaseServiceImpl implements IDiseaseService
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getDateCellValue().toString();
                 } else {
-                    return String.valueOf((int) cell.getNumericCellValue());
+                    return String.valueOf(cell.getNumericCellValue());
                 }
             case BOOLEAN:
                 return String.valueOf(cell.getBooleanCellValue());
