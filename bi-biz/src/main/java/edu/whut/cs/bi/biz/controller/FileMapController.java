@@ -420,7 +420,7 @@ public class FileMapController extends BaseController {
     @GetMapping("/getImages")
     @ResponseBody
     public AjaxResult getImages(@RequestParam("id") Long id) {
-        List<FileMap> fileMapList = getImageMaps(id,"front","side");
+        List<FileMap> fileMapList = getImageMaps(id,"newfront","newside");
         return AjaxResult.success(fileMapList);
     }
 

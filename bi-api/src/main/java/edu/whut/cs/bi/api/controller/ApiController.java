@@ -2,10 +2,13 @@ package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.entity.SysUser;
+import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
@@ -24,6 +27,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import springfox.documentation.schema.Collections;
 
 import javax.annotation.Resource;
 import java.io.File;
@@ -265,7 +269,13 @@ public class ApiController {
             //记录已经插入的病害
             List<Disease> diseaseList = diseaseMapper.selectDiseaseList(new Disease());
             for (Component component : components) {
-                map.put(component.getName(), component.getId());
+                BiObject biObject = component.getBiObject();
+                String root = "";
+                if (biObject != null && StringUtils.isNotEmpty(biObject.getAncestors())) {
+                    String[] split = biObject.getAncestors().split(",");
+                    root = split[1];
+                }
+                map.put(component.getName() + root, component.getId());
             }
             HashMap<Long, Disease> localIdMap = new HashMap<>(16);
             for (Disease disease : diseaseList) {
@@ -300,9 +310,10 @@ public class ApiController {
                     Component component = disease.getComponent();
                     component.setCreateBy(ShiroUtils.getLoginName());
                     component.setUpdateBy(ShiroUtils.getLoginName());
-                    if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !map.containsKey(component.getName())) {
+                    String root = component.getBiObject().getAncestors().split(",")[1];
+                    if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !map.containsKey(component.getName() + root)) {
                         componentService.insertComponent(component);
-                        map.put(component.getName(), component.getId());
+                        map.put(component.getName() + root, component.getId());
                     }
                     if (disease.getComponent() != null && disease.getComponentId() != null) {
                         componentService.updateComponent(component);
@@ -311,8 +322,9 @@ public class ApiController {
                     if (disease.getDiseaseTypeId() == null || disease.getDiseaseType().getId() == null || disease.getDiseaseType().getName().equals("其他")) {
                         disease.setDiseaseTypeId(238L);
                     }
-                    disease.setComponentId(map.get(component.getName()));
+                    disease.setComponentId(map.get(component.getName() + root));
                     disease.setCreateBy(ShiroUtils.getLoginName());
+                    disease.setUpdateBy(ShiroUtils.getLoginName());
                     disease.setUpdateTime(new Date());
                     // 插入病害记录
                     successCount += diseaseMapper.insertDisease(disease);
@@ -372,6 +384,7 @@ public class ApiController {
      * - 2025.json (病害数据)
      * - 图片文件
      */
+    @Log(title = "上传桥梁数据", businessType = BusinessType.INSERT)
     @PostMapping("/upload/bridgeData")
     @RequiresPermissions("biz:disease:add")
     @ResponseBody
@@ -556,6 +569,109 @@ public class ApiController {
                         }
                     }
                 }
+                // 处理桥梁图片数据
+
+                String frontPhotoJsonPath = buildingId + "/frontPhoto.json";
+                if (extractedFiles.containsKey(frontPhotoJsonPath)) {
+                    String frontPhotoJson = new String(Files.readAllBytes(extractedFiles.get(frontPhotoJsonPath)));
+                    JSONObject jsonObject2 = JSONObject.parseObject(frontPhotoJson);
+
+                    // 获取现有的桥梁附件
+                    List<Attachment> existAttachments = attachmentService.getAttachmentBySubjectId(buildingId)
+                            .stream()
+                            .filter(e -> e.getName().matches("^\\d+_(newfront|newside)_.*$"))
+                            .toList();
+
+                    // 检查是否需要删除现有图片
+                    StringJoiner attachmentJoiner = new StringJoiner(",");
+
+                    // 处理前视图左侧图片
+                    List<String> frontLeftPaths = jsonObject2.getJSONArray("frontLeft").toJavaList(String.class);
+                    if (!frontLeftPaths.isEmpty()) {
+                        // 如果有新的frontLeft图片，删除现有的0_newfront
+                        existAttachments.stream()
+                                .filter(e -> e.getName().startsWith("0_newfront"))
+                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
+                    }
+
+                    // 处理前视图右侧图片
+                    List<String> frontRightPaths = jsonObject2.getJSONArray("frontRight").toJavaList(String.class);
+                    if (!frontRightPaths.isEmpty()) {
+                        // 如果有新的frontRight图片，删除现有的1_newfront
+                        existAttachments.stream()
+                                .filter(e -> e.getName().startsWith("1_newfront"))
+                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
+                    }
+
+                    // 处理侧视图左侧图片
+                    List<String> sideLeftPaths = jsonObject2.getJSONArray("sideLeft").toJavaList(String.class);
+                    if (!sideLeftPaths.isEmpty()) {
+                        // 如果有新的sideLeft图片，删除现有的0_newside
+                        existAttachments.stream()
+                                .filter(e -> e.getName().startsWith("0_newside"))
+                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
+                    }
+
+                    // 处理侧视图右侧图片
+                    List<String> sideRightPaths = jsonObject2.getJSONArray("sideRight").toJavaList(String.class);
+                    if (!sideRightPaths.isEmpty()) {
+                        // 如果有新的sideRight图片，删除现有的1_newside
+                        existAttachments.stream()
+                                .filter(e -> e.getName().startsWith("1_newside"))
+                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
+                    }
+
+                    // 如果有附件需要删除，执行删除操作
+                    String attachmentIds = attachmentJoiner.toString();
+                    if (!attachmentIds.isEmpty()) {
+                        attachmentService.deleteAttachmentByIds(attachmentIds);
+                    }
+
+                    // 处理前视图图片
+                    List<MultipartFile> frontFiles = new ArrayList<>();
+                    List<String> frontPaths = new ArrayList<>();
+                    frontPaths.addAll(frontLeftPaths);
+                    frontPaths.addAll(frontRightPaths);
+
+                    for (String imagePath : frontPaths) {
+                        if (extractedFiles.containsKey(imagePath)) {
+                            File imageFile = extractedFiles.get(imagePath).toFile();
+                            byte[] fileContent = Files.readAllBytes(imageFile.toPath());
+                            MockMultipartFile mockFile = new MockMultipartFile(
+                                    "front",
+                                    imageFile.getName(),
+                                    Files.probeContentType(imageFile.toPath()),
+                                    fileContent);
+                            frontFiles.add(mockFile);
+                        }
+                    }
+
+                    // 处理侧视图图片
+                    List<MultipartFile> sideFiles = new ArrayList<>();
+                    List<String> sidePaths = new ArrayList<>();
+                    sidePaths.addAll(sideLeftPaths);
+                    sidePaths.addAll(sideRightPaths);
+
+                    for (String imagePath : sidePaths) {
+                        if (extractedFiles.containsKey(imagePath)) {
+                            File imageFile = extractedFiles.get(imagePath).toFile();
+                            byte[] fileContent = Files.readAllBytes(imageFile.toPath());
+                            MockMultipartFile mockFile = new MockMultipartFile(
+                                    "side",
+                                    imageFile.getName(),
+                                    Files.probeContentType(imageFile.toPath()),
+                                    fileContent);
+                            sideFiles.add(mockFile);
+                        }
+                    }
+
+                    // 调用上传桥梁图片方法
+                    if (!frontFiles.isEmpty() || !sideFiles.isEmpty()) {
+                        MultipartFile[] frontArray = frontFiles.isEmpty() ? new MultipartFile[0] : frontFiles.toArray(new MultipartFile[0]);
+                        MultipartFile[] sideArray = sideFiles.isEmpty() ? new MultipartFile[0] : sideFiles.toArray(new MultipartFile[0]);
+                        uploadBridgeDataImage(buildingId, frontArray, sideArray);
+                    }
+                }
             }
 
             return AjaxResult.success("桥梁数据上传成功");
@@ -589,6 +705,25 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
+    // id 是buildId
+    @GetMapping("/DataImage")
+    @ResponseBody
+    public AjaxResult getDataImage(@RequestParam("id") long id) {
+        List<FileMap> Images = fileMapController.getImageMaps(id, "newfront", "newside");
+        Map<String, List<String>> map = new HashMap<>();
+        List<String> frontImagesList = new ArrayList<>();
+        List<String> sideImagesList = new ArrayList<>();
+        for (FileMap frontImage : Images) {
+            if (frontImage.getOldName().split("_")[1].equals("newfront")) {
+                frontImagesList.add(frontImage.getNewName());
+            } else {
+                sideImagesList.add(frontImage.getNewName());
+            }
+        }
+        map.put("frontImages", frontImagesList);
+        map.put("sideImages", sideImagesList);
+        return AjaxResult.success("查询成功", map);
+    }
 
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
