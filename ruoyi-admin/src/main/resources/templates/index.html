@@ -19,34 +19,35 @@
 	<style>
 		.floating-button {
 			position: fixed;
-			bottom: 20px;
-			right: 20px;
-			width: 60px;
-			height: 60px;
+			bottom: 10vh;
+			left: 4vw;
+			width: 65px;
+			height: 65px;
 			border-radius: 50%;
 			display: flex;
 			justify-content: center;
 			align-items: center;
-			cursor: grab;
+			cursor: pointer;
 			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-			z-index: 1000;
+			z-index: 9999;
 			background-color: white;
 			overflow: hidden;
 		}
 
 		.robot-image {
-			width: 85%;
-			height: 85%;
+			width: 100%;
+			height: 100%;
 			object-fit: contain;
 			border-radius: 50%;
 		}
 
 		.chat-container {
 			position: fixed;
-			bottom: 80px;
-			right: 20px;
-			width: 380px;
-			height: 680px;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			width: 60vw;
+			height: 90vh;
 			background-color: white;
 			border-radius: 10px;
 			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -107,20 +108,20 @@
 		}
 
 		.agent-avatar {
-			width: 50px;
-			height: 50px;
+			width: 60px;
+			height: 60px;
 			margin-bottom: 5px;
 		}
 
 		.agent-name {
-			font-size: 14px;
+			font-size: 16px;
 			font-weight: bold;
 			margin-bottom: 3px;
 			color: #333;
 		}
 
 		.chat-messages {
-			height: 420px;
+			height: 60vh;
 			padding: 10px;
 			overflow-y: auto;
 			background-color: #f8f9fa;
@@ -131,7 +132,7 @@
 
 		.chat-input {
 			display: flex;
-			padding: 10px 10px 15px 10px;
+			padding: 1vh 3vw;
 			border-top: 1px solid #eee;
 			background-color: white;
 			align-items: center;
@@ -187,30 +188,39 @@
 			margin-bottom: 10px;
 			padding: 10px 15px;
 			border-radius: 18px;
-			max-width: 80%;
 			word-wrap: break-word;
+			word-break: break-word;
 		}
 
 		.sent {
-			background-color: #e3f2fd;
+			font-size: 16px;
+			background-color: #f5f5f5;
 			text-align: right;
 			margin-left: auto;
+			max-width: 25%;
 			border-bottom-right-radius: 5px;
 		}
 
 		.received {
-			background-color: #f5f5f5;
+			font-size: 15px;
+			background-color: #e6f2ff;
 			text-align: left;
 			margin-right: auto;
+			max-width: 50%;
 			border-bottom-left-radius: 5px;
 		}
 
 		.chat-footer {
-			padding: 5px 10px;
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: 100%;
 			text-align: center;
 			font-size: 12px;
 			color: #999;
 			border-top: 1px solid #f0f0f0;
+			padding: 1vh 0;
+			margin-bottom: 0;
 		}
 		.message-reference {
 			margin-top: 5px;
@@ -759,121 +769,123 @@ messageInput.addEventListener('keypress', (e) => {
 });
 
 
-// 拖动功能
-let isDragging = false;
-let hasMoved = false;
-let isMouseDown = false;
-let offsetX, offsetY;
-let startX, startY;
-const DRAG_THRESHOLD = 5; // 拖动阈值
-
-function makeDraggable(element) {
-
-	function onMouseDown(e) {
-		e.preventDefault();
-		isDragging = false;
-		hasMoved = false;
-		isMouseDown = true;
-		startX = e.clientX;
-		startY = e.clientY;
-		offsetX = e.clientX - element.getBoundingClientRect().left;
-		offsetY = e.clientY - element.getBoundingClientRect().top;
-	}
-
-	function onMouseMove(e) {
-		if(isMouseDown){
-			const deltaX = Math.abs(e.clientX - startX);
-			const deltaY = Math.abs(e.clientY - startY);
-
-			if (deltaX > 0 || deltaY > 0) {
-				hasMoved = true;
-			}
-			if (!isDragging && (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD)) {
-				isDragging = true;
-				element.style.cursor = 'grabbing';
-			}
-			if (!isDragging) return;
-			const x = e.clientX - offsetX;
-			const y = e.clientY - offsetY;
-			const maxX = window.innerWidth - element.offsetWidth;
-			const maxY = window.innerHeight - element.offsetHeight;
-			const newX = Math.max(0, Math.min(x, maxX));
-			const newY = Math.max(0, Math.min(y, maxY));
-			element.style.left = newX + 'px';
-			element.style.right = 'auto';
-			element.style.top = newY + 'px';
-			element.style.bottom = 'auto';
-		}
-
-	}
-
-	element.addEventListener('mousedown', onMouseDown);
-	document.addEventListener('mousemove', onMouseMove);
-}
-function onMouseUp(e) {
-
-	// 只有在没有拖动的情况下才触发点击事件
-	if (!isDragging && e.target.closest('#chatButton')) {
-		toggleChatContainer();
-	}
-	isDragging = false;
-	hasMoved = false;
-	isMouseDown = false;
-}
-document.addEventListener('mouseup', onMouseUp);
-
-// 更新聊天窗口位置
-function updateChatContainerPosition() {
-	const buttonRect = chatButton.getBoundingClientRect();
-	const chatX = buttonRect.left;
-	const chatY = buttonRect.top - chatContainer.offsetHeight - 10; // 10px 间距
-	const maxX = window.innerWidth - chatContainer.offsetWidth;
-	const newX = Math.max(0, Math.min(chatX, maxX));
-	let newY = chatY;
-	if (newY < 0) {
-		newY = buttonRect.top;
-		// 尝试放在右侧
-		if (buttonRect.left + buttonRect.width + chatContainer.offsetWidth < window.innerWidth) {
-			chatContainer.style.left = (buttonRect.left + buttonRect.width + 10) + 'px';
-		}
-		// 否则放在左侧
-		else if (buttonRect.left - chatContainer.offsetWidth > 0) {
-			chatContainer.style.left = (buttonRect.left - chatContainer.offsetWidth - 10) + 'px';
-		}
-		// 如果左右都不行，就放在按钮下方
-		else {
-			newY = buttonRect.top + buttonRect.height + 10;
-			chatContainer.style.left = newX + 'px';
-		}
-	} else {
-		chatContainer.style.left = newX + 'px';
-	}
-	chatContainer.style.top = newY + 'px';
-	chatContainer.style.right = 'auto';
-	chatContainer.style.bottom = 'auto';
-}
-
-// 切换聊天窗口显示状态
-function toggleChatContainer() {
-	if (chatContainer.style.display === 'none') {
-		chatContainer.style.display = 'block';
-		updateChatContainerPosition();
-	} else {
-		chatContainer.style.display = 'none';
-	}
-}
-// 添加拖动功能
-makeDraggable(chatButton);
+// // 拖动功能
+// let isDragging = false;
+// let hasMoved = false;
+// let isMouseDown = false;
+// let offsetX, offsetY;
+// let startX, startY;
+// const DRAG_THRESHOLD = 5; // 拖动阈值
+//
+// function makeDraggable(element) {
+//
+// 	function onMouseDown(e) {
+// 		e.preventDefault();
+// 		isDragging = false;
+// 		hasMoved = false;
+// 		isMouseDown = true;
+// 		startX = e.clientX;
+// 		startY = e.clientY;
+// 		offsetX = e.clientX - element.getBoundingClientRect().left;
+// 		offsetY = e.clientY - element.getBoundingClientRect().top;
+// 	}
+//
+// 	function onMouseMove(e) {
+// 		if(isMouseDown){
+// 			const deltaX = Math.abs(e.clientX - startX);
+// 			const deltaY = Math.abs(e.clientY - startY);
+//
+// 			if (deltaX > 0 || deltaY > 0) {
+// 				hasMoved = true;
+// 			}
+// 			if (!isDragging && (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD)) {
+// 				isDragging = true;
+// 				element.style.cursor = 'grabbing';
+// 			}
+// 			if (!isDragging) return;
+// 			const x = e.clientX - offsetX;
+// 			const y = e.clientY - offsetY;
+// 			const maxX = window.innerWidth - element.offsetWidth;
+// 			const maxY = window.innerHeight - element.offsetHeight;
+// 			const newX = Math.max(0, Math.min(x, maxX));
+// 			const newY = Math.max(0, Math.min(y, maxY));
+// 			element.style.left = newX + 'px';
+// 			element.style.right = 'auto';
+// 			element.style.top = newY + 'px';
+// 			element.style.bottom = 'auto';
+// 		}
+//
+// 	}
+//
+// 	element.addEventListener('mousedown', onMouseDown);
+// 	document.addEventListener('mousemove', onMouseMove);
+// }
+// function onMouseUp(e) {
+//
+// 	// 只有在没有拖动的情况下才触发点击事件
+// 	if (!isDragging && e.target.closest('#chatButton')) {
+// 		toggleChatContainer();
+// 	}
+// 	isDragging = false;
+// 	hasMoved = false;
+// 	isMouseDown = false;
+// }
+// document.addEventListener('mouseup', onMouseUp);
+//
+// // 更新聊天窗口位置
+// function updateChatContainerPosition() {
+// 	const buttonRect = chatButton.getBoundingClientRect();
+// 	const chatX = buttonRect.left;
+// 	const chatY = buttonRect.top - chatContainer.offsetHeight - 10; // 10px 间距
+// 	const maxX = window.innerWidth - chatContainer.offsetWidth;
+// 	const newX = Math.max(0, Math.min(chatX, maxX));
+// 	let newY = chatY;
+// 	if (newY < 0) {
+// 		newY = buttonRect.top;
+// 		// 尝试放在右侧
+// 		if (buttonRect.left + buttonRect.width + chatContainer.offsetWidth < window.innerWidth) {
+// 			chatContainer.style.left = (buttonRect.left + buttonRect.width + 10) + 'px';
+// 		}
+// 		// 否则放在左侧
+// 		else if (buttonRect.left - chatContainer.offsetWidth > 0) {
+// 			chatContainer.style.left = (buttonRect.left - chatContainer.offsetWidth - 10) + 'px';
+// 		}
+// 		// 如果左右都不行，就放在按钮下方
+// 		else {
+// 			newY = buttonRect.top + buttonRect.height + 10;
+// 			chatContainer.style.left = newX + 'px';
+// 		}
+// 	} else {
+// 		chatContainer.style.left = newX + 'px';
+// 	}
+// 	chatContainer.style.top = newY + 'px';
+// 	chatContainer.style.right = 'auto';
+// 	chatContainer.style.bottom = 'auto';
+// }
+// // 添加拖动功能
+// makeDraggable(chatButton);
 // 关闭按钮的点击事件
 closeChat.addEventListener('click', function(e) {
 	chatContainer.style.display = 'none';
 });
 
+// 切换聊天窗口显示状态
+function toggleChatContainer() {
+	if (chatContainer.style.display === 'none') {
+		chatContainer.style.display = 'block';
+		// updateChatContainerPosition();
+	} else {
+		chatContainer.style.display = 'none';
+	}
+}
+chatButton.addEventListener('click', toggleChatContainer);
+
+
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
 	// 添加欢迎消息
 	setTimeout(function() {
-		addMessage("嗨，你好！我专注于为你提供精准的企业信息服务，助力你深入了解。", 'received');
+		addMessage("嗨，你好！我是智能助手，专注于为你提供桥梁检测服务。", 'received');
 	}, 500);
 
 

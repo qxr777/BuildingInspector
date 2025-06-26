@@ -298,16 +298,16 @@
                     <div class="upload-section">
                         <label class="upload-title">上传正面照：</label>
                         <div class="upload-content">
-                            <div class="upload-btn" onclick="uploadImage('front', 0)" id="frontUpload0">
+                            <div class="upload-btn" onclick="uploadImage('newfront', 0)" id="newfrontUpload0">
                                 <span class="plus">+</span>
-                                <div class="delete-btn" onclick="deleteImage(event, 'front', 0)">x</div>
-                                <input type="hidden" name="frontImage1" id="frontImage1">
+                                <div class="delete-btn" onclick="deleteImage(event, 'newfront', 0)">x</div>
+                                <input type="hidden" name="newfrontImage1" id="newfrontImage1">
                                 <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
-                            <div class="upload-btn" onclick="uploadImage('front', 1)" id="frontUpload1">
+                            <div class="upload-btn" onclick="uploadImage('newfront', 1)" id="newfrontUpload1">
                                 <span class="plus">+</span>
-                                <div class="delete-btn" onclick="deleteImage(event, 'front', 1)">x</div>
-                                <input type="hidden" name="frontImage2" id="frontImage2">
+                                <div class="delete-btn" onclick="deleteImage(event, 'newfront', 1)">x</div>
+                                <input type="hidden" name="newfrontImage2" id="newfrontImage2">
                                 <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
                         </div>
@@ -315,16 +315,16 @@
                     <div class="upload-section">
                         <label class="upload-title">上传立面照：</label>
                         <div class="upload-content">
-                            <div class="upload-btn" onclick="uploadImage('side', 0)" id="sideUpload0">
+                            <div class="upload-btn" onclick="uploadImage('newside', 0)" id="newsideUpload0">
                                 <span class="plus">+</span>
-                                <div class="delete-btn" onclick="deleteImage(event, 'side', 0)">x</div>
-                                <input type="hidden" name="sideImage1" id="sideImage1">
+                                <div class="delete-btn" onclick="deleteImage(event, 'newside', 0)">x</div>
+                                <input type="hidden" name="newsideImage1" id="newsideImage1">
                                 <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
-                            <div class="upload-btn" onclick="uploadImage('side', 1)" id="sideUpload1">
+                            <div class="upload-btn" onclick="uploadImage('newside', 1)" id="newsideUpload1">
                                 <span class="plus">+</span>
-                                <div class="delete-btn" onclick="deleteImage(event, 'side', 1)">x</div>
-                                <input type="hidden" name="sideImage2" id="sideImage2">
+                                <div class="delete-btn" onclick="deleteImage(event, 'newside', 1)">x</div>
+                                <input type="hidden" name="newsideImage2" id="newsideImage2">
                                 <img style="display: none;" onclick="previewImage(event, this.src)">
                             </div>
                         </div>
@@ -424,14 +424,21 @@
                 success: function(response) {
                     if (response.code === 0) {
                         $.modal.msgSuccess("上传成功");
+                        console.log("上传返回:", response); // 打印完整响应以查看结构
                         // 更新隐藏输入框的值
                         var hiddenInput = document.getElementById(type + 'Image' + (index + 1));
                         if (hiddenInput) {
-                            hiddenInput.value = response.data;
+                            // 从返回的数据中获取文件名
+                            var filename = response.fileName;
+                            console.log("保存的文件名:", filename);
+                            hiddenInput.value = filename;
                         }
                     } else {
                         $.modal.msgError(response.msg);
                     }
+                },
+                error: function(xhr, status, error) {
+                    $.modal.msgError("上传失败: " + error);
                 }
             });
         };
@@ -441,13 +448,17 @@
     // 删除图片的函数
     function deleteImage(event, type, index) {
         event.stopPropagation(); // 阻止事件冒泡，防止触发上传
-        
+
         const serializedData = $('#form-building-edit').serialize();
         const params = new URLSearchParams(serializedData);
         const buildingId = params.get('id');
         var hiddenInput = document.getElementById(type + 'Image' + (index + 1));
         var filename = hiddenInput.value;
-        
+        if(filename.split("_").length==1) {
+            filename = index+"_"+type+"_"+filename;
+        }
+        console.log("删除图片 - 类型:", type, "索引:", index, "文件名:", filename); // 调试日志
+
         if (filename) {
             var baseUrl = window.location.protocol + "//" + window.location.host;
             $.ajax({
@@ -465,7 +476,7 @@
                         var plusIcon = uploadBtn.querySelector('.plus');
                         var img = uploadBtn.querySelector('img');
                         var deleteBtn = uploadBtn.querySelector('.delete-btn');
-                        
+
                         img.style.display = 'none';
                         plusIcon.style.display = 'block';
                         deleteBtn.style.display = 'none';
@@ -481,7 +492,7 @@
             var plusIcon = uploadBtn.querySelector('.plus');
             var img = uploadBtn.querySelector('img');
             var deleteBtn = uploadBtn.querySelector('.delete-btn');
-            
+
             img.style.display = 'none';
             plusIcon.style.display = 'block';
             deleteBtn.style.display = 'none';
@@ -492,11 +503,11 @@
     // 全局变量，用于存储所有图片
     var allImages = [];
     var currentImageIndex = 0;
-    
+
     // 图片预览功能
     function previewImage(event, src) {
         event.stopPropagation(); // 阻止事件冒泡，防止触发上传
-        
+
         // 收集所有已上传的图片
         allImages = [];
         var imgElements = document.querySelectorAll('.upload-btn img');
@@ -505,46 +516,46 @@
                 allImages.push(img.src);
             }
         });
-        
+
         // 找到当前点击图片的索引
         currentImageIndex = allImages.findIndex(function(imgSrc) {
             return imgSrc === src;
         });
-        
+
         if (currentImageIndex === -1 && allImages.length > 0) {
             currentImageIndex = 0;
         }
-        
+
         // 更新预览图片
         updatePreviewImage();
-        
+
         // 显示预览层
         document.getElementById('imagePreviewOverlay').style.display = 'flex';
     }
-    
+
     // 更新预览图片
     function updatePreviewImage() {
         if (allImages.length > 0) {
             document.getElementById('previewImage').src = allImages[currentImageIndex];
             document.getElementById('imageCounter').textContent = (currentImageIndex + 1) + ' / ' + allImages.length;
-            
+
             // 控制导航按钮的可见性
             var prevBtn = document.querySelector('.image-preview-prev');
             var nextBtn = document.querySelector('.image-preview-next');
-            
+
             prevBtn.style.visibility = allImages.length > 1 ? 'visible' : 'hidden';
             nextBtn.style.visibility = allImages.length > 1 ? 'visible' : 'hidden';
         }
     }
-    
+
     // 导航到上一张/下一张图片
     function navigateImage(step) {
         if (allImages.length <= 1) return;
-        
+
         currentImageIndex = (currentImageIndex + step + allImages.length) % allImages.length;
         updatePreviewImage();
     }
-    
+
     // 键盘导航
     document.addEventListener('keydown', function(e) {
         if (document.getElementById('imagePreviewOverlay').style.display === 'flex') {
@@ -557,12 +568,12 @@
             }
         }
     });
-    
+
     // 关闭预览
     function closePreview() {
         document.getElementById('imagePreviewOverlay').style.display = 'none';
     }
-    
+
     // 点击预览层背景关闭预览
     document.getElementById('imagePreviewOverlay').addEventListener('click', function(e) {
         if (e.target === this) {
@@ -591,7 +602,7 @@
                             const index = parseInt(parts[0]); // 获取序号（0或1）
                             const type = parts[1];   // 获取类型（front或side）
                             console.log(fileMap)
-                            if (type === 'front' || type === 'side') {
+                            if (type === 'newfront' || type === 'newside') {
                                 var uploadBtn = document.getElementById(type + 'Upload' + index);
                                 var plusIcon = uploadBtn.querySelector('.plus');
                                 var img = uploadBtn.querySelector('img');
@@ -617,26 +628,26 @@
     function downloadCurrentImage() {
         if (allImages.length > 0 && currentImageIndex >= 0 && currentImageIndex < allImages.length) {
             var imageUrl = allImages[currentImageIndex];
-            
+
             // 显示加载状态
             var downloadBtn = document.getElementById('downloadButton');
             var originalText = downloadBtn.innerHTML;
             downloadBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 下载中...';
             downloadBtn.style.pointerEvents = 'none';
-            
+
             // 通过XHR获取图片数据
             var xhr = new XMLHttpRequest();
             xhr.open('GET', imageUrl, true);
             xhr.responseType = 'blob';
-            
+
             xhr.onload = function() {
                 if (this.status === 200) {
                     var blob = this.response;
-                    
+
                     // 根据图片类型设置文件名
                     var filename = 'image.jpg';
                     var fileExtension = '.jpg';
-                    
+
                     // 尝试获取图片扩展名
                     try {
                         var urlParts = imageUrl.split('/');
@@ -655,34 +666,34 @@
                     } catch (e) {
                         console.error("Error extracting file extension:", e);
                     }
-                    
+
                     // 根据当前显示的图片确定是正面照还是侧面照
                     var currentImg = null;
                     var imgIndex = currentImageIndex;
-                    
+
                     // 找到当前显示的图片元素
                     var imgElements = document.querySelectorAll('.upload-btn img');
                     var visibleImgs = Array.from(imgElements).filter(function(img) {
                         return img.style.display !== 'none' && img.src;
                     });
-                    
+
                     if (visibleImgs.length > imgIndex) {
                         currentImg = visibleImgs[imgIndex];
                         // 找到上层的upload-btn元素
                         var uploadBtn = currentImg.closest('.upload-btn');
                         if (uploadBtn) {
                             var id = uploadBtn.id;
-                            if (id.includes('front')) {
+                            if (id.includes('newfront')) {
                                 filename = '桥梁正面照' + fileExtension;
-                            } else if (id.includes('side')) {
+                            } else if (id.includes('newside')) {
                                 filename = '桥梁侧面照' + fileExtension;
                             }
                         }
                     }
-                    
+
                     // 使用URL.createObjectURL创建Blob URL
                     var blobUrl = URL.createObjectURL(blob);
-                    
+
                     // 创建隐藏的a标签，设置download属性，并模拟点击
                     var a = document.createElement('a');
                     a.style.display = 'none';
@@ -690,7 +701,7 @@
                     a.download = filename;
                     document.body.appendChild(a);
                     a.click();
-                    
+
                     // 清理
                     setTimeout(function() {
                         document.body.removeChild(a);
@@ -707,7 +718,7 @@
                     alert('下载图片失败，请重试');
                 }
             };
-            
+
             xhr.onerror = function() {
                 console.error('下载图片失败');
                 // 恢复按钮状态
@@ -715,7 +726,7 @@
                 downloadBtn.style.pointerEvents = 'auto';
                 alert('下载图片失败，请重试');
             };
-            
+
             xhr.send();
         }
     }

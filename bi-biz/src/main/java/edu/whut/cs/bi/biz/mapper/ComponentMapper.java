@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Component;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 import java.util.Set;
