@@ -593,8 +593,8 @@ public class ApiController {
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
     @Transactional
-    public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file) {
-        diseaseService.readDiseaseExcel(file);
+    public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
+        diseaseService.readDiseaseExcel(file, projectId);
 
         return AjaxResult.success("上传成功");
     }

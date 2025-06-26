@@ -101,5 +101,10 @@ public interface IDiseaseService {
     public int deleteDiseaseByDiseaseIds(String ids);
 
 
-    void readDiseaseExcel(MultipartFile file);
+    /**
+     * 批量导入病害信息
+     *
+     * @param file
+     */
+    void readDiseaseExcel(MultipartFile file, Long projectId);
 }

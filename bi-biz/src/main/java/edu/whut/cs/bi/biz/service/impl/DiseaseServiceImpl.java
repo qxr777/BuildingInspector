@@ -431,15 +431,107 @@ public class DiseaseServiceImpl implements IDiseaseService
         }
     }
 
+    private void addComponent(Sheet sheet, Map<String, Building> buildingMap, Map<Long, BiObject> biObjectMap, Map<String, List<Component>> componentMap) {
+        Set<Component> componentSet = new HashSet<>();
+
+        for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null) continue;
+
+            String buildingName = getCellValueAsString(row.getCell(1));
+            String side = getCellValueAsString(row.getCell(3));
+            String component_2 = getCellValueAsString(row.getCell(4));
+            String component_3 = getCellValueAsString(row.getCell(5));
+            String location = getCellValueAsString(row.getCell(6));
+
+            Building building = null;
+            if (side != null && !side.equals("")) {
+                building = buildingMap.get(buildingName + '-' + side);
+            } else {
+                building = buildingMap.get(buildingName);
+            }
+            if (building == null) {
+                // 跳过
+                return;
+            }
+
+            BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
+            List<BiObject> children = rootBiObject.getChildren();
+            BiObject biObject2 = children.stream()
+                    .filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName()))
+                    .findFirst()
+                    .orElse(null);
+            if (biObject2 == null) {
+                log.info("未找到对应的子对象, parentId:{}, name:{}", rootBiObject.getId(), component_2);
+                return;
+            }
+
+            BiObject biObject3 = children.stream()
+                    .filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName()))
+                    .findFirst()
+                    .orElse(null);
+            if (biObject3 == null) {
+                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
+                return;
+            }
+
+
+            // 新增部件
+            Component component = handleDefectLocation(location);
+            String biObjectName = component.getName().split("#")[1];
+
+            BiObject biObject4 = null;
+            if (biObject3.getName().equals("其他")) {
+                biObject4 = children.stream()
+                        .filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+            } else {
+                biObject4 = children.stream()
+                        .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (biObject4 == null) {
+                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
+                return;
+            }
+
+            List<Component> oldComponents = componentMap.get(component.getName());
+
+            if (oldComponents != null && oldComponents.size() > 0) {
+                Set<String> oldComponentRootObjectIds = oldComponents.stream()
+                        .map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1])
+                        .collect(Collectors.toSet());
+
+                if (oldComponentRootObjectIds.contains(rootBiObject.getId())) {
+                    continue;
+                }
+
+            }
+
+            component.setBiObjectId(biObject4.getId());
+            component.setCreateBy(ShiroUtils.getLoginName());
+            component.setStatus("0");
+            componentSet.add(component);
+        }
+        // 持久化
+        for (Component component : componentSet) {
+            componentService.insertComponent(component);
+        }
+//        componentMapper.batchAddComponents(componentSet);
+    }
 
     @Override
-    public void readDiseaseExcel(MultipartFile file) {
+    public void readDiseaseExcel(MultipartFile file, Long projectId) {
 
         List<Component> components = componentService.selectComponentList(new Component());
         Map<String, List<Component>> componentMap = components.stream()
                 .collect(Collectors.groupingBy(Component::getName));
-        Set<Component> componentSet = new ConcurrentHashSet<>();
         Set<Disease> diseaseSet = new ConcurrentHashSet<>();
+
+        // 病害类型”其他“，当病害类型都不存在时，默认为其他
+        DiseaseType otherDiseaseType = diseaseTypeMapper.selectDiseaseTypeByCode("0.0.0.0-0");
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
@@ -467,91 +559,8 @@ public class DiseaseServiceImpl implements IDiseaseService
                 List<BiObject> biObjects = biObjectMapper.selectBiObjects(rootObjectIds);
                 Map<Long, BiObject> biObjectMap = biObjects.stream().collect(Collectors.toMap(BiObject::getId, Function.identity()));
 
-                for (int i = 3; i <= sheet.getLastRowNum(); i++) {
-                    Row row = sheet.getRow(i);
-                    if (row == null) continue;
-
-                    String buildingName = getCellValueAsString(row.getCell(1));
-                    String side = getCellValueAsString(row.getCell(3));
-                    String component_2 = getCellValueAsString(row.getCell(4));
-                    String component_3 = getCellValueAsString(row.getCell(5));
-                    String location = getCellValueAsString(row.getCell(6));
-
-                    Building building = null;
-                    if (side != null && !side.equals("")) {
-                        building = buildingMap.get(buildingName + '-' + side);
-                    } else {
-                        building = buildingMap.get(buildingName);
-                    }
-                    if (building == null) {
-                        // 跳过
-                        return;
-                    }
-
-                    BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
-                    List<BiObject> children = rootBiObject.getChildren();
-                    BiObject biObject2 = children.stream()
-                            .filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName()))
-                            .findFirst()
-                            .orElse(null);
-                    if (biObject2 == null) {
-                        log.info("未找到对应的子对象, parentId:{}, name:{}", rootBiObject.getId(), component_2);
-                        return;
-                    }
-
-                    BiObject biObject3 = children.stream()
-                            .filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName()))
-                            .findFirst()
-                            .orElse(null);
-                    if (biObject3 == null) {
-                        log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
-                        return;
-                    }
-
-
-                    // 新增部件
-                    Component component = handleDefectLocation(location);
-                    String biObjectName = component.getName().split("#")[1];
-
-                    BiObject biObject4 = null;
-                    if (biObject3.getName().equals("其他")) {
-                        biObject4 = children.stream()
-                                .filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                                .findFirst()
-                                .orElse(null);
-                    } else {
-                        biObject4 = children.stream()
-                                .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
-                                .findFirst()
-                                .orElse(null);
-                    }
-                    if (biObject4 == null) {
-                        log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
-                        return;
-                    }
-
-                    List<Component> oldComponents = componentMap.get(component.getName());
-
-                    if (oldComponents != null && oldComponents.size() > 0) {
-                        Set<String> oldComponentRootObjectIds = oldComponents.stream()
-                                .map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1])
-                                .collect(Collectors.toSet());
-
-                        if (oldComponentRootObjectIds.contains(rootBiObject.getId())) {
-                            continue;
-                        }
-
-                    }
-
-                    component.setBiObjectId(biObject4.getId());
-                    component.setCreateBy(ShiroUtils.getLoginName());
-                    component.setStatus("0");
-                    componentSet.add(component);
-                }
-                // 持久化
-                for(Component component:componentSet) {
-                    componentService.insertComponent(component);
-                }
+                // 添加构件
+                addComponent(sheet, buildingMap, biObjectMap, componentMap);
 
                 components = componentService.selectComponentList(new Component());
                 Map<String, List<Component>> newComponentMap = components.stream()
@@ -642,12 +651,16 @@ public class DiseaseServiceImpl implements IDiseaseService
                             queryDiseaseType = diseaseTypes.stream().filter(dt -> dt.getName().equals(diseaseType)).findFirst().orElse(null);
                         }
 
+                        if (queryDiseaseType == null) {
+                            queryDiseaseType = otherDiseaseType;
+                        }
+
                         disease.setType(diseaseType);
                         disease.setDiseaseTypeId(queryDiseaseType.getId());
 
                         disease.setComponentId(component.getId());
                         disease.setBuildingId(building.getId());
-                        disease.setProjectId(12L);
+                        disease.setProjectId(projectId);
                         disease.setBiObjectName(biObjectName);
                         disease.setBiObjectId(component.getBiObjectId());
                         disease.setRepairRecommendation(repairSuggestion);
@@ -658,7 +671,11 @@ public class DiseaseServiceImpl implements IDiseaseService
                         }
 
                         disease.setDescription(diseaseDescription);
-                        disease.setQuantity((int) Double.parseDouble(diseaseNumber));
+                        if (diseaseNumber == null || diseaseNumber.equals("/") || diseaseNumber.equals("")) {
+                            disease.setQuantity(1);
+                        } else {
+                            disease.setQuantity((int) Double.parseDouble(diseaseNumber));
+                        }
 
                         DiseaseDetail diseaseDetail = new DiseaseDetail();
                         diseaseDetail.setDiseaseId(disease.getId());
