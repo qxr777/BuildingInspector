@@ -35,6 +35,14 @@ public interface IDiseaseService {
      List<Disease> selectDiseaseList(Disease disease);
 
     /**
+     * 查询病害列表
+     *
+     * @param disease 病害
+     * @return 病害集合
+     */
+    List<Disease> selectDiseaseListForApi(Disease disease);
+
+    /**
      * 新增病害
      *
      * @param disease 病害

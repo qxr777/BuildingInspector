@@ -185,7 +185,7 @@ public class ApiController {
             disease.setYear(year);
         }
 
-        List<Disease> diseases = diseaseService.selectDiseaseList(disease);
+        List<Disease> diseases = diseaseService.selectDiseaseListForApi(disease);
         List<DiseasesOfYearVo> result = null;
         if (year == null) {
             Map<Integer, List<Disease>> map = diseases.stream()
