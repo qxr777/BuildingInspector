@@ -110,12 +110,4 @@ public interface IDiseaseService {
 
 
     void readDiseaseExcel(MultipartFile file);
-
-        /**
-     * 查询病害列表
-     *
-     * @param disease 病害
-     * @return 病害集合
-     */
-    List<Disease> selectDiseaseListForApi(Disease disease);
 }
