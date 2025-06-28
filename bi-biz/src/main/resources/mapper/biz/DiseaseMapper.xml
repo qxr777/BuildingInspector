@@ -91,6 +91,7 @@
         <foreach item="biObjectId" collection="biObjectIds" open="(" separator="," close=")">
             #{biObjectId}
         </foreach>
+        and d.project_id = #{projectId}
         order by d.create_time desc
     </select>
 

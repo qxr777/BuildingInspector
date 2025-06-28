@@ -72,7 +72,7 @@ public interface DiseaseMapper {
      * @param biObjectIds
      * @return
      */
-    List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds);
+    List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds,  @Param("projectId") Long projectId);
 
     /**
      * 批量插入病害
