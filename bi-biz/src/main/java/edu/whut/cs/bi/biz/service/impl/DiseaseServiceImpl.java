@@ -2,20 +2,16 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
-import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
-import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
-
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
@@ -25,16 +21,12 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.Resource;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -137,11 +129,65 @@ public class DiseaseServiceImpl implements IDiseaseService
             List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
             biObjectIds.addAll(biObjects.stream().map(BiObject::getId).collect(Collectors.toList()));
             PageUtils.startPage();
-            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds);
+            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds, disease.getProjectId());
         } else {
             PageUtils.startPage();
             diseases = diseaseMapper.selectDiseaseList(disease);
         }
+
+        diseases.forEach(ds -> {
+            Long componentId = ds.getComponentId();
+
+            if (componentId != null) {
+                Component component = componentService.selectComponentById(componentId);
+                BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
+
+                if (parent != null) {
+                    component.setParentObjectName(parent.getName());
+                    BiObject grandBiObject = biObjectMapper.selectBiObjectById(parent.getParentId());
+                    if (grandBiObject != null) {
+                        component.setGrandObjectName(grandBiObject.getName());
+                    }
+                }
+                ds.setComponent(component);
+            }
+
+            DiseaseDetail diseaseDetail = new DiseaseDetail();
+            diseaseDetail.setDiseaseId(ds.getId());
+            List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
+            ds.setDiseaseDetails(diseaseDetails);
+
+            List<String> images = new ArrayList<>();
+            List<String> ADImgs = new ArrayList<>();
+            List<Map<String, Object>> diseaseImage = diseaseController.getDiseaseImage(ds.getId());
+            if (CollUtil.isNotEmpty(diseaseImage)) {
+                diseaseImage.forEach(di -> {
+                    Integer type = (Integer) di.get("type");
+                    if (type.equals(7)) {
+                        ADImgs.add((String) di.get("url"));
+                    } else {
+                        images.add((String) di.get("url"));
+                    }
+                });
+
+                ds.setImages(images);
+                ds.setADImgs(ADImgs);
+            }
+        });
+        return diseases;
+    }
+
+    /**
+     * 查询病害列表
+     *
+     * @param disease 病害
+     * @return 病害
+     */
+    @Override
+    public List<Disease> selectDiseaseListForApi(Disease disease)
+    {
+
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
 
         diseases.forEach(ds -> {
             Long componentId = ds.getComponentId();
