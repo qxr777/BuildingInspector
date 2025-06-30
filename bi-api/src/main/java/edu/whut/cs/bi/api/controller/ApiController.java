@@ -331,7 +331,9 @@ public class ApiController {
                     // 添加病害详情
                     List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
                     diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
-                    diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+                    if(!diseaseDetails.isEmpty()) {
+                        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+                    }
                 }
             }
 
@@ -500,7 +502,10 @@ public class ApiController {
                     }
                 }
                 // 批量保存病害数据
-                batchSaveDiseases(diseases);
+                AjaxResult ajaxResult = batchSaveDiseases(diseases);
+                if(ajaxResult.isError()) {
+                    return AjaxResult.error("处理上传文件失败：病害上传失败" );
+                }
                 // 处理病害图片
                 for (Disease disease : diseases) {
                     // 只有类型为1的才需要新增图片文件
