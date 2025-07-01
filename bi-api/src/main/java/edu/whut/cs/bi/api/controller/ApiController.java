@@ -452,7 +452,6 @@ public class ApiController {
             String objectJsonPath = buildingId + "/object.json";
             if (extractedFiles.containsKey(objectJsonPath)) {
                 String objectJson = new String(Files.readAllBytes(extractedFiles.get(objectJsonPath)));
-                JSONObject jsonObject = JSONObject.parseObject(objectJson);
                 BiObject rootObject = JSONObject.parseObject(objectJson, BiObject.class);
 
                 // 确保rootObject的ID与数据库中的一致

@@ -399,6 +399,10 @@ public class BiObjectServiceImpl implements IBiObjectService {
         if (existingObject == null) {
             throw new RuntimeException("未找到ID为 " + biObject.getId() + " 的节点");
         }
+        // web修改的结构信息已确认状态的桥梁不让再次修改
+        if("3".equals(existingObject.getStatus())) {
+            return 0;
+        }
         // 2. 收集所有需要更新的节点
         List<BiObject> nodesToUpdate = new ArrayList<>();
         collectNodesToUpdate(biObject, nodesToUpdate);
