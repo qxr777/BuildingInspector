@@ -478,4 +478,25 @@ public class BiObjectServiceImpl implements IBiObjectService {
         // 使用批量插入SQL，提高性能
         return biObjectMapper.batchInsertBiObjects(biObjects);
     }
+
+    @Override
+    public List<Ztree> selectBiObjectThreeLevelTree(Long rootObjectId) {
+        List<BiObject> biObjectList;
+        if (rootObjectId != null) {
+            biObjectList = biObjectMapper.selectBiObjectAndChildrenThreeLevel(rootObjectId);
+        } else {
+            biObjectList = biObjectMapper.selectBiObjectList(new BiObject());
+        }
+
+        List<Ztree> ztrees = new ArrayList<Ztree>();
+        for (BiObject biObject : biObjectList) {
+            Ztree ztree = new Ztree();
+            ztree.setId(biObject.getId());
+            ztree.setpId(biObject.getParentId());
+            ztree.setName(biObject.getName());
+            ztree.setTitle(biObject.getName());
+            ztrees.add(ztree);
+        }
+        return ztrees;
+    }
 }

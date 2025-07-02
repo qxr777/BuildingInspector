@@ -114,4 +114,12 @@ public interface IFileMapService {
      * @return 文件信息
      */
     public FileMap selectFileMapByNewName(String newName);
+
+    /**
+     * 根据biObjectId查询图片列表
+     *
+     * @param biObjectId biObjectId
+     * @return 图片列表
+     */
+    List<FileMap> selectBiObjectPhotoList(Long biObjectId);
 }

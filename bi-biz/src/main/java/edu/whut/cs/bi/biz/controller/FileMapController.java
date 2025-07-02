@@ -465,4 +465,16 @@ public class FileMapController extends BaseController {
         return fileMapList;
     }
 
+    /**
+     * 查询biObject当前图片
+     */
+    @RequiresPermissions("biz:building:list")
+    @PostMapping("/listBiObjectPhoto")
+    @ResponseBody
+    public TableDataInfo listBiObjectPhoto(@RequestParam("biObjectId") Long biObjectId) {
+        startPage();
+        List<FileMap> list = fileMapService.selectBiObjectPhotoList(biObjectId);
+        return getDataTable(list);
+    }
+
 }

@@ -183,6 +183,16 @@ public class BiObjectController extends BaseController {
         return ztrees;
     }
 
+    /**
+     * 加载对象树列表
+     */
+    @GetMapping("/threeLevelTreeData")
+    @ResponseBody
+    public List<Ztree> threeLevelTreeData(Long rootObjectId) {
+        List<Ztree> ztrees = biObjectService.selectBiObjectThreeLevelTree(rootObjectId);
+        return ztrees;
+    }
+
     @PostMapping("/selectPositionList")
     @ResponseBody
     public List<BiObject> selectPositionList(Long parentId) {

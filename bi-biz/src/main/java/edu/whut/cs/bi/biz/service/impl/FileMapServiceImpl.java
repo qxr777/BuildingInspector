@@ -353,4 +353,9 @@ public class FileMapServiceImpl implements IFileMapService {
         // 返回第一个匹配的结果
         return list != null && !list.isEmpty() ? list.get(0) : null;
     }
+
+    @Override
+    public List<FileMap> selectBiObjectPhotoList(Long biObjectId) {
+        return List.of();
+    }
 }

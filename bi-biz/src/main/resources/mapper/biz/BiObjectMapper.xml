@@ -384,6 +384,39 @@
         ORDER BY t.parent_id, t.order_num
     </select>
 
+    <select id="selectBiObjectAndChildrenThreeLevel" parameterType="Long" resultMap="BiObjectResult">
+        WITH RECURSIVE filtered_tree AS (
+        <!-- 查询根节点 -->
+        SELECT t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
+        t.longitude, t.latitude, t.altitude, t.position, t.area, t.admin_dept,
+        t.weight, t.video_feed, t.props, t.create_by, t.create_time, t.update_by,
+        t.update_time, t.remark, t.template_object_id, t.count,
+        1 AS level
+        FROM bi_object t
+        WHERE t.id = #{id}
+        AND t.del_flag = '0'
+        AND (t.status != '1' OR t.status IS NULL)
+
+        UNION ALL
+
+        <!-- 递归查询子节点，并计算层级 -->
+        SELECT c.id, c.name, c.parent_id, c.ancestors, c.order_num, c.status, c.del_flag,
+        c.longitude, c.latitude, c.altitude, c.position, c.area, c.admin_dept,
+        c.weight, c.video_feed, c.props, c.create_by, c.create_time, c.update_by,
+        c.update_time, c.remark, c.template_object_id, c.count,
+        p.level + 1
+        FROM bi_object c
+        JOIN filtered_tree p ON c.parent_id = p.id
+        WHERE c.del_flag = '0'
+        AND (c.status != '1' OR c.status IS NULL)
+        AND p.level &lt; 3
+        )
+        SELECT DISTINCT t.*
+        FROM filtered_tree t
+        WHERE t.level &lt; 4
+        ORDER BY t.parent_id, t.order_num
+    </select>
+
     <!-- 批量更新子节点的ancestors -->
     <update id="batchUpdateAncestors">
         UPDATE bi_object

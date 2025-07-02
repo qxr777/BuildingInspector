@@ -215,4 +215,14 @@ public class BuildingController extends BaseController {
         return "biz/project/selectBuilding";
     }
 
+    /**
+     * 获取当前部件的图片
+     */
+    @RequiresPermissions("biz:building:view")
+    @GetMapping("/currentPhoto")
+    public String list(@RequestParam("rootObjectId") String rootObjectId, ModelMap mmap) {
+        mmap.put("biObjectId", rootObjectId);
+        return prefix + "/currentPhoto";
+    }
+
 }

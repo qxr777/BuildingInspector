@@ -162,4 +162,11 @@ public interface IBiObjectService {
      */
     public int batchInsertBiObjects(List<BiObject> biObjects);
 
+    /**
+     * 查询部件树（至三级节点）
+     *
+     * @param rootObjectId
+     * @return
+     */
+    List<Ztree> selectBiObjectThreeLevelTree(Long rootObjectId);
 }

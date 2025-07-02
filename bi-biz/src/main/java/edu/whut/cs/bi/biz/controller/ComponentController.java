@@ -65,16 +65,6 @@ public class ComponentController extends BaseController {
     }
 
     /**
-     * 查询构件列表
-     */
-    @RequiresPermissions("biz:component:list")
-    @PostMapping("/selectList")
-    @ResponseBody
-    public List<Component> selectList(Component component) {
-        return componentService.selectComponentsByBiObjectIdAndChildren(component.getBiObjectId());
-    }
-
-    /**
      * 导出构件列表
      */
     @RequiresPermissions("biz:component:export")
