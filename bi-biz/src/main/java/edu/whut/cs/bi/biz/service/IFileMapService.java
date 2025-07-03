@@ -1,6 +1,8 @@
 package edu.whut.cs.bi.biz.service;
 
 import java.util.List;
+import java.util.Map;
+
 import edu.whut.cs.bi.biz.domain.FileMap;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -122,4 +124,25 @@ public interface IFileMapService {
      * @return 图片列表
      */
     List<FileMap> selectBiObjectPhotoList(Long biObjectId);
+
+    /**
+     * 判断文件是否为图片
+     *
+     * @param fileName
+     * @return
+     */
+    boolean isImageFile(String fileName);
+
+    /**
+     * 图片列表
+     *
+     */
+    List<Map<String, Object>> getImage(Long id, String name);
+
+    List<Map<String, Object>> getImage(List<Long> ids, String name);
+
+    /**
+     * 处理biObject附件
+     */
+    void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type);
 }

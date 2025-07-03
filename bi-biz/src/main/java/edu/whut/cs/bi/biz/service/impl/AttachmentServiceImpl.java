@@ -68,6 +68,16 @@ public class AttachmentServiceImpl  implements AttachmentService {
     }
 
     @Override
+    public List<Attachment> getAttachmentBySubjectIds(List<Long> subjectIds) {
+        return attachmentMapper.selectBySubjectIds(subjectIds);
+    }
+
+    @Override
+    public List<Attachment> selectAttachmentByMinio(List<Long> minios) {
+        return attachmentMapper.selectAttachmentByMinio(minios);
+    }
+
+    @Override
     public int deleteAttachmentByIds(String ids) {
         // 拿到 文件的 ids
         if(ids == null || ids.length() == 0){

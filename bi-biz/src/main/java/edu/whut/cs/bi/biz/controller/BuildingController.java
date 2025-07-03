@@ -222,7 +222,7 @@ public class BuildingController extends BaseController {
     @GetMapping("/currentPhoto")
     public String list(@RequestParam("rootObjectId") String rootObjectId, ModelMap mmap) {
         mmap.put("biObjectId", rootObjectId);
-        return prefix + "/currentPhoto";
+        return prefix + "/photo/currentPhoto";
     }
 
 }

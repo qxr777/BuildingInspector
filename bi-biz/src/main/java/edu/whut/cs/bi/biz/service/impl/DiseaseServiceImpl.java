@@ -16,7 +16,6 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadContext;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,8 +75,6 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Resource
     private TransactionTemplate transactionTemplate;
-    @Autowired
-    private ComponentMapper componentMapper;
 
     /**
      * 查询病害

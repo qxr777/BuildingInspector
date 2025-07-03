@@ -3,23 +3,23 @@ package edu.whut.cs.bi.biz.controller;
 import java.io.File;
 import java.util.*;
 import java.io.IOException;
+import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 
+import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.domain.Component;
+import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.enums.BusinessType;
@@ -33,6 +33,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 
 import java.net.URLEncoder;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * 文件管理Controller
@@ -50,6 +51,9 @@ public class FileMapController extends BaseController {
 
     @Autowired
     private AttachmentService attachmentService;
+
+    @Resource
+    private AttachmentMapper attachmentMapper;
 
     @Autowired
     private MinioConfig minioConfig;
@@ -475,6 +479,49 @@ public class FileMapController extends BaseController {
         startPage();
         List<FileMap> list = fileMapService.selectBiObjectPhotoList(biObjectId);
         return getDataTable(list);
+    }
+
+    /**
+     * 新增biObject图片
+     */
+    @GetMapping("/addBiObjectPhoto")
+    public String addBiObjectPhoto(Long biObjectId, ModelMap mma) {
+        if (biObjectId != null) {
+            mma.put("biObjectId", biObjectId);
+        }
+        return "biz/building/photo/add";
+    }
+
+    /**
+     * 新增保存biObject图片
+     */
+    @RequiresPermissions("biz:object:add")
+    @Log(title = "biObject图片", businessType = BusinessType.INSERT)
+    @PostMapping("/addBiObjectPhoto")
+    @ResponseBody
+    public AjaxResult addSaveBiObjectPhoto(Long biObjectId, MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return error("传入参数错误，请选择图片");
+        }
+        fileMapService.handleBiObjectAttachment(files, biObjectId, 8);
+
+        return toAjax(true);
+    }
+
+    @PostMapping("/removeBiObjectFile")
+    @ResponseBody
+    @Transactional
+    public AjaxResult removeBiObjectFile(@RequestParam("ids") List<Long> ids) {
+        List<Attachment> attachment = attachmentService.selectAttachmentByMinio(ids);
+        if (attachment == null || attachment.size() == 0) {
+            return error("未找到对应的图片记录");
+        }
+        String[] attachmentIdsString = attachment.stream().map(e -> e.getMinioId().toString()).toArray(String[]::new);
+        attachmentMapper.deleteByIds(attachmentIdsString);
+
+        fileMapService.deleteFileMapByIds(ids.stream().map(e -> e.toString()).collect(Collectors.joining(",")));
+
+        return toAjax(true);
     }
 
 }

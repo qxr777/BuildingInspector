@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Attachment;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
@@ -28,4 +29,8 @@ public interface AttachmentMapper{
             @Result(property = "minioId", column = "minio_id"),
     })
     public List<Attachment> selectBySubjectListById(Long id);
+
+    List<Attachment> selectBySubjectIds(@Param("subjectIds") List<Long> subjectIds);
+
+    List<Attachment> selectAttachmentByMinio(@Param("minios") List<Long> minios);
 }

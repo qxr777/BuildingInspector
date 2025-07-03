@@ -20,4 +20,7 @@ public interface AttachmentService  {
 
     List<Attachment> getAttachmentList(Long id);
 
+    List<Attachment> getAttachmentBySubjectIds(List<Long> subjectIds);
+
+    List<Attachment> selectAttachmentByMinio(List<Long> minios);
 }

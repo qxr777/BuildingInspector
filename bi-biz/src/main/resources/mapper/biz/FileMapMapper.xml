@@ -74,9 +74,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         delete from bi_file_map where id = #{id}
     </delete>
 
-    <delete id="deleteFileMapByIds" parameterType="String">
-        delete from bi_file_map where id in 
-        <foreach item="id" collection="array" open="(" separator="," close=")">
+    <delete id="deleteFileMapByIds" parameterType="java.util.List">
+        delete from bi_file_map where id in
+        <foreach item="id" collection="list" open="(" separator="," close=")">
             #{id}
         </foreach>
     </delete>
