@@ -746,4 +746,12 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
+    @PostMapping("/upload/diseaseZip")
+    @ResponseBody
+    @Transactional
+    public AjaxResult uploadDiseaseZip(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
+        diseaseService.readDiseaseZip(file, projectId);
+
+        return AjaxResult.success("上传成功");
+    }
 }

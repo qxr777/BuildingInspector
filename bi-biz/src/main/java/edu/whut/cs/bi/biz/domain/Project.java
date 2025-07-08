@@ -36,9 +36,9 @@ public class Project extends BaseEntity {
      * 删除标志（0代表存在 2代表删除）
      */
     private String delFlag;
-    // 项目所属部门，表示该项目由哪个部门负责管理
+    // 项目委托单位
     private SysDept ownerDept;
-    // 项目所属部门id
+    // 项目委托单位id
     private Long ownerDeptId;
     // 项目编号，用于唯一标识该项目
     private String code;

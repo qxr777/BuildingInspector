@@ -2,6 +2,8 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
@@ -9,6 +11,7 @@ import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
+import edu.whut.cs.bi.biz.domain.temp.DiseaseReport;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
@@ -25,14 +28,20 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.Resource;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 
 /**
@@ -75,6 +84,12 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Resource
     private TransactionTemplate transactionTemplate;
+
+    @Resource
+    private ITaskService taskService;
+
+    @Resource
+    private IProjectService projectService;
 
     /**
      * 查询病害
@@ -829,16 +844,117 @@ public class DiseaseServiceImpl implements IDiseaseService
                 component.setName("实心板");
                 break;
             default:
-                if (location.matches(regex)) {
-                    String[] split = location.split("#");
-                    component.setName(location);
-                    component.setCode(split[0]);
-                    return component;
-                }
-                component.setName("其他");
-                break;
+
         }
 
         return component;
     }
+
+    @Override
+    public Boolean readDiseaseZip(MultipartFile file, Long projectId) {
+        Path tempDir = null;
+        try {
+            tempDir = extractToTempDirectory(file);
+
+            String zipName = file.getOriginalFilename().split("\\.")[0];
+            Path jsonPath = tempDir.resolve(zipName).resolve("result.json");
+
+//            String path = tempDir.toString() + "\\" + file.getOriginalFilename().split("\\.")[0];
+
+            if (!Files.exists(jsonPath)) {
+                log.error("result.json文件不存在于: " + jsonPath);
+                return false;
+            }
+
+            String jsonContent = Files.readString(jsonPath);
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            DiseaseReport diseaseReport = objectMapper.readValue(jsonContent, DiseaseReport.class);
+
+            // 新建项目
+            Project project = new Project();
+            project.setName(diseaseReport.getProjectName());
+            project.setYear(2024);
+            projectService.insertProject(project);
+
+            // 新建桥梁
+//            List<DiseaseReport.Building> buildings = diseaseReport.getBuilding();
+//            buildings.stream().map(building -> {
+//                Building bd = new Building();
+//                bd.setName(building.getBuildingName());
+//                bd.setIsLeaf("1");
+//                bd.setStatus("0");
+//
+//            })
+
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (tempDir != null) {
+                Path finalTempDir = tempDir;
+                transactionTemplate.execute(status -> {
+                    try {
+                        deleteDirectory(finalTempDir);
+                    } catch (IOException e) {
+                        log.error("清理临时目录时出错: " + e.getMessage());
+                    }
+
+                    return true;
+                });
+
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 从Zip文件中提取文件
+     */
+    public Path extractToTempDirectory(MultipartFile multipartFile) throws IOException {
+        // 创建临时目录
+        Path tempDir = Files.createTempDirectory("zip-extract-");
+
+        try (InputStream inputStream = multipartFile.getInputStream();
+             ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
+
+            ZipEntry entry;
+            while ((entry = zipInputStream.getNextEntry()) != null) {
+                Path filePath = tempDir.resolve(entry.getName());
+
+                // 安全检查
+                if (!filePath.normalize().startsWith(tempDir)) {
+                    throw new IOException("恶意ZIP条目: " + entry.getName());
+                }
+
+                if (entry.isDirectory()) {
+                    Files.createDirectories(filePath);
+                } else {
+                    Files.createDirectories(filePath.getParent());
+                    Files.copy(zipInputStream, filePath);
+                }
+                zipInputStream.closeEntry();
+            }
+        }
+
+        return tempDir;
+    }
+
+    /**
+     * 递归删除目录
+     */
+    private void deleteDirectory(Path path) throws IOException {
+        if (Files.exists(path)) {
+            Files.walk(path)
+                    .sorted(Comparator.reverseOrder())
+                    .forEach(p -> {
+                        try {
+                            Files.delete(p);
+                        } catch (IOException e) {
+                            System.err.println("无法删除文件: " + p);
+                        }
+                    });
+        }
+    }
+
 }

@@ -37,6 +37,7 @@
         <result property="deformationRangeEnd" column="deformation_range_end"/>
         <result property="angleRangeStart" column="angle_range_start"/>
         <result property="angleRangeEnd" column="angle_range_end"/>
+        <result property="other" column="other"/>
     </resultMap>
 
     <sql id="selectDiseaseDetailVo">
@@ -71,7 +72,8 @@
                deformation_range_start,
                deformation_range_end,
                angle_range_start,
-               angle_range_end
+               angle_range_end,
+               other
         from bi_disease_detail
     </sql>
 
@@ -159,6 +161,7 @@
             <if test="deformationRangeEnd != null">deformation_range_end = #{deformationRangeEnd},</if>
             <if test="angleRangeStart != null">angle_range_start = #{angleRangeStart},</if>
             <if test="angleRangeEnd != null">angle_range_end = #{angleRangeEnd},</if>
+            <if test="other != null and other != ''">other = #{other},</if>
         </set>
         where id = #{id}
     </update>
@@ -197,6 +200,7 @@
             <if test="deformationRangeEnd != null">deformation_range_end,</if>
             <if test="angleRangeStart != null">angle_range_start,</if>
             <if test="angleRangeEnd != null">angle_range_end,</if>
+            <if test="other != null and other != ''">other,</if>
         </trim>
         values
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -231,6 +235,7 @@
             <if test="deformationRangeEnd != null">#{deformationRangeEnd},</if>
             <if test="angleRangeStart != null">#{angleRangeStart},</if>
             <if test="angleRangeEnd != null">#{angleRangeEnd},</if>
+            <if test="other != null and other != ''">#{other},</if>
         </trim>
     </insert>
 
@@ -268,7 +273,8 @@
         deformation_range_start,
         deformation_range_end,
         angle_range_start,
-        angle_range_end
+        angle_range_end,
+        other
         )
         VALUES
         <foreach collection="diseaseDetails" item="detail" separator=",">
@@ -303,7 +309,8 @@
             #{detail.deformationRangeStart},
             #{detail.deformationRangeEnd},
             #{detail.angleRangeStart},
-            #{detail.angleRangeEnd}
+            #{detail.angleRangeEnd},
+            #{detail.other}
             )
         </foreach>
     </insert>

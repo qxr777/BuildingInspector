@@ -115,4 +115,11 @@ public interface IDiseaseService {
      * @param file
      */
     void readDiseaseExcel(MultipartFile file, Long projectId);
+
+    /**
+     * 批量导入病害信息
+     *
+     * @param file
+     */
+    Boolean readDiseaseZip(MultipartFile file, Long projectId);
 }

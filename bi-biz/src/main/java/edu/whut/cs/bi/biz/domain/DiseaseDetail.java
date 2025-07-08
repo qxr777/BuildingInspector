@@ -107,4 +107,7 @@ public class DiseaseDetail extends BaseEntity {
 
     // 角度范围终点
     private BigDecimal angleRangeEnd;
+
+    // 其他
+    private String other;
 }
