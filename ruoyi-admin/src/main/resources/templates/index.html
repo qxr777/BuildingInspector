@@ -195,18 +195,18 @@
 		.sent {
 			font-size: 16px;
 			background-color: #f5f5f5;
-			text-align: right;
+			text-align: left;
 			margin-left: auto;
-			max-width: 25%;
+			max-width: 35%;
 			border-bottom-right-radius: 5px;
 		}
 
 		.received {
 			font-size: 15px;
-			background-color: #e6f2ff;
+			/*background-color: #e6f2ff;*/
 			text-align: left;
 			margin-right: auto;
-			max-width: 50%;
+			max-width: 60%;
 			border-bottom-left-radius: 5px;
 		}
 
@@ -246,6 +246,13 @@
 
 		.message-container{
 			margin-bottom: 20px;
+		}
+		.message-note {
+			font-size: 12px;
+			color: #999;
+			margin-top: 5px;
+			font-style: italic;
+			text-align: center; /* 新增：让文本居中 */
 		}
 
 		/* 适配移动设备 */
@@ -660,7 +667,7 @@ $(function() {
 // 聊天机器人 js
 const RagUrl = 'http://47.94.205.90:8081';  // springai 项目地址
 const BootUrl = 'http://60.205.13.156:8090';    // 主项目地址
-
+// const BootUrl = 'http://localhost:80' // 本地测试
 
 
 
@@ -742,7 +749,7 @@ function addMessage(content, type) {
 function addMessageWithReference(content, reference, type) {
 	const chatMessages = document.getElementById('chatMessages');
 	const messageDiv = document.createElement('div');
-	messageDiv.className = `message-container`;
+	messageDiv.className = `message-container received`;
 
 	// 消息内容
 	const contentDiv = document.createElement('div');
@@ -754,8 +761,13 @@ function addMessageWithReference(content, reference, type) {
 	referenceDiv.className = 'message-reference';
 	referenceDiv.innerHTML = reference;
 
+	const noteDiv = document.createElement('div');
+	noteDiv.className = 'message-note';
+	noteDiv.textContent = '注：内容由AI生成，仅供参考';
+
 	messageDiv.appendChild(contentDiv);
 	messageDiv.appendChild(referenceDiv);
+	messageDiv.appendChild(noteDiv);
 	chatMessages.appendChild(messageDiv);
 
 	// 滚动到底部

@@ -8,6 +8,13 @@
     <div class="row">
 
         <div class="btn-group-sm" id="toolbar" role="group">
+            <div class="select-list" style="display: inline-block; margin-right: 10px;">
+                <label >桥梁模版：</label>
+                <select id="templateRootSelect" class="form-control" style="width: 200px; display: inline-block;">
+                    <option value="">请选择模版桥梁</option>
+                    <option th:each="root : ${rootList}" th:value="${root.id}" th:text="${root.name}"></option>
+                </select>
+            </div>
             <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:template_object:add">
                 <i class="fa fa-plus"></i> 新增
             </a>
@@ -30,14 +37,62 @@
     var removeFlag = [[${@permission.hasPermi('biz:template_object:remove')}]];
     var statusDatas = [[${@dict.getType('bi_template_object_status')}]];
     var prefix = ctx + "biz/template_object";
+    var treeTable;
+    var rootList = [[${rootList}]];
 
     $(function() {
+        // 如果有根模版对象，默认选择第一个
+        if (rootList && rootList.length > 0) {
+            $("#templateRootSelect").val(rootList[0].id);
+        }
+
+        // 初始化树表格
+        loadTreeTable();
+
+        // 监听下拉框变化事件
+        $("#templateRootSelect").change(function() {
+            loadTreeTable();
+        });
+    });
+
+    // 加载树表格
+    function loadTreeTable() {
+        var rootId = $("#templateRootSelect").val();
+        if (!rootId) {
+            return;
+        }
+
+        // 获取选中的根节点对象
+        var selectedRoot = null;
+        for (var i = 0; i < rootList.length; i++) {
+            if (rootList[i].id == rootId) {
+                selectedRoot = rootList[i];
+                break;
+            }
+        }
+
+        if (!selectedRoot) {
+            return;
+        }
+
         var options = {
             code: "id",
             parentCode: "parentId",
             expandColumn: "1",
             uniqueId: "id",
+            showSearch: false,
+            showRefresh: false,
+            showColumns: false,
             url: prefix + "/list",
+            ajaxParams: {
+                id: selectedRoot.id,
+                parentId: selectedRoot.parentId,
+                name: selectedRoot.name,
+                orderNum: selectedRoot.orderNum,
+                weight: selectedRoot.weight,
+                status: selectedRoot.status,
+                ancestors: selectedRoot.ancestors
+            },
             createUrl: prefix + "/add/{id}",
             updateUrl: prefix + "/edit/{id}",
             removeUrl: prefix + "/remove/{id}",
@@ -101,8 +156,9 @@
                     }
                 }]
         };
-        $.treeTable.init(options);
-    });
+        // 初始化树表格
+        treeTable = $.treeTable.init(options);
+    }
 
     /* 选择病害类型 */
     function selectDiseaseType(templateObjectId) {

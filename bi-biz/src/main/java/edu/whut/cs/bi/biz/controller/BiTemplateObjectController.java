@@ -9,11 +9,7 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.enums.BusinessType;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
@@ -40,7 +36,11 @@ public class BiTemplateObjectController extends BaseController {
 
     @RequiresPermissions("biz:template_object:view")
     @GetMapping()
-    public String template_object() {
+    public String template_object(ModelMap mmap) {
+        BiTemplateObject query = new BiTemplateObject();
+        query.setParentId(0L);
+        List<BiTemplateObject> rootList = biTemplateObjectService.selectBiTemplateObjectList(query);
+        mmap.put("rootList", rootList);
         return prefix + "/template_object";
     }
 
@@ -51,7 +51,15 @@ public class BiTemplateObjectController extends BaseController {
     @PostMapping("/list")
     @ResponseBody
     public List<BiTemplateObject> list(BiTemplateObject biTemplateObject) {
-        List<BiTemplateObject> list = biTemplateObjectService.selectBiTemplateObjectList(biTemplateObject);
+        List<BiTemplateObject> list;
+        if (biTemplateObject != null && biTemplateObject.getId() != null) {
+            // 如果指定了parentId，则返回该节点及其所有子节点
+            list = biTemplateObjectService.selectChildrenById(biTemplateObject.getId());
+            list.add(0,biTemplateObject);
+        } else {
+            // 否则返回所有节点
+            list = biTemplateObjectService.selectBiTemplateObjectList(biTemplateObject);
+        }
         return list;
     }
 
