@@ -29,8 +29,8 @@ public class DiseaseReport {
         private String position;
         private String diseaseType;
         private String description;
-        private Integer level;
-        private Integer quantity;
+        private String level;
+        private String quantity;
         private String developmentTrend;
         private String image;
     }

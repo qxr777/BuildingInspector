@@ -1030,12 +1030,15 @@ public class DiseaseServiceImpl implements IDiseaseService
                 String biObject_4 = disease.getBiObject4();
                 String position = disease.getPosition();
                 String diseaseType = disease.getDiseaseType();
-                Integer diseaseNumber = disease.getQuantity();
+                Integer diseaseNumber = 1;
+                if (disease.getQuantity() != null && !disease.getQuantity().equals("/") && !disease.getQuantity().equals(""))
+                    diseaseNumber = Integer.valueOf(disease.getQuantity());
                 String description = disease.getDescription();
                 String developmentTrend = disease.getDevelopmentTrend();
                 String image = disease.getImage();
-                Integer defectLevel = disease.getLevel();
-
+                Integer defectLevel = 1;
+                if (disease.getLevel() != null && !disease.getLevel().equals("/") && !disease.getLevel().equals(""))
+                    defectLevel = Integer.valueOf(disease.getLevel());
 
                 Building building = buildingMap.get(buildingName);
 
@@ -1057,7 +1060,6 @@ public class DiseaseServiceImpl implements IDiseaseService
                             .findFirst()
                             .orElse(null);
                 }
-
 
                 BiObject finalBiObject3 = biObject3;
                 BiObject biObject4 = null;
