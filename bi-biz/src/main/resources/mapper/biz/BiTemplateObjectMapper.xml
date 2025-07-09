@@ -74,7 +74,7 @@
 
     <select id="selectChildrenById" parameterType="Long" resultMap="BiTemplateObjectResult">
         select * from bi_template_object
-        where find_in_set(#{id}, ancestors) and del_flag = '0'
+        where find_in_set(#{id}, ancestors) and del_flag = '0' order by parent_id, order_num
     </select>
 
     <select id="selectParentById" parameterType="Long" resultMap="BiTemplateObjectResult">

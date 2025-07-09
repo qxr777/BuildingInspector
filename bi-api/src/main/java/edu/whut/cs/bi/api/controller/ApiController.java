@@ -260,7 +260,7 @@ public class ApiController {
     public AjaxResult batchSaveDiseases(@RequestBody List<Disease> diseases) {
         try {
             if (diseases == null || diseases.isEmpty()) {
-                return AjaxResult.error("参数错误：病害列表为空");
+                return AjaxResult.success("批量保存病害成功");
             }
             int successCount = 0;
             //记录已经插入了的构件
