@@ -8,6 +8,7 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
@@ -19,7 +20,9 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -28,9 +31,7 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.Resource;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -90,6 +91,18 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     @Resource
     private IProjectService projectService;
+
+    @Autowired
+    private ComponentMapper componentMapper;
+
+    @Resource
+    private IBuildingService buildingService;
+
+    @Resource
+    private ProjectMapper projectMapper;
+
+    @Autowired
+    private TaskMapper taskMapper;
 
     /**
      * 查询病害
@@ -688,8 +701,6 @@ public class DiseaseServiceImpl implements IDiseaseService
                                     .orElse(null);
                         }
 
-
-
                         List<Component> oldComponents = newComponentMap.get(com.getName());
 
                         BiObject finalBiObject = biObject4;
@@ -844,26 +855,59 @@ public class DiseaseServiceImpl implements IDiseaseService
                 component.setName("实心板");
                 break;
             default:
-
+                if (location.matches(regex)) {
+                    String[] split = location.split("#");
+                    component.setName(location);
+                    component.setCode(split[0]);
+                    return component;
+                }
         }
 
         return component;
     }
 
+    private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
+
+    static {
+        BRIDGE_TYPE_MAP.put("梁桥", 1L);
+        BRIDGE_TYPE_MAP.put("箱形拱桥", 3L);
+        BRIDGE_TYPE_MAP.put("双曲拱桥", 4L);
+        BRIDGE_TYPE_MAP.put("板拱桥", 5L);
+        BRIDGE_TYPE_MAP.put("刚架拱桥", 6L);
+        BRIDGE_TYPE_MAP.put("桁架拱桥", 7L);
+        BRIDGE_TYPE_MAP.put("钢-混凝土组合拱桥", 8L);
+        BRIDGE_TYPE_MAP.put("预应力混凝土悬索桥", 9L);
+        BRIDGE_TYPE_MAP.put("预应力混凝土斜拉桥", 10L);
+        BRIDGE_TYPE_MAP.put("钢箱梁斜拉桥", 11L);
+        BRIDGE_TYPE_MAP.put("肋拱桥", 12L);
+        BRIDGE_TYPE_MAP.put("钢箱梁悬索桥", 13L);
+        BRIDGE_TYPE_MAP.put("钢桁梁悬索桥", 14L);
+        BRIDGE_TYPE_MAP.put("叠合梁悬索桥", 15L);
+        BRIDGE_TYPE_MAP.put("钢桁梁斜拉桥", 16L);
+        BRIDGE_TYPE_MAP.put("叠合梁斜拉桥", 17L);
+    }
+
+
     @Override
-    public Boolean readDiseaseZip(MultipartFile file, Long projectId) {
+    public Boolean readDiseaseZip(MultipartFile file) {
+        List<Component> components = componentService.selectComponentList(new Component());
+        Map<String, List<Component>> componentMap = components.stream()
+                .collect(Collectors.groupingBy(Component::getName));
+
         Path tempDir = null;
+
         try {
             tempDir = extractToTempDirectory(file);
 
-            String zipName = file.getOriginalFilename().split("\\.")[0];
+            String originalFilename = file.getOriginalFilename();
+            String zipName = originalFilename.substring(0, originalFilename.lastIndexOf("."));
             Path jsonPath = tempDir.resolve(zipName).resolve("result.json");
 
 //            String path = tempDir.toString() + "\\" + file.getOriginalFilename().split("\\.")[0];
 
             if (!Files.exists(jsonPath)) {
                 log.error("result.json文件不存在于: " + jsonPath);
-                return false;
+                throw new RuntimeException("result.json文件不存在");
             }
 
             String jsonContent = Files.readString(jsonPath);
@@ -871,21 +915,74 @@ public class DiseaseServiceImpl implements IDiseaseService
             ObjectMapper objectMapper = new ObjectMapper();
             DiseaseReport diseaseReport = objectMapper.readValue(jsonContent, DiseaseReport.class);
 
-            // 新建项目
+            // 项目
             Project project = new Project();
             project.setName(diseaseReport.getProjectName());
-            project.setYear(2024);
-            projectService.insertProject(project);
+            project.setYear(diseaseReport.getReportYear());
 
-            // 新建桥梁
-//            List<DiseaseReport.Building> buildings = diseaseReport.getBuilding();
-//            buildings.stream().map(building -> {
-//                Building bd = new Building();
-//                bd.setName(building.getBuildingName());
-//                bd.setIsLeaf("1");
-//                bd.setStatus("0");
-//
-//            })
+            List<Project> projects = projectMapper.selectProjectList(project,null, null);
+            if (CollUtil.isEmpty(projects)) {
+                // 新建项目
+                project.setDeptId(101L);
+                projectService.insertProject(project);
+            } else {
+                project = projects.get(0);
+            }
+
+            // 桥梁
+            List<DiseaseReport.Building> buildings = diseaseReport.getBuilding();
+
+            List<Building> buildingList = buildings.stream().map(building -> {
+                Building bd = new Building();
+                bd.setName(building.getBuildingName());
+                if (building.getLineCode() != null)
+                    bd.setLine(building.getLineCode());
+                else
+                    bd.setLine("S88");
+                if (building.getZipCode() != null)
+                    bd.setArea(building.getZipCode());
+                else
+                    bd.setArea("420581");
+
+                List<Building> selectBuildings = buildingMapper.selectBuildingList(bd);
+                if (CollUtil.isEmpty(selectBuildings)) {
+                    bd.setIsLeaf("1");
+                    bd.setStatus("0");
+
+                    Long templateId = BRIDGE_TYPE_MAP.get(building.getBridgeType());
+                    if (templateId == null) {
+                        log.error("无法识别的桥梁类型: " + building.getBridgeType());
+                        throw new RuntimeException("无法识别的桥梁类型");
+                    }
+                    bd.setTemplateId(templateId);
+                    buildingService.insertBuilding(bd);
+                } else {
+                    bd = selectBuildings.get(0);
+                }
+
+                return bd;
+            }).toList();
+            Map<String, Building> buildingMap = buildingList.stream().collect(Collectors.toMap(Building::getName, Function.identity()));
+
+            Set<Long> rootObjectIds = buildingList.stream().map(building -> building.getRootObjectId()).collect(Collectors.toSet());
+            List<BiObject> biObjects = biObjectMapper.selectBiObjects(rootObjectIds);
+            Map<Long, BiObject> biObjectMap = biObjects.stream().collect(Collectors.toMap(BiObject::getId, Function.identity()));
+
+            // 项目绑定桥梁
+            Task task = new Task();
+            task.setProjectId(project.getId());
+            List<Task> tasks = taskMapper.selectTaskList(task, null);
+            List<Building> filterBuildings = buildingList.stream()
+                    .filter(building -> !tasks.stream().anyMatch(t -> t.getBuildingId().equals(building.getId())))
+                    .toList();
+
+            taskService.batchInsertTasks(project.getId(), filterBuildings.stream().map(Building::getId).toList());
+
+            for (DiseaseReport.Building building : buildings) {
+                addComponent(building, buildingMap, biObjectMap, componentMap);
+
+                addDiseases(building, buildingMap, biObjectMap, project, tempDir.resolve(zipName));
+            }
 
 
         } catch (IOException e) {
@@ -907,6 +1004,294 @@ public class DiseaseServiceImpl implements IDiseaseService
         }
         return true;
     }
+
+    private void addDiseases(DiseaseReport.Building DRbuilding, Map<String, Building> buildingMap,
+                             Map<Long, BiObject> biObjectMap, Project project, Path path) {
+
+        List<Component> components = componentService.selectComponentList(new Component());
+        Map<String, List<Component>> componentMap = components.stream()
+                .collect(Collectors.groupingBy(Component::getName));
+        String buildingName = DRbuilding.getBuildingName();
+        Set<Disease> diseaseSet = new ConcurrentHashSet<>();
+
+        // 病害类型”其他“，当病害类型都不存在时，默认为其他
+        DiseaseType otherDiseaseType = diseaseTypeMapper.selectDiseaseTypeByCode("0.0.0.0-0");
+
+        // 新增病害
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        Subject subject = ThreadContext.getSubject();
+        // 跳过表头行（前3行）
+        for (DiseaseReport.Disease disease : DRbuilding.getDisease()) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                // 解决多线程无上下文信息
+                ThreadContext.bind(subject);
+
+                String biObject_2 = disease.getBiObject2();
+                String biObject_3 = disease.getBiObject3();
+                String biObject_4 = disease.getBiObject4();
+                String position = disease.getPosition();
+                String diseaseType = disease.getDiseaseType();
+                Integer diseaseNumber = disease.getQuantity();
+                String description = disease.getDescription();
+                String developmentTrend = disease.getDevelopmentTrend();
+                String image = disease.getImage();
+                Integer defectLevel = disease.getLevel();
+
+
+                Building building = buildingMap.get(buildingName);
+
+                BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
+                List<BiObject> children = rootBiObject.getChildren();
+                BiObject biObject2 = children.stream()
+                        .filter(child -> rootBiObject.getId().equals(child.getParentId()) && biObject_2.equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+
+                BiObject biObject3 = children.stream()
+                        .filter(child -> biObject2.getId().equals(child.getParentId()) && biObject_3.equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+                if (biObject3 ==  null) {
+                    log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
+                    biObject3 = children.stream()
+                            .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                            .findFirst()
+                            .orElse(null);
+                }
+
+
+                BiObject finalBiObject3 = biObject3;
+                BiObject biObject4 = null;
+                if (biObject3.getName().equals("其他")) {
+                    biObject4 = children.stream()
+                            .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                            .findFirst()
+                            .orElse(null);
+                } else {
+                    biObject4 = children.stream()
+                            .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && biObject_4.equals(child.getName()))
+                            .findFirst()
+                            .orElse(null);
+                    if (biObject4 == null) {
+                        biObject4 = children.stream()
+                                .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                                .findFirst()
+                                .orElse(null);
+                    }
+                }
+
+                List<Component> oldComponents = componentMap.get(position);
+
+                BiObject finalBiObject = biObject4;
+                Component component = oldComponents.stream()
+                        .filter(oldComponent -> oldComponent.getBiObjectId().equals(finalBiObject.getId())).findFirst().orElse(null);
+
+                // 新增病害
+                Disease newDisease = new Disease();
+                newDisease.setPosition(position);
+
+                // 病害类型
+                List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject4.getId());
+
+                DiseaseType queryDiseaseType = null;
+                if (biObject3.getName().equals("其他")) {
+                    queryDiseaseType = diseaseTypes.stream().filter(dt -> dt.getName().equals("其他")).findFirst().orElse(null);
+                } else {
+                    queryDiseaseType = diseaseTypes.stream().filter(dt -> dt.getName().equals(diseaseType)).findFirst().orElse(null);
+                }
+
+                if (queryDiseaseType == null) {
+                    queryDiseaseType = otherDiseaseType;
+                }
+
+                newDisease.setType(diseaseType);
+                newDisease.setDiseaseTypeId(queryDiseaseType.getId());
+
+                newDisease.setComponentId(component.getId());
+                newDisease.setBuildingId(building.getId());
+                newDisease.setProjectId(project.getId());
+                newDisease.setBiObjectName(biObject_4);
+                newDisease.setBiObjectId(biObject4.getId());
+                if (defectLevel != null)
+                    newDisease.setLevel(defectLevel);
+                else
+                    newDisease.setLevel(1);
+                if (diseaseNumber != null)
+                    newDisease.setQuantity(diseaseNumber);
+                else
+                    newDisease.setQuantity(1);
+                newDisease.setDescription(description);
+                newDisease.setDevelopmentTrend(developmentTrend);
+                newDisease.setImages(List.of(image));
+                diseaseSet.add(newDisease);
+            });
+            futures.add(future);
+        }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        if (!diseaseSet.isEmpty()) {
+            transactionTemplate.execute(status -> {
+                diseaseMapper.batchInsertDiseases(diseaseSet);
+
+                for (Disease disease : diseaseSet) {
+                    List<String> images = disease.getImages();
+
+                    if (images != null && StringUtils.isNotEmpty(images.get(0))) {
+                        MultipartFile file = convert(path, images.get(0));
+                        handleDiseaseAttachment(new MultipartFile[]{file}, disease.getId(), 1);
+                    }
+                }
+
+
+                return true;
+            });
+
+        }
+    }
+
+    public MultipartFile convert(Path path, String imageName) {
+        // 构建完整的文件路径
+        File imageFile = path.resolve(imageName).toFile();
+
+        // 检查文件是否存在
+        if (!imageFile.exists()) {
+            try {
+                throw new IOException("文件不存在: " + imageFile.getAbsolutePath());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        // 读取文件内容到字节数组
+
+        byte[] bytes = null;
+        try {
+            FileInputStream inputStream = new FileInputStream(imageFile);
+            bytes = inputStream.readAllBytes();
+            inputStream.close();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        // 获取文件扩展名
+        String originalFilename = imageFile.getName();
+        String contentType = determineContentType(originalFilename);
+
+        // 创建 MultipartFile 实例
+        return new MockMultipartFile(
+                "file", // 表单字段名
+                originalFilename, // 原始文件名
+                contentType, // 内容类型
+                bytes // 文件内容
+        );
+    }
+
+    private static String determineContentType(String filename) {
+        if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
+            return "image/jpeg";
+        } else if (filename.toLowerCase().endsWith(".png")) {
+            return "image/png";
+        } else if (filename.toLowerCase().endsWith(".gif")) {
+            return "image/gif";
+        } else if (filename.toLowerCase().endsWith(".bmp")) {
+            return "image/bmp";
+        } else {
+            return "application/octet-stream"; // 默认类型
+        }
+    }
+
+    private void addComponent(DiseaseReport.Building building, Map<String, Building> buildingMap, Map<Long, BiObject> biObjectMap, Map<String, List<Component>> componentMap) {
+        Set<Component> componentSet = new HashSet<>();
+        List<DiseaseReport.Disease> diseases = building.getDisease();
+        String buildingName = building.getBuildingName();
+        Building bd = buildingMap.get(buildingName);
+        BiObject rootBiObject = biObjectMap.get(bd.getRootObjectId());
+        List<BiObject> children = rootBiObject.getChildren();
+
+        for(DiseaseReport.Disease disease : diseases) {
+            String biObject_2 = disease.getBiObject2();
+            String biObject_3 = disease.getBiObject3();
+            String biObject_4 = disease.getBiObject4();
+            String position = disease.getPosition();
+
+            BiObject biObject2 = children.stream()
+                    .filter(child -> rootBiObject.getId().equals(child.getParentId()) && biObject_2.equals(child.getName()))
+                    .findFirst()
+                    .orElse(null);
+            if (biObject2 == null) {
+                log.info("未找到对应的子对象, parentId:{}, name:{}", rootBiObject.getId(), biObject_2);
+                return;
+            }
+
+            BiObject biObject3 = children.stream()
+                    .filter(child -> biObject2.getId().equals(child.getParentId()) && biObject_3.equals(child.getName()))
+                    .findFirst()
+                    .orElse(null);
+            if (biObject3 == null) {
+                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
+                biObject3 = children.stream()
+                        .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            BiObject finalBiObject3 = biObject3;
+            BiObject biObject4 = null;
+            if (biObject3.getName().equals("其他")) {
+                biObject4 = children.stream()
+                        .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+            } else {
+                biObject4 = children.stream()
+                        .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && biObject_4.equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (biObject4 == null) {
+                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObject_4);
+                biObject4 = children.stream()
+                        .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            Component component = new Component();
+            if (position.matches(regex)) {
+                String[] split = position.split("#");
+                component.setName(position);
+                component.setCode(split[0]);
+            } else {
+                component.setName(position);
+                component.setCode("null");
+            }
+
+            List<Component> oldComponents = componentMap.get(component.getName());
+            if (oldComponents != null && oldComponents.size() > 0) {
+                Set<String> oldComponentRootObjectIds = oldComponents.stream()
+                        .map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1])
+                        .collect(Collectors.toSet());
+
+                if (oldComponentRootObjectIds.contains(rootBiObject.getId())) {
+                    continue;
+                }
+
+            }
+            component.setBiObjectId(biObject4.getId());
+            component.setCreateBy(ShiroUtils.getLoginName());
+            component.setStatus("0");
+            componentSet.add(component);
+        };
+
+        // 持久化
+//        for (Component component : componentSet) {
+//            componentService.insertComponent(component);
+//        }
+        componentMapper.batchAddComponents(componentSet);
+    }
+
 
     /**
      * 从Zip文件中提取文件

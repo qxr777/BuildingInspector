@@ -121,5 +121,5 @@ public interface IDiseaseService {
      *
      * @param file
      */
-    Boolean readDiseaseZip(MultipartFile file, Long projectId);
+    Boolean readDiseaseZip(MultipartFile file);
 }

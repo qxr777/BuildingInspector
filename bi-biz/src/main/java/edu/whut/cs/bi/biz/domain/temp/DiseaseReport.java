@@ -1,6 +1,5 @@
 package edu.whut.cs.bi.biz.domain.temp;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.util.List;
@@ -9,17 +8,21 @@ import java.util.List;
 public class DiseaseReport {
     private String projectName;
 
+    private int reportYear;
+
     private List<Building> building;
 
     @Data
     public static class Building {
         private String buildingName;
+        private String bridgeType;
+        private String zipCode;
+        private String lineCode;
         private List<Disease> disease;
     }
 
     @Data
     public static class Disease {
-        private String buildingName;
         private String biObject2;
         private String biObject3;
         private String biObject4;
