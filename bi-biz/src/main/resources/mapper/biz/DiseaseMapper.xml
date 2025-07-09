@@ -263,4 +263,16 @@
             #{id}
         </foreach>
     </delete>
+
+    <select id="selectDiseaseListByLocalIds" parameterType="Disease" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        <where>
+            <if test="params.localIds != null and params.localIds.size() > 0">
+                d.local_id in
+                <foreach item="localId" collection="params.localIds" open="(" separator="," close=")">
+                    #{localId}
+                </foreach>
+            </if>
+        </where>
+    </select>
 </mapper>

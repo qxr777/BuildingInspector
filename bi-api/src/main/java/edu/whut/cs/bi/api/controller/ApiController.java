@@ -250,100 +250,6 @@ public class ApiController {
     }
 
     /**
-     * 批量保存病害信息
-     * 根据构件名称自动关联构件ID
-     */
-    @PostMapping("/disease/batchSave")
-    @RequiresPermissions("biz:disease:add")
-    @ResponseBody
-    @Transactional
-    public AjaxResult batchSaveDiseases(@RequestBody List<Disease> diseases) {
-        try {
-            if (diseases == null || diseases.isEmpty()) {
-                return AjaxResult.success("批量保存病害成功");
-            }
-            int successCount = 0;
-            //记录已经插入了的构件
-            HashMap<String, Long> map = new HashMap<>(16);
-            List<Component> components = componentService.selectComponentList(new Component());
-            //记录已经插入的病害
-            List<Disease> diseaseList = diseaseMapper.selectDiseaseList(new Disease());
-            for (Component component : components) {
-                BiObject biObject = component.getBiObject();
-                String root = "";
-                if (biObject != null && StringUtils.isNotEmpty(biObject.getAncestors())) {
-                    String[] split = biObject.getAncestors().split(",");
-                    root = split[1];
-                }
-                map.put(component.getName() + root, component.getId());
-            }
-            HashMap<Long, Disease> localIdMap = new HashMap<>(16);
-            for (Disease disease : diseaseList) {
-                localIdMap.put(disease.getLocalId(), disease);
-            }
-            StringJoiner joiner = new StringJoiner(",");
-            // 删除对应的病害文件 类型为1或者2都先删除
-            for (Disease disease : diseases) {
-                int type = disease.getCommitType();
-                boolean isTypeValid = (type == 1 || type == 2);
-                if (isTypeValid && localIdMap.containsKey(disease.getLocalId())) {
-                    Disease oldDisease = localIdMap.get(disease.getLocalId());
-                    joiner.add(String.valueOf(oldDisease.getId()));
-                    StringJoiner attachmentJoiner = new StringJoiner(",");
-
-                    List<Attachment> attachmentBySubjectId = attachmentService.getAttachmentBySubjectId(oldDisease.getId()).stream().filter(e -> e.getName().startsWith("disease")).toList();
-                    for (Attachment attachment : attachmentBySubjectId) {
-                        attachmentJoiner.add(String.valueOf(attachment.getId()));
-                    }
-                    attachmentService.deleteAttachmentByIds(attachmentJoiner.toString());
-                }
-            }
-            //批量删除病害跟详细病害信息
-            diseaseService.deleteDiseaseByDiseaseIds(joiner.toString());
-            for (Disease disease : diseases) {
-                if (disease.getCommitType() == 0) {
-                    continue;
-                }
-                //类型为1的需要再插入
-                if (disease.getCommitType() == 1) {
-                    // 通过构件名称查找构件ID
-                    Component component = disease.getComponent();
-                    component.setCreateBy(ShiroUtils.getLoginName());
-                    component.setUpdateBy(ShiroUtils.getLoginName());
-                    String root = component.getBiObject().getAncestors().split(",")[1];
-                    if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !map.containsKey(component.getName() + root)) {
-                        componentService.insertComponent(component);
-                        map.put(component.getName() + root, component.getId());
-                    }
-                    if (disease.getComponent() != null && disease.getComponentId() != null) {
-                        componentService.updateComponent(component);
-                    }
-                    // 病害类型id为空则默认为其他的病害类型
-                    if (disease.getDiseaseTypeId() == null || disease.getDiseaseType().getId() == null || disease.getDiseaseType().getName().equals("其他")) {
-                        disease.setDiseaseTypeId(238L);
-                    }
-                    disease.setComponentId(map.get(component.getName() + root));
-                    disease.setCreateBy(ShiroUtils.getLoginName());
-                    disease.setUpdateBy(ShiroUtils.getLoginName());
-                    disease.setUpdateTime(new Date());
-                    // 插入病害记录
-                    successCount += diseaseMapper.insertDisease(disease);
-                    // 添加病害详情
-                    List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
-                    diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
-                    if(!diseaseDetails.isEmpty()) {
-                        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
-                    }
-                }
-            }
-
-            return AjaxResult.success("批量保存病害成功", successCount);
-        } catch (Exception e) {
-            return AjaxResult.error("批量保存病害失败：" + e.getMessage());
-        }
-    }
-
-    /**
      * 用户退出
      */
     @PostMapping("/user/logOut")
@@ -458,7 +364,7 @@ public class ApiController {
                 if (!rootObject.getId().equals(building.getRootObjectId())) {
                     return AjaxResult.error("building与桥梁数据不对应");
                 }
-                biObjectService.updateBiObjectTreeRecursively(rootObject);
+                biObjectService.updateBiObjectTreeRecursively(rootObject,extractedFiles);
             }
 
             // 处理病害数据 - 根据当前年份获取对应的JSON文件
@@ -470,11 +376,6 @@ public class ApiController {
             Optional<String> jsonFilePathOpt = extractedFiles.keySet().stream()
                     .filter(path -> path.startsWith(diseaseDir) && path.endsWith(yearJsonFileName))
                     .findFirst();
-
-            // 如果没有找到当前年份的文件，则直接返回
-            if (!jsonFilePathOpt.isPresent()) {
-                return AjaxResult.success("桥梁数据上传成功");
-            }
 
             if (jsonFilePathOpt.isPresent()) {
                 String jsonFilePath = jsonFilePathOpt.get();
@@ -501,9 +402,12 @@ public class ApiController {
                     }
                 }
                 // 批量保存病害数据
-                AjaxResult ajaxResult = batchSaveDiseases(diseases);
-                if(ajaxResult.isError()) {
-                    return AjaxResult.error("处理上传文件失败：病害上传失败" );
+                try {
+                    if (!diseases.isEmpty()) {
+                        diseaseService.batchSaveDiseases(diseases);
+                    }
+                } catch (Exception e) {
+                    return AjaxResult.error("批量保存病害失败：" + e.getMessage());
                 }
                 // 处理病害图片
                 for (Disease disease : diseases) {
@@ -700,10 +604,10 @@ public class ApiController {
     @PostMapping("/upload/bridgeDataImage")
     @ResponseBody
     public AjaxResult uploadBridgeDataImage(@RequestParam("id") long id, @RequestParam("front") MultipartFile frontFile[], @RequestParam("side") MultipartFile sideFile[]) {
-        for (int i = 0; i < frontFile.length && i < 2; i++) {
+        for (int i = 0; i < frontFile.length ; i++) {
             fileMapController.uploadAttachment(id, frontFile[i], "newfront", i);
         }
-        for (int i = 0; i < sideFile.length && i < 2; i++) {
+        for (int i = 0; i < sideFile.length ; i++) {
             fileMapController.uploadAttachment(id, sideFile[i], "newside", i);
         }
         return AjaxResult.success("上传成功");

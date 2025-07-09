@@ -1,8 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.ruoyi.common.core.domain.Ztree;
@@ -150,7 +148,34 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
      */
     @Override
     public List<BiTemplateObject> selectChildrenById(Long id) {
-        return biTemplateObjectMapper.selectChildrenById(id);
+        List<BiTemplateObject> list = biTemplateObjectMapper.selectChildrenById(id);
+        // 查询并填充每个模板对象的病害类型数量
+        if (list != null && !list.isEmpty()) {
+            // 收集所有模板对象的ID
+            List<Long> templateIds = list.stream()
+                    .map(BiTemplateObject::getId)
+                    .collect(Collectors.toList());
+
+            // 一次性批量查询所有模板对象的病害类型数量
+            List<Map<String, Object>> diseaseTypeCountsList = toDiseaseTypeMapper.countDiseaseTypesByTemplateObjectIds(templateIds);
+
+            // 将结果转换为Map<Long, Integer>形式
+            Map<Long, Integer> diseaseTypeCounts = new HashMap<>();
+            for (Map<String, Object> map : diseaseTypeCountsList) {
+                Long key = ((Number) map.get("key")).longValue();
+                Integer value = ((Number) map.get("value")).intValue();
+                diseaseTypeCounts.put(key, value);
+            }
+
+            // 填充病害类型数量
+            for (BiTemplateObject template : list) {
+                Integer count = diseaseTypeCounts.get(template.getId());
+                template.setDiseaseTypeCount(count);
+            }
+        }
+
+        return list;
+
     }
 
     /**

@@ -1,6 +1,8 @@
 package edu.whut.cs.bi.biz.service;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import edu.whut.cs.bi.biz.domain.BiObject;
 import com.ruoyi.common.core.domain.Ztree;
@@ -133,7 +135,7 @@ public interface IBiObjectService {
      * @param biObject 当前处理的节点
      * @return 更新的节点数量
      */
-    public int updateBiObjectTreeRecursively(BiObject biObject) ;
+    public int updateBiObjectTreeRecursively(BiObject biObject ,Map<String, Path> extractedFiles) ;
 
     /**
      * 判断是否为叶子节点
