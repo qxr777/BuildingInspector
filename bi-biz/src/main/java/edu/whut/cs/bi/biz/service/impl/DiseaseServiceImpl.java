@@ -937,12 +937,10 @@ public class DiseaseServiceImpl implements IDiseaseService
                 bd.setName(building.getBuildingName());
                 if (building.getLineCode() != null)
                     bd.setLine(building.getLineCode());
-                else
-                    bd.setLine("S88");
+
                 if (building.getZipCode() != null)
                     bd.setArea(building.getZipCode());
-                else
-                    bd.setArea("420581");
+
 
                 List<Building> selectBuildings = buildingMapper.selectBuildingList(bd);
                 if (CollUtil.isEmpty(selectBuildings)) {
@@ -976,7 +974,8 @@ public class DiseaseServiceImpl implements IDiseaseService
                     .filter(building -> !tasks.stream().anyMatch(t -> t.getBuildingId().equals(building.getId())))
                     .toList();
 
-            taskService.batchInsertTasks(project.getId(), filterBuildings.stream().map(Building::getId).toList());
+            if (CollUtil.isNotEmpty(filterBuildings))
+                taskService.batchInsertTasks(project.getId(), filterBuildings.stream().map(Building::getId).toList());
 
             for (DiseaseReport.Building building : buildings) {
                 addComponent(building, buildingMap, biObjectMap, componentMap);
@@ -1151,6 +1150,9 @@ public class DiseaseServiceImpl implements IDiseaseService
 
     public MultipartFile convert(Path path, String imageName) {
         // 构建完整的文件路径
+        if (imageName.startsWith("/")) {
+            imageName = imageName.substring(1);
+        }
         File imageFile = path.resolve(imageName).toFile();
 
         // 检查文件是否存在
@@ -1286,10 +1288,10 @@ public class DiseaseServiceImpl implements IDiseaseService
         };
 
         // 持久化
-//        for (Component component : componentSet) {
-//            componentService.insertComponent(component);
-//        }
-        componentMapper.batchAddComponents(componentSet);
+        for (Component component : componentSet) {
+            componentService.insertComponent(component);
+        }
+//        componentMapper.batchAddComponents(componentSet);
     }
 
 
