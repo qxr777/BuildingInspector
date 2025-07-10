@@ -515,10 +515,10 @@ public class PropertyServiceImpl implements IPropertyService {
         CompletableFuture.runAsync(() -> {
             extractImagesFromWord(file, buildingId);
 
-            Property p1 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁左幅正面照");
-            Property p2 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁左幅立面照");
-            Property p3 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁右幅正面照");
-            Property p4 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁右幅立面照");
+            Property p1 = propertyMapper.selectByRootIdAndName(rootId[0], "左幅桥梁正面照");
+            Property p2 = propertyMapper.selectByRootIdAndName(rootId[0], "左幅桥梁立面照");
+            Property p3 = propertyMapper.selectByRootIdAndName(rootId[0], "右幅桥梁正面照");
+            Property p4 = propertyMapper.selectByRootIdAndName(rootId[0], "右幅桥梁立面照");
 
             List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId,  "front", "side");
 
@@ -529,11 +529,11 @@ public class PropertyServiceImpl implements IPropertyService {
 
             if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty()) {
                 p3.setValue(collect.get("front").get(0));
-                propertyMapper.updateProperty(p1);
+                propertyMapper.updateProperty(p3);
             }
             if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty()) {
                 p4.setValue(collect.get("side").get(0));
-                propertyMapper.updateProperty(p2);
+                propertyMapper.updateProperty(p4);
             }
             if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty() && collect.get("front").size() > 1) {
                 p1.setValue(collect.get("front").get(1));

@@ -15,6 +15,7 @@ import cn.hutool.core.collection.CollUtil;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
 import edu.whut.cs.bi.biz.service.ITaskService;
@@ -349,11 +350,16 @@ public class BuildingServiceImpl implements IBuildingService {
                 rows += result;
             }
 
+            // 删除任务
+            taskService.deleteTaskByBuildingId(id);
+
             return rows;
         } catch (Exception e) {
             log.info(e.getMessage());
             throw new RuntimeException("删除建筑失败", e);
         }
+
+
     }
 
     /**

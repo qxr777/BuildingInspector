@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.io.IOException;
@@ -153,7 +154,14 @@ public class ProjectServiceImpl implements IProjectService {
      */
     @Override
     public int deleteProjectByIds(String ids) {
-        return projectMapper.deleteProjectByIds(Convert.toStrArray(ids));
+        // 删除项目下的任务
+        String[] strArray = Convert.toStrArray(ids);
+        for (int i = 0; i < strArray.length; i++) {
+            Long id = Long.valueOf(strArray[i]);
+            taskMapper.deleteTaskByProjectId(id);
+            projectUserMapper.deleteProjectUser(id);
+        }
+        return projectMapper.deleteProjectByIds(strArray);
     }
 
     /**
@@ -163,7 +171,12 @@ public class ProjectServiceImpl implements IProjectService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteProjectById(Long id) {
+        // 删除项目下的任务
+        taskMapper.deleteTaskByProjectId(id);
+        // 删除项目相关的人员关联
+        projectUserMapper.deleteProjectUser(id);
         return projectMapper.deleteProjectById(id);
     }
 

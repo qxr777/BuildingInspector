@@ -215,4 +215,14 @@
         </foreach>
     </delete>
 
+    <delete id="deleteTaskByBuildingId">
+        DELETE FROM bi_task
+        WHERE building_id = #{buildingId}
+    </delete>
+
+    <delete id="deleteTaskByProjectId">
+        DELETE FROM bi_task
+        WHERE project_id = #{projectId}
+    </delete>
+
 </mapper>

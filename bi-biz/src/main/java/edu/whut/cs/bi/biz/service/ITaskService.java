@@ -106,5 +106,13 @@ public interface ITaskService
      */
     int batchRemoveTasks(Long projectId, List<Long> buildingIds);
 
+    /**
+     * 通过桥梁id删除任务
+     */
+    int deleteTaskByBuildingId(Long buildingId);
 
+    /**
+     * 通过项目id删除任务
+     */
+    int deleteTaskByProjectId(Long projectId);
 }

@@ -370,4 +370,14 @@ public class TaskServiceImpl implements ITaskService {
         return taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
     }
 
+    @Override
+    public int deleteTaskByBuildingId(Long buildingId) {
+        return taskMapper.deleteTaskByBuildingId(buildingId);
+    }
+
+    @Override
+    public int deleteTaskByProjectId(Long projectId) {
+        return taskMapper.deleteTaskByProjectId(projectId);
+    }
+
 }
