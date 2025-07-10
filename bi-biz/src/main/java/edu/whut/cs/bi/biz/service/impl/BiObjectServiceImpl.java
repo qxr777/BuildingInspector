@@ -1,7 +1,11 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,12 +20,14 @@ import com.ruoyi.common.utils.bean.BeanUtils;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import com.ruoyi.common.core.text.Convert;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 
 /**
@@ -43,6 +49,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
     @Autowired
     private IBiObjectService biObjectService;
+
+    @Autowired
+    private FileMapServiceImpl fileMapServiceImpl;
 
     /**
      * 查询对象
@@ -389,7 +398,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
      * @return 更新的节点数量
      */
     @Override
-    public int updateBiObjectTreeRecursively(BiObject biObject) {
+    public int updateBiObjectTreeRecursively(BiObject biObject, Map<String, Path> extractedFiles) {
         // 结构信息已确认的桥梁不让再次修改
         if ("3".equals(biObject.getStatus())) {
             return 0;
@@ -416,6 +425,42 @@ public class BiObjectServiceImpl implements IBiObjectService {
             }
             node.setUpdateBy(updateBy);
             node.setUpdateTime(updateTime);
+            List<String> photos = node.getPhoto();
+            List<MultipartFile> multipartImagesFiles = new ArrayList<>();
+            // 处理结构图片
+            if(photos != null && !photos.isEmpty()) {
+                for (String photo : photos) {
+                    if (photo != null && !photo.isEmpty()) {
+                        // 检查路径是否已经包含buildingId
+                        String fullPath = photo;
+                        // 尝试查找文件
+                        if (extractedFiles.containsKey(fullPath)) {
+                            // 处理图片附件
+                            File imageFile = extractedFiles.get(fullPath).toFile();
+                            byte[] fileContent = null;
+                            try {
+                                fileContent = Files.readAllBytes(imageFile.toPath());
+                            // 创建MockMultipartFile
+                            MockMultipartFile mockFile = new MockMultipartFile(
+                                    "file",
+                                    imageFile.getName(),
+                                    Files.probeContentType(imageFile.toPath()),
+                                    fileContent);
+                            multipartImagesFiles.add(mockFile);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }
+                    if (!multipartImagesFiles.isEmpty()) {
+                        fileMapServiceImpl.handleBiObjectAttachment(
+                                multipartImagesFiles.toArray(new MultipartFile[0]),
+                                node.getId(),
+                                8
+                        );
+                    }
+                }
+            }
         }
 
         // 4. 批量更新节点
@@ -440,9 +485,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
         List<BiObject> children = biObject.getChildren();
         if (children != null && !children.isEmpty()) {
             for (BiObject child : children) {
-                if (child.getCount() > 0) {
-                    collectNodesToUpdate(child, nodesToUpdate);
-                }
+                collectNodesToUpdate(child, nodesToUpdate);
             }
         }
     }

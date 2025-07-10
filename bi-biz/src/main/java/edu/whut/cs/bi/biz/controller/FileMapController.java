@@ -448,7 +448,7 @@ public class FileMapController extends BaseController {
         List<FileMap> fileMapList = bySubjectId.stream()
                 .filter(e->{
                     String[] s = e.getName().split("_");
-                    if(s.length>=2&&(s[1].equals(type1)||s[1].equals(type2))){
+                    if(s[1].equals(type1)||s[1].equals(type2)){
                         return true;
                     }
                     return false;

@@ -81,4 +81,12 @@ public interface DiseaseMapper {
      * @return
      */
     int batchInsertDiseases(@Param("diseaseSet") Set<Disease> diseaseSet);
+    /**
+     * 根据localId列表查询病害列表
+     *
+     * @param disease 包含localIds参数的病害查询对象
+     * @return 病害集合
+     */
+    List<Disease> selectDiseaseListByLocalIds(Disease disease);
+
 }

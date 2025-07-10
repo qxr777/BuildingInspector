@@ -43,16 +43,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.StringJoiner;
 
 
 /**
  * 病害Service业务层处理
- *
  */
 @Service
 @Slf4j
-public class DiseaseServiceImpl implements IDiseaseService
-{
+public class DiseaseServiceImpl implements IDiseaseService {
     @Resource
     private DiseaseMapper diseaseMapper;
 
@@ -111,8 +110,7 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @return 病害
      */
     @Override
-    public Disease selectDiseaseById(Long id)
-    {
+    public Disease selectDiseaseById(Long id) {
         Disease disease = diseaseMapper.selectDiseaseById(id);
         // 关联查询其它属性
         Long componentId = disease.getComponentId();
@@ -142,8 +140,7 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @return 病害
      */
     @Override
-    public List<Disease> selectDiseaseList(Disease disease)
-    {
+    public List<Disease> selectDiseaseList(Disease disease) {
         // 这里是病害列表只有 biObjectId 一个查询条件
         Long biObjectId = disease.getBiObjectId();
         List<Disease> diseases;
@@ -209,8 +206,7 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @return 病害
      */
     @Override
-    public List<Disease> selectDiseaseListForApi(Disease disease)
-    {
+    public List<Disease> selectDiseaseListForApi(Disease disease) {
 
         List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
 
@@ -266,7 +262,7 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Transactional
     public Integer insertDisease(Disease disease) {
         disease.setCreateTime(DateUtils.getNowDate());
-        if(disease.getType() == null || disease.getType().equals("")) {
+        if (disease.getType() == null || disease.getType().equals("")) {
             Long diseaseTypeId = disease.getDiseaseTypeId();
             DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
             disease.setType(diseaseType.getName());
@@ -281,7 +277,7 @@ public class DiseaseServiceImpl implements IDiseaseService
 
         Component old = componentService.selectComponent(component);
         if (old == null) {
-            if (disease.getBiObjectName() ==  null ||  disease.getBiObjectName().equals("")) {
+            if (disease.getBiObjectName() == null || disease.getBiObjectName().equals("")) {
                 component.setName(biObject.getName() + "#" + component.getCode());
             } else {
                 component.setName(disease.getBiObjectName() + "#" + component.getCode());
@@ -293,7 +289,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             disease.setComponentId(old.getId());
         }
 
-        if (disease.getBiObjectName() ==  null ||  disease.getBiObjectName().equals("")) {
+        if (disease.getBiObjectName() == null || disease.getBiObjectName().equals("")) {
             disease.setBiObjectName(biObject.getName());
         }
 
@@ -409,7 +405,7 @@ public class DiseaseServiceImpl implements IDiseaseService
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int deleteDiseaseByDiseaseIds(String ids) {
-        if(ids==null || ids.equals("")) {
+        if (ids == null || ids.equals("")) {
             return 0;
         }
         String[] strArray = Convert.toStrArray(ids);
@@ -460,13 +456,13 @@ public class DiseaseServiceImpl implements IDiseaseService
      * @param id    病害id
      */
     @Override
-    public void handleDiseaseAttachment(MultipartFile[] files,Long id,int type) {
-        if(files == null)return;
-        Arrays.stream(files).forEach(e->{
+    public void handleDiseaseAttachment(MultipartFile[] files, Long id, int type) {
+        if (files == null) return;
+        Arrays.stream(files).forEach(e -> {
             FileMap fileMap = fileMapService.handleFileUpload(e);
             Attachment attachment = new Attachment();
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
-            attachment.setName("disease_"+fileMap.getOldName());
+            attachment.setName("disease_" + fileMap.getOldName());
             attachment.setSubjectId(id);
             attachment.setType(type);
             attachmentService.insertAttachment(attachment);
@@ -920,7 +916,7 @@ public class DiseaseServiceImpl implements IDiseaseService
             project.setName(diseaseReport.getProjectName());
             project.setYear(diseaseReport.getReportYear());
 
-            List<Project> projects = projectMapper.selectProjectList(project,null, null);
+            List<Project> projects = projectMapper.selectProjectList(project, null, null);
             if (CollUtil.isEmpty(projects)) {
                 // 新建项目
                 project.setDeptId(101L);
@@ -1053,7 +1049,7 @@ public class DiseaseServiceImpl implements IDiseaseService
                         .filter(child -> biObject2.getId().equals(child.getParentId()) && biObject_3.equals(child.getName()))
                         .findFirst()
                         .orElse(null);
-                if (biObject3 ==  null) {
+                if (biObject3 == null) {
                     log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
                     biObject3 = children.stream()
                             .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
@@ -1214,7 +1210,7 @@ public class DiseaseServiceImpl implements IDiseaseService
         BiObject rootBiObject = biObjectMap.get(bd.getRootObjectId());
         List<BiObject> children = rootBiObject.getChildren();
 
-        for(DiseaseReport.Disease disease : diseases) {
+        for (DiseaseReport.Disease disease : diseases) {
             String biObject_2 = disease.getBiObject2();
             String biObject_3 = disease.getBiObject3();
             String biObject_4 = disease.getBiObject4();
@@ -1287,7 +1283,8 @@ public class DiseaseServiceImpl implements IDiseaseService
             component.setCreateBy(ShiroUtils.getLoginName());
             component.setStatus("0");
             componentSet.add(component);
-        };
+        }
+        ;
 
         // 持久化
         for (Component component : componentSet) {
@@ -1296,6 +1293,172 @@ public class DiseaseServiceImpl implements IDiseaseService
 //        componentMapper.batchAddComponents(componentSet);
     }
 
+
+    /**
+     * 批量保存病害信息
+     *
+     * @param diseases 病害列表
+     * @return 处理结果
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int batchSaveDiseases(List<Disease> diseases) {
+        if (diseases == null || diseases.isEmpty()) {
+            return 0;
+        }
+
+        int successCount = 0;
+
+        // 记录已经插入了的构件
+        Set<String> componentNames = new HashSet<>();
+        Set<Long> localIds = new HashSet<>();
+        HashMap<String, Long> componentMap = new HashMap<>(16);
+
+        for (Disease disease : diseases) {
+            if (disease.getComponent() != null && disease.getComponent().getName() != null) {
+                componentNames.add(disease.getComponent().getName());
+            }
+            localIds.add(disease.getLocalId());
+        }
+        if (!componentNames.isEmpty()) {
+            Component query = new Component();
+            query.setParams(new HashMap<>());
+            query.getParams().put("nameList", new ArrayList<>(componentNames));
+            List<Component> components = componentService.selectComponentList(query);
+            // 建立构件名称与ID的映射关系
+            for (Component component : components) {
+                BiObject biObject = component.getBiObject();
+                String root = "";
+                if (biObject != null && StringUtils.isNotEmpty(biObject.getAncestors())) {
+                    String[] split = biObject.getAncestors().split(",");
+                    root = split[1];
+                }
+                componentMap.put(component.getName() + root, component.getId());
+            }
+        }
+
+
+        // 记录已经插入的病害
+        HashMap<Long, Disease> localIdMap = new HashMap<>(16);
+        if (!localIds.isEmpty()) {
+            Disease query = new Disease();
+            query.setParams(new HashMap<>());
+            query.getParams().put("localIds", new ArrayList<>(localIds));
+            List<Disease> diseaseList = diseaseMapper.selectDiseaseListByLocalIds(query);
+            for (Disease disease : diseaseList) {
+                localIdMap.put(disease.getLocalId(), disease);
+            }
+        }
+
+        // 收集需要删除的病害ID
+        StringJoiner joiner = new StringJoiner(",");
+
+        // 删除对应的病害文件 类型为1或者2都先删除
+        StringJoiner attachmentJoiner = new StringJoiner(",");
+        List<Long> subjectIds = new ArrayList<>();
+        for (Disease disease : diseases) {
+            int type = disease.getCommitType();
+            boolean isTypeValid = (type == 1 || type == 2);
+            if (isTypeValid && localIdMap.containsKey(disease.getLocalId())) {
+                Disease oldDisease = localIdMap.get(disease.getLocalId());
+                joiner.add(String.valueOf(oldDisease.getId()));
+                subjectIds.add(oldDisease.getId());
+
+            }
+        }
+        if (!subjectIds.isEmpty()) {
+            List<Attachment> attachmentBySubjectId = attachmentService.getAttachmentBySubjectIds(subjectIds)
+                    .stream()
+                    .filter(e -> e.getName().startsWith("disease"))
+                    .toList();
+
+            for (Attachment attachment : attachmentBySubjectId) {
+                attachmentJoiner.add(String.valueOf(attachment.getId()));
+            }
+            String attachmentIds = attachmentJoiner.toString();
+            if (!attachmentIds.isEmpty()) {
+                attachmentService.deleteAttachmentByIds(attachmentIds);
+            }
+        }
+
+        // 批量删除病害及详细病害信息
+        String deleteIds = joiner.toString();
+        if (!deleteIds.isEmpty()) {
+            deleteDiseaseByDiseaseIds(deleteIds);
+        }
+
+        // 处理新增或更新的病害
+        Set<Disease> diseaseSet = new HashSet<>();
+        List<DiseaseDetail> allDiseaseDetails = new ArrayList<>();
+        for (Disease disease : diseases) {
+            if (disease.getCommitType() == 0) {
+                continue;
+            }
+
+            // 类型为1的需要再插入
+            if (disease.getCommitType() == 1) {
+                // 通过构件名称查找构件ID
+                Component component = disease.getComponent();
+                component.setCreateBy(ShiroUtils.getLoginName());
+                component.setUpdateBy(ShiroUtils.getLoginName());
+                String root = component.getBiObject().getAncestors().split(",")[1];
+
+                // 判断是否需要新增构件
+                if (disease.getComponent() != null &&
+                        disease.getComponent().getName() != null &&
+                        disease.getComponentId() == null &&
+                        !componentMap.containsKey(component.getName() + root)) {
+                    componentService.insertComponent(component);
+                    componentMap.put(component.getName() + root, component.getId());
+                }
+
+                // 更新构件
+                if (disease.getComponent() != null && disease.getComponentId() != null) {
+                    componentService.updateComponent(component);
+                }
+
+                // 病害类型id为空则默认为其他的病害类型
+                if (disease.getDiseaseTypeId() == null ||
+                        disease.getDiseaseType().getId() == null ||
+                        disease.getDiseaseType().getName().equals("其他")) {
+                    disease.setDiseaseTypeId(238L);
+                }
+
+                // 设置构件ID
+                disease.setComponentId(componentMap.get(component.getName() + root));
+                disease.setCreateBy(ShiroUtils.getLoginName());
+                disease.setUpdateBy(ShiroUtils.getLoginName());
+                disease.setUpdateTime(new Date());
+
+                // 插入病害记录
+                diseaseSet.add(disease);
+
+                // 添加病害详情
+                List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+                allDiseaseDetails.addAll(diseaseDetails);
+            }
+        }
+        // 批量插入病害
+        if (!diseaseSet.isEmpty()) {
+            successCount += diseaseMapper.batchInsertDiseases(diseaseSet);
+
+            // 更新病害详情中的diseaseId
+            for (Disease disease : diseaseSet) {
+                List<DiseaseDetail> details = disease.getDiseaseDetails();
+                if (details != null && !details.isEmpty()) {
+                    for (DiseaseDetail detail : details) {
+                        detail.setDiseaseId(disease.getId());
+                    }
+                }
+            }
+
+            // 批量插入病害详情
+            if (!allDiseaseDetails.isEmpty()) {
+                diseaseDetailMapper.insertDiseaseDetails(allDiseaseDetails);
+            }
+        }
+        return successCount;
+    }
 
     /**
      * 从Zip文件中提取文件
