@@ -59,4 +59,15 @@
         </foreach>
     </select>
 
+    <!-- 批量统计多个模板对象的病害类型数量 -->
+    <select id="countDiseaseTypesByTemplateObjectIds" resultType="java.util.HashMap">
+        SELECT template_object_id as "key", COUNT(disease_type_id) as "value"
+        FROM bi_template_object_disease_type
+        WHERE template_object_id IN
+        <foreach collection="templateObjectIds" item="templateObjectId" open="(" separator="," close=")">
+            #{templateObjectId}
+        </foreach>
+        GROUP BY template_object_id
+    </select>
+
 </mapper>
