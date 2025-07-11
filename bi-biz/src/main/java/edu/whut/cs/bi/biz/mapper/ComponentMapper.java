@@ -125,4 +125,12 @@ public interface ComponentMapper {
      */
     public int batchAddComponents(@Param("components") Set<Component> components);
 
+    /**
+     * 根据ID列表批量查询构件
+     *
+     * @param ids 构件ID列表
+     * @return 构件列表
+     */
+    public List<Component> selectComponentsByIds(List<Long> ids);
+
 }

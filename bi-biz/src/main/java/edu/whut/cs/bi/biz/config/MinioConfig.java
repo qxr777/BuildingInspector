@@ -4,6 +4,8 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.errors.*;
+import okhttp3.ConnectionPool;
+import okhttp3.OkHttpClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 public class MinioConfig {
@@ -32,13 +35,27 @@ public class MinioConfig {
       throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException,
       InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
 
+    // 自定义OkHttpClient，增加连接池大小
+    OkHttpClient customHttpClient = new OkHttpClient.Builder()
+            .connectionPool(new ConnectionPool(
+                    20,         // 最大空闲连接数
+                    10,         // 连接保持时间（分钟）
+                    TimeUnit.MINUTES
+            ))
+            .connectTimeout(30, TimeUnit.SECONDS)     // 连接超时
+            .readTimeout(5, TimeUnit.MINUTES)        // 读取超时
+            .writeTimeout(60, TimeUnit.MINUTES)       // 写入超时
+            .build();
+
     MinioClient build = MinioClient.builder()
-        .endpoint(endpoint)
-        .credentials(accessKey, secretKey)
-        .region("cn-north-1")
-        .build();
+            .endpoint(endpoint)
+            .credentials(accessKey, secretKey)
+            .region("cn-north-1")
+            .httpClient(customHttpClient)  // 使用自定义的HttpClient
+            .build();
+
     boolean isExist = build.bucketExists(
-        BucketExistsArgs.builder().bucket(bucketName).build());
+            BucketExistsArgs.builder().bucket(bucketName).build());
     if (!isExist) {
       build.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
     }

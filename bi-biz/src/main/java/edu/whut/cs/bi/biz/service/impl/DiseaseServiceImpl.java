@@ -269,6 +269,174 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
+     * 为离线包查询病害列表，不加载图片URLs
+     *
+     * @param disease 病害
+     * @return 病害列表
+     */
+    @Override
+    public List<Disease> selectDiseaseListForZip(Disease disease) {
+        // 获取基础的病害列表
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+        if (diseases.isEmpty()) {
+            return diseases;
+        }
+
+        // 收集所有病害ID，构件ID和BiObjectId，用于批量查询
+        List<Long> diseaseIds = new ArrayList<>();
+        List<Long> componentIds = new ArrayList<>();
+        Set<Long> biObjectIds = new HashSet<>();
+
+        for (Disease ds : diseases) {
+            diseaseIds.add(ds.getId());
+            if (ds.getComponentId() != null) {
+                componentIds.add(ds.getComponentId());
+            }
+            if (ds.getBiObjectId() != null) {
+                biObjectIds.add(ds.getBiObjectId());
+            }
+        }
+
+        // 批量查询所有病害详情
+        List<DiseaseDetail> allDiseaseDetails = new ArrayList<>();
+        allDiseaseDetails = diseaseDetailMapper.selectDiseaseDetailsByDiseaseIds(diseaseIds);
+
+        // 批量查询所有构件
+        Map<Long, Component> componentMap = new HashMap<>(16);
+        if (!componentIds.isEmpty()) {
+            List<Component> components = componentService.selectComponentsByIds(componentIds);
+            for (Component component : components) {
+                componentMap.put(component.getId(), component);
+                // 收集BiObjectId用于后续查询
+                if (component.getBiObjectId() != null) {
+                    biObjectIds.add(component.getBiObjectId());
+                }
+            }
+        }
+
+        // 第一次查询所有直接关联的BiObject
+        Map<Long, BiObject> biObjectMap = new HashMap<>(16);
+        if (!biObjectIds.isEmpty()) {
+            List<BiObject> biObjects = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(biObjectIds));
+
+            // 收集所有父级ID
+            Set<Long> parentIds = new HashSet<>();
+            for (BiObject biObject : biObjects) {
+                biObjectMap.put(biObject.getId(), biObject);
+                if (biObject.getParentId() != null) {
+                    parentIds.add(biObject.getParentId());
+                }
+            }
+
+            // 查询所有父级BiObject
+            if (!parentIds.isEmpty()) {
+                List<BiObject> parentObjects = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(parentIds));
+
+                // 收集所有祖父级ID
+                Set<Long> grandParentIds = new HashSet<>();
+                for (BiObject parent : parentObjects) {
+                    biObjectMap.put(parent.getId(), parent);
+                    if (parent.getParentId() != null) {
+                        grandParentIds.add(parent.getParentId());
+                    }
+                }
+
+                // 查询所有祖父级BiObject
+                if (!grandParentIds.isEmpty()) {
+                    List<BiObject> grandParentObjects = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(grandParentIds));
+                    for (BiObject grandParent : grandParentObjects) {
+                        biObjectMap.put(grandParent.getId(), grandParent);
+                    }
+                }
+            }
+        }
+
+        // 收集所有病害ID，用于批量查询附件
+        List<Long> subjectIds = diseaseIds;
+
+        // 批量查询所有附件
+        Map<Long, List<Attachment>> attachmentMap = new HashMap<>();
+        if (!subjectIds.isEmpty()) {
+            List<Attachment> allAttachments = attachmentService.getAttachmentBySubjectIds(subjectIds);
+            // 按病害ID分组
+            for (Attachment attachment : allAttachments) {
+                if (attachment.getSubjectId() != null) {
+                    attachmentMap.computeIfAbsent(attachment.getSubjectId(), k -> new ArrayList<>()).add(attachment);
+                }
+            }
+        }
+
+        // 处理每个病害的数据
+        for (Disease ds : diseases) {
+            // 设置构件信息
+            Long componentId = ds.getComponentId();
+            if (componentId != null && componentMap.containsKey(componentId)) {
+                Component component = componentMap.get(componentId);
+
+                // 设置BiObject信息
+                if (component.getBiObjectId() != null) {
+                    BiObject biObject = biObjectMap.get(component.getBiObjectId());
+                    if (biObject != null && biObject.getParentId() != null) {
+                        BiObject parent = biObjectMap.get(biObject.getParentId());
+                        if (parent != null) {
+                            component.setParentObjectName(parent.getName());
+                            if (parent.getParentId() != null) {
+                                BiObject grandParent = biObjectMap.get(parent.getParentId());
+                                if (grandParent != null) {
+                                    component.setGrandObjectName(grandParent.getName());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ds.setComponent(component);
+            }
+
+            // 设置病害详情
+            List<DiseaseDetail> diseaseDetails = allDiseaseDetails.stream()
+                    .filter(detail -> detail.getDiseaseId().equals(ds.getId()))
+                    .collect(Collectors.toList());
+            ds.setDiseaseDetails(diseaseDetails);
+
+            // 设置图片路径
+            List<String> imagePaths = new ArrayList<>();
+            List<String> adImagePaths = new ArrayList<>();
+
+            // 获取该病害的所有附件
+            List<Attachment> attachments = attachmentMap.getOrDefault(ds.getId(), Collections.emptyList());
+
+            if (!attachments.isEmpty()) {
+                // 直接构建预定义的相对路径格式
+                Long buildingId = ds.getBuildingId();
+
+                for (Attachment attachment : attachments) {
+                    if (attachment.getName().startsWith("disease")) {
+                        // 获取原始文件名，用于在ZIP中保存
+                        String originalFileName = attachment.getId() + "_" + (attachment.getName().split("_", 2).length > 1 ?
+                                attachment.getName().split("_", 2)[1] : attachment.getName());
+
+                        // 构建相对路径 (相对于buildingId的路径)
+                        String relativePath = buildingId + "/disease/images/" + originalFileName;
+
+                        // 根据类型区分普通图片和AD图片
+                        if (attachment.getType() != null && attachment.getType() == 7) {
+                            adImagePaths.add(relativePath);
+                        } else {
+                            imagePaths.add(relativePath);
+                        }
+                    }
+                }
+            }
+
+            ds.setImages(imagePaths);
+            ds.setADImgs(adImagePaths);
+        }
+
+        return diseases;
+    }
+
+    /**
      * 新增病害
      *
      * @param disease 病害

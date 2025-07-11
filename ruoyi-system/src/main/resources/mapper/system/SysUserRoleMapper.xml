@@ -8,6 +8,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="userId"     column="user_id"      />
 		<result property="roleId"     column="role_id"      />
 	</resultMap>
+
+	<sql id="selectUserRoleVo">
+		select user_id, role_id from sys_user_role
+	</sql>
 	
 	<select id="selectUserRoleByUserId" parameterType="Long" resultMap="SysUserRoleResult">
 		select user_id, role_id from sys_user_role where user_id = #{userId}
@@ -45,4 +49,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
  	        #{userId}
             </foreach> 
 	</delete>
+
+	<select id="selectSysUserRoleList" parameterType="SysRole" resultMap="SysUserRoleResult">
+		<include refid="selectUserRoleVo"/>
+		<where>
+			<if test="userId != null "> and user_id = #{userId}</if>
+			<if test="roleId != null "> and role_id = #{roleId}</if>
+		</where>
+	</select>
 </mapper> 

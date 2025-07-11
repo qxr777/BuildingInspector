@@ -113,9 +113,10 @@ public class FileMapServiceImpl implements IFileMapService {
             if (fileMap != null) {
                 try {
                     // 从MinIO删除文件
+                    String objectName = fileMap.getNewName();
                     minioClient.removeObject(RemoveObjectArgs.builder()
                             .bucket(minioConfig.getBucketName())
-                            .object(fileMap.getNewName())
+                            .object(objectName.substring(0,2)+ "/" + objectName)
                             .build());
                 } catch (Exception e) {
                     throw new RuntimeException("删除文件失败", e);
@@ -137,9 +138,10 @@ public class FileMapServiceImpl implements IFileMapService {
         if (fileMap != null) {
             try {
                 // 从MinIO删除文件
+                String objectName = fileMap.getNewName();
                 minioClient.removeObject(RemoveObjectArgs.builder()
                         .bucket(minioConfig.getBucketName())
-                        .object(fileMap.getNewName())
+                        .object(objectName.substring(0,2)+ "/" + objectName)
                         .build());
             } catch (Exception e) {
                 throw new RuntimeException("删除文件失败", e);

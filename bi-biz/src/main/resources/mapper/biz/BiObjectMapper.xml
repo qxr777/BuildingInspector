@@ -446,4 +446,13 @@
         </foreach>
     </insert>
 
+    <!-- 根据ID列表批量查询BiObject -->
+    <select id="selectBiObjectsByIds" resultMap="BiObjectResult">
+        <include refid="selectBiObjectVo"/>
+        where id in
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
 </mapper>
