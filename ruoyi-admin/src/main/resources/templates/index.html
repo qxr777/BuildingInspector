@@ -185,16 +185,22 @@
 		}
 
 		.message {
+			background-color: #f0f0f0;
+			border: 1px solid #34688a;
 			margin-bottom: 10px;
 			padding: 10px 15px;
 			border-radius: 18px;
 			word-wrap: break-word;
 			word-break: break-word;
 		}
+		.message img{
+			cursor: pointer;
+			width: 75%;
+		}
 
 		.sent {
 			font-size: 16px;
-			background-color: #f5f5f5;
+			background-color: #cce5d3;
 			text-align: left;
 			margin-left: auto;
 			max-width: 35%;
@@ -225,7 +231,7 @@
 		.message-reference {
 			margin-top: 5px;
 			padding: 10px;
-			background: #f5f5f5;
+			background: #eceffb;
 			border-radius: 6px;
 			box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* 轻微投影 */
 			transition: all 0.3s ease;
@@ -668,6 +674,7 @@ $(function() {
 const RagUrl = 'http://47.94.205.90:8081';  // springai 项目地址
 const BootUrl = 'http://60.205.13.156:8090';    // 主项目地址
 // const BootUrl = 'http://localhost:80' // 本地测试
+// const RagUrl = 'http://localhost:8081' //本地测试
 
 
 
@@ -778,6 +785,21 @@ function addMessageWithReference(content, reference, type) {
 sendMessageButton.addEventListener('click', sendMessage);
 messageInput.addEventListener('keypress', (e) => {
 	if (e.key === 'Enter') sendMessage();
+});
+
+document.addEventListener('click', function(e) {
+	// 检查点击的元素或其祖先是否属于 clickable-images 容器
+	let target = e.target;
+	while (target && target !== document) {
+		if (target.classList.contains('message')) {
+			// 如果点击的是容器内的图片
+			if (e.target.tagName === 'IMG') {
+				window.open(e.target.src, '_blank');
+			}
+			break;
+		}
+		target = target.parentElement;
+	}
 });
 
 
