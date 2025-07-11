@@ -476,9 +476,37 @@
                 });
                 $("#position").html(options).trigger('change');
                 // 编辑模式选中
-                if (disease && disease.position) {
+            if (disease && disease.position) {
+                // 检查position是否在下拉选项中
+                var positionFound = false;
+                $("#position option").each(function() {
+                    if ($(this).text() === disease.position) {
+                        positionFound = true;
+                        return false; // 跳出循环
+                    }
+                });
+                
+                // 如果在选项中找到，直接选中；否则选择"其他"并显示自定义输入框
+                if (positionFound) {
                     $("#position").val(disease.position).trigger('change');
+                } else {
+                    // 添加"其他"选项（如果不存在）
+                    if ($("#position option:contains('其他')").length === 0 && 
+                        $("#position option:contains('其它')").length === 0) {
+                        $("#position").append('<option value="其他">其他</option>');
+                    }
+                    
+                    // 选中"其他"选项
+                    if ($("#position option:contains('其他')").length > 0) {
+                        $("#position").val($("#position option:contains('其他')").val()).trigger('change');
+                    } else if ($("#position option:contains('其它')").length > 0) {
+                        $("#position").val($("#position option:contains('其它')").val()).trigger('change');
+                    }
+                    
+                    // 显示并设置自定义输入框的值
+                    $("#customPosition").show().attr('required', true).val(disease.position);
                 }
+            }
             }
         });
     }

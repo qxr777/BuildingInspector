@@ -338,8 +338,11 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         // 新增病害详情
         List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
-        diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
-        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        if (CollUtil.isNotEmpty(diseaseDetails)) {
+            diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+            diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        }
+
 
         return diseaseMapper.updateDisease(disease);
     }
