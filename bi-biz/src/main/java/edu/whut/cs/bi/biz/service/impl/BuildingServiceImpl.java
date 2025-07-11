@@ -318,6 +318,8 @@ public class BuildingServiceImpl implements IBuildingService {
                 biObjectService.logicDeleteByRootObjectId(building.getRootObjectId(),
                         ShiroUtils.getLoginName());
             }
+            // 删除任务
+            taskService.deleteTaskByBuildingId(id);
 
             // 删除建筑记录
             return buildingMapper.deleteBuildingById(id);
@@ -336,6 +338,8 @@ public class BuildingServiceImpl implements IBuildingService {
                 List<String> buildingList = new ArrayList<>();
                 for (Building child : childBridges) {
                     buildingList.add(child.getId().toString());
+                    // 删除任务
+                    taskService.deleteTaskByBuildingId(child.getId());
                 }
                 String[] array = buildingList.toArray(new String[buildingList.size()]);
                 buildingMapper.deleteBuildingByIds(array);
@@ -349,9 +353,6 @@ public class BuildingServiceImpl implements IBuildingService {
             if (result > 0) {
                 rows += result;
             }
-
-            // 删除任务
-            taskService.deleteTaskByBuildingId(id);
 
             return rows;
         } catch (Exception e) {

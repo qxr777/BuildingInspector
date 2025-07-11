@@ -293,7 +293,6 @@ public class PropertyServiceImpl implements IPropertyService {
         Building building = new Building();
         building.setRootPropertyId(rootId);
         Long buildingId = buildingMapper.selectBuildingList(building).get(0).getId();
-        updateTaskAndProject(buildingId);
     }
 
     /**

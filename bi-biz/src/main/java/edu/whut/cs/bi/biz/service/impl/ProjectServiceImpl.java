@@ -1,18 +1,11 @@
 package edu.whut.cs.bi.biz.service.impl;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.core.domain.entity.SysUser;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
@@ -20,20 +13,23 @@ import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysDeptMapper;
 import com.ruoyi.system.mapper.SysUserMapper;
 import com.ruoyi.system.service.ISysDeptService;
-import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.Project;
+import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.dto.ProjectUserAssignment;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
-import edu.whut.cs.bi.biz.mapper.*;
+import edu.whut.cs.bi.biz.mapper.ProjectMapper;
+import edu.whut.cs.bi.biz.mapper.ProjectUserMapper;
+import edu.whut.cs.bi.biz.mapper.TaskMapper;
+import edu.whut.cs.bi.biz.service.IProjectService;
 import org.apache.shiro.util.CollectionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import edu.whut.cs.bi.biz.service.IProjectService;
-
-import com.ruoyi.common.core.text.Convert;
-
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * 项目Service业务层处理
@@ -61,8 +57,6 @@ public class ProjectServiceImpl implements IProjectService {
     @Resource
     private TaskMapper taskMapper;
 
-    @Resource
-    private BuildingMapper buildingMapper;
 
     /**
      * 查询项目
@@ -143,6 +137,17 @@ public class ProjectServiceImpl implements IProjectService {
     @Override
     public int updateProject(Project project) {
         project.setUpdateTime(DateUtils.getNowDate());
+
+        if (project.getStatus() != null) {
+            // 更新任务状态
+            List<Task> tasks = taskMapper.selectTaskListByProjectId(project.getId());
+            tasks.forEach(task -> {
+                task.setStatus(project.getStatus());
+                task.setUpdateTime(DateUtils.getNowDate());
+                taskMapper.updateTask(task);
+            });
+        }
+
         return projectMapper.updateProject(project);
     }
 

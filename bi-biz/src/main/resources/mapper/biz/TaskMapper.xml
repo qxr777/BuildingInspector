@@ -60,6 +60,7 @@
         from bi_task t
         left join bi_building b on t.building_id = b.id
         left join bi_project p on t.project_id = p.id
+        where t.del_flag = '0'
     </sql>
 
 
@@ -113,11 +114,11 @@
     </select>
 
     <select id="selectTaskListByProjectId" resultType="edu.whut.cs.bi.biz.domain.Task">
-        select *  from bi_task where project_id = #{projectId}
+        select *  from bi_task where project_id = #{projectId} and del_flag = '0'
     </select>
 
     <select id="selectTaskByIds" resultType="edu.whut.cs.bi.biz.domain.Task">
-        select * from bi_task where id in
+        select * from bi_task where del_flag = '0' and id in
         <foreach item="id" collection="ids" open="(" separator="," close=")">
             #{id}
         </foreach>
@@ -189,40 +190,40 @@
         WHERE bt.building_id = #{buildingId}
     </update>
 
-    <delete id="deleteTaskById" parameterType="Long">
-        delete from bi_task where id = #{id}
-    </delete>
+    <update id="deleteTaskById" parameterType="Long">
+        update bi_task set del_flag = '1' where id = #{id}
+    </update>
 
-    <delete id="deleteTaskByIds" parameterType="String">
-        delete from bi_task where id in
+    <update id="deleteTaskByIds" parameterType="String">
+        update bi_task set del_flag = '1' where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
-    </delete>
+    </update>
 
-    <delete id="deleteTaskByProjectIdAndBuildingId">
-        DELETE FROM bi_task
+    <update id="deleteTaskByProjectIdAndBuildingId">
+        update bi_task set del_flag = '1'
         WHERE project_id = #{projectId}
           AND building_id = #{buildingId}
-    </delete>
+    </update>
 
-    <delete id="batchDeleteTaskByProjectIdAndBuildingIds">
-        DELETE FROM bi_task
+    <update id="batchDeleteTaskByProjectIdAndBuildingIds">
+        update bi_task set del_flag = '1'
         WHERE project_id = #{projectId}
-          AND building_id IN
+        AND building_id IN
         <foreach item="buildingId" collection="buildingIds" open="(" separator="," close=")">
             #{buildingId}
         </foreach>
-    </delete>
+    </update>
 
-    <delete id="deleteTaskByBuildingId">
-        DELETE FROM bi_task
+    <update id="deleteTaskByBuildingId">
+        update bi_task set del_flag = '1'
         WHERE building_id = #{buildingId}
-    </delete>
+    </update>
 
-    <delete id="deleteTaskByProjectId">
-        DELETE FROM bi_task
+    <update id="deleteTaskByProjectId">
+        update bi_task set del_flag = '1'
         WHERE project_id = #{projectId}
-    </delete>
+    </update>
 
 </mapper>
