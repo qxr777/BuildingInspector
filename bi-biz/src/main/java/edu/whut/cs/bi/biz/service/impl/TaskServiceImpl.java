@@ -255,7 +255,7 @@ public class TaskServiceImpl implements ITaskService {
         task.setCreateTime(DateUtils.getNowDate());
         int result = taskMapper.insertTask(task);
 
-        projectMapper.updateProjectTime(task.getBuildingId());
+        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return result;
     }
@@ -271,7 +271,7 @@ public class TaskServiceImpl implements ITaskService {
     public int updateTask(Task task) {
         task.setUpdateTime(DateUtils.getNowDate());
 
-        projectMapper.updateProjectTime(task.getBuildingId());
+        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return taskMapper.updateTask(task);
     }
@@ -287,7 +287,7 @@ public class TaskServiceImpl implements ITaskService {
     public int deleteTaskByIds(String ids) {
         List<Task> taskList = taskMapper.selectTaskByIds(ids);
         for (Task task : taskList) {
-            projectMapper.updateProjectTime(task.getBuildingId());
+            projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
         }
 
         return taskMapper.deleteTaskByIds(Convert.toStrArray(ids));
@@ -303,7 +303,7 @@ public class TaskServiceImpl implements ITaskService {
     @Transactional
     public int deleteTaskById(Long id) {
         Task task = taskMapper.selectTaskById(id);
-        projectMapper.updateProjectTime(task.getBuildingId());
+        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return taskMapper.deleteTaskById(id);
     }

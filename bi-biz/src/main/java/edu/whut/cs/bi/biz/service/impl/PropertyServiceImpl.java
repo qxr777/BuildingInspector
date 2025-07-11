@@ -564,7 +564,7 @@ public class PropertyServiceImpl implements IPropertyService {
 
         CompletableFuture.runAsync(() -> {
                     taskMapper.updateTaskTime(buildingId);
-                    projectMapper.updateProjectTime(buildingId);
+                    projectMapper.updateProjectTimeByBuildingId(buildingId);
                 }, executorService)
                 .whenComplete((r, ex) -> {
                     executorService.shutdown();

@@ -67,5 +67,12 @@ public interface ProjectMapper
      *
      * @param buildingId
      */
-    void updateProjectTime(Long buildingId);
+    int updateProjectTimeByBuildingId(Long buildingId);
+
+    /**
+     * 修改项目时间
+     *
+     * @param projectId
+     */
+    int updateProjectTimeByProjectId(Long projectId);
 }

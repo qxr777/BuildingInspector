@@ -350,6 +350,7 @@ public class ProjectServiceImpl implements IProjectService {
      * @return
      */
     @Override
+    @Transactional
     public int saveProjectUserAssignments(ProjectUserAssignment assignment) {
         if (ObjUtil.isEmpty(assignment) || assignment.getProjectId() == null) {
             throw new ServiceException("传入的参数不能为空");
@@ -373,6 +374,7 @@ public class ProjectServiceImpl implements IProjectService {
         Long approverId = assignment.getApproverId();
         save += projectUserMapper.saveProjectUser(projectId, List.of(approverId), ProjectUserRoleEnum.APPROVER.getValue());
 
+        projectMapper.updateProjectTimeByProjectId(projectId);
         return save;
     }
 
