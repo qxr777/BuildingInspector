@@ -651,7 +651,6 @@ public class ApiController {
 
     @PostMapping("/upload/diseaseZip")
     @ResponseBody
-    @Transactional
     public AjaxResult uploadDiseaseZip(@RequestParam("file") MultipartFile file) {
         diseaseService.readDiseaseZip(file);
 
