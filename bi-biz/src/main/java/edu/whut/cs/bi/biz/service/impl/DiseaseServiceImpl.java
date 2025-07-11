@@ -2,14 +2,17 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.system.service.ISysDictDataService;
+import com.ruoyi.system.service.ISysDictTypeService;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
+import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.temp.DiseaseReport;
@@ -95,6 +98,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
     private ComponentMapper componentMapper;
 
     @Resource
+    private FileMapController fileMapController;
+
+    @Resource
     private IBuildingService buildingService;
 
     @Resource
@@ -102,6 +108,16 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
     @Autowired
     private TaskMapper taskMapper;
+
+    @Resource
+    private ISysDictDataService sysDictDataService;
+
+    @Resource
+    private ISysDictTypeService sysDictTypeService;
+
+
+    @Resource
+    private IPropertyService propertyService;
 
     /**
      * 查询病害
@@ -538,7 +554,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     .findFirst()
                     .orElse(null);
             if (biObject3 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
+                log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
                 return;
             }
 
@@ -560,7 +576,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                         .orElse(null);
             }
             if (biObject4 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
+                log.info("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
                 return;
             }
 
@@ -865,7 +881,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
 
     static {
-        BRIDGE_TYPE_MAP.put("梁桥", 1L);
+        BRIDGE_TYPE_MAP.put("梁试桥", 1L);
         BRIDGE_TYPE_MAP.put("箱形拱桥", 3L);
         BRIDGE_TYPE_MAP.put("双曲拱桥", 4L);
         BRIDGE_TYPE_MAP.put("板拱桥", 5L);
@@ -931,8 +947,20 @@ public class DiseaseServiceImpl implements IDiseaseService {
             List<Building> buildingList = buildings.stream().map(building -> {
                 Building bd = new Building();
                 bd.setName(building.getBuildingName());
-                if (building.getLineCode() != null)
+                if (building.getLineCode() != null) {
+                    // 检查路线字典是否存在
+                    String biBuildeingLine = sysDictDataService.selectDictLabel("bi_buildeing_line", building.getLineCode());
+                    if (biBuildeingLine == null || biBuildeingLine.equals("")) {
+                        SysDictData sysDictData = new SysDictData();
+                        sysDictData.setDictType("bi_buildeing_line");
+                        sysDictData.setDictValue(building.getLineCode());
+                        sysDictData.setDictLabel(building.getLineName());
+                        sysDictData.setStatus("0");
+                        sysDictData.setDictSort(0L);
+                        sysDictDataService.insertDictData(sysDictData);
+                    }
                     bd.setLine(building.getLineCode());
+                }
 
                 if (building.getZipCode() != null)
                     bd.setArea(building.getZipCode());
@@ -1050,7 +1078,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                         .findFirst()
                         .orElse(null);
                 if (biObject3 == null) {
-                    log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
+                    log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
                     biObject3 = children.stream()
                             .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
                             .findFirst()
@@ -1085,7 +1113,14 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
                 // 新增病害
                 Disease newDisease = new Disease();
-                newDisease.setPosition(position);
+                String newPosition = null;
+                if (position.matches(regex)) {
+                    String[] split = position.split("#");
+                    newPosition = split[1];
+                } else {
+                    newPosition = position;
+                }
+                newDisease.setPosition(newPosition);
 
                 // 病害类型
                 List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject4.getId());
@@ -1142,7 +1177,68 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
                 return true;
             });
+        }
 
+        // 上传正面照
+        List<String> frontImage = DRbuilding.getFrontImage();
+        if (frontImage != null && !frontImage.isEmpty()) {
+            for (int i = 0; i < 2; i++) {
+                String imageName = frontImage.get(i);
+                if (imageName != null && !imageName.isEmpty()) {
+                    // 转换为 MultipartFile
+                    MultipartFile file = convert(path, imageName);
+                    // 处理附件
+                    fileMapController.uploadAttachment(buildingMap.get(buildingName).getId(), file, "newfront", i);
+                }
+            }
+        }
+
+        // 上传侧面照
+        List<String> sideImage = DRbuilding.getSideImage();
+        if (sideImage != null && !sideImage.isEmpty()) {
+            for (int i = 0; i < 2; i++) {
+                String imageName = sideImage.get(i);
+                if (imageName != null && !imageName.isEmpty()) {
+                    // 转换为 MultipartFile
+                    MultipartFile file = convert(path, imageName);
+                    // 处理附件
+                    fileMapController.uploadAttachment(buildingMap.get(buildingName).getId(), file, "newside", i);
+                }
+            }
+        }
+
+        // 上传桥梁卡片
+        if (DRbuilding.getBuildingCard() != null && !DRbuilding.getBuildingCard().isEmpty()) {
+            try {
+
+                String filename = DRbuilding.getBuildingCard();
+                File file = path.resolve(filename).toFile();
+
+                if (!file.exists()) {
+                    throw new FileNotFoundException("目标文件不存在: " + file.getAbsolutePath());
+                }
+
+                // 3. 读取文件内容到字节数组
+                byte[] fileContent = Files.readAllBytes(file.toPath());
+
+                // 4. 正确创建 MockMultipartFile 实例
+                MockMultipartFile multipartFile = new MockMultipartFile(
+                        "file",
+                        file.getName(),
+                        "application/octet-stream",
+                        fileContent
+                );
+
+                // 5. 调用服务层方法
+                Property property = new Property();
+                property.setCreateBy(ShiroUtils.getLoginName());
+                property.setUpdateBy(ShiroUtils.getLoginName());
+                propertyService.readWordFile(multipartFile, property, buildingMap.get(buildingName).getId());
+
+            } catch (IOException e) {
+                log.error("处理文件时发生错误: " + e.getMessage(), e);
+                throw new RuntimeException("处理文件时发生错误: " + e.getMessage(), e);
+            }
         }
     }
 
@@ -1221,7 +1317,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     .findFirst()
                     .orElse(null);
             if (biObject2 == null) {
-                log.info("未找到对应的子对象, parentId:{}, name:{}", rootBiObject.getId(), biObject_2);
+                log.info("未找到对应的子对象, parentId:{}, name:{}, 层次:2", rootBiObject.getId(), biObject_2);
                 return;
             }
 
@@ -1230,7 +1326,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     .findFirst()
                     .orElse(null);
             if (biObject3 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
+                log.info("未找到对应的子对象, parentId:{}, name:{}, 层次:3", biObject2.getId(), biObject_3);
                 biObject3 = children.stream()
                         .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
                         .findFirst()
@@ -1251,7 +1347,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                         .orElse(null);
             }
             if (biObject4 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObject_4);
+                log.info("未找到对应的四级子对象, parentId:{}, name:{}, 层次:4", biObject3.getId(), biObject_4);
                 biObject4 = children.stream()
                         .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
                         .findFirst()
