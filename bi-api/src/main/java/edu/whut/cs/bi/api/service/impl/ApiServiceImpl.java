@@ -368,8 +368,6 @@ public class ApiServiceImpl implements ApiService {
                     // 创建图片在zip包中的保存路径
                     String zipImagePath = rootDirName + "/building/" + buildingId + "/disease/images/" + originalFileName;
 
-                    log.info(zipImagePath + " 开始读取并写入图片");
-
                     // 创建ZIP条目
                     ZipEntry entry = new ZipEntry(zipImagePath);
                     zipOut.putNextEntry(entry);
@@ -389,7 +387,6 @@ public class ApiServiceImpl implements ApiService {
 
                     // 关闭当前ZIP条目
                     zipOut.closeEntry();
-                    log.info(zipImagePath + " 完成图片写入");
 
                 } catch (Exception e) {
                     log.error("处理图片失败: " + attachment.getId() + ", 错误: " + e.getMessage());
