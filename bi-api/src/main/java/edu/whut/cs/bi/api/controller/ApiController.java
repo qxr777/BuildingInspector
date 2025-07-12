@@ -9,10 +9,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
-import com.ruoyi.system.mapper.SysUserMapper;
-import com.ruoyi.system.mapper.SysUserRoleMapper;
 import com.ruoyi.system.service.ISysUserService;
-import com.ruoyi.system.service.impl.SysRoleServiceImpl;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.api.task.UserPackageTask;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
@@ -392,13 +389,18 @@ public class ApiController {
             return AjaxResult.error("该用户暂时没有用户数据包");
         }
         FileMap fileMap = fileMapServiceImpl.selectFileMapById(packages.get(0).getMinioId());
-        if(fileMap==null || fileMap.getNewName()==null || fileMap.getOldName()==null) {
-            return  AjaxResult.error("数据不完整");
+        if (fileMap == null || fileMap.getNewName() == null || fileMap.getOldName() == null) {
+            return AjaxResult.error("数据不完整");
+        }
+        String version = fileMap.getOldName();
+        int dotIndex = version.lastIndexOf('.');
+        if (dotIndex > 0) {
+            version = version.substring(0, dotIndex);
         }
         String prefix = fileMap.getNewName().substring(0, 2);
         String downloadUrl = minioConfig.getEndpoint() + "/" + minioConfig.getBucketName() + "/" +
                 prefix + "/" + fileMap.getNewName();
-        return AjaxResult.success().put("url", downloadUrl).put("version",fileMap.getOldName()).put("packageSize",packages.get(0).getPackageSize());
+        return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
     }
 
     @GetMapping("/user/dataPackageTest")
