@@ -460,4 +460,18 @@ public class FileMapServiceImpl implements IFileMapService {
             attachmentService.insertAttachment(attachment);
         });
     }
+
+    /**
+     * 批量查询文件管理
+     *
+     * @param ids 文件管理主键列表
+     * @return 文件管理集合
+     */
+    @Override
+    public List<FileMap> selectFileMapByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return fileMapMapper.selectFileMapByIds(ids);
+    }
 }

@@ -145,4 +145,12 @@ public interface IFileMapService {
      * 处理biObject附件
      */
     void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type);
+
+    /**
+     * 批量查询文件管理
+     *
+     * @param ids 文件管理主键列表
+     * @return 文件管理集合
+     */
+    public List<FileMap> selectFileMapByIds(List<Long> ids);
 }

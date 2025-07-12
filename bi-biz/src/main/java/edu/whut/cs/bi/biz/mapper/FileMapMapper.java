@@ -58,4 +58,12 @@ public interface FileMapMapper {
      * @return 结果
      */
     public int deleteFileMapByIds(@Param("list") List<String> ids);
+
+    /**
+     * 批量查询文件管理
+     *
+     * @param ids 文件管理主键列表
+     * @return 文件管理集合
+     */
+    public List<FileMap> selectFileMapByIds(@Param("list") List<Long> ids);
 }

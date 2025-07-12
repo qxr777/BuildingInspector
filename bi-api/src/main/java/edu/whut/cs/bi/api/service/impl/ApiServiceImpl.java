@@ -297,7 +297,7 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
                 if (!allFileNames.isEmpty()) {
-                    addDiseaseImages(zipOut, rootDirName, buildingId, allFileNames,ids);
+                    addDiseaseImages(zipOut, rootDirName, buildingId, allFileNames, ids);
                 }
                 log.info(userId + "图片信息收集完成" + disease.getBuildingId());
             } catch (Exception e) {
@@ -337,128 +337,67 @@ public class ApiServiceImpl implements ApiService {
                 return;
             }
 
-            // 创建一个有界阻塞队列，控制内存使用
-            int queueCapacity = Math.min(50, neededAttachments.size());
-            BlockingQueue<Map<String, Object>> imageQueue = new ArrayBlockingQueue<>(queueCapacity);
+            // 收集所有 MinioId，进行批量查询
+            List<Long> minioIds = neededAttachments.stream()
+                    .map(Attachment::getMinioId)
+                    .collect(Collectors.toList());
 
-            // 创建线程池并行处理图片读取
-            int threadPoolSize = Math.min(Runtime.getRuntime().availableProcessors(), neededAttachments.size());
-            ThreadPoolExecutor executorService = new ThreadPoolExecutor(
-                    threadPoolSize, // 核心线程数
-                    threadPoolSize, // 最大线程数
-                    60L, // 空闲线程存活时间
-                    TimeUnit.SECONDS, // 时间单位
-                    new LinkedBlockingQueue<>(), // 工作队列
-                    Executors.defaultThreadFactory(), // 线程工厂
-                    new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略
-            );
+            // 批量查询 FileMap
+            Map<Long, FileMap> fileMapMap = new HashMap<>();
+            if (!minioIds.isEmpty()) {
+                List<FileMap> fileMaps = fileMapServiceImpl.selectFileMapByIds(minioIds);
+                fileMapMap = fileMaps.stream()
+                        .collect(Collectors.toMap(fileMap -> Long.valueOf(fileMap.getId()), fileMap -> fileMap));
+            }
 
-            // 标记生产者是否已全部完成
-            AtomicBoolean producersCompleted = new AtomicBoolean(false);
-
-            // 消费者线程：从队列中取出图片数据并写入ZIP(单一消费者）
-            Thread consumerThread = new Thread(() -> {
+            // 流式读取并直接写入ZIP
+            for (Attachment attachment : neededAttachments) {
                 try {
-                    while (!producersCompleted.get() || !imageQueue.isEmpty()) {
-                        Map<String, Object> imageData = null;
-                        try {
-                            // 从队列中取出数据，最多等待100ms
-                            imageData = imageQueue.poll(100, TimeUnit.MILLISECONDS);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            break;
-                        }
+                    // 获取FileMap
+                    FileMap fileMap = fileMapMap.get(attachment.getMinioId());
+                    if (fileMap == null) {
+                        continue;
+                    }
 
-                        if (imageData != null) {
-                            try {
-                                // 写入ZIP
-                                log.info("开始写入压缩包");
-                                String zipImagePath = (String) imageData.get("path");
-                                byte[] data = (byte[]) imageData.get("data");
+                    String newName = fileMap.getNewName();
 
-                                ZipEntry entry = new ZipEntry(zipImagePath);
-                                zipOut.putNextEntry(entry);
-                                zipOut.write(data);
-                                zipOut.closeEntry();
-                                log.info("写入压缩包完成");
-                            } catch (IOException e) {
-                               log.error("写入ZIP文件失败: " + e.getMessage());
-                            }
+                    // 获取原始文件名
+                    String originalFileName = attachment.getId() + "_" + (attachment.getName().split("_", 2).length > 1 ?
+                            attachment.getName().split("_", 2)[1] : attachment.getName());
+
+                    // 创建图片在zip包中的保存路径
+                    String zipImagePath = rootDirName + "/building/" + buildingId + "/disease/images/" + originalFileName;
+
+                    log.info(zipImagePath + " 开始读取并写入图片");
+
+                    // 创建ZIP条目
+                    ZipEntry entry = new ZipEntry(zipImagePath);
+                    zipOut.putNextEntry(entry);
+
+                    // 流式从MinIO读取并直接写入ZIP
+                    try (InputStream imageStream = minioClient.getObject(GetObjectArgs.builder()
+                            .bucket(minioConfig.getBucketName())
+                            .object(newName.substring(0, 2) + "/" + newName)
+                            .build())) {
+
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = imageStream.read(buffer)) != -1) {
+                            zipOut.write(buffer, 0, bytesRead);
                         }
                     }
+
+                    // 关闭当前ZIP条目
+                    zipOut.closeEntry();
+                    log.info(zipImagePath + " 完成图片写入");
+
                 } catch (Exception e) {
-                   log.error("消费者线程异常: " + e.getMessage());
+                    log.error("处理图片失败: " + attachment.getId() + ", 错误: " + e.getMessage());
                 }
-            });
-
-            // 启动消费者线程
-            consumerThread.start();
-
-            try {
-                // 生产者：多线程读取图片
-                List<CompletableFuture<Void>> futures = neededAttachments.stream()
-                        .map(attachment -> CompletableFuture.runAsync(() -> {
-                            try {
-                                // 获取FileMap
-                                FileMap fileMap = fileMapServiceImpl.selectFileMapById(attachment.getMinioId());
-                                if (fileMap == null) {
-                                    return;
-                                }
-
-                                String newName = fileMap.getNewName();
-
-                                // 获取原始文件名
-                                String originalFileName = attachment.getId() + "_" + (attachment.getName().split("_", 2).length > 1 ?
-                                        attachment.getName().split("_", 2)[1] : attachment.getName());
-
-                                // 创建图片在zip包中的保存路径
-                                String zipImagePath = rootDirName + "/building/" + buildingId + "/disease/images/" + originalFileName;
-
-                                // 读取图片数据到字节数组
-                                log.info(zipImagePath + " 开始读图片" );
-                                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                                try (InputStream imageStream = minioClient.getObject(GetObjectArgs.builder()
-                                        .bucket(minioConfig.getBucketName())
-                                        .object(newName.substring(0, 2) + "/" + newName)
-                                        .build())) {
-
-                                    byte[] buffer = new byte[8192];
-                                    int bytesRead;
-                                    while ((bytesRead = imageStream.read(buffer)) != -1) {
-                                        baos.write(buffer, 0, bytesRead);
-                                    }
-                                }
-                                log.info(zipImagePath + " 读图片结束" );
-
-                                // 准备数据
-                                Map<String, Object> imageData = new HashMap<>();
-                                imageData.put("path", zipImagePath);
-                                imageData.put("data", baos.toByteArray());
-
-                                // 将数据放入队列，如果队列满则阻塞
-                                imageQueue.put(imageData);
-
-                            } catch (Exception e) {
-                               log.error("处理图片失败: " + attachment.getId() + ", 错误: " + e.getMessage());
-                            }
-                        }, executorService))
-                        .collect(Collectors.toList());
-
-                // 等待所有生产者任务完成
-                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-                // 标记生产者已全部完成
-                producersCompleted.set(true);
-
-                // 等待消费者线程完成
-                consumerThread.join();
-
-            } finally {
-                executorService.shutdown();
             }
 
         } catch (Exception e) {
-           log.error("处理病害图片失败");
+            log.error("处理病害图片失败: " + e.getMessage(), e);
         }
     }
 
