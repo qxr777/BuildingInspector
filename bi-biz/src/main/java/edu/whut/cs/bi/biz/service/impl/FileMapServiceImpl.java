@@ -1,11 +1,14 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
@@ -14,6 +17,7 @@ import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import io.minio.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +37,7 @@ import javax.annotation.Resource;
  * @date 2025-03-29
  */
 @Service
+@Slf4j
 public class FileMapServiceImpl implements IFileMapService {
     @Autowired
     private FileMapMapper fileMapMapper;
@@ -191,6 +196,52 @@ public class FileMapServiceImpl implements IFileMapService {
                     fileInputStream.close();
                 } catch (Exception e) {
                     // 记录关闭流失败但不抛出异常
+                }
+            }
+        }
+    }
+
+    /**
+     * 直接从文件上传到MinIO，避免重复读取到内存
+     */
+    public FileMap handleFileUploadFromFile(File file, String originalFilename, SysUser user) {
+        FileInputStream fileInputStream = null;
+        try {
+            String extension = FilenameUtils.getExtension(originalFilename);
+
+            // 使用UUID作为新文件名
+            String uuid = UUID.randomUUID().toString().replace("-", "");
+            String objectName = uuid + "." + extension;
+
+            // 直接从文件创建输入流
+            fileInputStream = new FileInputStream(file);
+
+            // 上传文件到MinIO
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(minioConfig.getBucketName())
+                    .object(objectName.substring(0, 2) + "/" + objectName)
+                    .stream(fileInputStream, file.length(), -1)
+                    .contentType("application/zip")
+                    .build());
+
+            // 保存文件信息
+            FileMap fileMap = new FileMap();
+            fileMap.setOldName(originalFilename);
+            fileMap.setNewName(objectName);
+            fileMap.setCreateTime(DateUtils.getNowDate());
+            fileMap.setCreateBy(user.getLoginName());
+            fileMapMapper.insertFileMap(fileMap);
+
+            return fileMap;
+        } catch (Exception e) {
+            throw new RuntimeException("文件上传失败", e);
+        } finally {
+            // 确保输入流关闭
+            if (fileInputStream != null) {
+                try {
+                    fileInputStream.close();
+                } catch (Exception e) {
+                    log.error("输入流关闭失败");
                 }
             }
         }

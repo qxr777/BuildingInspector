@@ -88,6 +88,8 @@ public class UserPackageTask {
                             aPackage.setUpdateTime(nowDate);
                             aPackage.setMinioId(Long.valueOf(ajaxResult.get("data").toString()));
                             packagesUpdate.add(aPackage);
+                        } else {
+                            return AjaxResult.error("打包用户数据失败" );
                         }
                     }
                 }

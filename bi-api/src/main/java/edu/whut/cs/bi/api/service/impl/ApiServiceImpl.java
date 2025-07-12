@@ -34,6 +34,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -88,6 +89,8 @@ public class ApiServiceImpl implements ApiService {
         if (user == null) {
             return AjaxResult.success();
         }
+
+        File tempFile = null;
         try {
             // 获取当前用户信息
             Long userId = user.getUserId();
@@ -100,52 +103,48 @@ public class ApiServiceImpl implements ApiService {
             String rootDirName = "UD" + dateStr + "-" + user.getLoginName();
             String zipFileName = rootDirName + ".zip";
 
-            // 创建内存中的ZIP输出流
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ZipOutputStream zipOut = new ZipOutputStream(baos);
+            // 创建临时文件直接写入ZIP数据
+            tempFile = File.createTempFile("datapackage_", ".zip");
+            long zipSize = 0;
 
-            // 1. 创建项目数据
-            createProjectData(zipOut, rootDirName, userId);
-            log.info(userId + "项目数据创建完成");
+            try (FileOutputStream fos = new FileOutputStream(tempFile);
+                 ZipOutputStream zipOut = new ZipOutputStream(fos)) {
 
-            // 2. 创建建筑物数据
-            createBuildingData(zipOut, rootDirName, userId);
-            log.info(userId + "建筑物数据创建完成");
+                // 1. 创建项目数据
+                createProjectData(zipOut, rootDirName, userId);
+                log.info(userId + "项目数据创建完成");
+                // 2. 创建建筑物数据
+                createBuildingData(zipOut, rootDirName, userId);
+                log.info(userId + "建筑物数据创建完成");
 
-            zipOut.close();
+                zipOut.close();
+                zipSize = tempFile.length();
+                log.info("ZIP文件生成完成，大小: {} MB", zipSize / 1024 / 1024);
+            }
 
-            // 获取ZIP文件的字节数组
-            byte[] zipBytes = baos.toByteArray();
-
-            // 将ZIP文件上传到MinIO
+            // 直接上传临时文件到MinIO
             try {
-                // 创建一个临时文件用于上传
-                File tempFile = File.createTempFile("datapackage_", ".zip");
-                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                    fos.write(zipBytes);
-                }
-
-                // 使用MultipartFile上传到MinIO
-                MultipartFile multipartFile = new MockMultipartFile(
-                        zipFileName,
-                        zipFileName,
-                        "application/zip",
-                        Files.readAllBytes(tempFile.toPath())
-                );
-
-                // 上传并获取文件映射
-                FileMap fileMap = fileMapServiceImpl.handleFileUpload(multipartFile);
-
-                // 删除临时文件
-                tempFile.delete();
+                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName,user);
 
                 // 返回成功信息和minioId
                 return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId()));
+
             } catch (Exception e) {
+                log.error("上传数据包到MinIO失败", e);
                 return AjaxResult.error("生成用户数据包失败");
             }
+
         } catch (Exception e) {
+            log.error("生成用户数据包失败", e);
             return AjaxResult.error("生成用户数据包失败");
+        } finally {
+            // 确保临时文件被删除
+            if (tempFile != null && tempFile.exists()) {
+                boolean deleted = tempFile.delete();
+                if (!deleted) {
+                    log.warn("临时文件删除失败: {}", tempFile.getAbsolutePath());
+                }
+            }
         }
     }
 
