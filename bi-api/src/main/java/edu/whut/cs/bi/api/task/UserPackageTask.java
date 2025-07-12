@@ -72,6 +72,7 @@ public class UserPackageTask {
                         aPackage.setPackageTime(nowDate);
                         aPackage.setUpdateTime(nowDate);
                         aPackage.setMinioId(Long.valueOf(ajaxResult.get("data").toString()));
+                        aPackage.setPackageSize(ajaxResult.get("size").toString());
                         packagesInsert.add(aPackage);
                     }
                 }
@@ -87,6 +88,7 @@ public class UserPackageTask {
                             aPackage.setPackageTime(nowDate);
                             aPackage.setUpdateTime(nowDate);
                             aPackage.setMinioId(Long.valueOf(ajaxResult.get("data").toString()));
+                            aPackage.setPackageSize(ajaxResult.get("size").toString());
                             packagesUpdate.add(aPackage);
                         } else {
                             return AjaxResult.error("打包用户数据失败" );

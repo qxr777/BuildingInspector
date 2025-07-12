@@ -398,7 +398,7 @@ public class ApiController {
         String prefix = fileMap.getNewName().substring(0, 2);
         String downloadUrl = minioConfig.getEndpoint() + "/" + minioConfig.getBucketName() + "/" +
                 prefix + "/" + fileMap.getNewName();
-        return AjaxResult.success().put("url", downloadUrl).put("version",fileMap.getOldName());
+        return AjaxResult.success().put("url", downloadUrl).put("version",fileMap.getOldName()).put("packageSize",packages.get(0).getPackageSize());
     }
 
     @GetMapping("/user/dataPackageTest")

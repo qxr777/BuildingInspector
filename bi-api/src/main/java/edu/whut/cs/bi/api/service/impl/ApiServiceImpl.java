@@ -105,7 +105,7 @@ public class ApiServiceImpl implements ApiService {
 
             // 创建临时文件直接写入ZIP数据
             tempFile = File.createTempFile("datapackage_", ".zip");
-            long zipSize = 0;
+            String zipSize ;
 
             try (FileOutputStream fos = new FileOutputStream(tempFile);
                  ZipOutputStream zipOut = new ZipOutputStream(fos)) {
@@ -118,8 +118,8 @@ public class ApiServiceImpl implements ApiService {
                 log.info(userId + "建筑物数据创建完成");
 
                 zipOut.close();
-                zipSize = tempFile.length();
-                log.info("ZIP文件生成完成，大小: {} MB", zipSize / 1024 / 1024);
+                zipSize = tempFile.length()/ 1024 / 1024 + "MB";
+                log.info("ZIP文件生成完成，大小: {} MB", zipSize);
             }
 
             // 直接上传临时文件到MinIO
@@ -127,7 +127,7 @@ public class ApiServiceImpl implements ApiService {
                 FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName,user);
 
                 // 返回成功信息和minioId
-                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId()));
+                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size",zipSize);
 
             } catch (Exception e) {
                 log.error("上传数据包到MinIO失败", e);

@@ -10,10 +10,11 @@
         <result property="minioId"      column="minio_id"     />
         <result property="packageTime"  column="package_time" />
         <result property="updateTime"   column="update_time"  />
+        <result property="packageSize"  column="package_size" />
     </resultMap>
 
     <sql id="selectPackageVo">
-        select id, user_id, minio_id, package_time, update_time
+        select id, user_id, minio_id, package_size, package_time, update_time
         from bi_package
     </sql>
 
@@ -39,6 +40,9 @@
             <if test="minioId != null">
                 AND minio_id = #{minioId}
             </if>
+            <if test="packageSize != null">
+                AND package_size = #{packageSize}
+            </if>
             <if test="packageTime != null">
                 AND package_time = #{packageTime}
             </if>
@@ -61,12 +65,14 @@
             <if test="minioId != null">minio_id,</if>
             <if test="packageTime != null">package_time,</if>
             <if test="updateTime != null">update_time,</if>
+            <if test="packageSize != null">package_size,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="userId != null">#{userId},</if>
             <if test="minioId != null">#{minioId},</if>
             <if test="packageTime != null">#{packageTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
+            <if test="packageSize != null">#{packageSize},</if>
         </trim>
     </insert>
 
@@ -77,6 +83,7 @@
             <if test="minioId != null">minio_id = #{minioId},</if>
             <if test="packageTime != null">package_time = #{packageTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="packageSize != null">package_size = #{packageSize},</if>
         </trim>
         where id = #{id}
     </update>
@@ -93,10 +100,10 @@
     </delete>
 
     <insert id="batchInsertPackage" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
-        insert into bi_package (user_id, minio_id, package_time, update_time)
+        insert into biz_package (user_id, minio_id, package_size, package_time, update_time)
         values
         <foreach collection="list" item="item" index="index" separator=",">
-            (#{item.userId}, #{item.minioId}, #{item.packageTime}, #{item.updateTime})
+            (#{item.userId}, #{item.minioId}, #{item.packageSize}, #{item.packageTime}, #{item.updateTime})
         </foreach>
     </insert>
 
@@ -108,6 +115,7 @@
                 <if test="item.minioId != null">minio_id = #{item.minioId},</if>
                 <if test="item.packageTime != null">package_time = #{item.packageTime},</if>
                 <if test="item.updateTime != null">update_time = #{item.updateTime},</if>
+                <if test="item.packageSize != null">package_size = #{item.packageSize},</if>
             </set>
             where id = #{item.id}
         </foreach>
