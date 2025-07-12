@@ -391,7 +391,7 @@ public class ApiController {
         if (packages.isEmpty()) {
             return AjaxResult.error("该用户暂时没有用户数据包");
         }
-        FileMap fileMap = fileMapServiceImpl.selectFileMapById(packages.get(0).getId());
+        FileMap fileMap = fileMapServiceImpl.selectFileMapById(packages.get(0).getMinioId());
         if(fileMap==null || fileMap.getNewName()==null || fileMap.getOldName()==null) {
             return  AjaxResult.error("数据不完整");
         }

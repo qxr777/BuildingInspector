@@ -29,6 +29,7 @@ import com.ruoyi.common.core.text.Convert;
 import org.apache.commons.io.FilenameUtils;
 
 import javax.annotation.Resource;
+import javax.servlet.ServletOutputStream;
 
 /**
  * 文件管理Service业务层处理
@@ -405,6 +406,26 @@ public class FileMapServiceImpl implements IFileMapService {
             }
             buffer.flush();
             return buffer.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("文件下载失败", e);
+        }
+    }
+
+    public void streamFileDownloadByNewName(String newName, ServletOutputStream outputStream) {
+        try (InputStream inputStream = minioClient.getObject(GetObjectArgs.builder()
+                .bucket(minioConfig.getBucketName())
+                .object(newName.substring(0,2)+"/" + newName)
+                .build())) {
+
+            // 流式复制，使用缓冲区
+            byte[] buffer = new byte[8192]; // 8KB缓冲区
+            int bytesRead;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+                outputStream.flush(); // 及时刷新输出流
+            }
+
         } catch (Exception e) {
             throw new RuntimeException("文件下载失败", e);
         }

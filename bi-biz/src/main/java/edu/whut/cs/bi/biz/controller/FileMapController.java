@@ -13,6 +13,7 @@ import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,8 @@ public class FileMapController extends BaseController {
 
     @Autowired
     private MinioConfig minioConfig;
+    @Autowired
+    private FileMapServiceImpl fileMapServiceImpl;
 
     @RequiresPermissions("biz:file:view")
     @GetMapping()
@@ -275,10 +278,9 @@ public class FileMapController extends BaseController {
     public void downloadByNewName(@PathVariable("newName") String newName, HttpServletResponse response)
             throws IOException {
         ServletOutputStream outputStream = null;
-        try {
-            // 获取文件数据
-            byte[] fileBytes = fileMapService.handleFileDownloadByNewName(newName);
+        boolean downloadStarted = false;
 
+        try {
             // 获取文件信息
             FileMap fileMap = fileMapService.selectFileMapByNewName(newName);
             if (fileMap == null) {
@@ -290,13 +292,24 @@ public class FileMapController extends BaseController {
             response.setHeader("Content-Disposition",
                     "attachment;filename=" + URLEncoder.encode(fileMap.getOldName(), "UTF-8"));
 
-            // 写入响应
+            // 获取输出流
             outputStream = response.getOutputStream();
-            outputStream.write(fileBytes);
+            downloadStarted = true;
+
+            // 流式传输文件
+            fileMapServiceImpl.streamFileDownloadByNewName(newName, outputStream);
             outputStream.flush();
+
         } catch (Exception e) {
-            response.setContentType("text/html;charset=utf-8");
-            response.getWriter().write("文件下载失败：" + e.getMessage());
+            // 如果还没有开始下载，返回错误信息
+            if (!downloadStarted) {
+                response.setContentType("application/json;charset=utf-8");
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                String errorMsg = "{\"error\":\"文件下载失败：" + e.getMessage() + "\"}";
+                response.getOutputStream().write(errorMsg.getBytes("UTF-8"));
+            } else {
+                System.err.println("文件下载过程中发生错误: " + e.getMessage());
+            }
         } finally {
             // 确保输出流关闭
             if (outputStream != null) {
@@ -304,6 +317,7 @@ public class FileMapController extends BaseController {
                     outputStream.close();
                 } catch (IOException e) {
                     // 记录关闭流失败但不抛出异常
+                    System.err.println("关闭输出流失败: " + e.getMessage());
                 }
             }
         }
