@@ -69,4 +69,12 @@ public interface DiseaseDetailMapper {
      * @return 结果
      */
     void insertDiseaseDetails(@Param("diseaseDetails") List<DiseaseDetail> diseaseDetails);
+
+    /**
+     * 根据病害ID列表批量查询病害详情
+     *
+     * @param diseaseIds 病害ID列表
+     * @return 病害详情列表
+     */
+    public List<DiseaseDetail> selectDiseaseDetailsByDiseaseIds(List<Long> diseaseIds);
 }

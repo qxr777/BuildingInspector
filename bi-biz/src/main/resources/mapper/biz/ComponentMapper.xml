@@ -199,4 +199,14 @@
             where id = #{component.id} and del_flag = '0'
         </foreach>
     </update>
+
+    <!-- 根据ID列表批量查询构件 -->
+    <select id="selectComponentsByIds" resultMap="ComponentResult">
+        <include refid="selectComponentListVo"/>
+        where c.id in
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
 </mapper>

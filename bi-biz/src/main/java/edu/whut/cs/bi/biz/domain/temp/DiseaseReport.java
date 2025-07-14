@@ -19,6 +19,10 @@ public class DiseaseReport {
         private String zipCode;
         private String lineCode;
         private List<Disease> disease;
+        private String lineName;
+        private List<String> frontImage;
+        private List<String> sideImage;
+        private String buildingCard;
     }
 
     @Data

@@ -2,14 +2,17 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.system.service.ISysDictDataService;
+import com.ruoyi.system.service.ISysDictTypeService;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
+import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.temp.DiseaseReport;
@@ -95,6 +98,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
     private ComponentMapper componentMapper;
 
     @Resource
+    private FileMapController fileMapController;
+
+    @Resource
     private IBuildingService buildingService;
 
     @Resource
@@ -102,6 +108,16 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
     @Autowired
     private TaskMapper taskMapper;
+
+    @Resource
+    private ISysDictDataService sysDictDataService;
+
+    @Resource
+    private ISysDictTypeService sysDictTypeService;
+
+
+    @Resource
+    private IPropertyService propertyService;
 
     /**
      * 查询病害
@@ -253,6 +269,174 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
+     * 为离线包查询病害列表，不加载图片URLs
+     *
+     * @param disease 病害
+     * @return 病害列表
+     */
+    @Override
+    public List<Disease> selectDiseaseListForZip(Disease disease) {
+        // 获取基础的病害列表
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+        if (diseases.isEmpty()) {
+            return diseases;
+        }
+
+        // 收集所有病害ID，构件ID和BiObjectId，用于批量查询
+        List<Long> diseaseIds = new ArrayList<>();
+        List<Long> componentIds = new ArrayList<>();
+        Set<Long> biObjectIds = new HashSet<>();
+
+        for (Disease ds : diseases) {
+            diseaseIds.add(ds.getId());
+            if (ds.getComponentId() != null) {
+                componentIds.add(ds.getComponentId());
+            }
+            if (ds.getBiObjectId() != null) {
+                biObjectIds.add(ds.getBiObjectId());
+            }
+        }
+
+        // 批量查询所有病害详情
+        List<DiseaseDetail> allDiseaseDetails = new ArrayList<>();
+        allDiseaseDetails = diseaseDetailMapper.selectDiseaseDetailsByDiseaseIds(diseaseIds);
+
+        // 批量查询所有构件
+        Map<Long, Component> componentMap = new HashMap<>(16);
+        if (!componentIds.isEmpty()) {
+            List<Component> components = componentService.selectComponentsByIds(componentIds);
+            for (Component component : components) {
+                componentMap.put(component.getId(), component);
+                // 收集BiObjectId用于后续查询
+                if (component.getBiObjectId() != null) {
+                    biObjectIds.add(component.getBiObjectId());
+                }
+            }
+        }
+
+        // 第一次查询所有直接关联的BiObject
+        Map<Long, BiObject> biObjectMap = new HashMap<>(16);
+        if (!biObjectIds.isEmpty()) {
+            List<BiObject> biObjects = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(biObjectIds));
+
+            // 收集所有父级ID
+            Set<Long> parentIds = new HashSet<>();
+            for (BiObject biObject : biObjects) {
+                biObjectMap.put(biObject.getId(), biObject);
+                if (biObject.getParentId() != null) {
+                    parentIds.add(biObject.getParentId());
+                }
+            }
+
+            // 查询所有父级BiObject
+            if (!parentIds.isEmpty()) {
+                List<BiObject> parentObjects = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(parentIds));
+
+                // 收集所有祖父级ID
+                Set<Long> grandParentIds = new HashSet<>();
+                for (BiObject parent : parentObjects) {
+                    biObjectMap.put(parent.getId(), parent);
+                    if (parent.getParentId() != null) {
+                        grandParentIds.add(parent.getParentId());
+                    }
+                }
+
+                // 查询所有祖父级BiObject
+                if (!grandParentIds.isEmpty()) {
+                    List<BiObject> grandParentObjects = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(grandParentIds));
+                    for (BiObject grandParent : grandParentObjects) {
+                        biObjectMap.put(grandParent.getId(), grandParent);
+                    }
+                }
+            }
+        }
+
+        // 收集所有病害ID，用于批量查询附件
+        List<Long> subjectIds = diseaseIds;
+
+        // 批量查询所有附件
+        Map<Long, List<Attachment>> attachmentMap = new HashMap<>();
+        if (!subjectIds.isEmpty()) {
+            List<Attachment> allAttachments = attachmentService.getAttachmentBySubjectIds(subjectIds);
+            // 按病害ID分组
+            for (Attachment attachment : allAttachments) {
+                if (attachment.getSubjectId() != null) {
+                    attachmentMap.computeIfAbsent(attachment.getSubjectId(), k -> new ArrayList<>()).add(attachment);
+                }
+            }
+        }
+
+        // 处理每个病害的数据
+        for (Disease ds : diseases) {
+            // 设置构件信息
+            Long componentId = ds.getComponentId();
+            if (componentId != null && componentMap.containsKey(componentId)) {
+                Component component = componentMap.get(componentId);
+
+                // 设置BiObject信息
+                if (component.getBiObjectId() != null) {
+                    BiObject biObject = biObjectMap.get(component.getBiObjectId());
+                    if (biObject != null && biObject.getParentId() != null) {
+                        BiObject parent = biObjectMap.get(biObject.getParentId());
+                        if (parent != null) {
+                            component.setParentObjectName(parent.getName());
+                            if (parent.getParentId() != null) {
+                                BiObject grandParent = biObjectMap.get(parent.getParentId());
+                                if (grandParent != null) {
+                                    component.setGrandObjectName(grandParent.getName());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ds.setComponent(component);
+            }
+
+            // 设置病害详情
+            List<DiseaseDetail> diseaseDetails = allDiseaseDetails.stream()
+                    .filter(detail -> detail.getDiseaseId().equals(ds.getId()))
+                    .collect(Collectors.toList());
+            ds.setDiseaseDetails(diseaseDetails);
+
+            // 设置图片路径
+            List<String> imagePaths = new ArrayList<>();
+            List<String> adImagePaths = new ArrayList<>();
+
+            // 获取该病害的所有附件
+            List<Attachment> attachments = attachmentMap.getOrDefault(ds.getId(), Collections.emptyList());
+
+            if (!attachments.isEmpty()) {
+                // 直接构建预定义的相对路径格式
+                Long buildingId = ds.getBuildingId();
+
+                for (Attachment attachment : attachments) {
+                    if (attachment.getName().startsWith("disease")) {
+                        // 获取原始文件名，用于在ZIP中保存
+                        String originalFileName = attachment.getId() + "_" + (attachment.getName().split("_", 2).length > 1 ?
+                                attachment.getName().split("_", 2)[1] : attachment.getName());
+
+                        // 构建相对路径 (相对于buildingId的路径)
+                        String relativePath = buildingId + "/disease/images/" + originalFileName;
+
+                        // 根据类型区分普通图片和AD图片
+                        if (attachment.getType() != null && attachment.getType() == 7) {
+                            adImagePaths.add(relativePath);
+                        } else {
+                            imagePaths.add(relativePath);
+                        }
+                    }
+                }
+            }
+
+            ds.setImages(imagePaths);
+            ds.setADImgs(adImagePaths);
+        }
+
+        return diseases;
+    }
+
+    /**
      * 新增病害
      *
      * @param disease 病害
@@ -371,8 +555,6 @@ public class DiseaseServiceImpl implements IDiseaseService {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         executor.shutdown();
-
-
 
         return diseaseMapper.deleteDiseaseByIds(strArray);
     }
@@ -543,7 +725,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     .findFirst()
                     .orElse(null);
             if (biObject3 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
+                log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
                 return;
             }
 
@@ -565,7 +747,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                         .orElse(null);
             }
             if (biObject4 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
+                log.info("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
                 return;
             }
 
@@ -870,7 +1052,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
 
     static {
-        BRIDGE_TYPE_MAP.put("梁式桥", 1L);
+        BRIDGE_TYPE_MAP.put("梁试桥", 1L);
         BRIDGE_TYPE_MAP.put("箱形拱桥", 3L);
         BRIDGE_TYPE_MAP.put("双曲拱桥", 4L);
         BRIDGE_TYPE_MAP.put("板拱桥", 5L);
@@ -936,8 +1118,20 @@ public class DiseaseServiceImpl implements IDiseaseService {
             List<Building> buildingList = buildings.stream().map(building -> {
                 Building bd = new Building();
                 bd.setName(building.getBuildingName());
-                if (building.getLineCode() != null)
+                if (building.getLineCode() != null) {
+                    // 检查路线字典是否存在
+                    String biBuildeingLine = sysDictDataService.selectDictLabel("bi_buildeing_line", building.getLineCode());
+                    if (biBuildeingLine == null || biBuildeingLine.equals("")) {
+                        SysDictData sysDictData = new SysDictData();
+                        sysDictData.setDictType("bi_buildeing_line");
+                        sysDictData.setDictValue(building.getLineCode());
+                        sysDictData.setDictLabel(building.getLineName());
+                        sysDictData.setStatus("0");
+                        sysDictData.setDictSort(0L);
+                        sysDictDataService.insertDictData(sysDictData);
+                    }
                     bd.setLine(building.getLineCode());
+                }
 
                 if (building.getZipCode() != null)
                     bd.setArea(building.getZipCode());
@@ -1055,7 +1249,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                         .findFirst()
                         .orElse(null);
                 if (biObject3 == null) {
-                    log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
+                    log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
                     biObject3 = children.stream()
                             .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
                             .findFirst()
@@ -1090,7 +1284,14 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
                 // 新增病害
                 Disease newDisease = new Disease();
-                newDisease.setPosition(position);
+                String newPosition = null;
+                if (position.matches(regex)) {
+                    String[] split = position.split("#");
+                    newPosition = split[1];
+                } else {
+                    newPosition = position;
+                }
+                newDisease.setPosition(newPosition);
 
                 // 病害类型
                 List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject4.getId());
@@ -1147,7 +1348,68 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
                 return true;
             });
+        }
 
+        // 上传正面照
+        List<String> frontImage = DRbuilding.getFrontImage();
+        if (frontImage != null && !frontImage.isEmpty()) {
+            for (int i = 0; i < 2; i++) {
+                String imageName = frontImage.get(i);
+                if (imageName != null && !imageName.isEmpty()) {
+                    // 转换为 MultipartFile
+                    MultipartFile file = convert(path, imageName);
+                    // 处理附件
+                    fileMapController.uploadAttachment(buildingMap.get(buildingName).getId(), file, "newfront", i);
+                }
+            }
+        }
+
+        // 上传侧面照
+        List<String> sideImage = DRbuilding.getSideImage();
+        if (sideImage != null && !sideImage.isEmpty()) {
+            for (int i = 0; i < 2; i++) {
+                String imageName = sideImage.get(i);
+                if (imageName != null && !imageName.isEmpty()) {
+                    // 转换为 MultipartFile
+                    MultipartFile file = convert(path, imageName);
+                    // 处理附件
+                    fileMapController.uploadAttachment(buildingMap.get(buildingName).getId(), file, "newside", i);
+                }
+            }
+        }
+
+        // 上传桥梁卡片
+        if (DRbuilding.getBuildingCard() != null && !DRbuilding.getBuildingCard().isEmpty()) {
+            try {
+
+                String filename = DRbuilding.getBuildingCard();
+                File file = path.resolve(filename).toFile();
+
+                if (!file.exists()) {
+                    throw new FileNotFoundException("目标文件不存在: " + file.getAbsolutePath());
+                }
+
+                // 3. 读取文件内容到字节数组
+                byte[] fileContent = Files.readAllBytes(file.toPath());
+
+                // 4. 正确创建 MockMultipartFile 实例
+                MockMultipartFile multipartFile = new MockMultipartFile(
+                        "file",
+                        file.getName(),
+                        "application/octet-stream",
+                        fileContent
+                );
+
+                // 5. 调用服务层方法
+                Property property = new Property();
+                property.setCreateBy(ShiroUtils.getLoginName());
+                property.setUpdateBy(ShiroUtils.getLoginName());
+                propertyService.readWordFile(multipartFile, property, buildingMap.get(buildingName).getId());
+
+            } catch (IOException e) {
+                log.error("处理文件时发生错误: " + e.getMessage(), e);
+                throw new RuntimeException("处理文件时发生错误: " + e.getMessage(), e);
+            }
         }
     }
 
@@ -1226,7 +1488,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     .findFirst()
                     .orElse(null);
             if (biObject2 == null) {
-                log.info("未找到对应的子对象, parentId:{}, name:{}", rootBiObject.getId(), biObject_2);
+                log.info("未找到对应的子对象, parentId:{}, name:{}, 层次:2", rootBiObject.getId(), biObject_2);
                 return;
             }
 
@@ -1235,7 +1497,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     .findFirst()
                     .orElse(null);
             if (biObject3 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
+                log.info("未找到对应的子对象, parentId:{}, name:{}, 层次:3", biObject2.getId(), biObject_3);
                 biObject3 = children.stream()
                         .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
                         .findFirst()
@@ -1256,7 +1518,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                         .orElse(null);
             }
             if (biObject4 == null) {
-                log.error("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObject_4);
+                log.info("未找到对应的四级子对象, parentId:{}, name:{}, 层次:4", biObject3.getId(), biObject_4);
                 biObject4 = children.stream()
                         .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
                         .findFirst()

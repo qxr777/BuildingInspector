@@ -315,4 +315,13 @@
         </foreach>
     </insert>
 
+    <!-- 根据病害ID列表批量查询病害详情 -->
+    <select id="selectDiseaseDetailsByDiseaseIds" resultMap="DiseaseDetailResult">
+        <include refid="selectDiseaseDetailVo"/>
+        where disease_id in
+        <foreach collection="list" item="diseaseId" open="(" separator="," close=")">
+            #{diseaseId}
+        </foreach>
+    </select>
+
 </mapper>
