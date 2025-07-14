@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.api.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import edu.whut.cs.bi.api.service.ApiService;
@@ -92,17 +93,17 @@ public class ApiServiceImpl implements ApiService {
             // 获取当前用户信息
             Long userId = user.getUserId();
 
-            // 创建日期格式化对象，用于生成文件夹名称
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+            // 创建日期格式化对象，用于生成文件夹名称（时间戳中间不加横线）
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
             String dateStr = dateFormat.format(new Date());
 
-            // 根目录名称：UD日期-用户名
-            String rootDirName = "UD" + dateStr + "-" + user.getLoginName();
+            // 根目录名称：UD-时间戳-用户名
+            String rootDirName = "UD-" + dateStr + "-" + user.getLoginName();
             String zipFileName = rootDirName + ".zip";
 
             // 创建临时文件直接写入ZIP数据
             tempFile = File.createTempFile("datapackage_", ".zip");
-            String zipSize ;
+            String zipSize;
 
             try (FileOutputStream fos = new FileOutputStream(tempFile);
                  ZipOutputStream zipOut = new ZipOutputStream(fos)) {
@@ -125,10 +126,10 @@ public class ApiServiceImpl implements ApiService {
 
             // 直接上传临时文件到MinIO
             try {
-                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName,user);
+                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, user);
 
                 // 返回成功信息和minioId
-                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size",zipSize);
+                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size", zipSize);
 
             } catch (Exception e) {
                 log.error("上传数据包到MinIO失败", e);
@@ -250,7 +251,8 @@ public class ApiServiceImpl implements ApiService {
 
                 Disease disease = new Disease();
                 disease.setBuildingId(buildingId);
-                disease.setYear(targetYear); // 设置为上一年
+                // 设置为上一年
+                disease.setYear(targetYear);
 
                 // 使用selectDiseaseListForZip方法，不加载图片URLs
                 log.info(userId + "病害信息开始收集" + disease.getBuildingId());
@@ -263,10 +265,14 @@ public class ApiServiceImpl implements ApiService {
                     diseasesOfYearVo.setYear(targetYear);
                     diseasesOfYearVo.setDiseases(diseases);
                     diseasesOfYearVo.setBuildingId(buildingId);
+                    // 创建 ObjectMapper 实例
+                    ObjectMapper objectMapper = new ObjectMapper();
 
+                    // 序列化时使用 ObjectMapper
+                    String jsonString = objectMapper.writeValueAsString(diseasesOfYearVo);
                     // 添加到zip文件
                     String diseaseJsonPath = rootDirName + "/building/" + buildingId + "/disease/" + targetYear + ".json";
-                    addJsonToZip(zipOut, diseaseJsonPath, JSONObject.toJSONString(diseasesOfYearVo));
+                    addJsonToZip(zipOut, diseaseJsonPath, jsonString);
                 }
                 // 收集所有需要处理的路径和对应的文件名
                 List<String> allFileNames = new ArrayList<>();
