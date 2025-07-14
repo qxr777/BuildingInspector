@@ -1,14 +1,13 @@
 package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
-import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.annotation.Log;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
-import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
@@ -18,8 +17,6 @@ import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
-import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
-import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
@@ -27,7 +24,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import springfox.documentation.schema.Collections;
 
 import javax.annotation.Resource;
 import java.io.File;
@@ -64,15 +60,6 @@ public class ApiController {
 
     @Resource
     private IProjectService projectService;
-
-    @Resource
-    private IComponentService componentService;
-
-    @Resource
-    private DiseaseMapper diseaseMapper;
-
-    @Resource
-    private DiseaseDetailMapper diseaseDetailMapper;
 
     @Resource
     private FileMapController fileMapController;

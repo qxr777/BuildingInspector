@@ -364,7 +364,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 .map(id -> CompletableFuture.runAsync(() -> {
                     Disease disease = diseaseMapper.selectDiseaseById(Long.parseLong(id));
                     diseaseDetailMapper.deleteDiseaseDetailById(disease.getId());
-                    deleteDeaseImage(disease);
+                    deleteDiseaseImage(disease);
                 }, executor))
                 .toList();
 
@@ -372,10 +372,12 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         executor.shutdown();
 
+
+
         return diseaseMapper.deleteDiseaseByIds(strArray);
     }
 
-    private void deleteDeaseImage(Disease disease) {
+    private void deleteDiseaseImage(Disease disease) {
         List<Attachment> attachmentList = attachmentService.getAttachmentList(disease.getId());
         for (Attachment value : attachmentList) {
             if (value.getName().startsWith("disease")) {
