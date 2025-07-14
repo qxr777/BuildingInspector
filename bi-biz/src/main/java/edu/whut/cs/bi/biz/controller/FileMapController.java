@@ -479,7 +479,6 @@ public class FileMapController extends BaseController {
                 }
             }
         }
-        System.out.println(bySubjectId.size());
         return fileMapList;
     }
 

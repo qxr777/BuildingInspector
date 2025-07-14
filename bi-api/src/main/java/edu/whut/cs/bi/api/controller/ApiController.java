@@ -393,10 +393,6 @@ public class ApiController {
             return AjaxResult.error("数据不完整");
         }
         String version = fileMap.getOldName();
-        int dotIndex = version.lastIndexOf('.');
-        if (dotIndex > 0) {
-            version = version.substring(0, dotIndex);
-        }
         String prefix = fileMap.getNewName().substring(0, 2);
         String downloadUrl = minioConfig.getEndpoint() + "/" + minioConfig.getBucketName() + "/" +
                 prefix + "/" + fileMap.getNewName();

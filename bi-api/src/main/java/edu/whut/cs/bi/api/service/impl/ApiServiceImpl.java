@@ -155,7 +155,7 @@ public class ApiServiceImpl implements ApiService {
         projectsOfUserVo.setUserId(userId);
 
         // 添加project.json文件
-        String projectJsonPath = rootDirName + "/project/project.json";
+        String projectJsonPath = rootDirName + "/project/projects.json";
         addJsonToZip(zipOut, projectJsonPath, JSONObject.toJSONString(projectsOfUserVo));
 
         // 遍历项目，创建每个项目的任务数据
