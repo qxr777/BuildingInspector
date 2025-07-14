@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -17,6 +18,7 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 病害Controller
@@ -117,14 +120,19 @@ public class DiseaseController extends BaseController
     @Log(title = "病害", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
+    @Transactional
     public AjaxResult addSave(@Valid Disease disease,@RequestParam(value = "files", required = false) MultipartFile[] files)
     {
         disease.setCreateBy(ShiroUtils.getLoginName());
-        diseaseService.insertDisease(disease);
-
-        if(files!=null) {
-            diseaseService.handleDiseaseAttachment(files,disease.getId(),1);
+        if (files != null && files.length > 0) {
+            disease.setAttachmentCount(files.length);
         }
+
+        diseaseService.insertDisease(disease);
+        if (files != null && files.length > 0) {
+            diseaseService.handleDiseaseAttachment(files, disease.getId(), 1);
+        }
+
         return toAjax(Math.toIntExact(disease.getId()));
     }
 
@@ -174,7 +182,15 @@ public class DiseaseController extends BaseController
             @RequestParam(value = "deletedAttachmentIds", required = false) String[] deletedAttachmentIds
     ) {
         disease.setUpdateBy(ShiroUtils.getLoginName());
+        List<Attachment> attachment = attachmentService.getAttachmentBySubjectId(disease.getId());
+        if (CollUtil.isNotEmpty(attachment)) {
+            String attachmentIds = attachment.stream()
+                    .filter(e -> e.getName().startsWith("disease"))
+                    .map(e -> e.getId().toString()).collect(Collectors.joining(","));
+            attachmentService.deleteAttachmentByIds(attachmentIds);
+        }
         diseaseService.handleDiseaseAttachment(files,disease.getId(),1);
+        disease.setAttachmentCount(files.length);
         return toAjax(diseaseService.updateDisease(disease));
     }
 

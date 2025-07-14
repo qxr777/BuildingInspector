@@ -15,6 +15,7 @@ import cn.hutool.core.collection.CollUtil;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
 import edu.whut.cs.bi.biz.service.ITaskService;
@@ -317,6 +318,8 @@ public class BuildingServiceImpl implements IBuildingService {
                 biObjectService.logicDeleteByRootObjectId(building.getRootObjectId(),
                         ShiroUtils.getLoginName());
             }
+            // 删除任务
+            taskService.deleteTaskByBuildingId(id);
 
             // 删除建筑记录
             return buildingMapper.deleteBuildingById(id);
@@ -335,6 +338,8 @@ public class BuildingServiceImpl implements IBuildingService {
                 List<String> buildingList = new ArrayList<>();
                 for (Building child : childBridges) {
                     buildingList.add(child.getId().toString());
+                    // 删除任务
+                    taskService.deleteTaskByBuildingId(child.getId());
                 }
                 String[] array = buildingList.toArray(new String[buildingList.size()]);
                 buildingMapper.deleteBuildingByIds(array);
@@ -354,6 +359,8 @@ public class BuildingServiceImpl implements IBuildingService {
             log.info(e.getMessage());
             throw new RuntimeException("删除建筑失败", e);
         }
+
+
     }
 
     /**

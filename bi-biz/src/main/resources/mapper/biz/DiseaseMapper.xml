@@ -28,6 +28,7 @@
         <result property="crackType" column="crack_type"/>
         <result property="developmentTrend" column="development_trend"/>
         <result property="detectionMethod" column="detection_method"/>
+        <result property="attachmentCount" column="attachment_count"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -50,15 +51,16 @@
 
     <sql id="selectDiseaseVo">
         select
-        d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
-        d.nature , d.participate_assess, d.deduct_points,
-        d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
-        d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method, <!-- 新增字段 -->
-        d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
-        dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
+            d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
+            d.nature , d.participate_assess, d.deduct_points,
+            d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
+            d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
+            d.attachment_count,
+            d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
+            dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
         from bi_disease d
-        left join bi_disease_type dt on d.disease_type_id = dt.id
-        left join bi.bi_project bp on d.project_id = bp.id
+                 left join bi_disease_type dt on d.disease_type_id = dt.id
+                 left join bi.bi_project bp on d.project_id = bp.id
     </sql>
 
     <select id="selectDiseaseList" parameterType="Disease" resultMap="DiseaseResult">
@@ -119,7 +121,8 @@
             <if test="repairRecommendation != null and repairRecommendation != ''">repair_recommendation,</if>
             <if test="crackType != null and crackType != ''">crack_type,</if>
             <if test="developmentTrend != null and developmentTrend != ''">development_trend,</if>
-            <if test="detectionMethod != null and detectionMethod != ''">detection_method,</if> <!-- 新增字段 -->
+            <if test="detectionMethod != null and detectionMethod != ''">detection_method,</if>
+            <if test="attachmentCount != null">attachment_count,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -147,7 +150,8 @@
             <if test="repairRecommendation != null and repairRecommendation != ''">#{repairRecommendation},</if>
             <if test="crackType != null and crackType != ''">#{crackType},</if>
             <if test="developmentTrend != null and developmentTrend != ''">#{developmentTrend},</if>
-            <if test="detectionMethod != null and detectionMethod != ''">#{detectionMethod},</if> <!-- 新增字段 -->
+            <if test="detectionMethod != null and detectionMethod != ''">#{detectionMethod},</if>
+            <if test="attachmentCount != null">#{attachmentCount},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -180,7 +184,8 @@
                 <if test="diseaseSet.iterator().next().repairRecommendation != null and diseaseSet.iterator().next().repairRecommendation != ''">repair_recommendation,</if>
                 <if test="diseaseSet.iterator().next().crackType != null and diseaseSet.iterator().next().crackType != ''">crack_type,</if>
                 <if test="diseaseSet.iterator().next().developmentTrend != null and diseaseSet.iterator().next().developmentTrend != ''">development_trend,</if>
-                <if test="diseaseSet.iterator().next().detectionMethod != null and diseaseSet.iterator().next().detectionMethod != ''">detection_method,</if> <!-- 新增字段 -->
+                <if test="diseaseSet.iterator().next().detectionMethod != null and diseaseSet.iterator().next().detectionMethod != ''">detection_method,</if>
+                <if test="diseaseSet.iterator().next().attachmentCount != null">attachment_count,</if>
                 <if test="diseaseSet.iterator().next().createBy != null">create_by,</if>
                 <if test="diseaseSet.iterator().next().createTime != null">create_time,</if>
                 <if test="diseaseSet.iterator().next().updateBy != null">update_by,</if>
@@ -211,7 +216,8 @@
                     <if test="disease.repairRecommendation != null and disease.repairRecommendation != ''">#{disease.repairRecommendation},</if>
                     <if test="disease.crackType != null and disease.crackType != ''">#{disease.crackType},</if>
                     <if test="disease.developmentTrend != null and disease.developmentTrend != ''">#{disease.developmentTrend},</if>
-                    <if test="disease.detectionMethod != null and disease.detectionMethod != ''">#{disease.detectionMethod},</if> <!-- 新增字段 -->
+                    <if test="disease.detectionMethod != null and disease.detectionMethod != ''">#{disease.detectionMethod},</if>
+                    <if test="disease.attachmentCount != null">#{disease.attachmentCount},</if>
                     <if test="disease.createBy != null">#{disease.createBy},</if>
                     <if test="disease.createTime != null">#{disease.createTime},</if>
                     <if test="disease.updateBy != null">#{disease.updateBy},</if>
@@ -246,7 +252,8 @@
             <if test="repairRecommendation != null">repair_recommendation = #{repairRecommendation},</if>
             <if test="crackType != null">crack_type = #{crackType},</if>
             <if test="developmentTrend != null">development_trend = #{developmentTrend},</if>
-            <if test="detectionMethod != null">detection_method = #{detectionMethod},</if> <!-- 新增字段 -->
+            <if test="detectionMethod != null">detection_method = #{detectionMethod},</if>
+            <if test="attachmentCount != null">attachment_count = #{attachmentCount},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>

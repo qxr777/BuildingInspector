@@ -525,14 +525,17 @@ public class ApiServiceImpl implements ApiService {
                     return AjaxResult.error("批量保存病害失败：" + e.getMessage());
                 }
                 // 处理病害图片
+                List<Disease> diseaseList = new ArrayList<>();
                 for (Disease disease : diseases) {
                     // 只有类型为1的才需要新增图片文件
                     if (disease.getCommitType() == 1) {
+                        int attachmentCount = 0;
                         List<String> images = disease.getImages();
                         List<String> ADImages = disease.getADImgs();
                         List<MultipartFile> multipartImagesFiles = new ArrayList<>();
                         List<MultipartFile> multipartADImagesFiles = new ArrayList<>();
                         if (images != null && !images.isEmpty()) {
+                            attachmentCount += images.size();
                             for (String imagePath : images) {
                                 if (imagePath != null && !imagePath.isEmpty()) {
                                     // 检查路径是否已经包含buildingId
@@ -562,6 +565,7 @@ public class ApiServiceImpl implements ApiService {
                             }
                         }
                         if (ADImages != null && !ADImages.isEmpty()) {
+                            attachmentCount += ADImages.size();
                             for (String imagePath : ADImages) {
                                 if (imagePath != null && !imagePath.isEmpty()) {
                                     // 检查路径是否已经包含buildingId
@@ -590,7 +594,15 @@ public class ApiServiceImpl implements ApiService {
                                 );
                             }
                         }
+                        if (attachmentCount > 0) {
+                            Disease di = new Disease();
+                            di.setId(disease.getId());
+                            di.setAttachmentCount(attachmentCount);
+                            diseaseList.add(di);
+                        }
+
                     }
+                    diseaseService.batchSaveDiseases(diseaseList);
                 }
                 // 处理桥梁图片数据
 

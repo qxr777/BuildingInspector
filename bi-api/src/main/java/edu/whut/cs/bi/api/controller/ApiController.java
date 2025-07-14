@@ -1,8 +1,8 @@
 package edu.whut.cs.bi.api.controller;
 
 import com.alibaba.fastjson.JSONObject;
-import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.annotation.Log;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
@@ -338,7 +338,6 @@ public class ApiController {
 
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
-    @Transactional
     public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
         diseaseService.readDiseaseExcel(file, projectId);
 
@@ -355,7 +354,6 @@ public class ApiController {
 
     @PostMapping("/upload/diseaseZip")
     @ResponseBody
-    @Transactional
     public AjaxResult uploadDiseaseZip(@RequestParam("file") MultipartFile file) {
         diseaseService.readDiseaseZip(file);
 
@@ -404,4 +402,6 @@ public class ApiController {
     public AjaxResult getUserDataPackageTest() {
         return userPackageTask.generateUserDataPackage();
     }
+
+
 }
