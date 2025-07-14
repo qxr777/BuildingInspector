@@ -60,13 +60,13 @@
         from bi_task t
         left join bi_building b on t.building_id = b.id
         left join bi_project p on t.project_id = p.id
-        where t.del_flag = '0'
     </sql>
 
 
     <select id="selectTaskList" resultMap="TaskResult">
         <include refid="selectTaskVo"/>
         <where>
+            t.del_flag = '0'
             <if test="currentUserId != null">
                 AND EXISTS (
                 SELECT 1 FROM bi_project_user pu
@@ -110,7 +110,7 @@
 
     <select id="selectTaskById" parameterType="Long" resultMap="TaskResult">
         <include refid="selectTaskVo"/>
-        where t.id = #{id}
+        where t.id = #{id} and t.del_flag = '0'
     </select>
 
     <select id="selectTaskListByProjectId" resultType="edu.whut.cs.bi.biz.domain.Task">
