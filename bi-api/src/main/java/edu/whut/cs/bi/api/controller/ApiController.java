@@ -394,7 +394,7 @@ public class ApiController {
         }
         String version = fileMap.getOldName();
         String prefix = fileMap.getNewName().substring(0, 2);
-        String downloadUrl = minioConfig.getEndpoint() + "/" + minioConfig.getBucketName() + "/" +
+        String downloadUrl = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" +
                 prefix + "/" + fileMap.getNewName();
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
     }

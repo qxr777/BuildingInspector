@@ -28,6 +28,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -114,8 +115,12 @@ public class ApiServiceImpl implements ApiService {
                 log.info(userId + "建筑物数据创建完成");
 
                 zipOut.close();
-                zipSize = tempFile.length()/ 1024 / 1024 + "MB";
-                log.info("ZIP文件生成完成，大小: {} MB", zipSize);
+                long length = tempFile.length(); // 单位是字节
+                double sizeInMB = length / 1024.0 / 1024.0;
+
+                DecimalFormat df = new DecimalFormat("#.###");
+                zipSize = df.format(sizeInMB) + "MB";
+                log.info("ZIP文件生成完成，大小: {}", zipSize);
             }
 
             // 直接上传临时文件到MinIO

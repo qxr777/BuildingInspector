@@ -10,6 +10,8 @@ import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.mapper.PackageMapper;
 import edu.whut.cs.bi.biz.service.IFileMapService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +27,7 @@ import java.util.List;
  **/
 @Component("userPackageTask")
 public class UserPackageTask {
+    private static final Logger log = LoggerFactory.getLogger(UserPackageTask.class);
     @Autowired
     private SysUserMapper sysUserMapper;
 
@@ -104,7 +107,8 @@ public class UserPackageTask {
             }
             return AjaxResult.success("全部用户数据打包完成");
         } catch (Exception e) {
-            return AjaxResult.error("打包用户数据失败：" + e.getMessage());
+            log.error("打包用户数据失败：" + e.getMessage());
+            return AjaxResult.error("打包用户数据失败：{}" + e.getMessage());
         }
     }
 }

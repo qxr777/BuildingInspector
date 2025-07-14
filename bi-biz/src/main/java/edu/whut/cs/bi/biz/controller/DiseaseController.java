@@ -257,7 +257,7 @@ public class DiseaseController extends BaseController
             FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
             if(fileMap == null)continue;
             String s = fileMap.getNewName();
-            map.put("url",minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s);
+            map.put("url",minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s);
             // 根据文件后缀判断是否为图片
             map.put("isImage", isImageFile(attachment.getName()));
             map.put("type", attachment.getType());

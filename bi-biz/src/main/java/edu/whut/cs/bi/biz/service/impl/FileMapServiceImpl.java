@@ -468,7 +468,7 @@ public class FileMapServiceImpl implements IFileMapService {
             FileMap fileMap = selectFileMapById(attachment.getMinioId());
             if(fileMap == null) continue;
             String s = fileMap.getNewName();
-            String url = minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
+            String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
             fileMap.setUrl(url);
             map.put("fileMap", fileMap);
             // 根据文件后缀判断是否为图片
@@ -493,7 +493,7 @@ public class FileMapServiceImpl implements IFileMapService {
             FileMap fileMap = selectFileMapById(attachment.getMinioId());
             if(fileMap == null) continue;
             String s = fileMap.getNewName();
-            String url = minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
+            String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
             fileMap.setUrl(url);
             map.put("fileMap", fileMap);
             // 根据文件后缀判断是否为图片

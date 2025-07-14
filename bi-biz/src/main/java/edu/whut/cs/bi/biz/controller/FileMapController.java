@@ -469,7 +469,7 @@ public class FileMapController extends BaseController {
                 })
                 .map(e -> fileMapService.selectFileMapById(e.getMinioId())) // 查询 FileMap
                 .filter(Objects::nonNull) // 只保留非 null 的 FileMap
-                .peek(e -> e.setNewName(minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+e.getNewName().substring(0, 2) + "/" + e.getNewName())) // 修改 newName
+                .peek(e -> e.setNewName(minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+e.getNewName().substring(0, 2) + "/" + e.getNewName())) // 修改 newName
                 .toList();
 
         for(Attachment attachment: bySubjectId){

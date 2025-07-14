@@ -155,6 +155,7 @@ minio:
 #  secret-key: admin123      密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
   access-key: minioadmin
   secret-key: minioadmin
+  url: http://60.205.13.156:9000
 
   bucket-name: public
 springAi_Rag:

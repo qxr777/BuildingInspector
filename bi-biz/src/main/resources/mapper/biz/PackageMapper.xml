@@ -100,7 +100,7 @@
     </delete>
 
     <insert id="batchInsertPackage" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
-        insert into biz_package (user_id, minio_id, package_size, package_time, update_time)
+        insert into bi_package (user_id, minio_id, package_size, package_time, update_time)
         values
         <foreach collection="list" item="item" index="index" separator=",">
             (#{item.userId}, #{item.minioId}, #{item.packageSize}, #{item.packageTime}, #{item.updateTime})
@@ -108,17 +108,46 @@
     </insert>
 
     <update id="batchUpdatePackage" parameterType="java.util.List">
-        <foreach collection="list" item="item" index="index" separator=";">
-            update bi_package
-            <set>
-                <if test="item.userId != null">user_id = #{item.userId},</if>
-                <if test="item.minioId != null">minio_id = #{item.minioId},</if>
-                <if test="item.packageTime != null">package_time = #{item.packageTime},</if>
-                <if test="item.updateTime != null">update_time = #{item.updateTime},</if>
-                <if test="item.packageSize != null">package_size = #{item.packageSize},</if>
-            </set>
-            where id = #{item.id}
+        UPDATE bi_package
+        <set>
+            user_id = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.userId}
+            </foreach>
+            END,
+
+            minio_id = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.minioId}
+            </foreach>
+            END,
+
+            package_time = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.packageTime}
+            </foreach>
+            END,
+
+            update_time = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.updateTime}
+            </foreach>
+            END,
+
+            package_size = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.packageSize}
+            </foreach>
+            END
+        </set>
+
+        WHERE id IN
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.id}
         </foreach>
     </update>
+
+
+
 
 </mapper>
