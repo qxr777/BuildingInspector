@@ -190,7 +190,10 @@ public class DiseaseController extends BaseController
             attachmentService.deleteAttachmentByIds(attachmentIds);
         }
         diseaseService.handleDiseaseAttachment(files,disease.getId(),1);
-        disease.setAttachmentCount(files.length);
+        if (files != null && files.length > 0) {
+            disease.setAttachmentCount(files.length);
+        }
+
         return toAjax(diseaseService.updateDisease(disease));
     }
 

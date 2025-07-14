@@ -518,7 +518,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         componentService.updateComponent(component);
 
         // 删除病害详情
-        diseaseDetailMapper.deleteDiseaseDetailById(disease.getId());
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
 
         // 新增病害详情
         List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
@@ -547,7 +547,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         List<CompletableFuture<Void>> futures = Arrays.stream(strArray)
                 .map(id -> CompletableFuture.runAsync(() -> {
                     Disease disease = diseaseMapper.selectDiseaseById(Long.parseLong(id));
-                    diseaseDetailMapper.deleteDiseaseDetailById(disease.getId());
+                    diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
                     deleteDiseaseImage(disease);
                 }, executor))
                 .toList();
@@ -578,7 +578,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Transactional
     public int deleteDiseaseById(Long id) {
         Disease disease = diseaseMapper.selectDiseaseById(id);
-        diseaseDetailMapper.deleteDiseaseDetailById(disease.getId());
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
 
         return diseaseMapper.deleteDiseaseById(id);
     }
@@ -597,7 +597,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         }
         String[] strArray = Convert.toStrArray(ids);
         Long[] longArray = Convert.toLongArray(ids);
-        diseaseDetailMapper.deleteDiseaseDetailByIds(longArray);
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseIds(longArray);
         return diseaseMapper.deleteDiseaseByIds(strArray);
     }
 

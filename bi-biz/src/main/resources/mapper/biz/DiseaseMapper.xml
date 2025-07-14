@@ -179,7 +179,7 @@
                 <if test="diseaseSet.iterator().next().componentId != null">component_id,</if>
                 <if test="diseaseSet.iterator().next().commitType != null">commit_type,</if>
                 <if test="diseaseSet.iterator().next().localId != null">local_id,</if>
-                <if test="diseaseSet.iterator().next().remark != null">remark,</if>
+                <if test="diseaseSet.iterator().next().remark != null and diseaseSet.iterator().next().remark != ''">remark,</if>
                 <if test="diseaseSet.iterator().next().cause != null and diseaseSet.iterator().next().cause != ''">cause,</if>
                 <if test="diseaseSet.iterator().next().repairRecommendation != null and diseaseSet.iterator().next().repairRecommendation != ''">repair_recommendation,</if>
                 <if test="diseaseSet.iterator().next().crackType != null and diseaseSet.iterator().next().crackType != ''">crack_type,</if>
@@ -211,7 +211,7 @@
                     <if test="disease.componentId != null">#{disease.componentId},</if>
                     <if test="disease.commitType != null">#{disease.commitType},</if>
                     <if test="disease.localId != null">#{disease.localId},</if>
-                    <if test="disease.remark != null">#{disease.remark},</if>
+                    <if test="disease.remark != null disease.remark != ''">#{disease.remark},</if>
                     <if test="disease.cause != null and disease.cause != ''">#{disease.cause},</if>
                     <if test="disease.repairRecommendation != null and disease.repairRecommendation != ''">#{disease.repairRecommendation},</if>
                     <if test="disease.crackType != null and disease.crackType != ''">#{disease.crackType},</if>

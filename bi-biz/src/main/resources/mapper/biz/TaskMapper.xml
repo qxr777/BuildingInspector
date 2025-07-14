@@ -195,20 +195,20 @@
     </update>
 
     <update id="deleteTaskByIds" parameterType="String">
-        update bi_task set del_flag = '1' and update_time = now() where id in
+        update bi_task set del_flag = '1' , update_time = now() where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
     </update>
 
     <update id="deleteTaskByProjectIdAndBuildingId">
-        update bi_task set del_flag = '1' and update_time = now()
+        update bi_task set del_flag = '1' , update_time = now()
         WHERE project_id = #{projectId}
           AND building_id = #{buildingId}
     </update>
 
     <update id="batchDeleteTaskByProjectIdAndBuildingIds">
-        update bi_task set del_flag = '1' and update_time = now()
+        update bi_task set del_flag = '1' , update_time = now()
         WHERE project_id = #{projectId}
         AND building_id IN
         <foreach item="buildingId" collection="buildingIds" open="(" separator="," close=")">
@@ -217,12 +217,13 @@
     </update>
 
     <update id="deleteTaskByBuildingId">
-        update bi_task set del_flag = '1' and update_time = now()
+        UPDATE bi_task
+        SET del_flag   = '1',
+            update_time = NOW()
         WHERE building_id = #{buildingId}
     </update>
-
     <update id="deleteTaskByProjectId">
-        update bi_task set del_flag = '1' and update_time = now()
+        update bi_task set del_flag = '1' , update_time = now()
         WHERE project_id = #{projectId}
     </update>
 
