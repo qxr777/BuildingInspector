@@ -138,4 +138,5 @@ public interface IDiseaseService {
      * @param file
      */
     Boolean readDiseaseZip(MultipartFile file);
+
 }

@@ -115,7 +115,6 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Resource
     private ISysDictTypeService sysDictTypeService;
 
-
     @Resource
     private IPropertyService propertyService;
 

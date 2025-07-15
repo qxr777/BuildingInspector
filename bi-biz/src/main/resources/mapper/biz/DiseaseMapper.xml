@@ -260,6 +260,144 @@
         where id = #{id}
     </update>
 
+    <update id="batchUpdateDiseases">
+        <if test="diseaseList != null and !diseaseList.isEmpty()">
+            UPDATE bi_disease
+            <trim prefix="SET" suffixOverrides=",">
+                <trim prefix="position = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.position != null and item.position != ''">
+                            WHEN #{item.id} THEN #{item.position}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="type = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.type != null and item.type != ''">
+                            WHEN #{item.id} THEN #{item.type}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="disease_type_id = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.diseaseTypeId != null">
+                            WHEN #{item.id} THEN #{item.diseaseTypeId}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="description = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.description != null and item.description != ''">
+                            WHEN #{item.id} THEN #{item.description}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="nature = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.nature != null and item.nature != ''">
+                            WHEN #{item.id} THEN #{item.nature}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="level = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.level != null">
+                            WHEN #{item.id} THEN #{item.level}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="quantity = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.quantity != null">
+                            WHEN #{item.id} THEN #{item.quantity}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="participate_assess = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.participateAssess != null and item.participateAssess != ''">
+                            WHEN #{item.id} THEN #{item.participateAssess}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="deduct_points = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.deductPoints != null">
+                            WHEN #{item.id} THEN #{item.deductPoints}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="remark = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.remark != null and item.remark != ''">
+                            WHEN #{item.id} THEN #{item.remark}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="cause = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.cause != null and item.cause != ''">
+                            WHEN #{item.id} THEN #{item.cause}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="repair_recommendation = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.repairRecommendation != null and item.repairRecommendation != ''">
+                            WHEN #{item.id} THEN #{item.repairRecommendation}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="crack_type = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.crackType != null and item.crackType != ''">
+                            WHEN #{item.id} THEN #{item.crackType}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="development_trend = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.developmentTrend != null and item.developmentTrend != ''">
+                            WHEN #{item.id} THEN #{item.developmentTrend}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="detection_method = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.detectionMethod != null and item.detectionMethod != ''">
+                            WHEN #{item.id} THEN #{item.detectionMethod}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="attachment_count = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.attachmentCount != null">
+                            WHEN #{item.id} THEN #{item.attachmentCount}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="update_by = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.updateBy != null">
+                            WHEN #{item.id} THEN #{item.updateBy}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="update_time = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.updateTime != null">
+                            WHEN #{item.id} THEN #{item.updateTime}
+                        </if>
+                    </foreach>
+                </trim>
+            </trim>
+            WHERE id IN
+            <foreach collection="diseaseList" item="item" open="(" separator="," close=")">
+                #{item.id}
+            </foreach>
+        </if>
+    </update>
+
     <delete id="deleteDiseaseById" parameterType="Long">
         delete from bi_disease where id = #{id}
     </delete>

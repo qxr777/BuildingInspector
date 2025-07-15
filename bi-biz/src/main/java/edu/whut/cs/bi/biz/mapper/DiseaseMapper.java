@@ -89,4 +89,11 @@ public interface DiseaseMapper {
      */
     List<Disease> selectDiseaseListByLocalIds(Disease disease);
 
+    /**
+     * 批量更新病害信息
+     *
+     * @param diseaseList 病害列表
+     * @return 处理结果
+     */
+    int batchUpdateDiseases(@Param("diseaseList") List<Disease> diseaseList);
 }
