@@ -92,5 +92,5 @@ public interface DiseaseDetailMapper {
      * @param ids 病害ID列表
      * @return 删除结果
      */
-    int deleteDiseaseDetailByDiseaseIds(@Param("ids") Long[] ids);
+    int deleteDiseaseDetailByDiseaseIds(Long[] ids);
 }

@@ -159,73 +159,45 @@
         </trim>
     </insert>
 
-    <insert id="batchInsertDiseases" parameterType="java.util.Set" useGeneratedKeys="true" keyProperty="id">
-        <if test="diseaseSet != null and !diseaseSet.isEmpty()">
-            INSERT INTO bi_disease
-            <trim prefix="(" suffix=")" suffixOverrides=",">
-                <if test="diseaseSet.iterator().next().position != null and diseaseSet.iterator().next().position != ''">position,</if>
-                <if test="diseaseSet.iterator().next().type != null and diseaseSet.iterator().next().type != ''">type,</if>
-                <if test="diseaseSet.iterator().next().diseaseTypeId != null">disease_type_id,</if>
-                <if test="diseaseSet.iterator().next().description != null and diseaseSet.iterator().next().description != ''">description,</if>
-                <if test="diseaseSet.iterator().next().nature != null and diseaseSet.iterator().next().nature != ''">nature,</if>
-                <if test="diseaseSet.iterator().next().level != null">level,</if>
-                <if test="diseaseSet.iterator().next().quantity != null">quantity,</if>
-                <if test="diseaseSet.iterator().next().participateAssess != null and diseaseSet.iterator().next().participateAssess != ''">participate_assess,</if>
-                <if test="diseaseSet.iterator().next().deductPoints != null">deduct_points,</if>
-                <if test="diseaseSet.iterator().next().projectId != null">project_id,</if>
-                <if test="diseaseSet.iterator().next().biObjectId != null">bi_object_id,</if>
-                <if test="diseaseSet.iterator().next().biObjectName != null and diseaseSet.iterator().next().biObjectName != ''">bi_object_name,</if>
-                <if test="diseaseSet.iterator().next().buildingId != null">building_id,</if>
-                <if test="diseaseSet.iterator().next().componentId != null">component_id,</if>
-                <if test="diseaseSet.iterator().next().commitType != null">commit_type,</if>
-                <if test="diseaseSet.iterator().next().localId != null">local_id,</if>
-                <if test="diseaseSet.iterator().next().remark != null and diseaseSet.iterator().next().remark != ''">remark,</if>
-                <if test="diseaseSet.iterator().next().cause != null and diseaseSet.iterator().next().cause != ''">cause,</if>
-                <if test="diseaseSet.iterator().next().repairRecommendation != null and diseaseSet.iterator().next().repairRecommendation != ''">repair_recommendation,</if>
-                <if test="diseaseSet.iterator().next().crackType != null and diseaseSet.iterator().next().crackType != ''">crack_type,</if>
-                <if test="diseaseSet.iterator().next().developmentTrend != null and diseaseSet.iterator().next().developmentTrend != ''">development_trend,</if>
-                <if test="diseaseSet.iterator().next().detectionMethod != null and diseaseSet.iterator().next().detectionMethod != ''">detection_method,</if>
-                <if test="diseaseSet.iterator().next().attachmentCount != null">attachment_count,</if>
-                <if test="diseaseSet.iterator().next().createBy != null">create_by,</if>
-                <if test="diseaseSet.iterator().next().createTime != null">create_time,</if>
-                <if test="diseaseSet.iterator().next().updateBy != null">update_by,</if>
-                <if test="diseaseSet.iterator().next().updateTime != null">update_time,</if>
-            </trim>
-            VALUES
-            <foreach collection="diseaseSet" item="disease" separator=",">
-                (
-                <trim suffixOverrides=",">
-                    <if test="disease.position != null and disease.position != ''">#{disease.position},</if>
-                    <if test="disease.type != null and disease.type != ''">#{disease.type},</if>
-                    <if test="disease.diseaseTypeId != null">#{disease.diseaseTypeId},</if>
-                    <if test="disease.description != null and disease.description != ''">#{disease.description},</if>
-                    <if test="disease.nature != null and disease.nature != ''">#{disease.nature},</if>
-                    <if test="disease.level != null">#{disease.level},</if>
-                    <if test="disease.quantity != null">#{disease.quantity},</if>
-                    <if test="disease.participateAssess != null and disease.participateAssess != ''">#{disease.participateAssess},</if>
-                    <if test="disease.deductPoints != null">#{disease.deductPoints},</if>
-                    <if test="disease.projectId != null">#{disease.projectId},</if>
-                    <if test="disease.biObjectId != null">#{disease.biObjectId},</if>
-                    <if test="disease.biObjectName != null and disease.biObjectName != ''">#{disease.biObjectName},</if>
-                    <if test="disease.buildingId != null">#{disease.buildingId},</if>
-                    <if test="disease.componentId != null">#{disease.componentId},</if>
-                    <if test="disease.commitType != null">#{disease.commitType},</if>
-                    <if test="disease.localId != null">#{disease.localId},</if>
-                    <if test="disease.remark != null disease.remark != ''">#{disease.remark},</if>
-                    <if test="disease.cause != null and disease.cause != ''">#{disease.cause},</if>
-                    <if test="disease.repairRecommendation != null and disease.repairRecommendation != ''">#{disease.repairRecommendation},</if>
-                    <if test="disease.crackType != null and disease.crackType != ''">#{disease.crackType},</if>
-                    <if test="disease.developmentTrend != null and disease.developmentTrend != ''">#{disease.developmentTrend},</if>
-                    <if test="disease.detectionMethod != null and disease.detectionMethod != ''">#{disease.detectionMethod},</if>
-                    <if test="disease.attachmentCount != null">#{disease.attachmentCount},</if>
-                    <if test="disease.createBy != null">#{disease.createBy},</if>
-                    <if test="disease.createTime != null">#{disease.createTime},</if>
-                    <if test="disease.updateBy != null">#{disease.updateBy},</if>
-                    <if test="disease.updateTime != null">#{disease.updateTime},</if>
-                </trim>
-                )
-            </foreach>
-        </if>
+    <insert id="batchInsertDiseases" parameterType="java.util.Set">
+        INSERT INTO bi_disease (
+        position, type, disease_type_id, description, nature, level, quantity,
+        participate_assess, deduct_points, project_id, bi_object_id, bi_object_name,
+        building_id, component_id, commit_type, local_id, remark, cause,
+        repair_recommendation, crack_type, development_trend, detection_method,
+        attachment_count, create_by, create_time, update_by, update_time
+        ) VALUES
+        <foreach collection="diseaseSet" item="disease" separator=",">
+            (
+            #{disease.position},
+            #{disease.type},
+            #{disease.diseaseTypeId},
+            #{disease.description},
+            #{disease.nature},
+            #{disease.level},
+            #{disease.quantity},
+            #{disease.participateAssess},
+            #{disease.deductPoints},
+            #{disease.projectId},
+            #{disease.biObjectId},
+            #{disease.biObjectName},
+            #{disease.buildingId},
+            #{disease.componentId},
+            #{disease.commitType},
+            #{disease.localId},
+            #{disease.remark},
+            #{disease.cause},
+            #{disease.repairRecommendation},
+            #{disease.crackType},
+            #{disease.developmentTrend},
+            #{disease.detectionMethod},
+            #{disease.attachmentCount},
+            #{disease.createBy},
+            #{disease.createTime},
+            #{disease.updateBy},
+            #{disease.updateTime}
+            )
+        </foreach>
     </insert>
 
     <update id="updateDisease" parameterType="Disease">

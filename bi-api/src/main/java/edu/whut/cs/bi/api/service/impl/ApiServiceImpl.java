@@ -16,6 +16,7 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.service.impl.DiseaseServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
@@ -81,6 +82,8 @@ public class ApiServiceImpl implements ApiService {
     private MinioClient minioClient;
     @Autowired
     private DiseaseMapper diseaseMapper;
+    @Autowired
+    private DiseaseServiceImpl diseaseServiceImpl;
 
 
     /**
@@ -130,7 +133,7 @@ public class ApiServiceImpl implements ApiService {
 
             // 直接上传临时文件到MinIO
             try {
-                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, user);
+                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, user.getLoginName());
 
                 // 返回成功信息和minioId
                 return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size", zipSize);
@@ -535,17 +538,14 @@ public class ApiServiceImpl implements ApiService {
                     return AjaxResult.error("批量保存病害失败：" + e.getMessage());
                 }
                 // 处理病害图片
-                List<Disease> diseaseList = new ArrayList<>();
                 for (Disease disease : diseases) {
                     // 只有类型为1的才需要新增图片文件
                     if (disease.getCommitType() == 1) {
-                        int attachmentCount = 0;
                         List<String> images = disease.getImages();
                         List<String> ADImages = disease.getADImgs();
-                        List<MultipartFile> multipartImagesFiles = new ArrayList<>();
-                        List<MultipartFile> multipartADImagesFiles = new ArrayList<>();
+                        List<File> imagesFiles = new ArrayList<>();
+                        List<File> adImagesFiles = new ArrayList<>();
                         if (images != null && !images.isEmpty()) {
-                            attachmentCount += images.size();
                             for (String imagePath : images) {
                                 if (imagePath != null && !imagePath.isEmpty()) {
                                     // 检查路径是否已经包含buildingId
@@ -554,28 +554,16 @@ public class ApiServiceImpl implements ApiService {
                                     if (extractedFiles.containsKey(fullPath)) {
                                         // 处理图片附件
                                         File imageFile = extractedFiles.get(fullPath).toFile();
-                                        byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                                        // 创建MockMultipartFile
-                                        MockMultipartFile mockFile = new MockMultipartFile(
-                                                "file",
-                                                imageFile.getName(),
-                                                Files.probeContentType(imageFile.toPath()),
-                                                fileContent);
-                                        multipartImagesFiles.add(mockFile);
+                                        imagesFiles.add(imageFile);
                                     }
                                 }
                             }
                             // 调用handleDiseaseAttachment方法
-                            if (!multipartImagesFiles.isEmpty()) {
-                                diseaseService.handleDiseaseAttachment(
-                                        multipartImagesFiles.toArray(new MultipartFile[0]),
-                                        disease.getId(),
-                                        1
-                                );
+                            if (!imagesFiles.isEmpty()) {
+                                diseaseServiceImpl.handleDiseaseAttachmentWithFile(imagesFiles, 1, disease.getId());
                             }
                         }
                         if (ADImages != null && !ADImages.isEmpty()) {
-                            attachmentCount += ADImages.size();
                             for (String imagePath : ADImages) {
                                 if (imagePath != null && !imagePath.isEmpty()) {
                                     // 检查路径是否已经包含buildingId
@@ -584,38 +572,17 @@ public class ApiServiceImpl implements ApiService {
                                     if (extractedFiles.containsKey(fullPath)) {
                                         // 处理图片附件
                                         File imageFile = extractedFiles.get(fullPath).toFile();
-                                        byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                                        // 创建MockMultipartFile
-                                        MockMultipartFile mockFile = new MockMultipartFile(
-                                                "file",
-                                                imageFile.getName(),
-                                                Files.probeContentType(imageFile.toPath()),
-                                                fileContent);
-                                        multipartADImagesFiles.add(mockFile);
+                                        adImagesFiles.add(imageFile);
                                     }
                                 }
                             }
                             // 调用handleDiseaseAttachment方法
-                            if (!multipartADImagesFiles.isEmpty()) {
-                                diseaseService.handleDiseaseAttachment(
-                                        multipartADImagesFiles.toArray(new MultipartFile[0]),
-                                        disease.getId(),
-                                        7
-                                );
+                            if (!adImagesFiles.isEmpty()) {
+                                diseaseServiceImpl.handleDiseaseAttachmentWithFile(adImagesFiles, 7, disease.getId());
                             }
                         }
-                        if (attachmentCount > 0) {
-                            Disease di = new Disease();
-                            di.setId(disease.getId());
-                            di.setAttachmentCount(attachmentCount);
-                            diseaseList.add(di);
-                        }
 
                     }
-                    if (CollUtil.isNotEmpty(diseaseList)){
-                        diseaseMapper.batchUpdateDiseases(diseaseList);
-                    }
-
                 }
                 // 处理桥梁图片数据
 

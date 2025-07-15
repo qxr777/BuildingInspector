@@ -205,7 +205,7 @@ public class FileMapServiceImpl implements IFileMapService {
     /**
      * 直接从文件上传到MinIO，避免重复读取到内存
      */
-    public FileMap handleFileUploadFromFile(File file, String originalFilename, SysUser user) {
+    public FileMap handleFileUploadFromFile(File file, String originalFilename, String loginName) {
         FileInputStream fileInputStream = null;
         try {
             String extension = FilenameUtils.getExtension(originalFilename);
@@ -230,7 +230,7 @@ public class FileMapServiceImpl implements IFileMapService {
             fileMap.setOldName(originalFilename);
             fileMap.setNewName(objectName);
             fileMap.setCreateTime(DateUtils.getNowDate());
-            fileMap.setCreateBy(user.getLoginName());
+            fileMap.setCreateBy(loginName);
             fileMapMapper.insertFileMap(fileMap);
 
             return fileMap;
