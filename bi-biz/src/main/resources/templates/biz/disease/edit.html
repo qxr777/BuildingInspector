@@ -1,310 +1,310 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org">
-  <head>
-    <th:block th:include="include :: header('修改病害信息')" />
-    <th:block th:include="include :: select2-css" />
-  </head>
-  <body>
-    <div class="main-content">
-      <form
-        class="form-horizontal m"
-        id="form-disease-edit"
-        th:object="${disease}"
-      >
-        <input name="id" type="hidden" th:field="*{id}" />
-        <input name="projectId" type="hidden" th:field="*{projectId}" />
-        <input name="buildingId" type="hidden" th:field="*{buildingId}" />
-        <input name="componentId" type="hidden" th:field="*{componentId}" />
+<head>
+    <th:block th:include="include :: header('修改病害信息')"/>
+    <th:block th:include="include :: select2-css"/>
+</head>
+<body>
+<div class="main-content">
+    <form
+            class="form-horizontal m"
+            id="form-disease-edit"
+            th:object="${disease}"
+    >
+        <input name="id" type="hidden" th:field="*{id}"/>
+        <input name="projectId" type="hidden" th:field="*{projectId}"/>
+        <input name="buildingId" type="hidden" th:field="*{buildingId}"/>
+        <input name="componentId" type="hidden" th:field="*{componentId}"/>
 
         <h4 class="form-header h4">基本信息</h4>
         <!-- 病害基本信息 -->
         <div class="row mb-4">
-          <div class="col-sm-2">
-            <div class="form-group" style="margin-bottom: 20px">
-              <label class="col-sm-4 control-label is-required"
-                >构件名称:</label
-              >
-              <div class="col-sm-8">
-                <input
-                  class="form-control"
-                  type="text"
-                  th:if="${biObject.name == '其他'}"
-                  name="biObjectName"
-                  th:value="*{biObjectName}"
-                  required
-                />
-                <input
-                  class="form-control"
-                  type="text"
-                  th:if="${biObject.name != '其他'}"
-                  name="biObjectName"
-                  th:value="*{biObjectName}"
-                  readonly
-                  required
-                />
-                <input
-                  type="hidden"
-                  name="biObjectId"
-                  th:value="${biObject.id}"
-                />
-              </div>
+            <div class="col-sm-2">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required"
+                    >构件名称:</label
+                    >
+                    <div class="col-sm-8">
+                        <input
+                                class="form-control"
+                                type="text"
+                                th:if="${biObject.name == '其他'}"
+                                name="biObjectName"
+                                th:value="*{biObjectName}"
+                                required
+                        />
+                        <input
+                                class="form-control"
+                                type="text"
+                                th:if="${biObject.name != '其他'}"
+                                name="biObjectName"
+                                th:value="*{biObjectName}"
+                                readonly
+                                required
+                        />
+                        <input
+                                type="hidden"
+                                name="biObjectId"
+                                th:value="${biObject.id}"
+                        />
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="col-sm-3">
-            <div class="form-group" style="margin-bottom: 20px">
-              <label class="col-sm-3 control-label">构件编码：</label>
-              <div class="col-sm-8">
-                <input
-                  name="component.code"
-                  class="form-control"
-                  type="text"
-                  th:field="*{component.code}"
-                  placeholder="请输入构件编码"
-                />
-              </div>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-3 control-label">构件编码：</label>
+                    <div class="col-sm-8">
+                        <input
+                                name="component.code"
+                                class="form-control"
+                                type="text"
+                                th:field="*{component.code}"
+                                placeholder="请输入构件编码"
+                        />
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="col-sm-4">
-            <div class="form-group" style="margin-bottom: 20px">
-              <label class="col-sm-3 control-label is-required"
-                >病害类型:</label
-              >
-              <div class="col-sm-8">
-                <select
-                  class="form-control select2"
-                  name="diseaseTypeId"
-                  id="diseaseTypeId"
-                  required
-                  th:field="*{diseaseTypeId}"
-                >
-                  <option value="">请选择病害类型</option>
-                </select>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="customDiseaseType"
-                  name="type"
-                  th:field="*{type}"
-                  placeholder="请输入自定义病害类型"
-                  style="display: none"
-                />
-              </div>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-3 control-label is-required"
+                    >病害类型:</label
+                    >
+                    <div class="col-sm-8">
+                        <select
+                                class="form-control select2"
+                                name="diseaseTypeId"
+                                id="diseaseTypeId"
+                                required
+                                th:field="*{diseaseTypeId}"
+                        >
+                            <option value="">请选择病害类型</option>
+                        </select>
+                        <input
+                                type="text"
+                                class="form-control"
+                                id="customDiseaseType"
+                                name="type"
+                                th:field="*{type}"
+                                placeholder="请输入自定义病害类型"
+                                style="display: none"
+                        />
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="col-sm-3">
-            <div class="form-group" style="margin-bottom: 20px">
-              <label class="col-sm-3 control-label">病害位置：</label>
-              <div class="col-sm-8">
-                <select
-                  class="form-control select2"
-                  name="position"
-                  id="position"
-                  th:field="*{position}"
-                  required
-                >
-                  <option value="">请选择病害位置</option>
-                </select>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="customPosition"
-                  name="customPosition"
-                  th:value="${customPosition}"
-                  placeholder="请输入自定义病害位置"
-                  style="display: none"
-                />
-              </div>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-3 control-label">病害位置：</label>
+                    <div class="col-sm-8">
+                        <select
+                                class="form-control select2"
+                                name="position"
+                                id="position"
+                                th:field="*{position}"
+                                required
+                        >
+                            <option value="">请选择病害位置</option>
+                        </select>
+                        <input
+                                type="text"
+                                class="form-control"
+                                id="customPosition"
+                                name="customPosition"
+                                th:value="${customPosition}"
+                                placeholder="请输入自定义病害位置"
+                                style="display: none"
+                        />
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
         <h4 class="form-header h4">病害定量数据</h4>
         <div class="row mb-4">
-          <div class="col-sm-12">
-            <div class="form-group" style="margin-bottom: 20px">
-              <label class="col-sm-5 control-label is-required"
-                >缺损数量:</label
-              >
-              <div class="col-sm-7">
-                <div class="input-group">
-                  <input
-                    name="quantity"
-                    id="quantityInput"
-                    class="form-control"
-                    type="number"
-                    min="1"
-                    step="1"
-                    required
-                    th:field="*{quantity}"
-                    oninput="validateQuantity(this)"
-                    onblur="formatQuantity(this)"
-                  />
+            <div class="col-sm-12">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-5 control-label is-required"
+                    >缺损数量:</label
+                    >
+                    <div class="col-sm-7">
+                        <div class="input-group">
+                            <input
+                                    name="quantity"
+                                    id="quantityInput"
+                                    class="form-control"
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    required
+                                    th:field="*{quantity}"
+                                    oninput="validateQuantity(this)"
+                                    onblur="formatQuantity(this)"
+                            />
+                        </div>
+                        <div
+                                id="quantityError"
+                                class="invalid-feedback"
+                                style="display: none; color: red"
+                        ></div>
+                    </div>
                 </div>
-                <div
-                  id="quantityError"
-                  class="invalid-feedback"
-                  style="display: none; color: red"
-                ></div>
-              </div>
             </div>
-          </div>
         </div>
         <div class="row mb-4">
-          <div class="col-sm-12">
-            <div class="form-group" id="diseaseDetails">
-              <!-- 病害详情数据填写区域 -->
+            <div class="col-sm-12">
+                <div class="form-group" id="diseaseDetails">
+                    <!-- 病害详情数据填写区域 -->
+                </div>
             </div>
-          </div>
         </div>
         <h4 class="form-header h4">病害定性数据</h4>
         <div class="row mb-4" style="margin-top: 20px">
-          <div class="col-sm-4">
-            <div class="form-group" style="margin-top: 20px">
-              <label class="col-sm-5 control-label is-required"
-                >病害描述(性质、范围、程度等）：</label
-              >
-              <div class="col-sm-7">
-                <input
-                  class="form-control"
-                  name="description"
-                  id="description"
-                  required
-                  placeholder="请输入病害描述"
-                  th:field="*{description}"
-                />
-              </div>
-            </div>
-          </div>
-          <div class="col-sm-3">
-            <div class="form-group" style="margin-top: 20px">
-              <label class="col-sm-5 control-label is-required"
-                >发展趋势：</label
-              >
-              <div class="col-sm-7">
-                <select
-                  class="form-control no-select2"
-                  name="developmentTrend"
-                  id="developmentTrend"
-                  required
-                  th:field="*{developmentTrend}"
-                >
-                  <option value="新增">新增</option>
-                  <option value="稳定">稳定</option>
-                  <option value="发展">发展</option>
-                  <option value="已维修">已维修</option>
-                  <option value="未找到">未找到</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="col-sm-3">
-            <div class="form-group" style="margin-top: 20px">
-              <label class="col-sm-5 control-label is-required"
-                >病害性质：</label
-              >
-              <div class="col-sm-7">
-                <select
-                  class="form-control no-select2"
-                  name="nature"
-                  id="nature"
-                  required
-                  th:field="*{nature}"
-                >
-                  <option value="非结构病害">非结构病害</option>
-                  <option value="结构病害">结构病害</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="col-sm-2" th:if="${biObject.name != '其他'}">
-            <div class="form-group" style="margin-top: 20px">
-              <label class="col-sm-5 control-label is-required"
-                >参与评定：</label
-              >
-              <div class="col-sm-7">
-                <div class="btn-group" data-toggle="buttons">
-                  <label
-                    class="btn btn-default"
-                    th:classappend="${disease.participateAssess == '0'} ? 'active'"
-                  >
-                    <input
-                      type="radio"
-                      name="participateAssess"
-                      value="0"
-                      required
-                      th:checked="${disease.participateAssess == '0'}"
-                    />
-                    是
-                  </label>
-                  <label
-                    class="btn btn-default"
-                    th:classappend="${disease.participateAssess == '1'} ? 'active'"
-                  >
-                    <input
-                      type="radio"
-                      name="participateAssess"
-                      value="1"
-                      required
-                      th:checked="${disease.participateAssess == '1'}"
-                    />
-                    否
-                  </label>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-5 control-label is-required"
+                    >病害描述(性质、范围、程度等）：</label
+                    >
+                    <div class="col-sm-7">
+                        <input
+                                class="form-control"
+                                name="description"
+                                id="description"
+                                required
+                                placeholder="请输入病害描述"
+                                th:field="*{description}"
+                        />
+                    </div>
                 </div>
-              </div>
             </div>
-          </div>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-5 control-label is-required"
+                    >发展趋势：</label
+                    >
+                    <div class="col-sm-7">
+                        <select
+                                class="form-control no-select2"
+                                name="developmentTrend"
+                                id="developmentTrend"
+                                required
+                                th:field="*{developmentTrend}"
+                        >
+                            <option value="新增">新增</option>
+                            <option value="稳定">稳定</option>
+                            <option value="发展">发展</option>
+                            <option value="已维修">已维修</option>
+                            <option value="未找到">未找到</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-5 control-label is-required"
+                    >病害性质：</label
+                    >
+                    <div class="col-sm-7">
+                        <select
+                                class="form-control no-select2"
+                                name="nature"
+                                id="nature"
+                                required
+                                th:field="*{nature}"
+                        >
+                            <option value="非结构病害">非结构病害</option>
+                            <option value="结构病害">结构病害</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-2" th:if="${biObject.name != '其他'}">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-5 control-label is-required"
+                    >参与评定：</label
+                    >
+                    <div class="col-sm-7">
+                        <div class="btn-group" data-toggle="buttons">
+                            <label
+                                    class="btn btn-default"
+                                    th:classappend="${disease.participateAssess == '0'} ? 'active'"
+                            >
+                                <input
+                                        type="radio"
+                                        name="participateAssess"
+                                        value="0"
+                                        required
+                                        th:checked="${disease.participateAssess == '0'}"
+                                />
+                                是
+                            </label>
+                            <label
+                                    class="btn btn-default"
+                                    th:classappend="${disease.participateAssess == '1'} ? 'active'"
+                            >
+                                <input
+                                        type="radio"
+                                        name="participateAssess"
+                                        value="1"
+                                        required
+                                        th:checked="${disease.participateAssess == '1'}"
+                                />
+                                否
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="row mb-4" style="margin-top: 20px">
-          <div class="col-sm-4" th:if="${biObject.name != '其他'}">
-            <div class="form-group" style="margin-top: 20px">
-              <label class="col-sm-5 control-label is-required"
-                >评定标度：</label
-              >
-              <div class="col-sm-7">
-                <div class="btn-group" id="levelGroup" data-toggle="buttons">
-                  <!-- 选项将通过JavaScript动态生成 -->
+            <div class="col-sm-4" th:if="${biObject.name != '其他'}">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-5 control-label is-required"
+                    >评定标度：</label
+                    >
+                    <div class="col-sm-7">
+                        <div class="btn-group" id="levelGroup" data-toggle="buttons">
+                            <!-- 选项将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
                 </div>
-              </div>
             </div>
-          </div>
-          <div class="col-sm-4">
-            <div class="form-group" style="margin-bottom: 20px">
-              <div class="row">
-                <div class="col-sm-6">
-                  <label class="control-label">最大标度：</label>
-                  <input
-                    name="maxScale"
-                    class="form-control"
-                    type="text"
-                    id="maxScale"
-                    th:field="*{diseaseType.maxScale}"
-                    readonly
-                  />
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <label class="control-label">最大标度：</label>
+                            <input
+                                    name="maxScale"
+                                    class="form-control"
+                                    type="text"
+                                    id="maxScale"
+                                    th:field="*{diseaseType.maxScale}"
+                                    readonly
+                            />
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="control-label">构件扣分：</label>
+                            <input
+                                    name="deductPoints"
+                                    class="form-control"
+                                    type="text"
+                                    id="deductPoints"
+                                    th:field="*{deductPoints}"
+                                    readonly
+                            />
+                        </div>
+                    </div>
                 </div>
-                <div class="col-sm-6">
-                  <label class="control-label">构件扣分：</label>
-                  <input
-                    name="deductPoints"
-                    class="form-control"
-                    type="text"
-                    id="deductPoints"
-                    th:field="*{deductPoints}"
-                    readonly
-                  />
-                </div>
-              </div>
             </div>
-          </div>
         </div>
         <h4 class="form-header h4">其它信息</h4>
         <div class="row">
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label class="control-label">成因：</label>
-              <div style="display: flex; align-items: flex-start">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="control-label">成因：</label>
+                    <div style="display: flex; align-items: flex-start">
                 <textarea
-                  id="causeAnalysisBox"
-                  name="cause"
-                  style="
+                        id="causeAnalysisBox"
+                        name="cause"
+                        style="
                     flex: 1;
                     min-height: 120px;
                     border: 1px solid #ddd;
@@ -314,533 +314,534 @@
                     overflow-x: auto;
                     resize: vertical;
                   "
-                  class="form-control"
-                  rows="5"
+                        class="form-control"
+                        rows="5"
                 ></textarea>
-                <button
-                  type="button"
-                  class="btn btn-info"
-                  id="refreshCauseBtn"
-                  style="margin-left: 15px"
-                >
-                  成因分析
-                </button>
-              </div>
+                        <button
+                                type="button"
+                                class="btn btn-info"
+                                id="refreshCauseBtn"
+                                style="margin-left: 15px"
+                        >
+                            成因分析
+                        </button>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
         <div class="row">
-          <div class="col-sm-12">
-            <div class="form-group">
-              <label class="control-label">备注：</label>
-              <textarea
-                name="remark"
-                maxlength="500"
-                class="form-control"
-                rows="3"
-                th:field="*{remark}"
-              ></textarea>
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="control-label">备注：</label>
+                    <textarea
+                            name="remark"
+                            maxlength="500"
+                            class="form-control"
+                            rows="3"
+                            th:field="*{remark}"
+                    ></textarea>
+                </div>
             </div>
-          </div>
         </div>
         <!-- 文件上传和预览区域 -->
         <div class="row">
-          <div class="col-sm-12">
-            <div class="form-group">
-              <div>
-                <input
-                  type="file"
-                  name="attachmentFiles"
-                  id="diseaseFiles"
-                  class="d-none"
-                  multiple
-                  accept="*/*"
-                  style="display: none"
-                />
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  onclick="$('#diseaseFiles').click()"
-                >
-                  <i class="fa fa-upload"></i> 选择文件
-                </button>
-                <small class="form-text text-muted"
-                  >支持上传图片和其他文件</small
-                >
-                <div id="filePreview" class="mt-2 row">
-                  <!-- 这里是文件预览区域,会显示已上传的文件和新上传的文件 -->
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <div>
+                        <input
+                                type="file"
+                                name="attachmentFiles"
+                                id="diseaseFiles"
+                                class="d-none"
+                                multiple
+                                accept="*/*"
+                                style="display: none"
+                        />
+                        <button
+                                type="button"
+                                class="btn btn-primary"
+                                onclick="$('#diseaseFiles').click()"
+                        >
+                            <i class="fa fa-upload"></i> 选择文件
+                        </button>
+                        <small class="form-text text-muted"
+                        >支持上传图片和其他文件</small
+                        >
+                        <div id="filePreview" class="mt-2 row">
+                            <!-- 这里是文件预览区域,会显示已上传的文件和新上传的文件 -->
+                        </div>
+                    </div>
                 </div>
-              </div>
             </div>
-          </div>
         </div>
         <div class="row">
-          <div class="col-sm-offset-5 col-sm-10" style="margin-top: 20px">
-            <button
-              type="button"
-              class="btn btn-sm btn-primary"
-              onclick="submitHandler()"
-            >
-              <i class="fa fa-check"></i>保 存</button
-            >&nbsp;
-            <button
-              type="button"
-              class="btn btn-sm btn-danger"
-              onclick="closeItem()"
-            >
-              <i class="fa fa-reply-all"></i>关 闭
-            </button>
-          </div>
+            <div class="col-sm-offset-5 col-sm-10" style="margin-top: 20px">
+                <button
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        onclick="submitHandler()"
+                >
+                    <i class="fa fa-check"></i>保 存
+                </button
+                >&nbsp;
+                <button
+                        type="button"
+                        class="btn btn-sm btn-danger"
+                        onclick="closeItem()"
+                >
+                    <i class="fa fa-reply-all"></i>关 闭
+                </button>
+            </div>
         </div>
-      </form>
-    </div>
-    <th:block th:include="include :: footer" />
-    <th:block th:include="include :: select2-js" />
-    <!-- bootstrap-select -->
-    <script th:src="@{/js/bootstrap-select.min.js}"></script>
-    <!--<script th:src="@{/js/marked.min.js}"></script>-->
-    <script th:src="@{/js/i18n/defaults-zh_CN.min.js}"></script>
-    <script th:inline="javascript">
-      var prefix = ctx + "biz/disease"
-      var disease = [[${disease}]];
-      var biObject = [[${biObject}]];
-      var customPosition = [[${customPosition}]];
-      var diseaseTypes;
-      var positionObjects;
+    </form>
+</div>
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: select2-js"/>
+<!-- bootstrap-select -->
+<script th:src="@{/js/bootstrap-select.min.js}"></script>
+<!--<script th:src="@{/js/marked.min.js}"></script>-->
+<script th:src="@{/js/i18n/defaults-zh_CN.min.js}"></script>
+<script th:inline="javascript">
+    var prefix = ctx + "biz/disease"
+    var disease = [[${disease}]];
+    var biObject = [[${biObject}]];
+    var customPosition = [[${customPosition}]];
+    var diseaseTypes;
+    var positionObjects;
 
-      // 全局变量，存储所有图片的url、文件名和当前索引
-      var previewImageList = [];
-      var previewImageIndex = 0;
+    // 全局变量，存储所有图片的url、文件名和当前索引
+    var previewImageList = [];
+    var previewImageIndex = 0;
 
-      $(function () {
-          // 初始化select2，排除带有no-select2类的元素
-          $('select.select2').select2({
-              placeholder: "请选择",
-              allowClear: true
-          });
+    $(function () {
+        // 初始化select2，排除带有no-select2类的元素
+        $('select.select2').select2({
+            placeholder: "请选择",
+            allowClear: true
+        });
 
-          // 确保发展趋势和病害性质下拉框正确初始化，不需要销毁select2实例
-          // 因为我们已经在HTML中添加了no-select2类来排除它们
+        // 确保发展趋势和病害性质下拉框正确初始化，不需要销毁select2实例
+        // 因为我们已经在HTML中添加了no-select2类来排除它们
 
-          // 重新绑定值，确保选项显示正确
-          if (disease && disease.developmentTrend) {
-              $("#developmentTrend").val(disease.developmentTrend);
-          } else {
-              $("#developmentTrend").val("稳定"); // 设置默认值
-          }
+        // 重新绑定值，确保选项显示正确
+        if (disease && disease.developmentTrend) {
+            $("#developmentTrend").val(disease.developmentTrend);
+        } else {
+            $("#developmentTrend").val("稳定"); // 设置默认值
+        }
 
-          if (disease && disease.nature) {
-              $("#nature").val(disease.nature);
-          } else {
-              $("#nature").val("非结构病害"); // 设置默认值
-          }
+        if (disease && disease.nature) {
+            $("#nature").val(disease.nature);
+        } else {
+            $("#nature").val("非结构病害"); // 设置默认值
+        }
 
-          // 初始化病害类型下拉框
-          loadDiseaseTypes();
-          // 初始化病害位置下拉框
-          loadPositions();
-          // 初始化评定标度
-          updateLevelGroup();
-          // 加载已上传的附件
-          loadExistingAttachments();
-          // 病害详情区初始化在loadDiseaseTypes的回调中进行，确保病害类型数据已加载
+        // 初始化病害类型下拉框
+        loadDiseaseTypes();
+        // 初始化病害位置下拉框
+        loadPositions();
+        // 初始化评定标度
+        updateLevelGroup();
+        // 加载已上传的附件
+        loadExistingAttachments();
+        // 病害详情区初始化在loadDiseaseTypes的回调中进行，确保病害类型数据已加载
 
-          if (disease.cause) {
-              $("#causeAnalysisBox").html(disease.cause);
-          }
+        if (disease.cause) {
+            $("#causeAnalysisBox").html(disease.cause);
+        }
 
-          // 病害类型自定义输入显示隐藏
-          $('#diseaseTypeId').on('change', function () {
-              var selectedText = $(this).find('option:selected').text().trim();
-              if (selectedText === "其他" || selectedText === "其它") {
-                  $('#customDiseaseType').show().attr('required', true).val(disease.type);
-              } else {
-                  $('#customDiseaseType').hide().removeAttr('required').val('');
-                  var selectedId = $(this).val();
-                  if (selectedId) {
-                      updateLevelGroup(selectedId);
-                      var selectedType = diseaseTypes.find(function (item) {
-                          return item.id == selectedId;
-                      });
-                      $('#maxScale').val(selectedType ? selectedType.maxScale : '');
-                  } else {
-                      updateLevelGroup();
-                  }
-              }
+        // 病害类型自定义输入显示隐藏
+        $('#diseaseTypeId').on('change', function () {
+            var selectedText = $(this).find('option:selected').text().trim();
+            if (selectedText === "其他" || selectedText === "其它") {
+                $('#customDiseaseType').show().attr('required', true).val(disease.type);
+            } else {
+                $('#customDiseaseType').hide().removeAttr('required').val('');
+                var selectedId = $(this).val();
+                if (selectedId) {
+                    updateLevelGroup(selectedId);
+                    var selectedType = diseaseTypes.find(function (item) {
+                        return item.id == selectedId;
+                    });
+                    $('#maxScale').val(selectedType ? selectedType.maxScale : '');
+                } else {
+                    updateLevelGroup();
+                }
+            }
 
-              // 当病害类型改变时，根据选中类型更新病害详情显示字段
-              var quantity = $("#quantityInput").val();
-              updateDiseaseDetails(quantity);
-          });
+            // 当病害类型改变时，根据选中类型更新病害详情显示字段
+            var quantity = $("#quantityInput").val();
+            updateDiseaseDetails(quantity);
+        });
 
-          // 病害位置自定义输入显示隐藏
-          $('#position').on('change', function () {
-              var selectedText = $(this).find('option:selected').text().trim();
-              if (selectedText === "其他" || selectedText === "其它") {
-                  $('#customPosition').show().attr('required', true).val(customPosition);
-              } else {
-                  $('#customPosition').hide().removeAttr('required').val('');
-              }
-          });
+        // 病害位置自定义输入显示隐藏
+        $('#position').on('change', function () {
+            var selectedText = $(this).find('option:selected').text().trim();
+            if (selectedText === "其他" || selectedText === "其它") {
+                $('#customPosition').show().attr('required', true).val(customPosition);
+            } else {
+                $('#customPosition').hide().removeAttr('required').val('');
+            }
+        });
 
-          // 数量变化时渲染病害详情区
-          $('#quantityInput').on('change', function () {
-              var quantity = $(this).val();
-              updateDiseaseDetails(quantity);
+        // 数量变化时渲染病害详情区
+        $('#quantityInput').on('change', function () {
+            var quantity = $(this).val();
+            updateDiseaseDetails(quantity);
 
-              $("#position").val("").trigger("change");
-              $("#customPosition").val("").hide().removeAttr('required');
-          });
+            $("#position").val("").trigger("change");
+            $("#customPosition").val("").hide().removeAttr('required');
+        });
 
-          // 表单验证
-          $("#form-disease-edit").validate({
-              rules: {
-                  componentId: "required",
-                  diseaseTypeId: "required",
-                  level: "required"
-              },
-              submitHandler: function(form) {
-                  // 处理自定义参考面位置
-                  var quantity = $("#quantityInput").val();
+        // 表单验证
+        $("#form-disease-edit").validate({
+            rules: {
+                componentId: "required",
+                diseaseTypeId: "required",
+                level: "required"
+            },
+            submitHandler: function (form) {
+                // 处理自定义参考面位置
+                var quantity = $("#quantityInput").val();
 
-                  // 处理单个病害的情况
-                  if (quantity == 10) {
-                      if ($("#reference1Location").val() === "其他") {
-                          var customValue = $("#reference1LocationCustom").val();
-                          if (customValue) {
-                              $("#reference1Location").val(customValue);
-                          }
-                      }
-                      if ($("#reference2Location").val() === "其他") {
-                          var customValue = $("#reference2LocationCustom").val();
-                          if (customValue) {
-                              $("#reference2Location").val(customValue);
-                          }
-                      }
-                  } else {
-                      // 处理多个病害的情况
-                      for (var i = 0; i < quantity; i++) {
-                          var ref1Select = $("#reference1Location_" + i);
-                          var ref2Select = $("#reference2Location_" + i);
+                // 处理单个病害的情况
+                if (quantity == 10) {
+                    if ($("#reference1Location").val() === "其他") {
+                        var customValue = $("#reference1LocationCustom").val();
+                        if (customValue) {
+                            $("#reference1Location").val(customValue);
+                        }
+                    }
+                    if ($("#reference2Location").val() === "其他") {
+                        var customValue = $("#reference2LocationCustom").val();
+                        if (customValue) {
+                            $("#reference2Location").val(customValue);
+                        }
+                    }
+                } else {
+                    // 处理多个病害的情况
+                    for (var i = 0; i < quantity; i++) {
+                        var ref1Select = $("#reference1Location_" + i);
+                        var ref2Select = $("#reference2Location_" + i);
 
-                          if (ref1Select.length && ref1Select.val() === "其他") {
-                              var customValue = $("#reference1LocationCustom_" + i).val();
-                              if (customValue) {
-                                  ref1Select.val(customValue);
-                              }
-                          }
+                        if (ref1Select.length && ref1Select.val() === "其他") {
+                            var customValue = $("#reference1LocationCustom_" + i).val();
+                            if (customValue) {
+                                ref1Select.val(customValue);
+                            }
+                        }
 
-                          if (ref2Select.length && ref2Select.val() === "其他") {
-                              var customValue = $("#reference2LocationCustom_" + i).val();
-                              if (customValue) {
-                                  ref2Select.val(customValue);
-                              }
-                          }
-                      }
-                  }
+                        if (ref2Select.length && ref2Select.val() === "其他") {
+                            var customValue = $("#reference2LocationCustom_" + i).val();
+                            if (customValue) {
+                                ref2Select.val(customValue);
+                            }
+                        }
+                    }
+                }
 
-                  // 继续提交表单
-                  return true;
-              },
-              focusCleanup: true
-          });
+                // 继续提交表单
+                return true;
+            },
+            focusCleanup: true
+        });
 
-          // 添加文件预览和下载功能
-          $(document).on('click', '.preview-file', function() {
-              var url = $(this).closest('.thumbnail').find('input[name$=".url"]').val();
-              var fileName = $(this).closest('.thumbnail').find('input[name$=".fileName"]').val();
-              downloadFile(url, fileName);
-          });
+        // 添加文件预览和下载功能
+        $(document).on('click', '.preview-file', function () {
+            var url = $(this).closest('.thumbnail').find('input[name$=".url"]').val();
+            var fileName = $(this).closest('.thumbnail').find('input[name$=".fileName"]').val();
+            downloadFile(url, fileName);
+        });
 
-          // 绑定图片点击事件为预览，并收集所有图片
-          $(document).on('click', '.preview-image img', function() {
-              previewImageList = [];
-              // 收集所有图片的src和文件名
-              var $allImages = $('.preview-image img');
-              $allImages.each(function(idx, img) {
-                  var $img = $(img);
-                  var src = $img.attr('src');
-                  // 文件名可以从img的title、alt或父级隐藏input中取
-                  var fileName = $img.attr('title') || $img.attr('alt') || $img.closest('.thumbnail').find('input[name$=".fileName"]').val() || '';
-                  previewImageList.push({src: src, fileName: fileName});
-              });
+        // 绑定图片点击事件为预览，并收集所有图片
+        $(document).on('click', '.preview-image img', function () {
+            previewImageList = [];
+            // 收集所有图片的src和文件名
+            var $allImages = $('.preview-image img');
+            $allImages.each(function (idx, img) {
+                var $img = $(img);
+                var src = $img.attr('src');
+                // 文件名可以从img的title、alt或父级隐藏input中取
+                var fileName = $img.attr('title') || $img.attr('alt') || $img.closest('.thumbnail').find('input[name$=".fileName"]').val() || '';
+                previewImageList.push({src: src, fileName: fileName});
+            });
 
-              // 当前点击的图片索引
-              var currentSrc = $(this).attr('src');
-              previewImageIndex = -1;
+            // 当前点击的图片索引
+            var currentSrc = $(this).attr('src');
+            previewImageIndex = -1;
 
-              // 查找当前图片的索引
-              for(var i = 0; i < previewImageList.length; i++) {
-                  if(previewImageList[i].src === currentSrc) {
-                      previewImageIndex = i;
-                      break;
-                  }
-              }
+            // 查找当前图片的索引
+            for (var i = 0; i < previewImageList.length; i++) {
+                if (previewImageList[i].src === currentSrc) {
+                    previewImageIndex = i;
+                    break;
+                }
+            }
 
-              // 如果没找到，默认为第一张
-              if(previewImageIndex === -1) {
-                  previewImageIndex = 0;
-              }
+            // 如果没找到，默认为第一张
+            if (previewImageIndex === -1) {
+                previewImageIndex = 0;
+            }
 
-              // 显示并打开模态框
-              showPreviewImage();
-              $('#imagePreviewModal').modal('show');
+            // 显示并打开模态框
+            showPreviewImage();
+            $('#imagePreviewModal').modal('show');
 
-              // 调试信息
-              console.log('收集到 ' + previewImageList.length + ' 张图片，当前索引: ' + previewImageIndex);
-          });
+            // 调试信息
+            console.log('收集到 ' + previewImageList.length + ' 张图片，当前索引: ' + previewImageIndex);
+        });
 
-          $("#refreshCauseBtn").on("click", function() {
-              var data = {
-                  objectId: biObject.id,
-                  parentObject: biObject.parentName || "",
-                  object: biObject.name || "",
-                  type: $("#diseaseTypeId option:selected").text().trim(),
-                  description: $("#description").val(),
-                  position: $("#position option:selected").text().trim(),
-                  // area: disease.diseaseDetails[0].area,
-                  level: $("input[name='level']:checked").val(),
-                  componentCode: $("input[name='component.code']").val(),
-                  componentName: $("input[name='biObjectName']").val(),
-                  // trend: $("select[name='diseaseDetails[0].developmentTrend']").val()
-              };
-              // 显示正在生成提示
-              $("#causeAnalysisBox").val('正在生成...')
-              $.ajax({
-                  url: ctx + "biz/disease/causeAnalysis", // 后端接口
-                  type: "post",
-                  contentType: "application/json",
-                  data: JSON.stringify(data),
-                  success: function(res) {
-                      if(res.code === 0) {
-                          // $("#causeAnalysisBox").html(marked.parse(res.msg)); md 文档格式显示
-                          $("#causeAnalysisBox").val(res.msg);
-                      } else {
-                          $("#causeAnalysisBox").val('未获取到成因分析');
-                      }
-                  },
-                  error: function() {
-                      $("#causeAnalysisBox").val('请求失败');
-                  }
-              });
-          });
-      });
+        $("#refreshCauseBtn").on("click", function () {
+            var data = {
+                objectId: biObject.id,
+                parentObject: biObject.parentName || "",
+                object: biObject.name || "",
+                type: $("#diseaseTypeId option:selected").text().trim(),
+                description: $("#description").val(),
+                position: $("#position option:selected").text().trim(),
+                // area: disease.diseaseDetails[0].area,
+                level: $("input[name='level']:checked").val(),
+                componentCode: $("input[name='component.code']").val(),
+                componentName: $("input[name='biObjectName']").val(),
+                // trend: $("select[name='diseaseDetails[0].developmentTrend']").val()
+            };
+            // 显示正在生成提示
+            $("#causeAnalysisBox").val('正在生成...')
+            $.ajax({
+                url: ctx + "biz/disease/causeAnalysis", // 后端接口
+                type: "post",
+                contentType: "application/json",
+                data: JSON.stringify(data),
+                success: function (res) {
+                    if (res.code === 0) {
+                        // $("#causeAnalysisBox").html(marked.parse(res.msg)); md 文档格式显示
+                        $("#causeAnalysisBox").val(res.msg);
+                    } else {
+                        $("#causeAnalysisBox").val('未获取到成因分析');
+                    }
+                },
+                error: function () {
+                    $("#causeAnalysisBox").val('请求失败');
+                }
+            });
+        });
+    });
 
-      // 加载病害类型
-      function loadDiseaseTypes() {
-          $.ajax({
-              url: ctx + "biz/diseaseType/selectList",
-              type: "POST",
-              data: {
-                  biObjectId: biObject.id
-              },
-              success: function(result) {
-                  diseaseTypes = result;
-                  var options = '<option value="">请选择病害类型</option>';
-                  $.each(result, function (i, item) {
-                      options += '<option value="' + item.id + '">' + item.name + '</option>';
-                  });
-                  $("#diseaseTypeId").html(options).trigger('change');
-                  // 编辑模式选中
-                  if (disease && disease.diseaseTypeId) {
-                      $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
+    // 加载病害类型
+    function loadDiseaseTypes() {
+        $.ajax({
+            url: ctx + "biz/diseaseType/selectList",
+            type: "POST",
+            data: {
+                biObjectId: biObject.id
+            },
+            success: function (result) {
+                diseaseTypes = result;
+                var options = '<option value="">请选择病害类型</option>';
+                $.each(result, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                });
+                $("#diseaseTypeId").html(options).trigger('change');
+                // 编辑模式选中
+                if (disease && disease.diseaseTypeId) {
+                    $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
 
-                      // 在设置选中值后，根据已选病害类型初始化病害详情区域
-                      var quantity = $("#quantityInput").val() || 1;
-                      updateDiseaseDetails(quantity);
-                  } else {
-                      // 如果没有选中病害类型，使用默认显示
-                      updateDiseaseDetails($("#quantityInput").val() || 1);
-                  }
-              }
-          });
-      }
+                    // 在设置选中值后，根据已选病害类型初始化病害详情区域
+                    var quantity = $("#quantityInput").val() || 1;
+                    updateDiseaseDetails(quantity);
+                } else {
+                    // 如果没有选中病害类型，使用默认显示
+                    updateDiseaseDetails($("#quantityInput").val() || 1);
+                }
+            }
+        });
+    }
 
-      // 加载病害位置
-      function loadPositions() {
-          $.ajax({
-              url: ctx + "biz/biobject/selectPositionList",
-              type: "POST",
-              data: {
-                  parentId: biObject.id
-              },
-              success: function(result) {
-                  positionObjects = result;
-                  var options = '<option value="">请选择病害位置</option>';
-                  $.each(result, function (i, item) {
-                      options += '<option value="' + item.id + '">' + item.name + '</option>';
-                  });
-                  $("#position").html(options).trigger('change');
-                  // 编辑模式选中
-              if (disease && disease.position) {
-                  // 检查position是否在下拉选项中
-                  var positionFound = false;
-                  $("#position option").each(function() {
-                      if ($(this).text() === disease.position) {
-                          positionFound = true;
-                          return false; // 跳出循环
-                      }
-                  });
+    // 加载病害位置
+    function loadPositions() {
+        $.ajax({
+            url: ctx + "biz/biobject/selectPositionList",
+            type: "POST",
+            data: {
+                parentId: biObject.id
+            },
+            success: function (result) {
+                positionObjects = result;
+                var options = '<option value="">请选择病害位置</option>';
+                $.each(result, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                });
+                $("#position").html(options).trigger('change');
+                // 编辑模式选中
+                if (disease && disease.position) {
+                    // 检查position是否在下拉选项中
+                    var positionFound = false;
+                    $("#position option").each(function () {
+                        if ($(this).text() === disease.position) {
+                            positionFound = true;
+                            return false; // 跳出循环
+                        }
+                    });
 
-                  // 如果在选项中找到，直接选中；否则选择"其他"并显示自定义输入框
-                  if (positionFound) {
-                      $("#position").val(disease.position).trigger('change');
-                  } else {
-                      // 添加"其他"选项（如果不存在）
-                      if ($("#position option:contains('其他')").length === 0 &&
-                          $("#position option:contains('其它')").length === 0) {
-                          $("#position").append('<option value="其他">其他</option>');
-                      }
+                    // 如果在选项中找到，直接选中；否则选择"其他"并显示自定义输入框
+                    if (positionFound) {
+                        $("#position").val(disease.position).trigger('change');
+                    } else {
+                        // 添加"其他"选项（如果不存在）
+                        if ($("#position option:contains('其他')").length === 0 &&
+                            $("#position option:contains('其它')").length === 0) {
+                            $("#position").append('<option value="其他">其他</option>');
+                        }
 
-                      // 选中"其他"选项
-                      if ($("#position option:contains('其他')").length > 0) {
-                          $("#position").val($("#position option:contains('其他')").val()).trigger('change');
-                      } else if ($("#position option:contains('其它')").length > 0) {
-                          $("#position").val($("#position option:contains('其它')").val()).trigger('change');
-                      }
+                        // 选中"其他"选项
+                        if ($("#position option:contains('其他')").length > 0) {
+                            $("#position").val($("#position option:contains('其他')").val()).trigger('change');
+                        } else if ($("#position option:contains('其它')").length > 0) {
+                            $("#position").val($("#position option:contains('其它')").val()).trigger('change');
+                        }
 
-                      // 显示并设置自定义输入框的值
-                      $("#customPosition").show().attr('required', true).val(disease.position);
-                  }
-              }
-              }
-          });
-      }
+                        // 显示并设置自定义输入框的值
+                        $("#customPosition").show().attr('required', true).val(disease.position);
+                    }
+                }
+            }
+        });
+    }
 
-      // 渲染病害详情区
-      function updateDiseaseDetails(quantity) {
-          var detailsContainer = $("#diseaseDetails");
-          detailsContainer.empty();
-          var isCustomPosition = (biObject.name === "其他" || biObject.name === "其它");
-          quantity = parseInt(quantity) || 1;
+    // 渲染病害详情区
+    function updateDiseaseDetails(quantity) {
+        var detailsContainer = $("#diseaseDetails");
+        detailsContainer.empty();
+        var isCustomPosition = (biObject.name === "其他" || biObject.name === "其它");
+        quantity = parseInt(quantity) || 1;
 
-          // 获取当前选中的病害类型
-          var selectedDiseaseTypeId = $("#diseaseTypeId").val();
-          var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function(item) {
-              return item.id == selectedDiseaseTypeId;
-          }) : null;
+        // 获取当前选中的病害类型
+        var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+        var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+            return item.id == selectedDiseaseTypeId;
+        }) : null;
 
-          // 解析selectColumn字段决定显示哪些病害详情字段
-          var showCrackType = true; // 默认全部显示
-          var showLength = true;
-          var showCrackWidth = true;
-          var showHeightDepth = true;
-          var showArea = true;
-          var showDeformation = true;
-          var showAngle = true;
-          var showPercentage = true;
+        // 解析selectColumn字段决定显示哪些病害详情字段
+        var showCrackType = true; // 默认全部显示
+        var showLength = true;
+        var showCrackWidth = true;
+        var showHeightDepth = true;
+        var showArea = true;
+        var showDeformation = true;
+        var showAngle = true;
+        var showPercentage = true;
 
-          if (selectedDiseaseType && selectedDiseaseType.selectColumn !== undefined) {
-              var selectColumn = parseInt(selectedDiseaseType.selectColumn || 0);
-              // 根据二进制位判断是否显示对应字段
-              showCrackType = (selectColumn & 1) === 1; // 裂缝特征 - 1
-              showLength = (selectColumn & 2) === 2; // 长度 - 2
-              showCrackWidth = (selectColumn & 4) === 4; // 缝宽 - 4
-              showHeightDepth = (selectColumn & 8) === 8; // 高度/深度 - 8
-              showArea = (selectColumn & 16) === 16; // 面积 - 16
-              showDeformation = (selectColumn & 32) === 32; // 变形/位移 - 32
-              showAngle = (selectColumn & 64) === 64; // 角度 - 64
-              showPercentage = (selectColumn & 128) === 128; // 比例 - 128
-          }
+        if (selectedDiseaseType && selectedDiseaseType.selectColumn !== undefined) {
+            var selectColumn = parseInt(selectedDiseaseType.selectColumn || 0);
+            // 根据二进制位判断是否显示对应字段
+            showCrackType = (selectColumn & 1) === 1; // 裂缝特征 - 1
+            showLength = (selectColumn & 2) === 2; // 长度 - 2
+            showCrackWidth = (selectColumn & 4) === 4; // 缝宽 - 4
+            showHeightDepth = (selectColumn & 8) === 8; // 高度/深度 - 8
+            showArea = (selectColumn & 16) === 16; // 面积 - 16
+            showDeformation = (selectColumn & 32) === 32; // 变形/位移 - 32
+            showAngle = (selectColumn & 64) === 64; // 角度 - 64
+            showPercentage = (selectColumn & 128) === 128; // 比例 - 128
+        }
 
-          // 获取diseaseDetails数据，但不在模板字符串中直接使用
-          var diseaseDetails = disease.diseaseDetails || [];
+        // 获取diseaseDetails数据，但不在模板字符串中直接使用
+        var diseaseDetails = disease.diseaseDetails || [];
 
-          if (quantity < 10) {
-              for (var i = 0; i < quantity; i++) {
-                  // 收集需要显示的字段
-                  var fieldsToShow = [];
+        if (quantity < 10) {
+            for (var i = 0; i < quantity; i++) {
+                // 收集需要显示的字段
+                var fieldsToShow = [];
 
-                  if (showLength) {
-                      fieldsToShow.push({
-                          label: "长度",
-                          name: `diseaseDetails[${i}].length`,
-                          step: "0.01",
-                          placeholder: "长度",
-                          value: diseaseDetails[i]?.length || ""
-                      });
-                  }
+                if (showLength) {
+                    fieldsToShow.push({
+                        label: "长度",
+                        name: `diseaseDetails[${i}].length`,
+                        step: "0.01",
+                        placeholder: "长度",
+                        value: diseaseDetails[i]?.length || ""
+                    });
+                }
 
-                  fieldsToShow.push({
-                      label: "宽度",
-                      name: `diseaseDetails[${i}].width`,
-                      step: "0.01",
-                      placeholder: "宽度",
-                      value: diseaseDetails[i]?.width || ""
-                  });
+                fieldsToShow.push({
+                    label: "宽度",
+                    name: `diseaseDetails[${i}].width`,
+                    step: "0.01",
+                    placeholder: "宽度",
+                    value: diseaseDetails[i]?.width || ""
+                });
 
-                  if (showHeightDepth) {
-                      fieldsToShow.push({
-                          label: "高度/深度",
-                          name: `diseaseDetails[${i}].heightDepth`,
-                          step: "0.01",
-                          placeholder: "高度/深度",
-                          value: diseaseDetails[i]?.heightDepth || ""
-                      });
-                  }
+                if (showHeightDepth) {
+                    fieldsToShow.push({
+                        label: "高度/深度",
+                        name: `diseaseDetails[${i}].heightDepth`,
+                        step: "0.01",
+                        placeholder: "高度/深度",
+                        value: diseaseDetails[i]?.heightDepth || ""
+                    });
+                }
 
-                  if (showCrackWidth) {
-                      fieldsToShow.push({
-                          label: "缝宽",
-                          name: `diseaseDetails[${i}].crackWidth`,
-                          step: "0.0001",
-                          placeholder: "缝宽",
-                          value: diseaseDetails[i]?.crackWidth || ""
-                      });
-                  }
+                if (showCrackWidth) {
+                    fieldsToShow.push({
+                        label: "缝宽",
+                        name: `diseaseDetails[${i}].crackWidth`,
+                        step: "0.0001",
+                        placeholder: "缝宽",
+                        value: diseaseDetails[i]?.crackWidth || ""
+                    });
+                }
 
-                  if (showArea) {
-                      fieldsToShow.push({
-                          type: "area",
-                          label: "面积",
-                          nameLength: `diseaseDetails[${i}].areaLength`,
-                          nameWidth: `diseaseDetails[${i}].areaWidth`,
-                          valueLength: diseaseDetails[i]?.areaLength || "",
-                          valueWidth: diseaseDetails[i]?.areaWidth || ""
-                      });
-                  }
+                if (showArea) {
+                    fieldsToShow.push({
+                        type: "area",
+                        label: "面积",
+                        nameLength: `diseaseDetails[${i}].areaLength`,
+                        nameWidth: `diseaseDetails[${i}].areaWidth`,
+                        valueLength: diseaseDetails[i]?.areaLength || "",
+                        valueWidth: diseaseDetails[i]?.areaWidth || ""
+                    });
+                }
 
-                  if (showDeformation) {
-                      fieldsToShow.push({
-                          label: "变形/位移",
-                          name: `diseaseDetails[${i}].deformation`,
-                          step: "0.01",
-                          placeholder: "变形/位移",
-                          value: diseaseDetails[i]?.deformation || ""
-                      });
-                  }
+                if (showDeformation) {
+                    fieldsToShow.push({
+                        label: "变形/位移",
+                        name: `diseaseDetails[${i}].deformation`,
+                        step: "0.01",
+                        placeholder: "变形/位移",
+                        value: diseaseDetails[i]?.deformation || ""
+                    });
+                }
 
-                  if (showAngle) {
-                      fieldsToShow.push({
-                          label: "角度",
-                          name: `diseaseDetails[${i}].angle`,
-                          step: "1",
-                          placeholder: "角度",
-                          value: diseaseDetails[i]?.angle || ""
-                      });
-                  }
+                if (showAngle) {
+                    fieldsToShow.push({
+                        label: "角度",
+                        name: `diseaseDetails[${i}].angle`,
+                        step: "1",
+                        placeholder: "角度",
+                        value: diseaseDetails[i]?.angle || ""
+                    });
+                }
 
-                  if (showPercentage) {
-                      fieldsToShow.push({
-                          type: "ratio",
-                          label: "比例",
-                          nameNumerator: `diseaseDetails[${i}].numeratorRatio`,
-                          nameDenominator: `diseaseDetails[${i}].denominatorRatio`,
-                          valueNumerator: diseaseDetails[i]?.numeratorRatio || "",
-                          valueDenominator: diseaseDetails[i]?.denominatorRatio || ""
-                      });
-                  }
+                if (showPercentage) {
+                    fieldsToShow.push({
+                        type: "ratio",
+                        label: "比例",
+                        nameNumerator: `diseaseDetails[${i}].numeratorRatio`,
+                        nameDenominator: `diseaseDetails[${i}].denominatorRatio`,
+                        valueNumerator: diseaseDetails[i]?.numeratorRatio || "",
+                        valueDenominator: diseaseDetails[i]?.denominatorRatio || ""
+                    });
+                }
 
-                  // 创建DOM元素而不是使用模板字符串，这样可以正确处理Thymeleaf属性
-                  var detailDiv = $(`
+                // 创建DOM元素而不是使用模板字符串，这样可以正确处理Thymeleaf属性
+                var detailDiv = $(`
                       <div class="col-sm-12">
                           <div class="form-group">
                               <label class="col-sm-1 control-label">缺损-${i}:</label>
                               <div class="col-sm-11">`);
 
-                  // 根据selectColumn判断是否显示裂缝特征
-                  if (showCrackType) {
-                      detailDiv.append(`
+                // 根据selectColumn判断是否显示裂缝特征
+                if (showCrackType) {
+                    detailDiv.append(`
                                   <div class="row">
                                       <div class="form-group">
                                           <label class="col-sm-3 control-label">裂缝特征：</label>
@@ -855,22 +856,22 @@
                                           </div>
                                       </div>
                                   </div>`);
-                  }
+                }
 
-                  detailDiv.append(`
+                detailDiv.append(`
                                   <div class="row" style="margin-bottom: 20px;">
                                       <label class="col-sm-2 control-label">距参考面1位置：</label>
                                       <div class="col-sm-3">
                                           <label class="col-sm-2 control-label">距</label>
                                           <div class="col-sm-10">
                                               ${isCustomPosition
-                                                  ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference1Location" placeholder="请输入参考面1位置">`
-                                                  : `<select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}" onchange="handleRefChange(this, 'reference1LocationCustom_${i}')">
+                    ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference1Location" placeholder="请输入参考面1位置">`
+                    : `<select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}" onchange="handleRefChange(this, 'reference1LocationCustom_${i}')">
                                                           <option value="">请选择</option>
                                                           <option value="其他">其他</option>
                                                   </select>
                                                   <input type="text" class="form-control" name="diseaseDetails[${i}].reference1LocationCustom" id="reference1LocationCustom_${i}" placeholder="请输入自定义参考面1位置" style="display:none; margin-top:5px;">`
-                                              }
+                }
                                           </div>
                                       </div>
                                       <div class="col-sm-3">
@@ -886,13 +887,13 @@
                                           <label class="col-sm-2 control-label">距</label>
                                           <div class="col-sm-10">
                                               ${isCustomPosition
-                                                  ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference2Location" placeholder="请输入参考面2位置">`
-                                                  : `<select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}" onchange="handleRefChange(this, 'reference2LocationCustom_${i}')">
+                    ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference2Location" placeholder="请输入参考面2位置">`
+                    : `<select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}" onchange="handleRefChange(this, 'reference2LocationCustom_${i}')">
                                                           <option value="">请选择</option>
                                                           <option value="其他">其他</option>
                                                   </select>
                                                   <input type="text" class="form-control" name="diseaseDetails[${i}].reference2LocationCustom" id="reference2LocationCustom_${i}" placeholder="请输入自定义参考面2位置" style="display:none; margin-top:5px;">`
-                                              }
+                }
                                           </div>
                                       </div>
                                       <div class="col-sm-3">
@@ -903,45 +904,45 @@
                                       </div>
                                   </div>`);
 
-                  // 按每行最多4个字段进行排列
-                  const fieldsPerRow = 4;
-                  const rows = Math.ceil(fieldsToShow.length / fieldsPerRow);
+                // 按每行最多4个字段进行排列
+                const fieldsPerRow = 4;
+                const rows = Math.ceil(fieldsToShow.length / fieldsPerRow);
 
-                  for (let row = 0; row < rows; row++) {
-                      var rowDiv = $('<div class="row"></div>');
+                for (let row = 0; row < rows; row++) {
+                    var rowDiv = $('<div class="row"></div>');
 
-                      const startIdx = row * fieldsPerRow;
-                      const endIdx = Math.min(startIdx + fieldsPerRow, fieldsToShow.length);
-                      const fieldsInRow = endIdx - startIdx;
+                    const startIdx = row * fieldsPerRow;
+                    const endIdx = Math.min(startIdx + fieldsPerRow, fieldsToShow.length);
+                    const fieldsInRow = endIdx - startIdx;
 
-                      // 计算列宽和偏移量，确保字段居中
-                      let colWidth;
-                      let offset = 0;
+                    // 计算列宽和偏移量，确保字段居中
+                    let colWidth;
+                    let offset = 0;
 
-                      if (fieldsInRow === 1) {
-                          colWidth = 6; // 单个字段使用6列宽度
-                          offset = 2;   // 左边空出2列，确保居中
-                      } else if (fieldsInRow === 2) {
-                          colWidth = 5; // 2个字段各用5列宽度
-                          offset = 1;   // 左边空出1列，确保居中
-                      } else if (fieldsInRow === 3) {
-                          colWidth = 4; // 3个字段各用4列宽度
-                          offset = 0;   // 不需要偏移
-                      } else {
-                          colWidth = 3; // 4个字段各用3列宽度
-                          offset = 0;   // 不需要偏移
-                      }
+                    if (fieldsInRow === 1) {
+                        colWidth = 6; // 单个字段使用6列宽度
+                        offset = 2;   // 左边空出2列，确保居中
+                    } else if (fieldsInRow === 2) {
+                        colWidth = 5; // 2个字段各用5列宽度
+                        offset = 1;   // 左边空出1列，确保居中
+                    } else if (fieldsInRow === 3) {
+                        colWidth = 4; // 3个字段各用4列宽度
+                        offset = 0;   // 不需要偏移
+                    } else {
+                        colWidth = 3; // 4个字段各用3列宽度
+                        offset = 0;   // 不需要偏移
+                    }
 
-                      // 添加左侧偏移，确保居中
-                      if (offset > 0) {
-                          rowDiv.append(`<div class="col-sm-${offset}"></div>`);
-                      }
+                    // 添加左侧偏移，确保居中
+                    if (offset > 0) {
+                        rowDiv.append(`<div class="col-sm-${offset}"></div>`);
+                    }
 
-                      for (let j = startIdx; j < endIdx; j++) {
-                          const field = fieldsToShow[j];
+                    for (let j = startIdx; j < endIdx; j++) {
+                        const field = fieldsToShow[j];
 
-                          if (field.type === "area") {
-                              rowDiv.append(`
+                        if (field.type === "area") {
+                            rowDiv.append(`
                                   <div class="col-sm-${colWidth}">
                                       <div class="form-group" style="margin-bottom: 20px;">
                                           <label class="col-sm-3 control-label">${field.label}:</label>
@@ -952,8 +953,8 @@
                                           </div>
                                       </div>
                                   </div>`);
-                          } else if (field.type === "ratio") {
-                              rowDiv.append(`
+                        } else if (field.type === "ratio") {
+                            rowDiv.append(`
                                   <div class="col-sm-${colWidth}">
                                       <div class="form-group" style="margin-bottom: 20px;">
                                           <label class="col-sm-3 control-label">${field.label}:</label>
@@ -964,8 +965,8 @@
                                           </div>
                                       </div>
                                   </div>`);
-                          } else {
-                              rowDiv.append(`
+                        } else {
+                            rowDiv.append(`
                                   <div class="col-sm-${colWidth}">
                                       <div class="form-group" style="margin-bottom: 20px;">
                                           <label class="col-sm-3 control-label">${field.label}:</label>
@@ -974,171 +975,175 @@
                                           </div>
                                       </div>
                                   </div>`);
-                          }
-                      }
+                        }
+                    }
 
-                      // 添加右侧偏移，确保对称（如果是奇数列的情况）
-                      if (offset > 0 && fieldsInRow === 1) {
-                          rowDiv.append(`<div class="col-sm-${offset}"></div>`);
-                      }
+                    // 添加右侧偏移，确保对称（如果是奇数列的情况）
+                    if (offset > 0 && fieldsInRow === 1) {
+                        rowDiv.append(`<div class="col-sm-${offset}"></div>`);
+                    }
 
-                      detailDiv.append(rowDiv);
-                  }
+                    detailDiv.append(rowDiv);
+                }
 
-                  // 如果有对应的diseaseDetails数据，设置表单值
-                  if (diseaseDetails && diseaseDetails[i]) {
-                      var detail = diseaseDetails[i];
+                // 如果有对应的diseaseDetails数据，设置表单值
+                if (diseaseDetails && diseaseDetails[i]) {
+                    var detail = diseaseDetails[i];
 
-                      detailDiv.find(`select[name="diseaseDetails[${i}].crackType"]`).val(detail.crackType || "纵向");
-                      if (isCustomPosition) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].reference1Location"]`).val(detail.reference1Location || "");
-                          detailDiv.find(`input[name="diseaseDetails[${i}].reference2Location"]`).val(detail.reference2Location || "");
-                      } else {
-                          // 处理参考面1位置
-                      var ref1Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference1Location"]`);
-                      var ref1Value = detail.reference1Location || "";
-                      var ref1Options = ref1Select.find('option').map(function() { return $(this).val(); }).get();
+                    detailDiv.find(`select[name="diseaseDetails[${i}].crackType"]`).val(detail.crackType || "纵向");
+                    if (isCustomPosition) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].reference1Location"]`).val(detail.reference1Location || "");
+                        detailDiv.find(`input[name="diseaseDetails[${i}].reference2Location"]`).val(detail.reference2Location || "");
+                    } else {
+                        // 处理参考面1位置
+                        var ref1Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference1Location"]`);
+                        var ref1Value = detail.reference1Location || "";
+                        var ref1Options = ref1Select.find('option').map(function () {
+                            return $(this).val();
+                        }).get();
 
-                      if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
-                          // 值不在选项中，选择"其他"并显示自定义输入框
-                          ref1Select.val("其他").trigger('change');
-                          detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationCustom"]`).val(ref1Value).show();
-                      } else {
-                          ref1Select.val(ref1Value);
-                      }
+                        if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
+                            // 值不在选项中，选择"其他"并显示自定义输入框
+                            ref1Select.val("其他").trigger('change');
+                            detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationCustom"]`).val(ref1Value).show();
+                        } else {
+                            ref1Select.val(ref1Value);
+                        }
 
-                      // 处理参考面2位置
-                      var ref2Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference2Location"]`);
-                      var ref2Value = detail.reference2Location || "";
-                      var ref2Options = ref2Select.find('option').map(function() { return $(this).val(); }).get();
+                        // 处理参考面2位置
+                        var ref2Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference2Location"]`);
+                        var ref2Value = detail.reference2Location || "";
+                        var ref2Options = ref2Select.find('option').map(function () {
+                            return $(this).val();
+                        }).get();
 
-                      if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
-                          // 值不在选项中，选择"其他"并显示自定义输入框
-                          ref2Select.val("其他").trigger('change');
-                          detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationCustom"]`).val(ref2Value).show();
-                      } else {
-                          ref2Select.val(ref2Value);
-                      }
-                      }
-                      detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
-                      detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationEnd"]`).val(detail.reference1LocationEnd || "");
-                      detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationStart"]`).val(detail.reference2LocationStart || "");
-                      detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationEnd"]`).val(detail.reference2LocationEnd || "");
-                      detailDiv.find(`select[name="diseaseDetails[${i}].developmentTrend"]`).val(detail.developmentTrend || "稳定");
+                        if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
+                            // 值不在选项中，选择"其他"并显示自定义输入框
+                            ref2Select.val("其他").trigger('change');
+                            detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationCustom"]`).val(ref2Value).show();
+                        } else {
+                            ref2Select.val(ref2Value);
+                        }
+                    }
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationEnd"]`).val(detail.reference1LocationEnd || "");
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationStart"]`).val(detail.reference2LocationStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationEnd"]`).val(detail.reference2LocationEnd || "");
+                    detailDiv.find(`select[name="diseaseDetails[${i}].developmentTrend"]`).val(detail.developmentTrend || "稳定");
 
-                      // 设置其他字段值（长度、宽度等）
-                      if (showLength) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].length"]`).val(detail.length || "");
-                      }
-                      detailDiv.find(`input[name="diseaseDetails[${i}].width"]`).val(detail.width || "");
-                      if (showHeightDepth) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].heightDepth"]`).val(detail.heightDepth || "");
-                      }
-                      if (showCrackWidth) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].crackWidth"]`).val(detail.crackWidth || "");
-                      }
-                      if (showArea) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].areaLength"]`).val(detail.areaLength || "");
-                          detailDiv.find(`input[name="diseaseDetails[${i}].areaWidth"]`).val(detail.areaWidth || "");
-                      }
-                      if (showDeformation) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].deformation"]`).val(detail.deformation || "");
-                      }
-                      if (showAngle) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].angle"]`).val(detail.angle || "");
-                      }
-                      if (showPercentage) {
-                          detailDiv.find(`input[name="diseaseDetails[${i}].numeratorRatio"]`).val(detail.numeratorRatio || "");
-                          detailDiv.find(`input[name="diseaseDetails[${i}].denominatorRatio"]`).val(detail.denominatorRatio || "");
-                      }
-                  }
+                    // 设置其他字段值（长度、宽度等）
+                    if (showLength) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].length"]`).val(detail.length || "");
+                    }
+                    detailDiv.find(`input[name="diseaseDetails[${i}].width"]`).val(detail.width || "");
+                    if (showHeightDepth) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].heightDepth"]`).val(detail.heightDepth || "");
+                    }
+                    if (showCrackWidth) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].crackWidth"]`).val(detail.crackWidth || "");
+                    }
+                    if (showArea) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].areaLength"]`).val(detail.areaLength || "");
+                        detailDiv.find(`input[name="diseaseDetails[${i}].areaWidth"]`).val(detail.areaWidth || "");
+                    }
+                    if (showDeformation) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].deformation"]`).val(detail.deformation || "");
+                    }
+                    if (showAngle) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].angle"]`).val(detail.angle || "");
+                    }
+                    if (showPercentage) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].numeratorRatio"]`).val(detail.numeratorRatio || "");
+                        detailDiv.find(`input[name="diseaseDetails[${i}].denominatorRatio"]`).val(detail.denominatorRatio || "");
+                    }
+                }
 
-                  detailsContainer.append(detailDiv);
-              }
-          } else if (quantity >= 10){
-              // 收集需要显示的字段，只显示有范围的字段
-              var fieldsToShow = [];
+                detailsContainer.append(detailDiv);
+            }
+        } else if (quantity >= 10) {
+            // 收集需要显示的字段，只显示有范围的字段
+            var fieldsToShow = [];
 
-              if (showLength) {
-                  fieldsToShow.push({
-                      label: "长度范围",
-                      nameStart: "diseaseDetails[0].lengthRangeStart",
-                      nameEnd: "diseaseDetails[0].lengthRangeEnd",
-                      valueStart: diseaseDetails[0]?.lengthRangeStart || "",
-                      valueEnd: diseaseDetails[0]?.lengthRangeEnd || ""
-                  });
-              }
+            if (showLength) {
+                fieldsToShow.push({
+                    label: "长度范围",
+                    nameStart: "diseaseDetails[0].lengthRangeStart",
+                    nameEnd: "diseaseDetails[0].lengthRangeEnd",
+                    valueStart: diseaseDetails[0]?.lengthRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.lengthRangeEnd || ""
+                });
+            }
 
-              if (showCrackWidth) {
-                  fieldsToShow.push({
-                      label: "缝宽范围",
-                      nameStart: "diseaseDetails[0].crackWidthRangeStart",
-                      nameEnd: "diseaseDetails[0].crackWidthRangeEnd",
-                      step: "0.0001",
-                      valueStart: diseaseDetails[0]?.crackWidthRangeStart || "",
-                      valueEnd: diseaseDetails[0]?.crackWidthRangeEnd || ""
-                  });
-              }
+            if (showCrackWidth) {
+                fieldsToShow.push({
+                    label: "缝宽范围",
+                    nameStart: "diseaseDetails[0].crackWidthRangeStart",
+                    nameEnd: "diseaseDetails[0].crackWidthRangeEnd",
+                    step: "0.0001",
+                    valueStart: diseaseDetails[0]?.crackWidthRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.crackWidthRangeEnd || ""
+                });
+            }
 
-              if (showHeightDepth) {
-                  fieldsToShow.push({
-                      label: "高度/深度范围",
-                      nameStart: "diseaseDetails[0].heightDepthRangeStart",
-                      nameEnd: "diseaseDetails[0].heightDepthRangeEnd",
-                      valueStart: diseaseDetails[0]?.heightDepthRangeStart || "",
-                      valueEnd: diseaseDetails[0]?.heightDepthRangeEnd || ""
-                  });
-              }
+            if (showHeightDepth) {
+                fieldsToShow.push({
+                    label: "高度/深度范围",
+                    nameStart: "diseaseDetails[0].heightDepthRangeStart",
+                    nameEnd: "diseaseDetails[0].heightDepthRangeEnd",
+                    valueStart: diseaseDetails[0]?.heightDepthRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.heightDepthRangeEnd || ""
+                });
+            }
 
-              if (showDeformation) {
-                  fieldsToShow.push({
-                      label: "变形/位移范围",
-                      nameStart: "diseaseDetails[0].deformationRangeStart",
-                      nameEnd: "diseaseDetails[0].deformationRangeEnd",
-                      valueStart: diseaseDetails[0]?.deformationRangeStart || "",
-                      valueEnd: diseaseDetails[0]?.deformationRangeEnd || ""
-                  });
-              }
+            if (showDeformation) {
+                fieldsToShow.push({
+                    label: "变形/位移范围",
+                    nameStart: "diseaseDetails[0].deformationRangeStart",
+                    nameEnd: "diseaseDetails[0].deformationRangeEnd",
+                    valueStart: diseaseDetails[0]?.deformationRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.deformationRangeEnd || ""
+                });
+            }
 
-              if (showAngle) {
-                  fieldsToShow.push({
-                      label: "角度范围",
-                      nameStart: "diseaseDetails[0].angleRangeStart",
-                      nameEnd: "diseaseDetails[0].angleRangeEnd",
-                      valueStart: diseaseDetails[0]?.angleRangeStart || "",
-                      valueEnd: diseaseDetails[0]?.angleRangeEnd || ""
-                  });
-              }
+            if (showAngle) {
+                fieldsToShow.push({
+                    label: "角度范围",
+                    nameStart: "diseaseDetails[0].angleRangeStart",
+                    nameEnd: "diseaseDetails[0].angleRangeEnd",
+                    valueStart: diseaseDetails[0]?.angleRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.angleRangeEnd || ""
+                });
+            }
 
-              if (showArea) {
-                  fieldsToShow.push({
-                      type: "area",
-                      label: "面积范围",
-                      nameLength: "diseaseDetails[0].areaLengthRange",
-                      nameWidth: "diseaseDetails[0].areaWidthRange",
-                      valueLength: diseaseDetails[0]?.areaLengthRange || "",
-                      valueWidth: diseaseDetails[0]?.areaWidthRange || ""
-                  });
-              }
+            if (showArea) {
+                fieldsToShow.push({
+                    type: "area",
+                    label: "面积范围",
+                    nameLength: "diseaseDetails[0].areaLengthRange",
+                    nameWidth: "diseaseDetails[0].areaWidthRange",
+                    valueLength: diseaseDetails[0]?.areaLengthRange || "",
+                    valueWidth: diseaseDetails[0]?.areaWidthRange || ""
+                });
+            }
 
-              if (showPercentage) {
-                  fieldsToShow.push({
-                      type: "ratio",
-                      label: "比例范围",
-                      nameNumerator: "diseaseDetails[0].numeratorRatioRange",
-                      nameDenominator: "diseaseDetails[0].denominatorRatioRange",
-                      valueNumerator: diseaseDetails[0]?.numeratorRatioRange || "",
-                      valueDenominator: diseaseDetails[0]?.denominatorRatioRange || ""
-                  });
-              }
+            if (showPercentage) {
+                fieldsToShow.push({
+                    type: "ratio",
+                    label: "比例范围",
+                    nameNumerator: "diseaseDetails[0].numeratorRatioRange",
+                    nameDenominator: "diseaseDetails[0].denominatorRatioRange",
+                    valueNumerator: diseaseDetails[0]?.numeratorRatioRange || "",
+                    valueDenominator: diseaseDetails[0]?.denominatorRatioRange || ""
+                });
+            }
 
-              var detailDiv = $(`
+            var detailDiv = $(`
                   <div class="col-sm-12">
                       <div class="form-group">`);
 
-              // 根据selectColumn判断是否显示裂缝特征
-              if (showCrackType) {
-                  detailDiv.append(`
+            // 根据selectColumn判断是否显示裂缝特征
+            if (showCrackType) {
+                detailDiv.append(`
                               <div class="row">
                                   <div class="form-group">
                                       <label class="col-sm-3 control-label">裂缝特征：</label>
@@ -1153,22 +1158,22 @@
                                       </div>
                                   </div>
                               </div>`);
-              }
+            }
 
-              detailDiv.append(`
+            detailDiv.append(`
                               <div class="row" style="margin-bottom: 20px;">
                                   <label class="col-sm-2 control-label">距参考面1位置：</label>
                                   <div class="col-sm-3">
                                       <label class="col-sm-2 control-label">距</label>
                                       <div class="col-sm-10">
                                               ${isCustomPosition
-                                                  ? `<input type="text" class="form-control" name="diseaseDetails[0].reference1Location" placeholder="请输入参考面1位置">`
-                                                  : `<select class="form-control" name="diseaseDetails[0].reference1Location" id="reference1Location" onchange="handleRefChange(this, 'reference1LocationCustom')">
+                ? `<input type="text" class="form-control" name="diseaseDetails[0].reference1Location" placeholder="请输入参考面1位置">`
+                : `<select class="form-control" name="diseaseDetails[0].reference1Location" id="reference1Location" onchange="handleRefChange(this, 'reference1LocationCustom')">
                                                        <option value="">请选择</option>
                                                        <option value="其他">其他</option>
                                                       </select>
                                                       <input type="text" class="form-control" name="diseaseDetails[0].reference1LocationCustom" id="reference1LocationCustom" placeholder="请输入自定义参考面1位置" style="display:none; margin-top:5px;">`
-                                              }
+            }
                                       </div>
                                   </div>
                                   <div class="col-sm-3">
@@ -1184,13 +1189,13 @@
                                       <label class="col-sm-2 control-label">距</label>
                                       <div class="col-sm-10">
                                               ${isCustomPosition
-                                                  ? `<input type="text" class="form-control" name="diseaseDetails[0].reference2Location" placeholder="请输入参考面2位置">`
-                                                  : `<select class="form-control" name="diseaseDetails[0].reference2Location" id="reference2Location" onchange="handleRefChange(this, 'reference2LocationCustom')">
+                ? `<input type="text" class="form-control" name="diseaseDetails[0].reference2Location" placeholder="请输入参考面2位置">`
+                : `<select class="form-control" name="diseaseDetails[0].reference2Location" id="reference2Location" onchange="handleRefChange(this, 'reference2LocationCustom')">
                                                           <option value="">请选择</option>
                                                           <option value="其他">其他</option>
                                                   </select>
                                                   <input type="text" class="form-control" name="diseaseDetails[0].reference2LocationCustom" id="reference2LocationCustom" placeholder="请输入自定义参考面2位置" style="display:none; margin-top:5px;">`
-                                              }
+            }
                                       </div>
                                   </div>
                                   <div class="col-sm-3">
@@ -1201,10 +1206,10 @@
                                   </div>
                               </div>`);
 
-              // 显示所有需要显示的字段
-              fieldsToShow.forEach(function(field) {
-                  if (field.type === "area") {
-                      detailDiv.append(`
+            // 显示所有需要显示的字段
+            fieldsToShow.forEach(function (field) {
+                if (field.type === "area") {
+                    detailDiv.append(`
                               <div class="row" style="margin-bottom: 20px;">
                                   <label class="col-sm-2 control-label">${field.label}：</label>
                                   <div class="col-sm-8" style="display: flex; align-items: center; gap: 4px;">
@@ -1213,8 +1218,8 @@
                                       <input name="${field.nameWidth}" class="form-control" type="number" step="0.01" placeholder="宽" value="${field.valueWidth}">
                                   </div>
                               </div>`);
-                  } else if (field.type === "ratio") {
-                      detailDiv.append(`
+                } else if (field.type === "ratio") {
+                    detailDiv.append(`
                               <div class="row" style="margin-bottom: 20px;">
                                   <label class="col-sm-2 control-label">${field.label}：</label>
                                   <div class="col-sm-8" style="display: flex; align-items: center; gap: 4px;">
@@ -1223,9 +1228,9 @@
                                       <input name="${field.nameDenominator}" class="form-control" type="number" step="0.01" placeholder="分母" value="${field.valueDenominator}">
                                   </div>
                               </div>`);
-                  } else {
-                      const step = field.step || "0.01";
-                      detailDiv.append(`
+                } else {
+                    const step = field.step || "0.01";
+                    detailDiv.append(`
                               <div class="row" style="margin-bottom: 20px;">
                                   <label class="col-sm-2 control-label">${field.label}：</label>
                                   <div class="col-sm-4">
@@ -1235,936 +1240,942 @@
                                       <input name="${field.nameEnd}" class="form-control" type="number" step="${step}" placeholder="请填写" value="${field.valueEnd}">
                                   </div>
                               </div>`);
-                  }
-              });
-
-              detailsContainer.append(detailDiv);
-
-              // 如果有对应的diseaseDetails数据，设置批量模式下的表单值
-              if (diseaseDetails && diseaseDetails[0]) {
-                  var detail = diseaseDetails[0];
-
-                  // 设置裂缝特征
-                  if (showCrackType) {
-                      detailDiv.find(`select[name="diseaseDetails[0].crackType"]`).val(detail.crackType || "纵向");
-                  }
-
-                  // 设置参考面位置
-                  if (isCustomPosition) {
-                      detailDiv.find(`input[name="diseaseDetails[0].reference1Location"]`).val(detail.reference1Location || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].reference2Location"]`).val(detail.reference2Location || "");
-                  } else {
-                      // 处理参考面1位置
-                      var ref1Select = detailDiv.find(`select[name="diseaseDetails[0].reference1Location"]`);
-                      var ref1Value = detail.reference1Location || "";
-                      var ref1Options = ref1Select.find('option').map(function() { return $(this).val(); }).get();
-
-                      if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
-                          // 值不在选项中，选择"其他"并显示自定义输入框
-                          ref1Select.val("其他").trigger('change');
-                          detailDiv.find(`input[name="diseaseDetails[0].reference1LocationCustom"]`).val(ref1Value).show();
-                      } else {
-                          ref1Select.val(ref1Value);
-                      }
-
-                      // 处理参考面2位置
-                      var ref2Select = detailDiv.find(`select[name="diseaseDetails[0].reference2Location"]`);
-                      var ref2Value = detail.reference2Location || "";
-                      var ref2Options = ref2Select.find('option').map(function() { return $(this).val(); }).get();
-
-                      if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
-                          // 值不在选项中，选择"其他"并显示自定义输入框
-                          ref2Select.val("其他").trigger('change');
-                          detailDiv.find(`input[name="diseaseDetails[0].reference2LocationCustom"]`).val(ref2Value).show();
-                      } else {
-                          ref2Select.val(ref2Value);
-                      }
-                  }
-
-                  detailDiv.find(`input[name="diseaseDetails[0].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
-                  detailDiv.find(`input[name="diseaseDetails[0].reference1LocationEnd"]`).val(detail.reference1LocationEnd || "");
-                  detailDiv.find(`input[name="diseaseDetails[0].reference2LocationStart"]`).val(detail.reference2LocationStart || "");
-                  detailDiv.find(`input[name="diseaseDetails[0].reference2LocationEnd"]`).val(detail.reference2LocationEnd || "");
-
-                  // 设置范围字段值
-                  if (showLength) {
-                      detailDiv.find(`input[name="diseaseDetails[0].lengthRangeStart"]`).val(detail.lengthRangeStart || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].lengthRangeEnd"]`).val(detail.lengthRangeEnd || "");
-                  }
-
-                  if (showCrackWidth) {
-                      detailDiv.find(`input[name="diseaseDetails[0].crackWidthRangeStart"]`).val(detail.crackWidthRangeStart || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].crackWidthRangeEnd"]`).val(detail.crackWidthRangeEnd || "");
-                  }
-
-                  if (showHeightDepth) {
-                      detailDiv.find(`input[name="diseaseDetails[0].heightDepthRangeStart"]`).val(detail.heightDepthRangeStart || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].heightDepthRangeEnd"]`).val(detail.heightDepthRangeEnd || "");
-                  }
-
-                  if (showDeformation) {
-                      detailDiv.find(`input[name="diseaseDetails[0].deformationRangeStart"]`).val(detail.deformationRangeStart || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].deformationRangeEnd"]`).val(detail.deformationRangeEnd || "");
-                  }
-
-                  if (showAngle) {
-                      detailDiv.find(`input[name="diseaseDetails[0].angleRangeStart"]`).val(detail.angleRangeStart || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].angleRangeEnd"]`).val(detail.angleRangeEnd || "");
-                  }
-
-                  if (showArea) {
-                      detailDiv.find(`input[name="diseaseDetails[0].areaLengthRange"]`).val(detail.areaLengthRange || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].areaWidthRange"]`).val(detail.areaWidthRange || "");
-                  }
-
-                  if (showPercentage) {
-                      detailDiv.find(`input[name="diseaseDetails[0].numeratorRatioRange"]`).val(detail.numeratorRatioRange || "");
-                      detailDiv.find(`input[name="diseaseDetails[0].denominatorRatioRange"]`).val(detail.denominatorRatioRange || "");
-                  }
-              }
-          }
-      }
-
-      // 计算构件扣分
-      function computeDeductPoints(maxScale, scale) {
-          switch (parseInt(maxScale)) {
-              case 3:
-                  switch (parseInt(scale)) {
-                      case 1:
-                          return 0;
-                      case 2:
-                          return 20;
-                      case 3:
-                          return 35;
-                      default:
-                          throw new Error("当 max_scale 为 3 时，scale 只能为 1、2 或 3");
-                  }
-              case 4:
-                  switch (parseInt(scale)) {
-                      case 1:
-                          return 0;
-                      case 2:
-                          return 25;
-                      case 3:
-                          return 40;
-                      case 4:
-                          return 50;
-                      default:
-                          throw new Error("当 max_scale 为 4 时，scale 只能为 1、2、3 或 4");
-                  }
-              case 5:
-                  switch (parseInt(scale)) {
-                      case 1:
-                          return 0;
-                      case 2:
-                          return 35;
-                      case 3:
-                          return 45;
-                      case 4:
-                          return 60;
-                      case 5:
-                          return 100;
-                      default:
-                          throw new Error("当 max_scale 为 5 时，scale 只能为 1、2、3、4 或 5");
-                  }
-              default:
-                  throw new Error("max_scale 只能为 3、4 或 5");
-          }
-      }
-
-      // 数量输入验证
-      function validateQuantity(input) {
-          const value = input.value;
-          const errorElement = document.getElementById('quantityError');
-
-          // 验证非空
-          if (!value) {
-              errorElement.textContent = '数量不能为空';
-              errorElement.style.display = 'block';
-              return false;
-          }
-
-          // 验证是否为整数
-          if (!/^\d+$/.test(value)) {
-              errorElement.textContent = '请输入整数';
-              errorElement.style.display = 'block';
-              return false;
-          }
-
-          // 验证范围
-          const num = parseInt(value);
-          if (num < 1 || num > 9999) {
-              errorElement.textContent = '请输入1-9999之间的数值';
-              errorElement.style.display = 'block';
-              return false;
-          }
-
-          errorElement.style.display = 'none';
-          return true;
-      }
-
-      // 格式化数量（失去焦点时处理）
-      function formatQuantity(input) {
-          if (!input.value) {
-              input.value = 1;
-          } else {
-              input.value = Math.max(1, Math.min(9999, parseInt(input.value) || 1));
-          }
-          validateQuantity(input);
-      }
-
-      // 表单提交时最终验证
-      function validateForm() {
-          return validateQuantity(document.getElementById('quantityInput'));
-      }
-
-      // 初始化等级选择按钮组
-      function initLevelGroup(maxScale) {
-          var levelGroup = $("#levelGroup");
-          levelGroup.empty();
-
-          for (var i = 1; i <= maxScale; i++) {
-              var label = $('<label class="btn btn-default">' +
-                  '<input type="radio" required name="level" value="' + i + '"> ' + i + '</label>');
-              levelGroup.append(label);
-          }
-
-          // 如果是编辑模式，设置选中值
-          if (disease && disease.level) {
-              levelGroup.find('input[value="' + disease.level + '"]').prop('checked', true)
-                  .closest('label').addClass('active');
-          } else {
-              // 默认选中第一个选项
-              levelGroup.find('label:first').addClass('active')
-                  .find('input[type="radio"]').prop('checked', true);
-          }
-
-          // 监听评定标度选择变化，自动选择对应的描述
-          levelGroup.find('input[type="radio"]').off('change').on('change', function() {
-              var selectedScale = $(this).val();
-              var $description = $("#description");
-              var $option = $description.find('option[value="' + selectedScale + '"]');
-              if ($option.length) {
-                  $description.val(selectedScale).trigger('change');
-              }
-
-              // 计算并显示构件扣分
-              var maxScale = $("#maxScale").val();
-              if (maxScale && selectedScale) {
-                  try {
-                      var deductPoints = computeDeductPoints(maxScale, selectedScale);
-                      $("#deductPoints").val(deductPoints);
-                  } catch (e) {
-                      console.error(e);
-                      $("#deductPoints").val('');
-                  }
-              }
-          });
-      }
-
-      // 更新等级选择按钮组
-      function updateLevelGroup(diseaseTypeId) {
-          if (!diseaseTypeId) {
-              initLevelGroup(5); // 默认最大值为5
-              return;
-          }
-
-          var selectedDiseaseType = diseaseTypes.find(function(item) {
-              return item.id == diseaseTypeId;
-          });
-
-          if (selectedDiseaseType && selectedDiseaseType.maxScale) {
-              initLevelGroup(selectedDiseaseType.maxScale);
-          } else {
-              initLevelGroup(5); // 如果没有找到对应的maxScale，使用默认值5
-          }
-      }
-
-      // 解析字符串以获取下拉框的选项
-      function parseProps(props) {
-          var parsedProps = {};
-          if (!props) return parsedProps;
-
-          var pairs = props.split('&&');
-          for (var i = 0; i < pairs.length; i++) {
-              var pair = pairs[i].split(':=');
-              if (pair.length < 2) continue;
-
-              var key = pair[0];
-              var values = pair[1].split('、');
-              parsedProps[key] = values.map(function(value) {
-                  return { id: value, name: value };
-              });
-          }
-          return parsedProps;
-      }
-
-      // 处理参考面位置下拉框变化的通用函数
-      function handleRefChange(select, customInputId) {
-          var customInput = $(select).siblings('#' + customInputId);
-          if ($(select).val() === '其他') {
-              customInput.show();
-              customInput.attr('required', 'required');
-          } else {
-              customInput.hide();
-              customInput.removeAttr('required');
-              customInput.val('');
-          }
-      }
-
-      // 文件选择预览处理
-      $("#diseaseFiles").change(function() {
-          var previewContainer = $("#filePreview");
-          var files = this.files;
-
-          if (files && files.length > 0) {
-              for (var i = 0; i < files.length; i++) {
-                  var file = files[i];
-                  var isImage = file.type.startsWith('image/');
-
-                  var col = $('<div class="col-sm-2 mb-2"></div>');
-                  var thumbnail = $('<div class="thumbnail" data-file-index="' + i + '"></div>');
-
-                  if (isImage) {
-                      // 如果是图片，创建图片预览
-                      var reader = new FileReader();
-                      reader.onload = (function(file, thumbnail) {
-                          return function(e) {
-                              thumbnail.append(
-                                  '<div class="preview-image">' +
-                                  '<a href="javascript:void(0);" class="preview-image">' +
-                                  '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
-                                  '</a>' +
-                                  '</div>'
-                              );
-                          };
-                      })(file, thumbnail);
-                      reader.readAsDataURL(file);
-                  } else {
-                      // 如果是其他类型的文件，显示文件图标
-                      thumbnail.append(
-                          '<div class="text-center" style="padding: 20px;">' +
-                          '<i class="fa fa-file fa-3x mb-2"></i>' +
-                          '<p class="mb-0" style="word-break: break-all;">' + file.name + '</p>' +
-                          '</div>'
-                      );
-                  }
-
-                  // 添加删除按钮和隐藏的文件信息
-                  thumbnail.append(
-                      '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeFilePreview(this)">' +
-                      '<i class="fa fa-trash"></i></button>' +
-                      '<input type="hidden" class="file-data" name="fileData" value="' + encodeURIComponent(JSON.stringify({
-                          name: file.name,
-                          type: file.type,
-                          size: file.size,
-                          lastModified: file.lastModified
-                      })) + '">'
-                  );
-
-                  col.append(thumbnail);
-                  previewContainer.append(col);
-              }
-          }
-
-          // 保存文件到全局变量
-          saveFilesToGlobal();
-      });
-
-      // 全局变量存储所有文件
-      var globalFiles = [];
-
-      // 保存文件到全局变量
-      function saveFilesToGlobal() {
-          var fileInput = document.getElementById('diseaseFiles');
-          if (fileInput.files) {
-              for (var i = 0; i < fileInput.files.length; i++) {
-                  globalFiles.push(fileInput.files[i]);
-              }
-          }
-          // 清空input，以便可以重复选择同一文件
-          fileInput.value = '';
-      }
-
-      // 移除文件预览
-      window.removeFilePreview = function(btn) {
-          var $thumbnail = $(btn).closest('.thumbnail');
-          var fileData = JSON.parse(decodeURIComponent($thumbnail.find('.file-data').val()));
-
-          // 从全局文件数组中移除对应文件
-          globalFiles = globalFiles.filter(function(file) {
-              return !(file.name === fileData.name &&
-                      file.size === fileData.size &&
-                      file.lastModified === fileData.lastModified);
-          });
-
-          $(btn).closest('.col-sm-2').remove();
-      };
-
-      // 移除已存在的文件
-      window.removeExistingFile = function(btn) {
-          var $container = $(btn).closest('.col-sm-2');
-          var fileId = $(btn).data('id');
-          if (fileId) {
-              $.modal.confirm("确定要删除该文件吗？", function() {
-                  $.ajax({
-                      url: prefix + "/attachment/delete/" + fileId,
-                      type: 'DELETE',
-                      success: function(response) {
-                          if (response.code === 0) {
-                              $.modal.msgSuccess("删除成功");
-                              $container.remove();
-                          } else {
-                              $.modal.alertError(response.msg);
-                          }
-                      },
-                      error: function() {
-                          $.modal.alertError("删除失败，请稍后重试");
-                      }
-                  });
-              });
-          }
-      };
-
-      // 修改表单提交处理
-      function submitHandler() {
-          if ($.validate.form() && validateForm()) {
-              var formData = new FormData($("#form-disease-edit")[0]);
-
-              // 处理自定义病害类型
-              var diseaseTypeText = $("#diseaseTypeId option:selected").text().trim();
-              if (diseaseTypeText === "其他" || diseaseTypeText === "其它") {
-                  formData.append("customDiseaseType", $("#customDiseaseType").val());
-              }
-
-              // 处理自定义病害位置
-              var positionText = $("#position option:selected").text().trim();
-              if (positionText === "其他" || positionText === "其它") {
-                  formData.set("position", $("#customPosition").val());
-              } else {
-                  formData.set("position", positionText);
-              }
-
-              // 确保deductPoints是整数
-              var deductPoints = $("#deductPoints").val();
-              formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
-
-              // 确保每个diseaseDetail都有diseaseId
-              var diseaseId = $("input[name='id']").val();
-              if (diseaseId) {
-                  // 查找所有diseaseDetail表单字段
-                  var detailElements = $("[name^='diseaseDetails[']");
-                  var detailsMap = {};
-
-                  // 按索引组织数据
-                  detailElements.each(function() {
-                      var name = $(this).attr('name');
-                      var matches = name.match(/diseaseDetails\[(\d+)\]\.(.+)/);
-                      if (matches && matches.length === 3) {
-                          var index = matches[1];
-                          var field = matches[2];
-
-                          if (!detailsMap[index]) {
-                              detailsMap[index] = {};
-                          }
-
-                          var value = $(this).val();
-                          detailsMap[index][field] = value;
-
-                          // 为每个detail添加diseaseId
-                          detailsMap[index]['diseaseId'] = diseaseId;
-                      }
-                  });
-
-                  // 注意：参考面位置值已经在FormData收集后直接处理了，这里不需要重复处理
-
-                  // 清除原有的diseaseDetails数据
-                  detailElements.each(function() {
-                      formData.delete($(this).attr('name'));
-                  });
-
-                  // 重新添加带有diseaseId的数据
-                  for (var index in detailsMap) {
-                      var detail = detailsMap[index];
-                      for (var field in detail) {
-                          formData.append(`diseaseDetails[${index}].${field}`, detail[field]);
-                      }
-                  }
-
-              }
-
-              // 添加所有预览区域的文件到FormData
-              globalFiles.forEach(function(file, index) {
-                  formData.append('files', file);
-              });
-
-              // 添加已有附件的ID列表
-              var existingAttachments = [];
-              $('[name^="attachments["]').each(function() {
-                  var id = $(this).val();
-                  if (id) {
-                      existingAttachments.push(id);
-                  }
-              });
-              if (existingAttachments.length > 0) {
-                  formData.append('existingAttachmentIds', JSON.stringify(existingAttachments));
-              }
-
-                  var quantity = $("#quantityInput").val();
-                  // 直接处理参考面位置值
-                  if (quantity == 10) {
-                      // 单病害情况
-                      var ref1Select = $("#reference1Location");
-                      var ref2Select = $("#reference2Location");
-
-                      var ref1Value = ref1Select.val();
-                      var ref2Value = ref2Select.val();
-
-                      // 如果选择了"其他"，使用自定义输入框的值
-                      if (ref1Value === "其他") {
-                          ref1Value = $("#reference1LocationCustom").val();
-                      }
-                      if (ref2Value === "其他") {
-                          ref2Value = $("#reference2LocationCustom").val();
-                      }
-
-                      // 直接设置到FormData中
-                      if (ref1Value && ref1Value !== "") {
-                          formData.set("diseaseDetails[0].reference1Location", ref1Value);
-                          console.log("直接设置单病害参考面1位置值:", ref1Value);
-                      }
-                      if (ref2Value && ref2Value !== "") {
-                          formData.set("diseaseDetails[0].reference2Location", ref2Value);
-                          console.log("直接设置单病害参考面2位置值:", ref2Value);
-                      }
-                  } else {
-                      // 多病害情况
-                      for (var i = 0; i < quantity; i++) {
-                          // 先清除当前索引的旧值
-                          formData.delete("diseaseDetails[" + i + "].reference1Location");
-                          formData.delete("diseaseDetails[" + i + "].reference2Location");
-
-                          var ref1Select = $("#reference1Location_" + i);
-                          var ref2Select = $("#reference2Location_" + i);
-
-                          var ref1Value = ref1Select.val();
-                          var ref2Value = ref2Select.val();
-
-                          // 如果选择了"其他"，使用自定义输入框的值
-                          if (ref1Value === "其他") {
-                              ref1Value = $("#reference1LocationCustom_" + i).val();
-                          }
-                          if (ref2Value === "其他") {
-                              ref2Value = $("#reference2LocationCustom_" + i).val();
-                          }
-
-                          // 设置新值到FormData中
-                          if (ref1Value && ref1Value !== "") {
-                              formData.set("diseaseDetails[" + i + "].reference1Location", ref1Value);
-                          }
-                          if (ref2Value && ref2Value !== "") {
-                              formData.set("diseaseDetails[" + i + "].reference2Location", ref2Value);
-                          }
-                      }
-                  }
-
-              $.modal.loading("正在提交数据，请稍候...");
-              $.ajax({
-                  url: prefix + "/edit",
-                  type: 'POST',
-                  data: formData,
-                  contentType: false,
-                  processData: false,
-                  success: function(response) {
-                      $.modal.closeLoading();
-                      if (response.code === 0) {
-                          $.modal.msgSuccess("保存成功");
-                          localStorage.setItem("refreshDiseaseTable", Date.now()); // 设置一个刷新标志（附带时间避免缓存）
-                          $.modal.closeTab();
-                          parent.$.table.refresh();
-                      } else {
-                          $.modal.alertError(response.msg);
-                      }
-                  },
-                  error: function() {
-                      $.modal.closeLoading();
-                      $.modal.alertError("保存失败，请稍后再试");
-                  }
-              });
-          }
-      }
-
-      // 获取已上传的附件列表
-      function loadExistingAttachments() {
-          var diseaseId = $("input[name='id']").val();
-          if (diseaseId) {
-              $.ajax({
-                  url: prefix + "/attachments/" + diseaseId,
-                  type: 'GET',
-                  success: function(response) {
-                      if (response.code === 0 && response.data) {
-                          var previewContainer = $("#filePreview");
-                          // 清空现有预览
-                          previewContainer.empty();
-
-                          // 显示已有附件
-                          response.data.forEach(function(attachment) {
-                              var col = $('<div class="col-sm-2 mb-2"></div>');
-                              var thumbnail = $('<div class="thumbnail"></div>');
-
-                              if (attachment.isImage) {
-                                  // 图片预览，点击可下载
-                                  thumbnail.append(
-                                      '<div class="preview-image">' +
-                                      '<a href="javascript:void(0);" class="preview-image">' +
-                                      '<img src="' + attachment.url + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;cursor:pointer;" ' +
-                                      'title="' + attachment.fileName + '">' +
-                                      '</a>' +
-                                      '</div>'
-                                  );
-                              } else {
-                                  // 文件图标，点击可下载
-                                  thumbnail.append(
-                                      '<a href="javascript:void(0);" onclick="downloadFile(\'' + attachment.url + '\', \'' + attachment.fileName + '\')" ' +
-                                      'style="text-decoration:none;color:inherit;" title="点击下载：' + attachment.fileName + '">' +
-                                      '<div class="preview-file text-center" style="cursor:pointer;">' +
-                                      '<i class="fa fa-file fa-3x" style="margin: 20px;"></i>' +
-                                      '<p style="word-break: break-all;">' + attachment.fileName + '</p>' +
-                                      '</div>' +
-                                      '</a>'
-                                  );
-                              }
-
-                              // 添加删除按钮
-                              thumbnail.append(
-                                  '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"' +
-                                  'data-id="' + attachment.id + '" onclick="removeExistingFile(this)">' +
-                                  '<i class="fa fa-trash"></i></button>'
-                              );
-
-                              // 添加隐藏字段保存附件信息
-                              thumbnail.append(
-                                  '<input type="hidden" name="attachments[' + attachment.id + '].id" value="' + attachment.id + '">' +
-                                  '<input type="hidden" name="attachments[' + attachment.id + '].fileName" value="' + attachment.fileName + '">' +
-                                  '<input type="hidden" name="attachments[' + attachment.id + '].url" value="' + attachment.url + '">' +
-                                  '<input type="hidden" name="attachments[' + attachment.id + '].isImage" value="' + attachment.isImage + '">'
-                              );
-
-                              col.append(thumbnail);
-                              previewContainer.append(col);
-                          });
-                      }
-                  }
-              });
-          }
-      }
-
-      // 添加下载文件的函数
-      function downloadFile(url, fileName) {
-          // 创建一个XMLHttpRequest对象
-          var xhr = new XMLHttpRequest();
-          xhr.open('GET', url, true);
-          xhr.responseType = 'blob';
-
-          xhr.onload = function() {
-              if (xhr.status === 200) {
-                  // 创建blob链接
-                  var blob = new Blob([xhr.response], { type: xhr.getResponseHeader('Content-Type') });
-                  var link = document.createElement('a');
-
-                  // 添加fileName参数到URL
-                  var downloadUrl = url;
-                  if (url.indexOf('?') === -1) {
-                      downloadUrl += '?fileName=' + encodeURIComponent(fileName);
-                  } else {
-                      downloadUrl += '&fileName=' + encodeURIComponent(fileName);
-                  }
-
-                  // 设置下载链接和文件名
-                  link.href = window.URL.createObjectURL(blob);
-                  link.download = fileName;
-
-                  // 触发下载
-                  document.body.appendChild(link);
-                  link.click();
-
-                  // 清理
-                  document.body.removeChild(link);
-                  window.URL.revokeObjectURL(link.href);
-              }
-          };
-
-          // 发送请求
-          xhr.send();
-      }
-
-      // 添加辅助函数：将DataURI转换为Blob
-      function dataURItoBlob(dataURI) {
-          var byteString = atob(dataURI.split(',')[1]);
-          var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-          var ab = new ArrayBuffer(byteString.length);
-          var ia = new Uint8Array(ab);
-          for (var i = 0; i < byteString.length; i++) {
-              ia[i] = byteString.charCodeAt(i);
-          }
-          return new Blob([ab], {type: mimeString});
-      }
-
-      // 监听位置选择变化，填充参考面下拉框
-      $("#position").on('change', function() {
-          var selectedId = $(this).val();
-          if (selectedId) {
-              var selectedPosition = positionObjects.find(function (item) {
-                  return item.id == selectedId;
-              });
-
-              if (selectedPosition && selectedPosition.props) {
-                  var parsedProps = parseProps(selectedPosition.props);
-                  var quantity = $("#quantityInput").val();
-
-                  if (quantity == 10) {
-                      var ref1Select = $("#reference1Location");
-                      var ref2Select = $("#reference2Location");
-
-                      ref1Select.empty();
-                      ref2Select.empty();
-
-                      // 添加基础选项
-                      ref1Select.append($('<option></option>').val("").text("请选择"));
-                      ref2Select.append($('<option></option>').val("").text("请选择"));
-
-                      if (parsedProps['ref1']) {
-                          parsedProps['ref1'].forEach(function(item) {
-                              ref1Select.append($('<option></option>').val(item.id).text(item.name));
-                          });
-                      }
-
-                      // 添加"其他"选项
-                      ref1Select.append($('<option></option>').val("其他").text("其他"));
-
-                      if (parsedProps['ref2']) {
-                          parsedProps['ref2'].forEach(function(item) {
-                              ref2Select.append($('<option></option>').val(item.id).text(item.name));
-                          });
-                      }
-
-                      // 添加"其他"选项
-                      ref2Select.append($('<option></option>').val("其他").text("其他"));
-
-                      try {
-                          if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
-                              ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
-                          }
-                          if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
-                              ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
-                          }
-                      } catch (e) {
-                          console.log(e);
-                      }
-                  } else {
-                      // 遍历每一个病害的下拉框
-                      for (var i = 0; i < quantity; i++) {
-                          // 1. 处理 reference1Location
-                          var ref1Select = $(`#reference1Location_${i}`);
-                          if (ref1Select.length) { // 确保元素存在
-                              ref1Select.empty();
-                              // 添加基础选项
-                              ref1Select.append($('<option></option>').val("").text("请选择"));
-
-                              if (parsedProps['ref1'] && parsedProps['ref1'].length > 0) {
-                                  parsedProps['ref1'].forEach(function(item) {
-                                      ref1Select.append($('<option></option>').val(item.id).text(item.name));
-                                  });
-                                  // 默认选中第一个选项（确保 parsedProps['ref1'][0] 存在）
-                                  if (parsedProps['ref1'][0]) {
-                                      ref1Select.val(parsedProps['ref1'][0].id);
-                                  }
-                              } else {
-                                  ref1Select.append($('<option></option>').val("").text("无可用选项"));
-                              }
-
-                              // 添加"其他"选项
-                              ref1Select.append($('<option></option>').val("其他").text("其他"));
-                          }
-
-                          // 2. 处理 reference2Location
-                          var ref2Select = $(`#reference2Location_${i}`);
-                          if (ref2Select.length) { // 确保元素存在
-                              ref2Select.empty();
-                              // 添加基础选项
-                              ref2Select.append($('<option></option>').val("").text("请选择"));
-
-                              if (parsedProps['ref2'] && parsedProps['ref2'].length > 0) {
-                                  parsedProps['ref2'].forEach(function(item) {
-                                      ref2Select.append($('<option></option>').val(item.id).text(item.name));
-                                  });
-                                  // 默认选中第一个选项（确保 parsedProps['ref2'][0] 存在）
-                                  if (parsedProps['ref2'][0]) {
-                                      ref2Select.val(parsedProps['ref2'][0].id);
-                                  }
-                              } else {
-                                  ref2Select.append($('<option></option>').val("").text("无可用选项"));
-                              }
-
-                              // 添加"其他"选项
-                              ref2Select.append($('<option></option>').val("其他").text("其他"));
-                          }
-                      }
-
-                      // 触发change事件
-                      for (var i = 0; i < quantity; i++) {
-                          var ref1Select = $(`#reference1Location_${i}`);
-                          var ref2Select = $(`#reference2Location_${i}`);
-                          try {
-                              if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
-                                  ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
-                              }
-                              if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
-                                  ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
-                              }
-                          } catch (e) {
-                              console.log(e);
-                          }
-                      }
-                  }
-              }
-          }
-      });
-
-      // 显示当前图片并控制按钮显示
-      function showPreviewImage() {
-          if (previewImageList.length === 0) return;
-
-          console.log('显示图片索引: ' + previewImageIndex + '，总数: ' + previewImageList.length);
-
-          // 确保索引在有效范围内
-          if (previewImageIndex < 0) previewImageIndex = 0;
-          if (previewImageIndex >= previewImageList.length) previewImageIndex = previewImageList.length - 1;
-
-          var item = previewImageList[previewImageIndex];
-
-          // 设置图片源
-          $('#previewImage').attr('src', item.src);
-
-          // 设置下载链接
-          var fileName = item.fileName || 'image.jpg';
-          $('#downloadImageLink').attr('href', item.src).attr('download', fileName);
-
-          // 设置底部信息
-          $('#previewFileName').text(item.fileName || '');
-          $('#previewIndex').text((previewImageIndex+1) + ' of ' + previewImageList.length);
-
-          // 控制左右按钮的启用/禁用状态，但始终保持显示
-          if (previewImageIndex <= 0) {
-              $('#prevImage').prop('disabled', true).css('opacity', '0.3');
-          } else {
-              $('#prevImage').prop('disabled', false).css('opacity', '1');
-          }
-
-          if (previewImageIndex >= previewImageList.length - 1) {
-              $('#nextImage').prop('disabled', true).css('opacity', '0.3');
-          } else {
-              $('#nextImage').prop('disabled', false).css('opacity', '1');
-          }
-      }
-
-      // 确保在文档加载后执行
-      $(document).ready(function() {
-          // 左右按钮点击事件
-          $('#prevImage').on('click', function(e) {
-              e.stopPropagation();
-              if (previewImageIndex > 0) {
-                  previewImageIndex--;
-                  showPreviewImage();
-                  console.log('向左切换，当前索引: ' + previewImageIndex);
-              }
-          });
-
-          $('#nextImage').on('click', function(e) {
-              e.stopPropagation();
-              if (previewImageIndex < previewImageList.length - 1) {
-                  previewImageIndex++;
-                  showPreviewImage();
-                  console.log('向右切换，当前索引: ' + previewImageIndex);
-              }
-          });
-
-          // 下载按钮点击事件
-          $('#downloadButton').on('click', function() {
-              var item = previewImageList[previewImageIndex];
-              if(item && item.src) {
-                  downloadFile(item.src, item.fileName || 'image.jpg');
-              }
-          });
-
-          // 点击图片下载处理
-          $('#downloadImageLink').on('click', function(e) {
-              var item = previewImageList[previewImageIndex];
-              if(item && item.src) {
-                  e.preventDefault(); // 防止默认行为
-                  downloadFile(item.src, item.fileName || 'image.jpg');
-              }
-          });
-
-          // 键盘左右键控制
-          $(document).on('keydown', function(e) {
-              if ($('#imagePreviewModal').hasClass('show')) {
-                  if (e.keyCode === 37) { // 左箭头
-                      $('#prevImage').click();
-                  } else if (e.keyCode === 39) { // 右箭头
-                      $('#nextImage').click();
-                  } else if (e.keyCode === 27) { // ESC键
-                      $('#imagePreviewModal').modal('hide');
-                  }
-              }
-          });
-
-          // 关闭弹窗时清空
-          $('#imagePreviewModal').on('hidden.bs.modal', function () {
-              previewImageList = [];
-              previewImageIndex = 0;
-              $('#previewImage').attr('src', '');
-              $('#previewFileName').text('');
-              $('#previewIndex').text('');
-          });
-      });
-    </script>
-    <!-- 图片预览模态框 -->
+                }
+            });
+
+            detailsContainer.append(detailDiv);
+
+            // 如果有对应的diseaseDetails数据，设置批量模式下的表单值
+            if (diseaseDetails && diseaseDetails[0]) {
+                var detail = diseaseDetails[0];
+
+                // 设置裂缝特征
+                if (showCrackType) {
+                    detailDiv.find(`select[name="diseaseDetails[0].crackType"]`).val(detail.crackType || "纵向");
+                }
+
+                // 设置参考面位置
+                if (isCustomPosition) {
+                    detailDiv.find(`input[name="diseaseDetails[0].reference1Location"]`).val(detail.reference1Location || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].reference2Location"]`).val(detail.reference2Location || "");
+                } else {
+                    // 处理参考面1位置
+                    var ref1Select = detailDiv.find(`select[name="diseaseDetails[0].reference1Location"]`);
+                    var ref1Value = detail.reference1Location || "";
+                    var ref1Options = ref1Select.find('option').map(function () {
+                        return $(this).val();
+                    }).get();
+
+                    if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
+                        // 值不在选项中，选择"其他"并显示自定义输入框
+                        ref1Select.val("其他").trigger('change');
+                        detailDiv.find(`input[name="diseaseDetails[0].reference1LocationCustom"]`).val(ref1Value).show();
+                    } else {
+                        ref1Select.val(ref1Value);
+                    }
+
+                    // 处理参考面2位置
+                    var ref2Select = detailDiv.find(`select[name="diseaseDetails[0].reference2Location"]`);
+                    var ref2Value = detail.reference2Location || "";
+                    var ref2Options = ref2Select.find('option').map(function () {
+                        return $(this).val();
+                    }).get();
+
+                    if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
+                        // 值不在选项中，选择"其他"并显示自定义输入框
+                        ref2Select.val("其他").trigger('change');
+                        detailDiv.find(`input[name="diseaseDetails[0].reference2LocationCustom"]`).val(ref2Value).show();
+                    } else {
+                        ref2Select.val(ref2Value);
+                    }
+                }
+
+                detailDiv.find(`input[name="diseaseDetails[0].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
+                detailDiv.find(`input[name="diseaseDetails[0].reference1LocationEnd"]`).val(detail.reference1LocationEnd || "");
+                detailDiv.find(`input[name="diseaseDetails[0].reference2LocationStart"]`).val(detail.reference2LocationStart || "");
+                detailDiv.find(`input[name="diseaseDetails[0].reference2LocationEnd"]`).val(detail.reference2LocationEnd || "");
+
+                // 设置范围字段值
+                if (showLength) {
+                    detailDiv.find(`input[name="diseaseDetails[0].lengthRangeStart"]`).val(detail.lengthRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].lengthRangeEnd"]`).val(detail.lengthRangeEnd || "");
+                }
+
+                if (showCrackWidth) {
+                    detailDiv.find(`input[name="diseaseDetails[0].crackWidthRangeStart"]`).val(detail.crackWidthRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].crackWidthRangeEnd"]`).val(detail.crackWidthRangeEnd || "");
+                }
+
+                if (showHeightDepth) {
+                    detailDiv.find(`input[name="diseaseDetails[0].heightDepthRangeStart"]`).val(detail.heightDepthRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].heightDepthRangeEnd"]`).val(detail.heightDepthRangeEnd || "");
+                }
+
+                if (showDeformation) {
+                    detailDiv.find(`input[name="diseaseDetails[0].deformationRangeStart"]`).val(detail.deformationRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].deformationRangeEnd"]`).val(detail.deformationRangeEnd || "");
+                }
+
+                if (showAngle) {
+                    detailDiv.find(`input[name="diseaseDetails[0].angleRangeStart"]`).val(detail.angleRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].angleRangeEnd"]`).val(detail.angleRangeEnd || "");
+                }
+
+                if (showArea) {
+                    detailDiv.find(`input[name="diseaseDetails[0].areaLengthRange"]`).val(detail.areaLengthRange || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].areaWidthRange"]`).val(detail.areaWidthRange || "");
+                }
+
+                if (showPercentage) {
+                    detailDiv.find(`input[name="diseaseDetails[0].numeratorRatioRange"]`).val(detail.numeratorRatioRange || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].denominatorRatioRange"]`).val(detail.denominatorRatioRange || "");
+                }
+            }
+        }
+    }
+
+    // 计算构件扣分
+    function computeDeductPoints(maxScale, scale) {
+        switch (parseInt(maxScale)) {
+            case 3:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 20;
+                    case 3:
+                        return 35;
+                    default:
+                        throw new Error("当 max_scale 为 3 时，scale 只能为 1、2 或 3");
+                }
+            case 4:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 25;
+                    case 3:
+                        return 40;
+                    case 4:
+                        return 50;
+                    default:
+                        throw new Error("当 max_scale 为 4 时，scale 只能为 1、2、3 或 4");
+                }
+            case 5:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 35;
+                    case 3:
+                        return 45;
+                    case 4:
+                        return 60;
+                    case 5:
+                        return 100;
+                    default:
+                        throw new Error("当 max_scale 为 5 时，scale 只能为 1、2、3、4 或 5");
+                }
+            default:
+                throw new Error("max_scale 只能为 3、4 或 5");
+        }
+    }
+
+    // 数量输入验证
+    function validateQuantity(input) {
+        const value = input.value;
+        const errorElement = document.getElementById('quantityError');
+
+        // 验证非空
+        if (!value) {
+            errorElement.textContent = '数量不能为空';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        // 验证是否为整数
+        if (!/^\d+$/.test(value)) {
+            errorElement.textContent = '请输入整数';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        // 验证范围
+        const num = parseInt(value);
+        if (num < 1 || num > 9999) {
+            errorElement.textContent = '请输入1-9999之间的数值';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        errorElement.style.display = 'none';
+        return true;
+    }
+
+    // 格式化数量（失去焦点时处理）
+    function formatQuantity(input) {
+        if (!input.value) {
+            input.value = 1;
+        } else {
+            input.value = Math.max(1, Math.min(9999, parseInt(input.value) || 1));
+        }
+        validateQuantity(input);
+    }
+
+    // 表单提交时最终验证
+    function validateForm() {
+        return validateQuantity(document.getElementById('quantityInput'));
+    }
+
+    // 初始化等级选择按钮组
+    function initLevelGroup(maxScale) {
+        var levelGroup = $("#levelGroup");
+        levelGroup.empty();
+
+        for (var i = 1; i <= maxScale; i++) {
+            var label = $('<label class="btn btn-default">' +
+                '<input type="radio" required name="level" value="' + i + '"> ' + i + '</label>');
+            levelGroup.append(label);
+        }
+
+        // 如果是编辑模式，设置选中值
+        if (disease && disease.level) {
+            levelGroup.find('input[value="' + disease.level + '"]').prop('checked', true)
+                .closest('label').addClass('active');
+        } else {
+            // 默认选中第一个选项
+            levelGroup.find('label:first').addClass('active')
+                .find('input[type="radio"]').prop('checked', true);
+        }
+
+        // 监听评定标度选择变化，自动选择对应的描述
+        levelGroup.find('input[type="radio"]').off('change').on('change', function () {
+            var selectedScale = $(this).val();
+            var $description = $("#description");
+            var $option = $description.find('option[value="' + selectedScale + '"]');
+            if ($option.length) {
+                $description.val(selectedScale).trigger('change');
+            }
+
+            // 计算并显示构件扣分
+            var maxScale = $("#maxScale").val();
+            if (maxScale && selectedScale) {
+                try {
+                    var deductPoints = computeDeductPoints(maxScale, selectedScale);
+                    $("#deductPoints").val(deductPoints);
+                } catch (e) {
+                    console.error(e);
+                    $("#deductPoints").val('');
+                }
+            }
+        });
+    }
+
+    // 更新等级选择按钮组
+    function updateLevelGroup(diseaseTypeId) {
+        if (!diseaseTypeId) {
+            initLevelGroup(5); // 默认最大值为5
+            return;
+        }
+
+        var selectedDiseaseType = diseaseTypes.find(function (item) {
+            return item.id == diseaseTypeId;
+        });
+
+        if (selectedDiseaseType && selectedDiseaseType.maxScale) {
+            initLevelGroup(selectedDiseaseType.maxScale);
+        } else {
+            initLevelGroup(5); // 如果没有找到对应的maxScale，使用默认值5
+        }
+    }
+
+    // 解析字符串以获取下拉框的选项
+    function parseProps(props) {
+        var parsedProps = {};
+        if (!props) return parsedProps;
+
+        var pairs = props.split('&&');
+        for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split(':=');
+            if (pair.length < 2) continue;
+
+            var key = pair[0];
+            var values = pair[1].split('、');
+            parsedProps[key] = values.map(function (value) {
+                return {id: value, name: value};
+            });
+        }
+        return parsedProps;
+    }
+
+    // 处理参考面位置下拉框变化的通用函数
+    function handleRefChange(select, customInputId) {
+        var customInput = $(select).siblings('#' + customInputId);
+        if ($(select).val() === '其他') {
+            customInput.show();
+            customInput.attr('required', 'required');
+        } else {
+            customInput.hide();
+            customInput.removeAttr('required');
+            customInput.val('');
+        }
+    }
+
+    // 文件选择预览处理
+    $("#diseaseFiles").change(function () {
+        var previewContainer = $("#filePreview");
+        var files = this.files;
+
+        if (files && files.length > 0) {
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var isImage = file.type.startsWith('image/');
+
+                var col = $('<div class="col-sm-2 mb-2"></div>');
+                var thumbnail = $('<div class="thumbnail" data-file-index="' + i + '"></div>');
+
+                if (isImage) {
+                    // 如果是图片，创建图片预览
+                    var reader = new FileReader();
+                    reader.onload = (function (file, thumbnail) {
+                        return function (e) {
+                            thumbnail.append(
+                                '<div class="preview-image">' +
+                                '<a href="javascript:void(0);" class="preview-image">' +
+                                '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
+                                '</a>' +
+                                '</div>'
+                            );
+                        };
+                    })(file, thumbnail);
+                    reader.readAsDataURL(file);
+                } else {
+                    // 如果是其他类型的文件，显示文件图标
+                    thumbnail.append(
+                        '<div class="text-center" style="padding: 20px;">' +
+                        '<i class="fa fa-file fa-3x mb-2"></i>' +
+                        '<p class="mb-0" style="word-break: break-all;">' + file.name + '</p>' +
+                        '</div>'
+                    );
+                }
+
+                // 添加删除按钮和隐藏的文件信息
+                thumbnail.append(
+                    '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeFilePreview(this)">' +
+                    '<i class="fa fa-trash"></i></button>' +
+                    '<input type="hidden" class="file-data" name="fileData" value="' + encodeURIComponent(JSON.stringify({
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        lastModified: file.lastModified
+                    })) + '">'
+                );
+
+                col.append(thumbnail);
+                previewContainer.append(col);
+            }
+        }
+
+        // 保存文件到全局变量
+        saveFilesToGlobal();
+    });
+
+    // 全局变量存储所有文件
+    var globalFiles = [];
+
+    // 保存文件到全局变量
+    function saveFilesToGlobal() {
+        var fileInput = document.getElementById('diseaseFiles');
+        if (fileInput.files) {
+            for (var i = 0; i < fileInput.files.length; i++) {
+                globalFiles.push(fileInput.files[i]);
+            }
+        }
+        // 清空input，以便可以重复选择同一文件
+        fileInput.value = '';
+    }
+
+    // 移除文件预览
+    window.removeFilePreview = function (btn) {
+        var $thumbnail = $(btn).closest('.thumbnail');
+        var fileData = JSON.parse(decodeURIComponent($thumbnail.find('.file-data').val()));
+
+        // 从全局文件数组中移除对应文件
+        globalFiles = globalFiles.filter(function (file) {
+            return !(file.name === fileData.name &&
+                file.size === fileData.size &&
+                file.lastModified === fileData.lastModified);
+        });
+
+        $(btn).closest('.col-sm-2').remove();
+    };
+
+    // 移除已存在的文件
+    window.removeExistingFile = function (btn) {
+        var $container = $(btn).closest('.col-sm-2');
+        var fileId = $(btn).data('id');
+        if (fileId) {
+            $.modal.confirm("确定要删除该文件吗？", function () {
+                $.ajax({
+                    url: prefix + "/attachment/delete/" + fileId,
+                    type: 'DELETE',
+                    success: function (response) {
+                        if (response.code === 0) {
+                            $.modal.msgSuccess("删除成功");
+                            $container.remove();
+                        } else {
+                            $.modal.alertError(response.msg);
+                        }
+                    },
+                    error: function () {
+                        $.modal.alertError("删除失败，请稍后重试");
+                    }
+                });
+            });
+        }
+    };
+
+    // 修改表单提交处理
+    function submitHandler() {
+        if ($.validate.form() && validateForm()) {
+            var formData = new FormData($("#form-disease-edit")[0]);
+
+            // 处理自定义病害类型
+            var diseaseTypeText = $("#diseaseTypeId option:selected").text().trim();
+            if (diseaseTypeText === "其他" || diseaseTypeText === "其它") {
+                formData.append("customDiseaseType", $("#customDiseaseType").val());
+            }
+
+            // 处理自定义病害位置
+            var positionText = $("#position option:selected").text().trim();
+            if (positionText === "其他" || positionText === "其它") {
+                formData.set("position", $("#customPosition").val());
+            } else {
+                formData.set("position", positionText);
+            }
+
+            // 确保deductPoints是整数
+            var deductPoints = $("#deductPoints").val();
+            formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
+
+            // 确保每个diseaseDetail都有diseaseId
+            var diseaseId = $("input[name='id']").val();
+            if (diseaseId) {
+                // 查找所有diseaseDetail表单字段
+                var detailElements = $("[name^='diseaseDetails[']");
+                var detailsMap = {};
+
+                // 按索引组织数据
+                detailElements.each(function () {
+                    var name = $(this).attr('name');
+                    var matches = name.match(/diseaseDetails\[(\d+)\]\.(.+)/);
+                    if (matches && matches.length === 3) {
+                        var index = matches[1];
+                        var field = matches[2];
+
+                        if (!detailsMap[index]) {
+                            detailsMap[index] = {};
+                        }
+
+                        var value = $(this).val();
+                        detailsMap[index][field] = value;
+
+                        // 为每个detail添加diseaseId
+                        detailsMap[index]['diseaseId'] = diseaseId;
+                    }
+                });
+
+                // 注意：参考面位置值已经在FormData收集后直接处理了，这里不需要重复处理
+
+                // 清除原有的diseaseDetails数据
+                detailElements.each(function () {
+                    formData.delete($(this).attr('name'));
+                });
+
+                // 重新添加带有diseaseId的数据
+                for (var index in detailsMap) {
+                    var detail = detailsMap[index];
+                    for (var field in detail) {
+                        formData.append(`diseaseDetails[${index}].${field}`, detail[field]);
+                    }
+                }
+
+            }
+
+            // 添加所有预览区域的文件到FormData
+            globalFiles.forEach(function (file, index) {
+                formData.append('files', file);
+            });
+
+            // 添加已有附件的ID列表
+            var existingAttachmentIds = [];
+            $('input[name^="attachments["][name$=".id"]').each(function () {
+                var id = $(this).val();
+                if (id && !existingAttachmentIds.includes(id)) {
+                    existingAttachmentIds.push(id);
+                }
+            });
+
+            // 将附件ID数组转换为逗号分隔的字符串
+            if (existingAttachmentIds.length > 0) {
+                formData.append('existingAttachmentIds', existingAttachmentIds.join(','));
+            }
+
+            var quantity = $("#quantityInput").val();
+            // 直接处理参考面位置值
+            if (quantity == 10) {
+                // 单病害情况
+                var ref1Select = $("#reference1Location");
+                var ref2Select = $("#reference2Location");
+
+                var ref1Value = ref1Select.val();
+                var ref2Value = ref2Select.val();
+
+                // 如果选择了"其他"，使用自定义输入框的值
+                if (ref1Value === "其他") {
+                    ref1Value = $("#reference1LocationCustom").val();
+                }
+                if (ref2Value === "其他") {
+                    ref2Value = $("#reference2LocationCustom").val();
+                }
+
+                // 直接设置到FormData中
+                if (ref1Value && ref1Value !== "") {
+                    formData.set("diseaseDetails[0].reference1Location", ref1Value);
+                    console.log("直接设置单病害参考面1位置值:", ref1Value);
+                }
+                if (ref2Value && ref2Value !== "") {
+                    formData.set("diseaseDetails[0].reference2Location", ref2Value);
+                    console.log("直接设置单病害参考面2位置值:", ref2Value);
+                }
+            } else {
+                // 多病害情况
+                for (var i = 0; i < quantity; i++) {
+                    // 先清除当前索引的旧值
+                    formData.delete("diseaseDetails[" + i + "].reference1Location");
+                    formData.delete("diseaseDetails[" + i + "].reference2Location");
+
+                    var ref1Select = $("#reference1Location_" + i);
+                    var ref2Select = $("#reference2Location_" + i);
+
+                    var ref1Value = ref1Select.val();
+                    var ref2Value = ref2Select.val();
+
+                    // 如果选择了"其他"，使用自定义输入框的值
+                    if (ref1Value === "其他") {
+                        ref1Value = $("#reference1LocationCustom_" + i).val();
+                    }
+                    if (ref2Value === "其他") {
+                        ref2Value = $("#reference2LocationCustom_" + i).val();
+                    }
+
+                    // 设置新值到FormData中
+                    if (ref1Value && ref1Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference1Location", ref1Value);
+                    }
+                    if (ref2Value && ref2Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference2Location", ref2Value);
+                    }
+                }
+            }
+
+            $.modal.loading("正在提交数据，请稍候...");
+            $.ajax({
+                url: prefix + "/edit",
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function (response) {
+                    $.modal.closeLoading();
+                    if (response.code === 0) {
+                        $.modal.msgSuccess("保存成功");
+                        localStorage.setItem("refreshDiseaseTable", Date.now()); // 设置一个刷新标志（附带时间避免缓存）
+                        $.modal.closeTab();
+                        parent.$.table.refresh();
+                    } else {
+                        $.modal.alertError(response.msg);
+                    }
+                },
+                error: function () {
+                    $.modal.closeLoading();
+                    $.modal.alertError("保存失败，请稍后再试");
+                }
+            });
+        }
+    }
+
+    // 获取已上传的附件列表
+    function loadExistingAttachments() {
+        var diseaseId = $("input[name='id']").val();
+        if (diseaseId) {
+            $.ajax({
+                url: prefix + "/attachments/" + diseaseId,
+                type: 'GET',
+                success: function (response) {
+                    if (response.code === 0 && response.data) {
+                        var previewContainer = $("#filePreview");
+                        // 清空现有预览
+                        previewContainer.empty();
+
+                        // 显示已有附件
+                        var index = 0;
+                        response.data.forEach(function (attachment) {
+                            var col = $('<div class="col-sm-2 mb-2"></div>');
+                            var thumbnail = $('<div class="thumbnail"></div>');
+
+                            if (attachment.isImage) {
+                                // 图片预览，点击可下载
+                                thumbnail.append(
+                                    '<div class="preview-image">' +
+                                    '<a href="javascript:void(0);" class="preview-image">' +
+                                    '<img src="' + attachment.url + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;cursor:pointer;" ' +
+                                    'title="' + attachment.fileName + '">' +
+                                    '</a>' +
+                                    '</div>'
+                                );
+                            } else {
+                                // 文件图标，点击可下载
+                                thumbnail.append(
+                                    '<a href="javascript:void(0);" onclick="downloadFile(\'' + attachment.url + '\', \'' + attachment.fileName + '\')" ' +
+                                    'style="text-decoration:none;color:inherit;" title="点击下载：' + attachment.fileName + '">' +
+                                    '<div class="preview-file text-center" style="cursor:pointer;">' +
+                                    '<i class="fa fa-file fa-3x" style="margin: 20px;"></i>' +
+                                    '<p style="word-break: break-all;">' + attachment.fileName + '</p>' +
+                                    '</div>' +
+                                    '</a>'
+                                );
+                            }
+
+                            // 添加删除按钮
+                            thumbnail.append(
+                                '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"' +
+                                'data-id="' + attachment.id + '" onclick="removeExistingFile(this)">' +
+                                '<i class="fa fa-trash"></i></button>'
+                            );
+
+                            // 添加隐藏字段保存附件信息
+                            thumbnail.append(
+                                '<input type="hidden" name="attachments[' + index + '].id" value="' + attachment.id + '">' +
+                                '<input type="hidden" name="attachments[' + index + '].fileName" value="' + attachment.fileName + '">' +
+                                '<input type="hidden" name="attachments[' + index + '].url" value="' + attachment.url + '">' +
+                                '<input type="hidden" name="attachments[' + index + '].isImage" value="' + attachment.isImage + '">'
+                            );
+
+                            col.append(thumbnail);
+                            previewContainer.append(col);
+                            index++;
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    // 添加下载文件的函数
+    function downloadFile(url, fileName) {
+        // 创建一个XMLHttpRequest对象
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'blob';
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                // 创建blob链接
+                var blob = new Blob([xhr.response], {type: xhr.getResponseHeader('Content-Type')});
+                var link = document.createElement('a');
+
+                // 添加fileName参数到URL
+                var downloadUrl = url;
+                if (url.indexOf('?') === -1) {
+                    downloadUrl += '?fileName=' + encodeURIComponent(fileName);
+                } else {
+                    downloadUrl += '&fileName=' + encodeURIComponent(fileName);
+                }
+
+                // 设置下载链接和文件名
+                link.href = window.URL.createObjectURL(blob);
+                link.download = fileName;
+
+                // 触发下载
+                document.body.appendChild(link);
+                link.click();
+
+                // 清理
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(link.href);
+            }
+        };
+
+        // 发送请求
+        xhr.send();
+    }
+
+    // 添加辅助函数：将DataURI转换为Blob
+    function dataURItoBlob(dataURI) {
+        var byteString = atob(dataURI.split(',')[1]);
+        var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+        var ab = new ArrayBuffer(byteString.length);
+        var ia = new Uint8Array(ab);
+        for (var i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], {type: mimeString});
+    }
+
+    // 监听位置选择变化，填充参考面下拉框
+    $("#position").on('change', function () {
+        var selectedId = $(this).val();
+        if (selectedId) {
+            var selectedPosition = positionObjects.find(function (item) {
+                return item.id == selectedId;
+            });
+
+            if (selectedPosition && selectedPosition.props) {
+                var parsedProps = parseProps(selectedPosition.props);
+                var quantity = $("#quantityInput").val();
+
+                if (quantity == 10) {
+                    var ref1Select = $("#reference1Location");
+                    var ref2Select = $("#reference2Location");
+
+                    ref1Select.empty();
+                    ref2Select.empty();
+
+                    // 添加基础选项
+                    ref1Select.append($('<option></option>').val("").text("请选择"));
+                    ref2Select.append($('<option></option>').val("").text("请选择"));
+
+                    if (parsedProps['ref1']) {
+                        parsedProps['ref1'].forEach(function (item) {
+                            ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                        });
+                    }
+
+                    // 添加"其他"选项
+                    ref1Select.append($('<option></option>').val("其他").text("其他"));
+
+                    if (parsedProps['ref2']) {
+                        parsedProps['ref2'].forEach(function (item) {
+                            ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                        });
+                    }
+
+                    // 添加"其他"选项
+                    ref2Select.append($('<option></option>').val("其他").text("其他"));
+
+                    try {
+                        if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
+                            ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
+                        }
+                        if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
+                            ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
+                        }
+                    } catch (e) {
+                        console.log(e);
+                    }
+                } else {
+                    // 遍历每一个病害的下拉框
+                    for (var i = 0; i < quantity; i++) {
+                        // 1. 处理 reference1Location
+                        var ref1Select = $(`#reference1Location_${i}`);
+                        if (ref1Select.length) { // 确保元素存在
+                            ref1Select.empty();
+                            // 添加基础选项
+                            ref1Select.append($('<option></option>').val("").text("请选择"));
+
+                            if (parsedProps['ref1'] && parsedProps['ref1'].length > 0) {
+                                parsedProps['ref1'].forEach(function (item) {
+                                    ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                                });
+                                // 默认选中第一个选项（确保 parsedProps['ref1'][0] 存在）
+                                if (parsedProps['ref1'][0]) {
+                                    ref1Select.val(parsedProps['ref1'][0].id);
+                                }
+                            } else {
+                                ref1Select.append($('<option></option>').val("").text("无可用选项"));
+                            }
+
+                            // 添加"其他"选项
+                            ref1Select.append($('<option></option>').val("其他").text("其他"));
+                        }
+
+                        // 2. 处理 reference2Location
+                        var ref2Select = $(`#reference2Location_${i}`);
+                        if (ref2Select.length) { // 确保元素存在
+                            ref2Select.empty();
+                            // 添加基础选项
+                            ref2Select.append($('<option></option>').val("").text("请选择"));
+
+                            if (parsedProps['ref2'] && parsedProps['ref2'].length > 0) {
+                                parsedProps['ref2'].forEach(function (item) {
+                                    ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                                });
+                                // 默认选中第一个选项（确保 parsedProps['ref2'][0] 存在）
+                                if (parsedProps['ref2'][0]) {
+                                    ref2Select.val(parsedProps['ref2'][0].id);
+                                }
+                            } else {
+                                ref2Select.append($('<option></option>').val("").text("无可用选项"));
+                            }
+
+                            // 添加"其他"选项
+                            ref2Select.append($('<option></option>').val("其他").text("其他"));
+                        }
+                    }
+
+                    // 触发change事件
+                    for (var i = 0; i < quantity; i++) {
+                        var ref1Select = $(`#reference1Location_${i}`);
+                        var ref2Select = $(`#reference2Location_${i}`);
+                        try {
+                            if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
+                                ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
+                            }
+                            if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
+                                ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
+                            }
+                        } catch (e) {
+                            console.log(e);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 显示当前图片并控制按钮显示
+    function showPreviewImage() {
+        if (previewImageList.length === 0) return;
+
+        // 确保索引在有效范围内
+        if (previewImageIndex < 0) previewImageIndex = 0;
+        if (previewImageIndex >= previewImageList.length) previewImageIndex = previewImageList.length - 1;
+
+        var item = previewImageList[previewImageIndex];
+
+        // 设置图片源
+        $('#previewImage').attr('src', item.src);
+
+        // 设置下载链接
+        var fileName = item.fileName || 'image.jpg';
+        $('#downloadImageLink').attr('href', item.src).attr('download', fileName);
+
+        // 设置底部信息
+        $('#previewFileName').text(item.fileName || '');
+        $('#previewIndex').text((previewImageIndex + 1) + ' of ' + previewImageList.length);
+
+        // 控制左右按钮的启用/禁用状态，但始终保持显示
+        if (previewImageIndex <= 0) {
+            $('#prevImage').prop('disabled', true).css('opacity', '0.3');
+        } else {
+            $('#prevImage').prop('disabled', false).css('opacity', '1');
+        }
+
+        if (previewImageIndex >= previewImageList.length - 1) {
+            $('#nextImage').prop('disabled', true).css('opacity', '0.3');
+        } else {
+            $('#nextImage').prop('disabled', false).css('opacity', '1');
+        }
+    }
+
+    // 确保在文档加载后执行
+    $(document).ready(function () {
+        // 左右按钮点击事件
+        $('#prevImage').on('click', function (e) {
+            e.stopPropagation();
+            if (previewImageIndex > 0) {
+                previewImageIndex--;
+                showPreviewImage();
+                console.log('向左切换，当前索引: ' + previewImageIndex);
+            }
+        });
+
+        $('#nextImage').on('click', function (e) {
+            e.stopPropagation();
+            if (previewImageIndex < previewImageList.length - 1) {
+                previewImageIndex++;
+                showPreviewImage();
+                console.log('向右切换，当前索引: ' + previewImageIndex);
+            }
+        });
+
+        // 下载按钮点击事件
+        $('#downloadButton').on('click', function () {
+            var item = previewImageList[previewImageIndex];
+            if (item && item.src) {
+                downloadFile(item.src, item.fileName || 'image.jpg');
+            }
+        });
+
+        // 点击图片下载处理
+        $('#downloadImageLink').on('click', function (e) {
+            var item = previewImageList[previewImageIndex];
+            if (item && item.src) {
+                e.preventDefault(); // 防止默认行为
+                downloadFile(item.src, item.fileName || 'image.jpg');
+            }
+        });
+
+        // 键盘左右键控制
+        $(document).on('keydown', function (e) {
+            if ($('#imagePreviewModal').hasClass('show')) {
+                if (e.keyCode === 37) { // 左箭头
+                    $('#prevImage').click();
+                } else if (e.keyCode === 39) { // 右箭头
+                    $('#nextImage').click();
+                } else if (e.keyCode === 27) { // ESC键
+                    $('#imagePreviewModal').modal('hide');
+                }
+            }
+        });
+
+        // 关闭弹窗时清空
+        $('#imagePreviewModal').on('hidden.bs.modal', function () {
+            previewImageList = [];
+            previewImageIndex = 0;
+            $('#previewImage').attr('src', '');
+            $('#previewFileName').text('');
+            $('#previewIndex').text('');
+        });
+    });
+</script>
+<!-- 图片预览模态框 -->
+<div
+        class="modal fade"
+        id="imagePreviewModal"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="imagePreviewLabel"
+        aria-hidden="true"
+>
     <div
-      class="modal fade"
-      id="imagePreviewModal"
-      tabindex="-1"
-      role="dialog"
-      aria-labelledby="imagePreviewLabel"
-      aria-hidden="true"
-    >
-      <div
-        class="modal-dialog"
-        role="document"
-        style="
+            class="modal-dialog"
+            role="document"
+            style="
           width: 100%;
           max-width: 100%;
           height: 100vh;
           margin: 0;
           padding: 0;
         "
-      >
+    >
         <div
-          class="modal-content"
-          style="
+                class="modal-content"
+                style="
             height: 100%;
             background-color: transparent;
             border: none;
             box-shadow: none;
           "
         >
-          <!-- 关闭按钮 - 独立放在右上角 -->
-          <button
-            type="button"
-            class="close"
-            data-dismiss="modal"
-            aria-label="关闭"
-            style="
+            <!-- 关闭按钮 - 独立放在右上角 -->
+            <button
+                    type="button"
+                    class="close"
+                    data-dismiss="modal"
+                    aria-label="关闭"
+                    style="
               position: absolute;
               top: 20px;
               right: 25px;
@@ -2173,13 +2184,13 @@
               font-size: 28px;
               z-index: 1050;
             "
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
+            >
+                <span aria-hidden="true">&times;</span>
+            </button>
 
-          <div
-            class="modal-body"
-            style="
+            <div
+                    class="modal-body"
+                    style="
               padding: 0;
               height: 100%;
               display: flex;
@@ -2188,21 +2199,21 @@
               position: relative;
               background-color: transparent;
             "
-          >
-            <!-- 左侧箭头 -->
-            <div
-              style="
+            >
+                <!-- 左侧箭头 -->
+                <div
+                        style="
                 position: absolute;
                 top: 50%;
                 transform: translateY(-50%);
                 left: 30px;
                 z-index: 1030;
               "
-            >
-              <button
-                id="prevImage"
-                type="button"
-                style="
+                >
+                    <button
+                            id="prevImage"
+                            type="button"
+                            style="
                   background: rgba(0, 0, 0, 0.3);
                   border: none;
                   width: 50px;
@@ -2213,47 +2224,47 @@
                   cursor: pointer;
                   outline: none;
                 "
-              >
-                &larr;
-              </button>
-            </div>
+                    >
+                        &larr;
+                    </button>
+                </div>
 
-            <!-- 中央图片区域 -->
-            <div style="max-width: 70%; max-height: 80%; text-align: center">
-              <a
-                id="downloadImageLink"
-                href="#"
-                download
-                style="display: inline-block; position: relative"
-              >
-                <img
-                  id="previewImage"
-                  src=""
-                  alt="图片预览"
-                  style="
+                <!-- 中央图片区域 -->
+                <div style="max-width: 70%; max-height: 80%; text-align: center">
+                    <a
+                            id="downloadImageLink"
+                            href="#"
+                            download
+                            style="display: inline-block; position: relative"
+                    >
+                        <img
+                                id="previewImage"
+                                src=""
+                                alt="图片预览"
+                                style="
                     max-width: 100%;
                     max-height: 80vh;
                     object-fit: contain;
                     background-color: transparent;
                   "
-                />
-              </a>
-            </div>
+                        />
+                    </a>
+                </div>
 
-            <!-- 右侧箭头 -->
-            <div
-              style="
+                <!-- 右侧箭头 -->
+                <div
+                        style="
                 position: absolute;
                 top: 50%;
                 transform: translateY(-50%);
                 right: 30px;
                 z-index: 1030;
               "
-            >
-              <button
-                id="nextImage"
-                type="button"
-                style="
+                >
+                    <button
+                            id="nextImage"
+                            type="button"
+                            style="
                   background: rgba(0, 0, 0, 0.3);
                   border: none;
                   width: 50px;
@@ -2264,14 +2275,14 @@
                   cursor: pointer;
                   outline: none;
                 "
-              >
-                &rarr;
-              </button>
-            </div>
+                    >
+                        &rarr;
+                    </button>
+                </div>
 
-            <!-- 底部文件信息 -->
-            <div
-              style="
+                <!-- 底部文件信息 -->
+                <div
+                        style="
                 position: absolute;
                 bottom: 0;
                 left: 0;
@@ -2281,25 +2292,25 @@
                 padding: 15px 20px;
                 z-index: 1020;
               "
-            >
-              <div class="text-left" style="float: left">
-                <span id="previewFileName"></span>
-                <button
-                  id="downloadButton"
-                  class="btn btn-sm btn-primary"
-                  style="margin-left: 15px; padding: 3px 10px"
                 >
-                  <i class="fa fa-download"></i> 点击下载原图
-                </button>
-              </div>
-              <div class="text-right" style="float: right">
-                <span id="previewIndex"></span>
-              </div>
-              <div style="clear: both"></div>
+                    <div class="text-left" style="float: left">
+                        <span id="previewFileName"></span>
+                        <button
+                                id="downloadButton"
+                                class="btn btn-sm btn-primary"
+                                style="margin-left: 15px; padding: 3px 10px"
+                        >
+                            <i class="fa fa-download"></i> 点击下载原图
+                        </button>
+                    </div>
+                    <div class="text-right" style="float: right">
+                        <span id="previewIndex"></span>
+                    </div>
+                    <div style="clear: both"></div>
+                </div>
             </div>
-          </div>
         </div>
-      </div>
     </div>
-  </body>
+</div>
+</body>
 </html>

@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.api.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -17,10 +18,12 @@ import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.PackageMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
