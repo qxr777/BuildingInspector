@@ -935,7 +935,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         if (!diseaseSet.isEmpty()) {
             transactionTemplate.execute(status -> {
-                diseaseMapper.batchInsertDiseases(diseaseSet);
+                diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
 
                 List<DiseaseDetail> allDetails = diseaseSet.stream().flatMap(disease -> disease.getDiseaseDetails().stream().peek(detail -> detail.setDiseaseId(disease.getId()))).collect(Collectors.toList());
                 if (!allDetails.isEmpty()) {
@@ -1284,7 +1284,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         if (!diseaseSet.isEmpty()) {
             transactionTemplate.execute(status -> {
-                diseaseMapper.batchInsertDiseases(diseaseSet);
+                diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
 
                 for (Disease disease : diseaseSet) {
                     List<String> images = disease.getImages();
@@ -1632,7 +1632,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         }
         // 批量插入病害
         if (!diseaseSet.isEmpty()) {
-            successCount += diseaseMapper.batchInsertDiseases(diseaseSet);
+            successCount += diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
 
             // 更新病害详情中的diseaseId
             for (Disease disease : diseaseSet) {

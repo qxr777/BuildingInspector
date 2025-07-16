@@ -530,12 +530,8 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
                 // 批量保存病害数据
-                try {
-                    if (!diseases.isEmpty()) {
-                        diseaseService.batchSaveDiseases(diseases);
-                    }
-                } catch (Exception e) {
-                    return AjaxResult.error("批量保存病害失败：" + e.getMessage());
+                if (!diseases.isEmpty()) {
+                    diseaseService.batchSaveDiseases(diseases);
                 }
                 // 处理病害图片
                 for (Disease disease : diseases) {

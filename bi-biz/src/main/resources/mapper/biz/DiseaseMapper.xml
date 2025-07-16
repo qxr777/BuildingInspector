@@ -159,7 +159,7 @@
         </trim>
     </insert>
 
-    <insert id="batchInsertDiseases" parameterType="java.util.Set">
+    <insert id="batchInsertDiseases" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO bi_disease (
         position, type, disease_type_id, description, nature, level, quantity,
         participate_assess, deduct_points, project_id, bi_object_id, bi_object_name,
@@ -167,35 +167,17 @@
         repair_recommendation, crack_type, development_trend, detection_method,
         attachment_count, create_by, create_time, update_by, update_time
         ) VALUES
-        <foreach collection="diseaseSet" item="disease" separator=",">
+        <foreach collection="list" item="disease" separator=",">
             (
-            #{disease.position},
-            #{disease.type},
-            #{disease.diseaseTypeId},
-            #{disease.description},
-            #{disease.nature},
-            #{disease.level},
-            #{disease.quantity},
-            #{disease.participateAssess},
-            #{disease.deductPoints},
-            #{disease.projectId},
-            #{disease.biObjectId},
-            #{disease.biObjectName},
-            #{disease.buildingId},
-            #{disease.componentId},
-            #{disease.commitType},
-            #{disease.localId},
-            #{disease.remark},
-            #{disease.cause},
-            #{disease.repairRecommendation},
-            #{disease.crackType},
-            #{disease.developmentTrend},
-            #{disease.detectionMethod},
-            #{disease.attachmentCount},
-            #{disease.createBy},
-            #{disease.createTime},
-            #{disease.updateBy},
-            #{disease.updateTime}
+            #{disease.position}, #{disease.type}, #{disease.diseaseTypeId},
+            #{disease.description}, #{disease.nature}, #{disease.level},
+            #{disease.quantity}, #{disease.participateAssess}, #{disease.deductPoints},
+            #{disease.projectId}, #{disease.biObjectId}, #{disease.biObjectName},
+            #{disease.buildingId}, #{disease.componentId}, #{disease.commitType},
+            #{disease.localId}, #{disease.remark}, #{disease.cause},
+            #{disease.repairRecommendation}, #{disease.crackType}, #{disease.developmentTrend},
+            #{disease.detectionMethod}, #{disease.attachmentCount}, #{disease.createBy},
+            #{disease.createTime}, #{disease.updateBy}, #{disease.updateTime}
             )
         </foreach>
     </insert>

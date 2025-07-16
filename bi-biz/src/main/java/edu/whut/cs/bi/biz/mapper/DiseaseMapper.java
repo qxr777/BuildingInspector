@@ -80,7 +80,7 @@ public interface DiseaseMapper {
      * @param diseaseSet
      * @return
      */
-    int batchInsertDiseases(@Param("diseaseSet") Set<Disease> diseaseSet);
+    int batchInsertDiseases(List<Disease> diseaseSet);
     /**
      * 根据localId列表查询病害列表
      *
