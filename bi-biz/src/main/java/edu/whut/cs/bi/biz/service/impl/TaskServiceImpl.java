@@ -263,7 +263,9 @@ public class TaskServiceImpl implements ITaskService {
         task.setCreateTime(DateUtils.getNowDate());
         int result = taskMapper.insertTask(task);
         List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(task.getProjectId(), ProjectUserRoleEnum.INSPECTOR.getValue());
-        packageMapper.batchUpdateUpdateTimeNow(users);
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+        }
         projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return result;
@@ -356,7 +358,9 @@ public class TaskServiceImpl implements ITaskService {
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
         List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
-        packageMapper.batchUpdateUpdateTimeNow(users);
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+        }
 
         return taskMapper.deleteTaskByProjectIdAndBuildingId(projectId, buildingId);
     }
@@ -378,7 +382,9 @@ public class TaskServiceImpl implements ITaskService {
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
         List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
-        packageMapper.batchUpdateUpdateTimeNow(users);
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+        }
 
         return taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
     }
