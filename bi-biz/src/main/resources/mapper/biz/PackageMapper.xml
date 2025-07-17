@@ -147,7 +147,12 @@
         </foreach>
     </update>
 
-
-
-
+    <update id="batchUpdateUpdateTimeNow" parameterType="java.util.List">
+        update bi_package
+        set update_time = NOW()
+        where user_id in
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
 </mapper>

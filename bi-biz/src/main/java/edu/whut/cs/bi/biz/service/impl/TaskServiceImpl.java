@@ -11,6 +11,7 @@ import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysUserMapper;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.*;
 
 import edu.whut.cs.bi.biz.service.*;
@@ -53,8 +54,15 @@ public class TaskServiceImpl implements ITaskService {
 
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
+
     @Autowired
     private ProjectMapper projectMapper;
+
+    @Resource
+    private ProjectUserMapper projectUserMapper;
+
+    @Resource
+    private PackageMapper packageMapper;
 
     /**
      * 查询任务
@@ -79,7 +87,7 @@ public class TaskServiceImpl implements ITaskService {
      */
     @Override
     public List<Task> selectTaskList(Task task) {
-        String select =  task.getSelect();
+        String select = task.getSelect();
 
         Long currentUserId = ShiroUtils.getUserId();
         List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
@@ -254,7 +262,8 @@ public class TaskServiceImpl implements ITaskService {
     public int insertTask(Task task) {
         task.setCreateTime(DateUtils.getNowDate());
         int result = taskMapper.insertTask(task);
-
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(task.getProjectId(), ProjectUserRoleEnum.INSPECTOR.getValue());
+        packageMapper.batchUpdateUpdateTimeNow(users);
         projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return result;
@@ -346,6 +355,8 @@ public class TaskServiceImpl implements ITaskService {
         Project project = projectMapper.selectProjectById(projectId);
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        packageMapper.batchUpdateUpdateTimeNow(users);
 
         return taskMapper.deleteTaskByProjectIdAndBuildingId(projectId, buildingId);
     }
@@ -366,6 +377,8 @@ public class TaskServiceImpl implements ITaskService {
         Project project = projectMapper.selectProjectById(projectId);
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        packageMapper.batchUpdateUpdateTimeNow(users);
 
         return taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
     }

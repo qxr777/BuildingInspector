@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Package;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -88,4 +89,12 @@ public interface PackageMapper {
      * @return 结果
      */
     public int batchInsertPackage(List<Package> pkgList);
+
+    /**
+     * 批量更新数据包时间
+     *
+     * @param ids 用户列表
+     * @return 结果
+     */
+    int batchUpdateUpdateTimeNow(@Param("list") List<Long> ids);
 }

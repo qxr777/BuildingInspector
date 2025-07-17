@@ -17,6 +17,7 @@ import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.dto.ProjectUserAssignment;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.PackageMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectUserMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
@@ -56,6 +57,9 @@ public class ProjectServiceImpl implements IProjectService {
 
     @Resource
     private TaskMapper taskMapper;
+
+    @Resource
+    private PackageMapper packageMapper;
 
 
     /**
@@ -350,7 +354,7 @@ public class ProjectServiceImpl implements IProjectService {
      * @return
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class )
     public int saveProjectUserAssignments(ProjectUserAssignment assignment) {
         if (ObjUtil.isEmpty(assignment) || assignment.getProjectId() == null) {
             throw new ServiceException("传入的参数不能为空");
@@ -359,11 +363,31 @@ public class ProjectServiceImpl implements IProjectService {
         Long projectId = assignment.getProjectId();
         // 如果存在项目相关人员，则删除，再添加
         int count = projectUserMapper.countProjectUser(projectId);
+        List<Long> preInspectors = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
         if (count > 0) {
             projectUserMapper.deleteProjectUser(projectId);
         }
         List<Long> inspectorIds = assignment.getInspectorIds();
         int save = projectUserMapper.saveProjectUser(projectId, inspectorIds, ProjectUserRoleEnum.INSPECTOR.getValue());
+
+        // 找出被删除的（旧集合有，新的没有）
+        List<Long> deletedInspectors = preInspectors.stream()
+                .filter(id -> !inspectorIds.contains(id))
+                .collect(Collectors.toList());
+
+        // 找出新增的（新集合有，旧的没有）
+        List<Long> addedInspectors = inspectorIds.stream()
+                .filter(id -> !preInspectors.contains(id))
+                .collect(Collectors.toList());
+
+        List<Long> changedInspectors = new ArrayList<>();
+        changedInspectors.addAll(deletedInspectors);
+        changedInspectors.addAll(addedInspectors);
+
+        //更新所有被删除的或者新增的检测人员的数据包的update_time
+        if(!changedInspectors.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(changedInspectors);
+        }
 
         Long authorId = assignment.getAuthorId();
         save += projectUserMapper.saveProjectUser(projectId, List.of(authorId), ProjectUserRoleEnum.AUTHOR.getValue());
