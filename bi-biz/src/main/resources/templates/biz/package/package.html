@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('用户压缩包列表')" />
+</head>
+<body class="gray-bg">
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <ul>
+                        <li>
+                            <label>用户名称：</label>
+                            <input type="text" name="fileCreateBy"/>
+                        </li>
+                        <li>
+                            <label>文件名称：</label>
+                            <input type="text" name="fileName"/>
+                        </li>
+                        <li class="select-time">
+                            <label>打包时间：</label>
+                            <input type="text" class="time-input" id="startTime" placeholder="开始时间" name="params[beginPackageTime]"/>
+                            <span>-</span>
+                            <input type="text" class="time-input" id="endTime" placeholder="结束时间" name="params[endPackageTime]"/>
+                        </li>
+                        <li class="select-time">
+                            <label>更新时间：</label>
+                            <input type="text" class="time-input" id="startTime" placeholder="开始时间" name="params[beginUpdateTime]"/>
+                            <span>-</span>
+                            <input type="text" class="time-input" id="endTime" placeholder="结束时间" name="params[endUpdateTime]"/>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-sm-12 select-table table-striped">
+            <table id="bootstrap-table"></table>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    var editFlag = [[${@permission.hasPermi('biz:package:edit')}]];
+    var removeFlag = [[${@permission.hasPermi('biz:package:remove')}]];
+    var prefix = ctx + "biz/package";
+
+    $(function() {
+        var options = {
+            url: prefix + "/list",
+            createUrl: prefix + "/add",
+            updateUrl: prefix + "/edit/{id}",
+            removeUrl: prefix + "/remove",
+            exportUrl: prefix + "/export",
+            modalName: "用户压缩包",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'fileCreateBy',
+                    title: '用户名称'
+                },
+                {
+                    field: 'fileName',
+                    title: '文件名称'
+                },
+                {
+                    field: 'packageTime',
+                    title: '打包时间'
+                },
+                {
+                    field: 'updateTime',
+                    title: '更新时间'
+                },
+                {
+                    field: 'packageSize',
+                    title: '文件大小'
+                }]
+        };
+        $.table.init(options);
+    });
+</script>
+</body>
+</html>

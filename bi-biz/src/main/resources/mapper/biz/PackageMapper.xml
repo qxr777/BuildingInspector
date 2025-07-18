@@ -11,51 +11,61 @@
         <result property="packageTime"  column="package_time" />
         <result property="updateTime"   column="update_time"  />
         <result property="packageSize"  column="package_size" />
+        <result property="fileName"     column="oldName"     />
+        <result property="fileCreateBy" column="createBy"    />
     </resultMap>
 
     <sql id="selectPackageVo">
-        select id, user_id, minio_id, package_size, package_time, update_time
-        from bi_package
+        select p.id, p.user_id, p.minio_id, p.package_size, p.package_time, p.update_time,
+               f.oldName, f.createBy
+        from bi_package p
+                 left join bi_file_map f on p.minio_id = f.id
     </sql>
 
     <select id="selectPackageById" parameterType="Long" resultMap="PackageResult">
         <include refid="selectPackageVo"/>
-        where id = #{id}
+        where p.id = #{id}
     </select>
 
     <select id="selectPackageListByUserId" parameterType="Long" resultMap="PackageResult">
         <include refid="selectPackageVo"/>
-        where user_id = #{userId}
+        where p.user_id = #{userId}
     </select>
 
     <select id="selectPackageList" parameterType="edu.whut.cs.bi.biz.domain.Package" resultMap="PackageResult">
         <include refid="selectPackageVo"/>
         <where>
             <if test="id != null">
-                AND id = #{id}
+                AND p.id = #{id}
             </if>
             <if test="userId != null">
-                AND user_id = #{userId}
+                AND p.user_id = #{userId}
             </if>
             <if test="minioId != null">
-                AND minio_id = #{minioId}
+                AND p.minio_id = #{minioId}
             </if>
             <if test="packageSize != null">
-                AND package_size = #{packageSize}
+                AND p.package_size = #{packageSize}
             </if>
-            <if test="packageTime != null">
-                AND package_time = #{packageTime}
+            <if test="params.beginPackageTime != null and params.beginPackageTime != '' and params.endPackageTime != null and params.endPackageTime != ''">
+                and p.package_time between #{params.beginPackageTime} and #{params.endPackageTime}
             </if>
-            <if test="updateTime != null">
-                AND update_time = #{updateTime}
+            <if test="params.beginUpdateTime != null and params.beginUpdateTime != '' and params.endUpdateTime != null and params.endUpdateTime != ''">
+                and p.update_time between #{params.beginUpdateTime} and #{params.endUpdateTime}
+            </if>
+            <if test="fileName != null and fileName != ''">
+                AND f.oldName like concat('%', #{fileName}, '%')
+            </if>
+            <if test="fileCreateBy != null and fileCreateBy != ''">
+                AND f.createBy like concat('%', #{fileCreateBy}, '%')
             </if>
         </where>
     </select>
 
     <select id="selectPackagesWithUpdateTimeGreaterThanPackageTime" resultMap="PackageResult">
         <include refid="selectPackageVo"/>
-        where update_time > package_time
-        order by update_time desc
+        where p.update_time > p.package_time
+        order by p.update_time desc
     </select>
 
     <insert id="insertPackage" parameterType="edu.whut.cs.bi.biz.domain.Package" useGeneratedKeys="true" keyProperty="id">
