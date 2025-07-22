@@ -241,7 +241,7 @@ public class ApiController {
     public AjaxResult getProject() {
         Long userId = ShiroUtils.getUserId();
 
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(new Project(), userId, ProjectUserRoleEnum.INSPECTOR.getValue());
 
         ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
         projectsOfUserVo.setProjects(projects);

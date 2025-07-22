@@ -410,8 +410,8 @@ public class ProjectServiceImpl implements IProjectService {
      * @return
      */
     @Override
-    public List<Project> selectProjectListByUserIdAndRole(Long userId, String value) {
-        List<Project> projects = projectMapper.selectProjectList(null, userId, value);
+    public List<Project> selectProjectListByUserIdAndRole(Project projectQuery, Long userId, String value) {
+        List<Project> projects = projectMapper.selectProjectList(projectQuery, userId, value);
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
