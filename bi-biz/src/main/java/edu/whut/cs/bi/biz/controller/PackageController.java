@@ -38,7 +38,7 @@ public class PackageController extends BaseController
     @GetMapping()
     public String package1()
     {
-        return prefix + "/package";
+        return prefix + "/packages";
     }
 
     /**
