@@ -202,7 +202,7 @@
 
     <!-- 根据ID列表批量查询构件 -->
     <select id="selectComponentsByIds" resultMap="ComponentResult">
-        <include refid="selectComponentListVo"/>
+        <include refid="selectComponentVo"/>
         where c.id in
         <foreach collection="list" item="id" open="(" separator="," close=")">
             #{id}

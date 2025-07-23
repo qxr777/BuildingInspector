@@ -293,7 +293,8 @@
         // 监听位置选择变化
         $("#position").change(function () {
             var selectedText = $("#position option:selected").text().trim();
-            if (selectedText === "其他" || selectedText === "其它") {
+            var selectedValue = $(this).val();
+            if (selectedText === "其他" || selectedText === "其它" || selectedValue === "other") {
                 $("#customPosition").show().attr("required", true);
             } else {
                 $("#customPosition").hide().removeAttr("required").val('');
@@ -510,6 +511,8 @@
             $.each(result, function (i, item) {
                 options += '<option value="' + item.id + '">' + item.name + '</option>';
             });
+            // 添加"其他"选项
+            options += '<option value="other">其他</option>';
             $("#position").html(options).selectpicker('refresh');
         });
     }
@@ -1064,7 +1067,8 @@
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
             var positionText = $("#position option:selected").text().trim();
-            if (positionText === "其他" || positionText === "其它") {
+            var positionValue = $("#position").val();
+            if (positionText === "其他" || positionText === "其它" || positionValue === "other") {
                 formData.set("position", $("#customPosition").val());
             } else{
                 formData.set("position", positionText);
@@ -1142,7 +1146,8 @@
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-add")[0]);
             var positionText = $("#position option:selected").text().trim();
-            if (positionText === "其他" || positionText === "其它") {
+            var positionValue = $("#position").val();
+            if (positionText === "其他" || positionText === "其它" || positionValue === "other") {
                 formData.set("position", $("#customPosition").val());
             } else{
                 formData.set("position", positionText);

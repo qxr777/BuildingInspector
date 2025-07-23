@@ -109,4 +109,5 @@ public class Disease extends BaseEntity {
     /** 本地ID */
     private Long localId;
 
+    private Integer attachmentCount;
 }

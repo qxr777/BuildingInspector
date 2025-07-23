@@ -1,8 +1,9 @@
 package edu.whut.cs.bi.api.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import com.alibaba.fastjson.JSONObject;
-import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.annotation.Log;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
@@ -17,10 +18,12 @@ import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.PackageMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
@@ -238,7 +241,7 @@ public class ApiController {
     public AjaxResult getProject() {
         Long userId = ShiroUtils.getUserId();
 
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(new Project(), userId, ProjectUserRoleEnum.INSPECTOR.getValue());
 
         ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
         projectsOfUserVo.setProjects(projects);
@@ -338,7 +341,6 @@ public class ApiController {
 
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
-    @Transactional
     public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
         diseaseService.readDiseaseExcel(file, projectId);
 
@@ -355,7 +357,6 @@ public class ApiController {
 
     @PostMapping("/upload/diseaseZip")
     @ResponseBody
-    @Transactional
     public AjaxResult uploadDiseaseZip(@RequestParam("file") MultipartFile file) {
         diseaseService.readDiseaseZip(file);
 
@@ -394,7 +395,7 @@ public class ApiController {
         }
         String version = fileMap.getOldName();
         String prefix = fileMap.getNewName().substring(0, 2);
-        String downloadUrl = minioConfig.getEndpoint() + "/" + minioConfig.getBucketName() + "/" +
+        String downloadUrl = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" +
                 prefix + "/" + fileMap.getNewName();
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
     }
@@ -404,4 +405,6 @@ public class ApiController {
     public AjaxResult getUserDataPackageTest() {
         return userPackageTask.generateUserDataPackage();
     }
+
+
 }

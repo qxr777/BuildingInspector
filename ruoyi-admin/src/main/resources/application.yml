@@ -149,12 +149,13 @@ swagger:
 
 minio:
   endpoint: http://bi_minio:9000          #使用容器名称，走Docker内网
-  #  endpoint: http://60.205.13.156:9000  # 公网地址，速度慢
-  #  endpoint: http://localhost:9000      # 本地地址，在容器内不可用
+#  endpoint: http://60.205.13.156:9000  # 公网地址，速度慢
+#  endpoint: http://localhost:9000      # 本地地址，在容器内不可用
 #  access-key: admin
 #  secret-key: admin123      密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
   access-key: minioadmin
   secret-key: minioadmin
+  url: http://60.205.13.156:9000
 
   bucket-name: public
 springAi_Rag:

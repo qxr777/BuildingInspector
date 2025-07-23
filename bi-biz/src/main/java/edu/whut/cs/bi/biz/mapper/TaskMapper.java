@@ -55,59 +55,46 @@ public interface TaskMapper
 
     /**
      * 批量删除任务
-     * 
-     * @param ids 需要删除的数据主键集合
-     * @return 结果
      */
     public int deleteTaskByIds(String[] ids);
 
     /**
      * 批量新增任务
-     *
-     * @param projectId
-     * @param buildingIds
-     * @param loginName
-     * @return
      */
     int batchInsertTask(@Param("projectId") Long projectId, @Param("buildingIds") List<Long> buildingIds, @Param("loginName") String loginName);
 
     /**
      * 通过项目id和桥梁id删除任务
-     *
-     * @param projectId
-     * @param buildingId
-     * @return
      */
     int deleteTaskByProjectIdAndBuildingId(@Param("projectId") Long projectId, @Param("buildingId") Long buildingId);
 
     /**
      * 批量删除任务（通过项目id和桥梁ids）
-     *
-     * @param projectId
-     * @param buildingIds
      */
     int batchDeleteTaskByProjectIdAndBuildingIds(@Param("projectId") Long projectId, @Param("buildingIds") List<Long> buildingIds);
 
     /**
      * 通过项目id查询任务列表
-     *
-     * @param id
-     * @return
      */
     List<Task> selectTaskListByProjectId(Long id);
 
     /**
      * 更新任务的更新时间
-     *
-     * @param buildingId
      */
     void updateTaskTime(Long buildingId);
 
     /**
      * 通过ids查询任务列表
-     *
-     * @param ids
-     * @return
      */
     List<Task> selectTaskByIds(@Param("ids") String ids);
+
+    /**
+     * 通过桥梁id删除任务
+     */
+    int deleteTaskByBuildingId(@Param("buildingId") Long buildingId);
+
+    /**
+     * 根据项目id删除任务
+     */
+    int deleteTaskByProjectId(@Param("projectId") Long projectId);
 }

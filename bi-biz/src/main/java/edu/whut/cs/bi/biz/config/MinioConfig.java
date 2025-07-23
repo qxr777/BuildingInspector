@@ -30,6 +30,9 @@ public class MinioConfig {
   @Value("${minio.bucket-name}")
   private String bucketName;
 
+  @Value("${minio.url}")
+  private String url;
+
   @Bean
   public MinioClient minioClient()
       throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException,
@@ -62,8 +65,8 @@ public class MinioConfig {
     return build;
   }
 
-  public String getEndpoint() {
-    return endpoint;
+  public String getUrl() {
+    return url;
   }
 
   public void setEndpoint(String endpoint) {

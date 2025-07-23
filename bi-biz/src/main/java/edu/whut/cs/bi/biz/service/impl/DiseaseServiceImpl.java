@@ -115,9 +115,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Resource
     private ISysDictTypeService sysDictTypeService;
 
-
     @Resource
     private IPropertyService propertyService;
+    @Autowired
+    private FileMapServiceImpl fileMapServiceImpl;
 
     /**
      * 查询病害
@@ -394,9 +395,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             }
 
             // 设置病害详情
-            List<DiseaseDetail> diseaseDetails = allDiseaseDetails.stream()
-                    .filter(detail -> detail.getDiseaseId().equals(ds.getId()))
-                    .collect(Collectors.toList());
+            List<DiseaseDetail> diseaseDetails = allDiseaseDetails.stream().filter(detail -> detail.getDiseaseId().equals(ds.getId())).collect(Collectors.toList());
             ds.setDiseaseDetails(diseaseDetails);
 
             // 设置图片路径
@@ -413,8 +412,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 for (Attachment attachment : attachments) {
                     if (attachment.getName().startsWith("disease")) {
                         // 获取原始文件名，用于在ZIP中保存
-                        String originalFileName = attachment.getId() + "_" + (attachment.getName().split("_", 2).length > 1 ?
-                                attachment.getName().split("_", 2)[1] : attachment.getName());
+                        String originalFileName = attachment.getId() + "_" + (attachment.getName().split("_", 2).length > 1 ? attachment.getName().split("_", 2)[1] : attachment.getName());
 
                         // 构建相对路径 (相对于buildingId的路径)
                         String relativePath = buildingId + "/disease/images/" + originalFileName;
@@ -518,12 +516,15 @@ public class DiseaseServiceImpl implements IDiseaseService {
         componentService.updateComponent(component);
 
         // 删除病害详情
-        diseaseDetailMapper.deleteDiseaseDetailById(disease.getId());
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
 
         // 新增病害详情
         List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
-        diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
-        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        if (CollUtil.isNotEmpty(diseaseDetails)) {
+            diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+            diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        }
+
 
         return diseaseMapper.updateDisease(disease);
     }
@@ -541,13 +542,11 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() / 2);
 
-        List<CompletableFuture<Void>> futures = Arrays.stream(strArray)
-                .map(id -> CompletableFuture.runAsync(() -> {
-                    Disease disease = diseaseMapper.selectDiseaseById(Long.parseLong(id));
-                    diseaseDetailMapper.deleteDiseaseDetailById(disease.getId());
-                    deleteDeaseImage(disease);
-                }, executor))
-                .toList();
+        List<CompletableFuture<Void>> futures = Arrays.stream(strArray).map(id -> CompletableFuture.runAsync(() -> {
+            Disease disease = diseaseMapper.selectDiseaseById(Long.parseLong(id));
+            diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
+            deleteDiseaseImage(disease);
+        }, executor)).toList();
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
@@ -556,7 +555,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         return diseaseMapper.deleteDiseaseByIds(strArray);
     }
 
-    private void deleteDeaseImage(Disease disease) {
+    private void deleteDiseaseImage(Disease disease) {
         List<Attachment> attachmentList = attachmentService.getAttachmentList(disease.getId());
         for (Attachment value : attachmentList) {
             if (value.getName().startsWith("disease")) {
@@ -575,7 +574,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Transactional
     public int deleteDiseaseById(Long id) {
         Disease disease = diseaseMapper.selectDiseaseById(id);
-        diseaseDetailMapper.deleteDiseaseDetailById(disease.getId());
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
 
         return diseaseMapper.deleteDiseaseById(id);
     }
@@ -594,7 +593,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         }
         String[] strArray = Convert.toStrArray(ids);
         Long[] longArray = Convert.toLongArray(ids);
-        diseaseDetailMapper.deleteDiseaseDetailByIds(longArray);
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseIds(longArray);
         return diseaseMapper.deleteDiseaseByIds(strArray);
     }
 
@@ -654,6 +653,27 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
+     * 处理病害附件(入参是文件）
+     *
+     * @param files 文件
+     * @param id    病害id
+     */
+    public void handleDiseaseAttachmentWithFile(List<File> files, int type, Long id) {
+        if (files == null || files.isEmpty()) return;
+
+        files.stream().filter(Objects::nonNull).forEach(file -> {
+            FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(file, file.getName(), ShiroUtils.getLoginName());
+
+            Attachment attachment = new Attachment();
+            attachment.setMinioId(Long.valueOf(fileMap.getId()));
+            attachment.setName("disease_" + fileMap.getOldName());
+            attachment.setSubjectId(id);
+            attachment.setType(type);
+            attachmentService.insertAttachment(attachment);
+        });
+    }
+
+    /**
      * 获取成因分析
      *
      * @param causeQuery
@@ -667,14 +687,8 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         causeQuery.setObjectId(null);
         try {
-            String response = WebClient.create()
-                    .post()
-                    .uri(url)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(BodyInserters.fromValue(causeQuery)) // 直接发送对象作为 JSON
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
+            String response = WebClient.create().post().uri(url).contentType(MediaType.APPLICATION_JSON).body(BodyInserters.fromValue(causeQuery)) // 直接发送对象作为 JSON
+                    .retrieve().bodyToMono(String.class).block();
 
             return response;
         } catch (Exception e) {
@@ -708,19 +722,13 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
             BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
             List<BiObject> children = rootBiObject.getChildren();
-            BiObject biObject2 = children.stream()
-                    .filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName()))
-                    .findFirst()
-                    .orElse(null);
+            BiObject biObject2 = children.stream().filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName())).findFirst().orElse(null);
             if (biObject2 == null) {
                 log.info("未找到对应的子对象, parentId:{}, name:{}", rootBiObject.getId(), component_2);
                 return;
             }
 
-            BiObject biObject3 = children.stream()
-                    .filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName()))
-                    .findFirst()
-                    .orElse(null);
+            BiObject biObject3 = children.stream().filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName())).findFirst().orElse(null);
             if (biObject3 == null) {
                 log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), component_3);
                 return;
@@ -733,15 +741,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
             BiObject biObject4 = null;
             if (biObject3.getName().equals("其他")) {
-                biObject4 = children.stream()
-                        .filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                biObject4 = children.stream().filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
             } else {
-                biObject4 = children.stream()
-                        .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                biObject4 = children.stream().filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName())).findFirst().orElse(null);
             }
             if (biObject4 == null) {
                 log.info("未找到对应的子对象, parentId:{}, name:{}", biObject3.getId(), biObjectName);
@@ -751,9 +753,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             List<Component> oldComponents = componentMap.get(component.getName());
 
             if (oldComponents != null && oldComponents.size() > 0) {
-                Set<String> oldComponentRootObjectIds = oldComponents.stream()
-                        .map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1])
-                        .collect(Collectors.toSet());
+                Set<String> oldComponentRootObjectIds = oldComponents.stream().map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1]).collect(Collectors.toSet());
 
                 if (oldComponentRootObjectIds.contains(rootBiObject.getId())) {
                     continue;
@@ -777,8 +777,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     public void readDiseaseExcel(MultipartFile file, Long projectId) {
 
         List<Component> components = componentService.selectComponentList(new Component());
-        Map<String, List<Component>> componentMap = components.stream()
-                .collect(Collectors.groupingBy(Component::getName));
+        Map<String, List<Component>> componentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
         Set<Disease> diseaseSet = new ConcurrentHashSet<>();
 
         // 病害类型”其他“，当病害类型都不存在时，默认为其他
@@ -814,8 +813,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 addComponent(sheet, buildingMap, biObjectMap, componentMap);
 
                 components = componentService.selectComponentList(new Component());
-                Map<String, List<Component>> newComponentMap = components.stream()
-                        .collect(Collectors.groupingBy(Component::getName));
+                Map<String, List<Component>> newComponentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
                 componentMap = newComponentMap;
 
                 // 新增病害
@@ -858,34 +856,21 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
                         BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
                         List<BiObject> children = rootBiObject.getChildren();
-                        BiObject biObject2 = children.stream()
-                                .filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName()))
-                                .findFirst()
-                                .orElse(null);
+                        BiObject biObject2 = children.stream().filter(child -> rootBiObject.getId().equals(child.getParentId()) && component_2.equals(child.getName())).findFirst().orElse(null);
 
-                        BiObject biObject3 = children.stream()
-                                .filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName()))
-                                .findFirst()
-                                .orElse(null);
+                        BiObject biObject3 = children.stream().filter(child -> biObject2.getId().equals(child.getParentId()) && component_3.equals(child.getName())).findFirst().orElse(null);
 
                         BiObject biObject4 = null;
                         if (biObject3.getName().equals("其他")) {
-                            biObject4 = children.stream()
-                                    .filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                                    .findFirst()
-                                    .orElse(null);
+                            biObject4 = children.stream().filter(child -> biObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
                         } else {
-                            biObject4 = children.stream()
-                                    .filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName()))
-                                    .findFirst()
-                                    .orElse(null);
+                            biObject4 = children.stream().filter(child -> biObject3.getId().equals(child.getParentId()) && biObjectName.equals(child.getName())).findFirst().orElse(null);
                         }
 
                         List<Component> oldComponents = newComponentMap.get(com.getName());
 
                         BiObject finalBiObject = biObject4;
-                        Component component = oldComponents.stream()
-                                .filter(oldComponent -> oldComponent.getBiObjectId().equals(finalBiObject.getId())).findFirst().orElse(null);
+                        Component component = oldComponents.stream().filter(oldComponent -> oldComponent.getBiObjectId().equals(finalBiObject.getId())).findFirst().orElse(null);
 
                         Disease disease = new Disease();
                         disease.setPosition(location);
@@ -950,12 +935,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         if (!diseaseSet.isEmpty()) {
             transactionTemplate.execute(status -> {
-                diseaseMapper.batchInsertDiseases(diseaseSet);
+                diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
 
-                List<DiseaseDetail> allDetails = diseaseSet.stream()
-                        .flatMap(disease -> disease.getDiseaseDetails().stream()
-                                .peek(detail -> detail.setDiseaseId(disease.getId())))
-                        .collect(Collectors.toList());
+                List<DiseaseDetail> allDetails = diseaseSet.stream().flatMap(disease -> disease.getDiseaseDetails().stream().peek(detail -> detail.setDiseaseId(disease.getId()))).collect(Collectors.toList());
                 if (!allDetails.isEmpty()) {
                     diseaseDetailMapper.insertDiseaseDetails(allDetails);
                 }
@@ -1071,8 +1053,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Override
     public Boolean readDiseaseZip(MultipartFile file) {
         List<Component> components = componentService.selectComponentList(new Component());
-        Map<String, List<Component>> componentMap = components.stream()
-                .collect(Collectors.groupingBy(Component::getName));
+        Map<String, List<Component>> componentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
 
         Path tempDir = null;
 
@@ -1130,8 +1111,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     bd.setLine(building.getLineCode());
                 }
 
-                if (building.getZipCode() != null)
-                    bd.setArea(building.getZipCode());
+                if (building.getZipCode() != null) bd.setArea(building.getZipCode());
 
 
                 List<Building> selectBuildings = buildingMapper.selectBuildingList(bd);
@@ -1162,9 +1142,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             Task task = new Task();
             task.setProjectId(project.getId());
             List<Task> tasks = taskMapper.selectTaskList(task, null);
-            List<Building> filterBuildings = buildingList.stream()
-                    .filter(building -> !tasks.stream().anyMatch(t -> t.getBuildingId().equals(building.getId())))
-                    .toList();
+            List<Building> filterBuildings = buildingList.stream().filter(building -> !tasks.stream().anyMatch(t -> t.getBuildingId().equals(building.getId()))).toList();
 
             if (CollUtil.isNotEmpty(filterBuildings))
                 taskService.batchInsertTasks(project.getId(), filterBuildings.stream().map(Building::getId).toList());
@@ -1196,12 +1174,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
         return true;
     }
 
-    private void addDiseases(DiseaseReport.Building DRbuilding, Map<String, Building> buildingMap,
-                             Map<Long, BiObject> biObjectMap, Project project, Path path) {
+    private void addDiseases(DiseaseReport.Building DRbuilding, Map<String, Building> buildingMap, Map<Long, BiObject> biObjectMap, Project project, Path path) {
 
         List<Component> components = componentService.selectComponentList(new Component());
-        Map<String, List<Component>> componentMap = components.stream()
-                .collect(Collectors.groupingBy(Component::getName));
+        Map<String, List<Component>> componentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
         String buildingName = DRbuilding.getBuildingName();
         Set<Disease> diseaseSet = new ConcurrentHashSet<>();
 
@@ -1236,48 +1212,29 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
                 BiObject rootBiObject = biObjectMap.get(building.getRootObjectId());
                 List<BiObject> children = rootBiObject.getChildren();
-                BiObject biObject2 = children.stream()
-                        .filter(child -> rootBiObject.getId().equals(child.getParentId()) && biObject_2.equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                BiObject biObject2 = children.stream().filter(child -> rootBiObject.getId().equals(child.getParentId()) && biObject_2.equals(child.getName())).findFirst().orElse(null);
 
-                BiObject biObject3 = children.stream()
-                        .filter(child -> biObject2.getId().equals(child.getParentId()) && biObject_3.equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                BiObject biObject3 = children.stream().filter(child -> biObject2.getId().equals(child.getParentId()) && biObject_3.equals(child.getName())).findFirst().orElse(null);
                 if (biObject3 == null) {
                     log.info("未找到对应的子对象, parentId:{}, name:{}", biObject2.getId(), biObject_3);
-                    biObject3 = children.stream()
-                            .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                            .findFirst()
-                            .orElse(null);
+                    biObject3 = children.stream().filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
                 }
 
                 BiObject finalBiObject3 = biObject3;
                 BiObject biObject4 = null;
                 if (biObject3.getName().equals("其他")) {
-                    biObject4 = children.stream()
-                            .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                            .findFirst()
-                            .orElse(null);
+                    biObject4 = children.stream().filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
                 } else {
-                    biObject4 = children.stream()
-                            .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && biObject_4.equals(child.getName()))
-                            .findFirst()
-                            .orElse(null);
+                    biObject4 = children.stream().filter(child -> finalBiObject3.getId().equals(child.getParentId()) && biObject_4.equals(child.getName())).findFirst().orElse(null);
                     if (biObject4 == null) {
-                        biObject4 = children.stream()
-                                .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                                .findFirst()
-                                .orElse(null);
+                        biObject4 = children.stream().filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
                     }
                 }
 
                 List<Component> oldComponents = componentMap.get(position);
 
                 BiObject finalBiObject = biObject4;
-                Component component = oldComponents.stream()
-                        .filter(oldComponent -> oldComponent.getBiObjectId().equals(finalBiObject.getId())).findFirst().orElse(null);
+                Component component = oldComponents.stream().filter(oldComponent -> oldComponent.getBiObjectId().equals(finalBiObject.getId())).findFirst().orElse(null);
 
                 // 新增病害
                 Disease newDisease = new Disease();
@@ -1312,14 +1269,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 newDisease.setProjectId(project.getId());
                 newDisease.setBiObjectName(biObject_4);
                 newDisease.setBiObjectId(biObject4.getId());
-                if (defectLevel != null)
-                    newDisease.setLevel(defectLevel);
-                else
-                    newDisease.setLevel(1);
-                if (diseaseNumber != null)
-                    newDisease.setQuantity(diseaseNumber);
-                else
-                    newDisease.setQuantity(1);
+                if (defectLevel != null) newDisease.setLevel(defectLevel);
+                else newDisease.setLevel(1);
+                if (diseaseNumber != null) newDisease.setQuantity(diseaseNumber);
+                else newDisease.setQuantity(1);
                 newDisease.setDescription(description);
                 newDisease.setDevelopmentTrend(developmentTrend);
                 newDisease.setImages(List.of(image));
@@ -1331,7 +1284,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         if (!diseaseSet.isEmpty()) {
             transactionTemplate.execute(status -> {
-                diseaseMapper.batchInsertDiseases(diseaseSet);
+                diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
 
                 for (Disease disease : diseaseSet) {
                     List<String> images = disease.getImages();
@@ -1390,12 +1343,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 byte[] fileContent = Files.readAllBytes(file.toPath());
 
                 // 4. 正确创建 MockMultipartFile 实例
-                MockMultipartFile multipartFile = new MockMultipartFile(
-                        "file",
-                        file.getName(),
-                        "application/octet-stream",
-                        fileContent
-                );
+                MockMultipartFile multipartFile = new MockMultipartFile("file", file.getName(), "application/octet-stream", fileContent);
 
                 // 5. 调用服务层方法
                 Property property = new Property();
@@ -1444,8 +1392,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         String contentType = determineContentType(originalFilename);
 
         // 创建 MultipartFile 实例
-        return new MockMultipartFile(
-                "file", // 表单字段名
+        return new MockMultipartFile("file", // 表单字段名
                 originalFilename, // 原始文件名
                 contentType, // 内容类型
                 bytes // 文件内容
@@ -1480,46 +1427,28 @@ public class DiseaseServiceImpl implements IDiseaseService {
             String biObject_4 = disease.getBiObject4();
             String position = disease.getPosition();
 
-            BiObject biObject2 = children.stream()
-                    .filter(child -> rootBiObject.getId().equals(child.getParentId()) && biObject_2.equals(child.getName()))
-                    .findFirst()
-                    .orElse(null);
+            BiObject biObject2 = children.stream().filter(child -> rootBiObject.getId().equals(child.getParentId()) && biObject_2.equals(child.getName())).findFirst().orElse(null);
             if (biObject2 == null) {
                 log.info("未找到对应的子对象, parentId:{}, name:{}, 层次:2", rootBiObject.getId(), biObject_2);
                 return;
             }
 
-            BiObject biObject3 = children.stream()
-                    .filter(child -> biObject2.getId().equals(child.getParentId()) && biObject_3.equals(child.getName()))
-                    .findFirst()
-                    .orElse(null);
+            BiObject biObject3 = children.stream().filter(child -> biObject2.getId().equals(child.getParentId()) && biObject_3.equals(child.getName())).findFirst().orElse(null);
             if (biObject3 == null) {
                 log.info("未找到对应的子对象, parentId:{}, name:{}, 层次:3", biObject2.getId(), biObject_3);
-                biObject3 = children.stream()
-                        .filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                biObject3 = children.stream().filter(child -> biObject2.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
             }
 
             BiObject finalBiObject3 = biObject3;
             BiObject biObject4 = null;
             if (biObject3.getName().equals("其他")) {
-                biObject4 = children.stream()
-                        .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                biObject4 = children.stream().filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
             } else {
-                biObject4 = children.stream()
-                        .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && biObject_4.equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                biObject4 = children.stream().filter(child -> finalBiObject3.getId().equals(child.getParentId()) && biObject_4.equals(child.getName())).findFirst().orElse(null);
             }
             if (biObject4 == null) {
                 log.info("未找到对应的四级子对象, parentId:{}, name:{}, 层次:4", biObject3.getId(), biObject_4);
-                biObject4 = children.stream()
-                        .filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName()))
-                        .findFirst()
-                        .orElse(null);
+                biObject4 = children.stream().filter(child -> finalBiObject3.getId().equals(child.getParentId()) && "其他".equals(child.getName())).findFirst().orElse(null);
             }
 
             Component component = new Component();
@@ -1534,9 +1463,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
             List<Component> oldComponents = componentMap.get(component.getName());
             if (oldComponents != null && oldComponents.size() > 0) {
-                Set<String> oldComponentRootObjectIds = oldComponents.stream()
-                        .map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1])
-                        .collect(Collectors.toSet());
+                Set<String> oldComponentRootObjectIds = oldComponents.stream().map(oldComponent -> oldComponent.getBiObject().getAncestors().split(",")[1]).collect(Collectors.toSet());
 
                 if (oldComponentRootObjectIds.contains(rootBiObject.getId())) {
                     continue;
@@ -1631,10 +1558,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             }
         }
         if (!subjectIds.isEmpty()) {
-            List<Attachment> attachmentBySubjectId = attachmentService.getAttachmentBySubjectIds(subjectIds)
-                    .stream()
-                    .filter(e -> e.getName().startsWith("disease"))
-                    .toList();
+            List<Attachment> attachmentBySubjectId = attachmentService.getAttachmentBySubjectIds(subjectIds).stream().filter(e -> e.getName().startsWith("disease")).toList();
 
             for (Attachment attachment : attachmentBySubjectId) {
                 attachmentJoiner.add(String.valueOf(attachment.getId()));
@@ -1668,10 +1592,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 String root = component.getBiObject().getAncestors().split(",")[1];
 
                 // 判断是否需要新增构件
-                if (disease.getComponent() != null &&
-                        disease.getComponent().getName() != null &&
-                        disease.getComponentId() == null &&
-                        !componentMap.containsKey(component.getName() + root)) {
+                if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !componentMap.containsKey(component.getName() + root)) {
                     componentService.insertComponent(component);
                     componentMap.put(component.getName() + root, component.getId());
                 }
@@ -1682,9 +1603,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 }
 
                 // 病害类型id为空则默认为其他的病害类型
-                if (disease.getDiseaseTypeId() == null ||
-                        disease.getDiseaseType().getId() == null ||
-                        disease.getDiseaseType().getName().equals("其他")) {
+                if (disease.getDiseaseTypeId() == null || disease.getDiseaseType().getId() == null || disease.getDiseaseType().getName().equals("其他")) {
                     disease.setDiseaseTypeId(238L);
                 }
 
@@ -1693,6 +1612,15 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 disease.setCreateBy(ShiroUtils.getLoginName());
                 disease.setUpdateBy(ShiroUtils.getLoginName());
                 disease.setUpdateTime(new Date());
+                int attachmentCount = 0;
+                //记录附件数量
+                if (disease.getADImgs() != null) {
+                    attachmentCount = attachmentCount + disease.getADImgs().size();
+                }
+                if (disease.getImages() != null) {
+                    attachmentCount = attachmentCount + disease.getImages().size();
+                }
+                disease.setAttachmentCount(attachmentCount);
 
                 // 插入病害记录
                 diseaseSet.add(disease);
@@ -1704,7 +1632,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         }
         // 批量插入病害
         if (!diseaseSet.isEmpty()) {
-            successCount += diseaseMapper.batchInsertDiseases(diseaseSet);
+            successCount += diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
 
             // 更新病害详情中的diseaseId
             for (Disease disease : diseaseSet) {
@@ -1731,8 +1659,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         // 创建临时目录
         Path tempDir = Files.createTempDirectory("zip-extract-");
 
-        try (InputStream inputStream = multipartFile.getInputStream();
-             ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
+        try (InputStream inputStream = multipartFile.getInputStream(); ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
 
             ZipEntry entry;
             while ((entry = zipInputStream.getNextEntry()) != null) {
@@ -1761,15 +1688,13 @@ public class DiseaseServiceImpl implements IDiseaseService {
      */
     private void deleteDirectory(Path path) throws IOException {
         if (Files.exists(path)) {
-            Files.walk(path)
-                    .sorted(Comparator.reverseOrder())
-                    .forEach(p -> {
-                        try {
-                            Files.delete(p);
-                        } catch (IOException e) {
-                            System.err.println("无法删除文件: " + p);
-                        }
-                    });
+            Files.walk(path).sorted(Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.delete(p);
+                } catch (IOException e) {
+                    System.err.println("无法删除文件: " + p);
+                }
+            });
         }
     }
 

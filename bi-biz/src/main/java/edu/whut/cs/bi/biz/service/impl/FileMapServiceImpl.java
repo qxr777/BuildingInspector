@@ -150,7 +150,7 @@ public class FileMapServiceImpl implements IFileMapService {
                         .object(objectName.substring(0,2)+ "/" + objectName)
                         .build());
             } catch (Exception e) {
-                throw new RuntimeException("删除文件失败", e);
+                throw new RuntimeException("删除文件失败{}", e);
             }
         }
         return fileMapMapper.deleteFileMapById(id);
@@ -205,7 +205,7 @@ public class FileMapServiceImpl implements IFileMapService {
     /**
      * 直接从文件上传到MinIO，避免重复读取到内存
      */
-    public FileMap handleFileUploadFromFile(File file, String originalFilename, SysUser user) {
+    public FileMap handleFileUploadFromFile(File file, String originalFilename, String loginName) {
         FileInputStream fileInputStream = null;
         try {
             String extension = FilenameUtils.getExtension(originalFilename);
@@ -230,7 +230,7 @@ public class FileMapServiceImpl implements IFileMapService {
             fileMap.setOldName(originalFilename);
             fileMap.setNewName(objectName);
             fileMap.setCreateTime(DateUtils.getNowDate());
-            fileMap.setCreateBy(user.getLoginName());
+            fileMap.setCreateBy(loginName);
             fileMapMapper.insertFileMap(fileMap);
 
             return fileMap;
@@ -468,7 +468,7 @@ public class FileMapServiceImpl implements IFileMapService {
             FileMap fileMap = selectFileMapById(attachment.getMinioId());
             if(fileMap == null) continue;
             String s = fileMap.getNewName();
-            String url = minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
+            String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
             fileMap.setUrl(url);
             map.put("fileMap", fileMap);
             // 根据文件后缀判断是否为图片
@@ -493,7 +493,7 @@ public class FileMapServiceImpl implements IFileMapService {
             FileMap fileMap = selectFileMapById(attachment.getMinioId());
             if(fileMap == null) continue;
             String s = fileMap.getNewName();
-            String url = minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
+            String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
             fileMap.setUrl(url);
             map.put("fileMap", fileMap);
             // 根据文件后缀判断是否为图片

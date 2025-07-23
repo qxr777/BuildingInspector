@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.domain;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
 
 import java.util.Date;
@@ -11,7 +12,7 @@ import java.util.Date;
  * @Description:
  **/
 @Data
-public class Package {
+public class Package extends BaseEntity {
     private Long id;
 
     private Long userId;
@@ -25,4 +26,10 @@ public class Package {
     private Date updateTime;
 
     private String packageSize;
+
+    /** 文件名称（非数据库字段，关联FileMap表的oldName） */
+    private String fileName;
+
+    /** 文件创建者（非数据库字段，关联FileMap表的createBy） */
+    private String fileCreateBy;
 }

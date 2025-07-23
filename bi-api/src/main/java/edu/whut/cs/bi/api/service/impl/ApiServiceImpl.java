@@ -1,6 +1,8 @@
 package edu.whut.cs.bi.api.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import edu.whut.cs.bi.api.service.ApiService;
@@ -12,7 +14,9 @@ import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.service.impl.DiseaseServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
@@ -28,6 +32,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -75,6 +80,10 @@ public class ApiServiceImpl implements ApiService {
 
     @Autowired
     private MinioClient minioClient;
+    @Autowired
+    private DiseaseMapper diseaseMapper;
+    @Autowired
+    private DiseaseServiceImpl diseaseServiceImpl;
 
 
     /**
@@ -91,17 +100,17 @@ public class ApiServiceImpl implements ApiService {
             // 获取当前用户信息
             Long userId = user.getUserId();
 
-            // 创建日期格式化对象，用于生成文件夹名称
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+            // 创建日期格式化对象，用于生成文件夹名称（时间戳中间不加横线）
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
             String dateStr = dateFormat.format(new Date());
 
-            // 根目录名称：UD日期-用户名
-            String rootDirName = "UD" + dateStr + "-" + user.getLoginName();
+            // 根目录名称：UD-时间戳-用户名
+            String rootDirName = "UD-" + dateStr + "-" + user.getLoginName();
             String zipFileName = rootDirName + ".zip";
 
             // 创建临时文件直接写入ZIP数据
             tempFile = File.createTempFile("datapackage_", ".zip");
-            String zipSize ;
+            String zipSize;
 
             try (FileOutputStream fos = new FileOutputStream(tempFile);
                  ZipOutputStream zipOut = new ZipOutputStream(fos)) {
@@ -114,16 +123,20 @@ public class ApiServiceImpl implements ApiService {
                 log.info(userId + "建筑物数据创建完成");
 
                 zipOut.close();
-                zipSize = tempFile.length()/ 1024 / 1024 + "MB";
-                log.info("ZIP文件生成完成，大小: {} MB", zipSize);
+                long length = tempFile.length(); // 单位是字节
+                double sizeInMB = length / 1024.0 / 1024.0;
+
+                DecimalFormat df = new DecimalFormat("#.###");
+                zipSize = df.format(sizeInMB) + "MB";
+                log.info("ZIP文件生成完成，大小: {}", zipSize);
             }
 
             // 直接上传临时文件到MinIO
             try {
-                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName,user);
+                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, user.getLoginName());
 
                 // 返回成功信息和minioId
-                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size",zipSize);
+                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size", zipSize);
 
             } catch (Exception e) {
                 log.error("上传数据包到MinIO失败", e);
@@ -148,8 +161,13 @@ public class ApiServiceImpl implements ApiService {
      * 创建项目相关数据
      */
     public void createProjectData(ZipOutputStream zipOut, String rootDirName, Long userId) throws IOException {
+        // 获取当前年份
+        Calendar calendar = Calendar.getInstance();
+        int currentYear = calendar.get(Calendar.YEAR);
+        Project project1 = new Project();
+        project1.setYear(currentYear);
         // 获取用户项目列表
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(project1, userId, ProjectUserRoleEnum.INSPECTOR.getValue());
         ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
         projectsOfUserVo.setProjects(projects);
         projectsOfUserVo.setUserId(userId);
@@ -179,8 +197,13 @@ public class ApiServiceImpl implements ApiService {
      * 创建建筑物相关数据
      */
     public void createBuildingData(ZipOutputStream zipOut, String rootDirName, Long userId) throws IOException {
+        // 获取当前年份
+        Calendar calendar = Calendar.getInstance();
+        int currentYear = calendar.get(Calendar.YEAR);
+        Project project1 = new Project();
+        project1.setYear(currentYear);
         // 获取用户关联的项目
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(project1, userId, ProjectUserRoleEnum.INSPECTOR.getValue());
 
         // 收集所有项目中的任务
         Set<Long> buildingIds = new HashSet<>();
@@ -237,15 +260,13 @@ public class ApiServiceImpl implements ApiService {
 
             // 3. 获取建筑物病害数据
             try {
-                // 获取当前年份
-                Calendar calendar = Calendar.getInstance();
-                int currentYear = calendar.get(Calendar.YEAR);
                 // 只获取上一年的病害数据
                 int targetYear = currentYear - 1;
 
                 Disease disease = new Disease();
                 disease.setBuildingId(buildingId);
-                disease.setYear(targetYear); // 设置为上一年
+                // 设置为上一年
+                disease.setYear(targetYear);
 
                 // 使用selectDiseaseListForZip方法，不加载图片URLs
                 log.info(userId + "病害信息开始收集" + disease.getBuildingId());
@@ -258,10 +279,14 @@ public class ApiServiceImpl implements ApiService {
                     diseasesOfYearVo.setYear(targetYear);
                     diseasesOfYearVo.setDiseases(diseases);
                     diseasesOfYearVo.setBuildingId(buildingId);
+                    // 创建 ObjectMapper 实例
+                    ObjectMapper objectMapper = new ObjectMapper();
 
+                    // 序列化时使用 ObjectMapper
+                    String jsonString = objectMapper.writeValueAsString(diseasesOfYearVo);
                     // 添加到zip文件
                     String diseaseJsonPath = rootDirName + "/building/" + buildingId + "/disease/" + targetYear + ".json";
-                    addJsonToZip(zipOut, diseaseJsonPath, JSONObject.toJSONString(diseasesOfYearVo));
+                    addJsonToZip(zipOut, diseaseJsonPath, jsonString);
                 }
                 // 收集所有需要处理的路径和对应的文件名
                 List<String> allFileNames = new ArrayList<>();
@@ -512,12 +537,8 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
                 // 批量保存病害数据
-                try {
-                    if (!diseases.isEmpty()) {
-                        diseaseService.batchSaveDiseases(diseases);
-                    }
-                } catch (Exception e) {
-                    return AjaxResult.error("批量保存病害失败：" + e.getMessage());
+                if (!diseases.isEmpty()) {
+                    diseaseService.batchSaveDiseases(diseases);
                 }
                 // 处理病害图片
                 for (Disease disease : diseases) {
@@ -525,8 +546,8 @@ public class ApiServiceImpl implements ApiService {
                     if (disease.getCommitType() == 1) {
                         List<String> images = disease.getImages();
                         List<String> ADImages = disease.getADImgs();
-                        List<MultipartFile> multipartImagesFiles = new ArrayList<>();
-                        List<MultipartFile> multipartADImagesFiles = new ArrayList<>();
+                        List<File> imagesFiles = new ArrayList<>();
+                        List<File> adImagesFiles = new ArrayList<>();
                         if (images != null && !images.isEmpty()) {
                             for (String imagePath : images) {
                                 if (imagePath != null && !imagePath.isEmpty()) {
@@ -536,24 +557,13 @@ public class ApiServiceImpl implements ApiService {
                                     if (extractedFiles.containsKey(fullPath)) {
                                         // 处理图片附件
                                         File imageFile = extractedFiles.get(fullPath).toFile();
-                                        byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                                        // 创建MockMultipartFile
-                                        MockMultipartFile mockFile = new MockMultipartFile(
-                                                "file",
-                                                imageFile.getName(),
-                                                Files.probeContentType(imageFile.toPath()),
-                                                fileContent);
-                                        multipartImagesFiles.add(mockFile);
+                                        imagesFiles.add(imageFile);
                                     }
                                 }
                             }
                             // 调用handleDiseaseAttachment方法
-                            if (!multipartImagesFiles.isEmpty()) {
-                                diseaseService.handleDiseaseAttachment(
-                                        multipartImagesFiles.toArray(new MultipartFile[0]),
-                                        disease.getId(),
-                                        1
-                                );
+                            if (!imagesFiles.isEmpty()) {
+                                diseaseServiceImpl.handleDiseaseAttachmentWithFile(imagesFiles, 1, disease.getId());
                             }
                         }
                         if (ADImages != null && !ADImages.isEmpty()) {
@@ -565,26 +575,16 @@ public class ApiServiceImpl implements ApiService {
                                     if (extractedFiles.containsKey(fullPath)) {
                                         // 处理图片附件
                                         File imageFile = extractedFiles.get(fullPath).toFile();
-                                        byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                                        // 创建MockMultipartFile
-                                        MockMultipartFile mockFile = new MockMultipartFile(
-                                                "file",
-                                                imageFile.getName(),
-                                                Files.probeContentType(imageFile.toPath()),
-                                                fileContent);
-                                        multipartADImagesFiles.add(mockFile);
+                                        adImagesFiles.add(imageFile);
                                     }
                                 }
                             }
                             // 调用handleDiseaseAttachment方法
-                            if (!multipartADImagesFiles.isEmpty()) {
-                                diseaseService.handleDiseaseAttachment(
-                                        multipartADImagesFiles.toArray(new MultipartFile[0]),
-                                        disease.getId(),
-                                        7
-                                );
+                            if (!adImagesFiles.isEmpty()) {
+                                diseaseServiceImpl.handleDiseaseAttachmentWithFile(adImagesFiles, 7, disease.getId());
                             }
                         }
+
                     }
                 }
                 // 处理桥梁图片数据
