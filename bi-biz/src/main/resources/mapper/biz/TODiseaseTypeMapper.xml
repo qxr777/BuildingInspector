@@ -70,4 +70,11 @@
         GROUP BY template_object_id
     </select>
 
+    <select id="selectTemplateObjectDiseaseType" resultType="java.lang.Integer">
+        select count(1)
+        from bi_template_object_disease_type
+        where template_object_id = #{templateObjectId}
+          and disease_type_id = #{diseaseTypeId}
+    </select>
+
 </mapper>

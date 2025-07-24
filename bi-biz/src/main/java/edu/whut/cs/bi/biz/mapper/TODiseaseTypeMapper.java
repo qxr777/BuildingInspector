@@ -69,4 +69,13 @@ public interface TODiseaseTypeMapper
      * @return 病害类型数量列表，每个元素包含key(template_object_id)和value(count)
      */
     List<Map<String, Object>> countDiseaseTypesByTemplateObjectIds(@Param("templateObjectIds") List<Long> templateObjectIds);
+
+    /**
+     * 查询模板对象和病害类型关联数据是否存在
+     *
+     * @param templateObjectId
+     * @param diseaseTypeId
+     * @return
+     */
+    int selectTemplateObjectDiseaseType(@Param("templateObjectId") Long templateObjectId, @Param("diseaseTypeId") Long diseaseTypeId);
 }
