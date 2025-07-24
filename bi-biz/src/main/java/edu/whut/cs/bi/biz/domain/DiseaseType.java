@@ -60,6 +60,11 @@ public class DiseaseType extends BaseEntity {
      */
     private Integer threshold;
 
+    /**
+     * 病害类型分组名称
+     */
+    private String groupName;
+
     // 关联的病害标度
     private List<DiseaseScale> diseaseScales;
 
