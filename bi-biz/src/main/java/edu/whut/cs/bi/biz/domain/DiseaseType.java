@@ -50,7 +50,15 @@ public class DiseaseType extends BaseEntity {
      */
     private String status;
 
+    /**
+     * 病害类型所勾选的字段  （如参考面、长度、面积）
+     */
     private Integer selectColumn;
+
+    /**
+     * 病害类型合并阈值
+     */
+    private Integer threshold;
 
     // 关联的病害标度
     private List<DiseaseScale> diseaseScales;

@@ -758,7 +758,8 @@
                         type: "area",
                         label: "面积",
                         nameLength: `diseaseDetails[${i}].areaLength`,
-                        nameWidth: `diseaseDetails[${i}].areaWidth`
+                        nameWidth: `diseaseDetails[${i}].areaWidth`,
+                        nameIdentifier: `diseaseDetails[${i}].areaIdentifier`
                     });
                 }
                 
@@ -832,6 +833,11 @@
                                     <div class="form-group" style="margin-bottom: 20px;">
                                         <label class="col-sm-3 control-label">${field.label}:</label>
                                         <div class="col-sm-9" style="display: flex; align-items: center; gap: 4px;">
+                                            <select name="${field.nameIdentifier}" class="form-control" style="width: 80px; flex-shrink: 0;">
+                                                <option value="0">普通</option>
+                                                <option value="1">平均</option>
+                                                <option value="2">总计</option>
+                                            </select>
                                             <input name="${field.nameLength}" class="form-control" type="number" step="0.01" placeholder="长">
                                             <span style="margin: 0 4px;">✖</span>
                                             <input name="${field.nameWidth}" class="form-control" type="number" step="0.01" placeholder="宽">
@@ -967,7 +973,8 @@
                     type: "area",
                     label: "面积范围",
                     nameLength: "diseaseDetails[0].areaLengthRange",
-                    nameWidth: "diseaseDetails[0].areaWidthRange"
+                    nameWidth: "diseaseDetails[0].areaWidthRange",
+                    nameIdentifier: "diseaseDetails[0].areaIdentifier"
                 });
             }
             
@@ -987,6 +994,11 @@
                             <div class="row" style="margin-bottom: 20px;">
                                 <label class="col-sm-2 control-label">${field.label}：</label>
                                 <div class="col-sm-8" style="display: flex; align-items: center; gap: 4px;">
+                                    <select name="${field.nameIdentifier}" class="form-control" style="width: 80px; flex-shrink: 0;">
+                                        <option value="0">普通</option>
+                                        <option value="1">平均</option>
+                                        <option value="2">总计</option>
+                                    </select>
                                     <input name="${field.nameLength}" class="form-control" type="number" step="0.01" placeholder="长">
                                     <span style="margin: 0 4px;">✖</span>
                                     <input name="${field.nameWidth}" class="form-control" type="number" step="0.01" placeholder="宽">

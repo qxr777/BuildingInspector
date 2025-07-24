@@ -796,8 +796,10 @@
                         label: "面积",
                         nameLength: `diseaseDetails[${i}].areaLength`,
                         nameWidth: `diseaseDetails[${i}].areaWidth`,
+                        nameIdentifier: `diseaseDetails[${i}].areaIdentifier`,
                         valueLength: diseaseDetails[i]?.areaLength || "",
-                        valueWidth: diseaseDetails[i]?.areaWidth || ""
+                        valueWidth: diseaseDetails[i]?.areaWidth || "",
+                        valueIdentifier: diseaseDetails[i]?.areaIdentifier || "0"
                     });
                 }
 
@@ -947,6 +949,11 @@
                                       <div class="form-group" style="margin-bottom: 20px;">
                                           <label class="col-sm-3 control-label">${field.label}:</label>
                                           <div class="col-sm-9" style="display: flex; align-items: center; gap: 4px;">
+                                              <select name="${field.nameIdentifier}" class="form-control" style="width: 80px; flex-shrink: 0;" value="${field.valueIdentifier}">
+                                                  <option value="0">普通</option>
+                                                  <option value="1">平均</option>
+                                                  <option value="2">总计</option>
+                                              </select>
                                               <input name="${field.nameLength}" class="form-control" type="number" step="0.01" placeholder="长" value="${field.valueLength}">
                                               <span style="margin: 0 4px;">✖</span>
                                               <input name="${field.nameWidth}" class="form-control" type="number" step="0.01" placeholder="宽" value="${field.valueWidth}">
@@ -1045,6 +1052,7 @@
                     if (showArea) {
                         detailDiv.find(`input[name="diseaseDetails[${i}].areaLength"]`).val(detail.areaLength || "");
                         detailDiv.find(`input[name="diseaseDetails[${i}].areaWidth"]`).val(detail.areaWidth || "");
+                        detailDiv.find(`select[name="diseaseDetails[${i}].areaIdentifier"]`).val(detail.areaIdentifier || "0");
                     }
                     if (showDeformation) {
                         detailDiv.find(`input[name="diseaseDetails[${i}].deformation"]`).val(detail.deformation || "");
@@ -1121,8 +1129,10 @@
                     label: "面积范围",
                     nameLength: "diseaseDetails[0].areaLengthRange",
                     nameWidth: "diseaseDetails[0].areaWidthRange",
+                    nameIdentifier: "diseaseDetails[0].areaIdentifier",
                     valueLength: diseaseDetails[0]?.areaLengthRange || "",
-                    valueWidth: diseaseDetails[0]?.areaWidthRange || ""
+                    valueWidth: diseaseDetails[0]?.areaWidthRange || "",
+                    valueIdentifier: diseaseDetails[0]?.areaIdentifier || "0"
                 });
             }
 
@@ -1213,6 +1223,11 @@
                               <div class="row" style="margin-bottom: 20px;">
                                   <label class="col-sm-2 control-label">${field.label}：</label>
                                   <div class="col-sm-8" style="display: flex; align-items: center; gap: 4px;">
+                                      <select name="${field.nameIdentifier}" class="form-control" style="width: 80px; flex-shrink: 0;" value="${field.valueIdentifier}">
+                                          <option value="0">普通</option>
+                                          <option value="1">平均</option>
+                                          <option value="2">总计</option>
+                                      </select>
                                       <input name="${field.nameLength}" class="form-control" type="number" step="0.01" placeholder="长" value="${field.valueLength}">
                                       <span style="margin: 0 4px;">✖</span>
                                       <input name="${field.nameWidth}" class="form-control" type="number" step="0.01" placeholder="宽" value="${field.valueWidth}">
@@ -1324,6 +1339,7 @@
                 if (showArea) {
                     detailDiv.find(`input[name="diseaseDetails[0].areaLengthRange"]`).val(detail.areaLengthRange || "");
                     detailDiv.find(`input[name="diseaseDetails[0].areaWidthRange"]`).val(detail.areaWidthRange || "");
+                    detailDiv.find(`select[name="diseaseDetails[0].areaIdentifier"]`).val(detail.areaIdentifier || "0");
                 }
 
                 if (showPercentage) {
