@@ -150,7 +150,7 @@ public class FileMapServiceImpl implements IFileMapService {
                         .object(objectName.substring(0,2)+ "/" + objectName)
                         .build());
             } catch (Exception e) {
-                throw new RuntimeException("删除文件失败", e);
+                throw new RuntimeException("删除文件失败{}", e);
             }
         }
         return fileMapMapper.deleteFileMapById(id);

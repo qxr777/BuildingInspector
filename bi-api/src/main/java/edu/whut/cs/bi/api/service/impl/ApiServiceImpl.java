@@ -161,8 +161,13 @@ public class ApiServiceImpl implements ApiService {
      * 创建项目相关数据
      */
     public void createProjectData(ZipOutputStream zipOut, String rootDirName, Long userId) throws IOException {
+        // 获取当前年份
+        Calendar calendar = Calendar.getInstance();
+        int currentYear = calendar.get(Calendar.YEAR);
+        Project project1 = new Project();
+        project1.setYear(currentYear);
         // 获取用户项目列表
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(project1, userId, ProjectUserRoleEnum.INSPECTOR.getValue());
         ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
         projectsOfUserVo.setProjects(projects);
         projectsOfUserVo.setUserId(userId);
@@ -192,8 +197,13 @@ public class ApiServiceImpl implements ApiService {
      * 创建建筑物相关数据
      */
     public void createBuildingData(ZipOutputStream zipOut, String rootDirName, Long userId) throws IOException {
+        // 获取当前年份
+        Calendar calendar = Calendar.getInstance();
+        int currentYear = calendar.get(Calendar.YEAR);
+        Project project1 = new Project();
+        project1.setYear(currentYear);
         // 获取用户关联的项目
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(project1, userId, ProjectUserRoleEnum.INSPECTOR.getValue());
 
         // 收集所有项目中的任务
         Set<Long> buildingIds = new HashSet<>();
@@ -250,9 +260,6 @@ public class ApiServiceImpl implements ApiService {
 
             // 3. 获取建筑物病害数据
             try {
-                // 获取当前年份
-                Calendar calendar = Calendar.getInstance();
-                int currentYear = calendar.get(Calendar.YEAR);
                 // 只获取上一年的病害数据
                 int targetYear = currentYear - 1;
 

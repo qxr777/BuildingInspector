@@ -56,7 +56,7 @@ public class ToolCallingController {
         building_name.setName(bName);
         Long buildingId = buildingService.selectBuildingList(building_name).get(0).getId();
         Building building = buildingService.selectBuildingById(buildingId);
-        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId,"newfront","newside");
+        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId, "newfront", "newside");
         Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
                 image -> image.getOldName().split("_")[1],
                 Collectors.mapping(FileMap::getNewName, Collectors.toList())
@@ -96,7 +96,7 @@ public class ToolCallingController {
     @ResponseBody
     public AjaxResult getProject(@PathVariable("id") Long userId) {
 
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(new Project(), userId, ProjectUserRoleEnum.INSPECTOR.getValue());
         ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
         projectsOfUserVo.setProjects(projects);
         projectsOfUserVo.setUserId(userId);
@@ -119,6 +119,7 @@ public class ToolCallingController {
 
         return AjaxResult.success("查询成功", tasksOfProjectVo);
     }
+
     @GetMapping("/building/{bid}/disease")
     @ResponseBody
     public AjaxResult getDisease(@PathVariable("bid") Long buildingId, @RequestParam(required = false, name = "year") Integer year) {
@@ -156,15 +157,12 @@ public class ToolCallingController {
 
     @GetMapping("/building/{bName}")
     @ResponseBody
-    public AjaxResult getBuildingListByName(@PathVariable(required = true) String bName){
+    public AjaxResult getBuildingListByName(@PathVariable(required = true) String bName) {
         Building building = new Building();
         building.setName(bName);
         List<Building> buildings = buildingService.selectBuildingList(building);
         return AjaxResult.success("查询成功", buildings);
     }
-
-
-
 
 
 }
