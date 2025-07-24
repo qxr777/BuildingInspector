@@ -503,9 +503,18 @@
             submitHandler: function (form) {
                 // 处理自定义参考面位置
                 var quantity = $("#quantityInput").val();
+                
+                // 获取当前选中的病害类型
+                var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+                var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                    return item.id == selectedDiseaseTypeId;
+                }) : null;
+                
+                // 获取threshold值，默认为10
+                var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
 
                 // 处理单个病害的情况
-                if (quantity == 10) {
+                if (quantity >= threshold) {
                     if ($("#reference1Location").val() === "其他") {
                         var customValue = $("#reference1LocationCustom").val();
                         if (customValue) {
@@ -721,6 +730,9 @@
             return item.id == selectedDiseaseTypeId;
         }) : null;
 
+        // 获取threshold值，默认为10
+        var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+
         // 解析selectColumn字段决定显示哪些病害详情字段
         var showCrackType = true; // 默认全部显示
         var showLength = true;
@@ -747,7 +759,7 @@
         // 获取diseaseDetails数据，但不在模板字符串中直接使用
         var diseaseDetails = disease.diseaseDetails || [];
 
-        if (quantity < 10) {
+        if (quantity < threshold) {
             for (var i = 0; i < quantity; i++) {
                 // 收集需要显示的字段
                 var fieldsToShow = [];
@@ -1068,7 +1080,7 @@
 
                 detailsContainer.append(detailDiv);
             }
-        } else if (quantity >= 10) {
+        } else if (quantity >= threshold) {
             // 收集需要显示的字段，只显示有范围的字段
             var fieldsToShow = [];
 
@@ -1738,8 +1750,18 @@
             }
 
             var quantity = $("#quantityInput").val();
+            
+            // 获取当前选中的病害类型
+            var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+            var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                return item.id == selectedDiseaseTypeId;
+            }) : null;
+            
+            // 获取threshold值，默认为10
+            var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+            
             // 直接处理参考面位置值
-            if (quantity == 10) {
+            if (quantity >= threshold) {
                 // 单病害情况
                 var ref1Select = $("#reference1Location");
                 var ref2Select = $("#reference2Location");
@@ -1950,8 +1972,17 @@
             if (selectedPosition && selectedPosition.props) {
                 var parsedProps = parseProps(selectedPosition.props);
                 var quantity = $("#quantityInput").val();
+                
+                // 获取当前选中的病害类型
+                var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+                var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                    return item.id == selectedDiseaseTypeId;
+                }) : null;
+                
+                // 获取threshold值，默认为10
+                var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
 
-                if (quantity == 10) {
+                if (quantity >= threshold) {
                     var ref1Select = $("#reference1Location");
                     var ref2Select = $("#reference2Location");
 

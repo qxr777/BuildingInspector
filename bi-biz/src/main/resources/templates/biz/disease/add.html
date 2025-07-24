@@ -311,8 +311,15 @@
                     var parsedProps = parseProps(selectedPosition.props);
 
                     var quantity = $("#quantityInput").val();
+                    
+                    // 获取当前选中的病害类型的threshold值
+                    var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+                    var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function(item) {
+                        return item.id == selectedDiseaseTypeId;
+                    }) : null;
+                    var threshold = selectedDiseaseType && selectedDiseaseType.threshold ? selectedDiseaseType.threshold : 10;
 
-                    if (quantity == 10) {
+                    if (quantity >= threshold) {
                         var ref1Select = $("#reference1Location");
                         var ref2Select = $("#reference2Location");
 
@@ -632,6 +639,9 @@
             return item.id == selectedDiseaseTypeId;
         }) : null;
         
+        // 获取病害类型的threshold值，如果没有则默认为10
+        var threshold = selectedDiseaseType && selectedDiseaseType.threshold ? selectedDiseaseType.threshold : 10;
+        
         // 解析selectColumn字段决定显示哪些病害详情字段
         var showCrackType = true; // 默认全部显示
         var showLength = true;
@@ -675,7 +685,7 @@
             detailsContainer.append(crackTypeHtml);
         }
 
-        if (quantity < 10) {
+        if (quantity < threshold) {
             for (var i = 0; i < quantity; i++) {
                 var html = `
                     <div class="col-sm-12">
@@ -879,7 +889,7 @@
                 
                 detailsContainer.append(html);
             }
-        } else if (quantity >= 10){
+        } else if (quantity >= threshold){
             var html = `
                 <div class="col-sm-12">
                     <div class="form-group">
