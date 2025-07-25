@@ -53,9 +53,23 @@ public class BiTemplateObject extends TreeEntity {
     private String props;
 
     /**
+     * 该模板节点绑定的病害类型数量
+     */
+    @Excel(name = "病害类型数")
+    private Integer diseaseTypeCount;
+
+    /**
      * 子模板对象
      */
     private List<BiTemplateObject> children = new ArrayList<BiTemplateObject>();
+
+    public Integer getDiseaseTypeCount() {
+        return diseaseTypeCount;
+    }
+
+    public void setDiseaseTypeCount(Integer diseaseTypeCount) {
+        this.diseaseTypeCount = diseaseTypeCount;
+    }
 
     public List<BiTemplateObject> getChildren() {
         return children;

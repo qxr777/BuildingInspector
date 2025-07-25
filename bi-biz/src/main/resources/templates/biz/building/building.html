@@ -147,6 +147,7 @@
                             more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>部件结构</a> ');
                         }
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="currentPhotos(\'' + row.rootObjectId + '\')"><i class="fa fa-camera"></i>当前照片</a> ');
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="property(\'' + row.id + '\')"><i class="fa fa-search"></i>桥梁卡</a> ');
 
                         if(more.length > 0) {
@@ -222,6 +223,11 @@
     function showComponentList(rootObjectId) {
         var url = ctx + "biz/component/list?rootObjectId=" + rootObjectId;
         $.modal.openTab("构件列表", url);
+    }
+
+    function currentPhotos(rootObjectId) {
+        var url = ctx + "biz/building/currentPhoto?rootObjectId=" + rootObjectId;
+        $.modal.openTab("当前照片", url);
     }
 
     function deleteBuilding(id, isLeaf, name) {

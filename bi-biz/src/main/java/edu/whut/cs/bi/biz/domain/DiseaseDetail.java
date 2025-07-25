@@ -54,6 +54,9 @@ public class DiseaseDetail extends BaseEntity {
     // 面积_宽
     private BigDecimal areaWidth;
 
+    // 面积标识符 区分“普通-0”、“平均-1”、“总计-2”
+    private Integer areaIdentifier;
+
     // 变形/位移
     private BigDecimal deformation;
 
@@ -107,4 +110,7 @@ public class DiseaseDetail extends BaseEntity {
 
     // 角度范围终点
     private BigDecimal angleRangeEnd;
+
+    // 其他
+    private String other;
 }

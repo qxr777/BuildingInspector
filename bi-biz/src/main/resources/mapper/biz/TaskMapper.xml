@@ -66,6 +66,7 @@
     <select id="selectTaskList" resultMap="TaskResult">
         <include refid="selectTaskVo"/>
         <where>
+            t.del_flag = '0'
             <if test="currentUserId != null">
                 AND EXISTS (
                 SELECT 1 FROM bi_project_user pu
@@ -109,15 +110,15 @@
 
     <select id="selectTaskById" parameterType="Long" resultMap="TaskResult">
         <include refid="selectTaskVo"/>
-        where t.id = #{id}
+        where t.id = #{id} and t.del_flag = '0'
     </select>
 
     <select id="selectTaskListByProjectId" resultType="edu.whut.cs.bi.biz.domain.Task">
-        select *  from bi_task where project_id = #{projectId}
+        select *  from bi_task where project_id = #{projectId} and del_flag = '0'
     </select>
 
     <select id="selectTaskByIds" resultType="edu.whut.cs.bi.biz.domain.Task">
-        select * from bi_task where id in
+        select * from bi_task where del_flag = '0' and id in
         <foreach item="id" collection="ids" open="(" separator="," close=")">
             #{id}
         </foreach>
@@ -189,30 +190,41 @@
         WHERE bt.building_id = #{buildingId}
     </update>
 
-    <delete id="deleteTaskById" parameterType="Long">
-        delete from bi_task where id = #{id}
-    </delete>
+    <update id="deleteTaskById" parameterType="Long">
+        update bi_task set del_flag = '1' where id = #{id}
+    </update>
 
-    <delete id="deleteTaskByIds" parameterType="String">
-        delete from bi_task where id in
+    <update id="deleteTaskByIds" parameterType="String">
+        update bi_task set del_flag = '1' , update_time = now() where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
-    </delete>
+    </update>
 
-    <delete id="deleteTaskByProjectIdAndBuildingId">
-        DELETE FROM bi_task
+    <update id="deleteTaskByProjectIdAndBuildingId">
+        update bi_task set del_flag = '1' , update_time = now()
         WHERE project_id = #{projectId}
           AND building_id = #{buildingId}
-    </delete>
+    </update>
 
-    <delete id="batchDeleteTaskByProjectIdAndBuildingIds">
-        DELETE FROM bi_task
+    <update id="batchDeleteTaskByProjectIdAndBuildingIds">
+        update bi_task set del_flag = '1' , update_time = now()
         WHERE project_id = #{projectId}
-          AND building_id IN
+        AND building_id IN
         <foreach item="buildingId" collection="buildingIds" open="(" separator="," close=")">
             #{buildingId}
         </foreach>
-    </delete>
+    </update>
+
+    <update id="deleteTaskByBuildingId">
+        UPDATE bi_task
+        SET del_flag   = '1',
+            update_time = NOW()
+        WHERE building_id = #{buildingId}
+    </update>
+    <update id="deleteTaskByProjectId">
+        update bi_task set del_flag = '1' , update_time = now()
+        WHERE project_id = #{projectId}
+    </update>
 
 </mapper>

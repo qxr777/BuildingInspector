@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('当前图片')"/>
+    <th:block th:include="include :: layout-latest-css"/>
+    <th:block th:include="include :: ztree-css"/>
+</head>
+<body class="gray-bg">
+<div class="ui-layout-west">
+    <div class="box box-main">
+        <div class="box-header">
+            <div class="box-title">
+                <i class="fa icon-grid"></i> 部件层次
+            </div>
+            <div class="box-tools pull-right">
+                <button type="button" class="btn btn-box-tool" id="btnExpand" title="展开" style="display:none;"><i
+                        class="fa fa-chevron-up"></i></button>
+                <button type="button" class="btn btn-box-tool" id="btnCollapse" title="折叠"><i
+                        class="fa fa-chevron-down"></i></button>
+                <button type="button" class="btn btn-box-tool" id="btnRefresh" title="刷新"><i
+                        class="fa fa-refresh"></i></button>
+            </div>
+        </div>
+        <div class="ui-layout-content">
+            <div id="tree" class="ztree"></div>
+        </div>
+    </div>
+</div>
+<div class="ui-layout-center">
+    <div class="container-div">
+        <div class="row">
+            <form id="formId">
+                <input type="hidden" id="biObjectId" name="biObjectId">
+            </form>
+
+            <div class="btn-group-sm" id="toolbar" role="group">
+                <a class="btn btn-success" onclick="addFile()" shiro:hasPermission="biz:building:add">
+                    <i class="fa fa-plus"></i> 上传文件
+                </a>
+                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:building:remove">
+                 <i class="fa fa-remove"></i> 删除
+             </a>
+            </div>
+            <div class="col-sm-12 select-table table-striped">
+                <table id="bootstrap-table"></table>
+            </div>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: layout-latest-js" />
+<th:block th:include="include :: ztree-js" />
+<style>
+    /* 自定义图片查看器样式 */
+    .layui-layer-nobg .layui-layer-content {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    
+    /* 优化关闭按钮样式 */
+    .layui-layer-nobg .layui-layer-close {
+        background-color: rgba(0,0,0,0.5) !important;
+        color: #fff !important;
+        border-radius: 50%;
+        right: 20px !important;
+        top: 20px !important;
+        font-size: 24px !important;
+        height: 40px !important;
+        width: 40px !important;
+        line-height: 40px !important;
+        text-align: center !important;
+    }
+    
+    /* 完全移除边框 */
+    .layui-layer-nobg {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+</style>
+<script th:inline="javascript">
+    var removeFlag = [[${@permission.hasPermi('biz:building:remove')}]];
+    var prefix = ctx + "biz/file";
+    var biObjectId = [[${biObjectId}]];
+    var currentNode = null; // 用于存储当前选中的节点
+
+    $(function () {
+        var panehHidden = false;
+        if ($(this).width() < 769) {
+            panehHidden = true;
+        }
+        $('body').layout({initClosed: panehHidden, west__size: 205});
+        // 回到顶部绑定
+        if ($.fn.toTop !== undefined) {
+            var opt = {
+                win: $('.ui-layout-center'),
+                doc: $('.ui-layout-center')
+            };
+            $('#scroll-up').toTop(opt);
+        }
+        // 初始化biObjectId隐藏框的值
+        $("#biObjectId").val(biObjectId);
+        queryCurrentPhotoList();
+        queryBiObjectTree();
+    });
+
+    function queryCurrentPhotoList() {
+        var options = {
+            url: prefix + "/listBiObjectPhoto",
+            createUrl: prefix + "/addBiObjectPhoto",
+            removeUrl: prefix + "/removeBiObjectFile",
+            modalName: "当前照片",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'id',
+                    title: 'ID'
+                },
+                {
+                    field: 'url',
+                    title: '图片',
+                    formatter: function(value, row, index) {
+                        if (value) {
+                            return '<a href="javascript:void(0)" onclick="showImage(\'' + value + '\')"><img src="' + value + '" width="100" height="100"></a>';
+                        } else {
+                            return '';
+                        }
+                    }
+                },
+                {
+                    field: 'oldName',
+                    title: '原文件名'
+                },
+                {
+                    field: 'createTime',
+                    title: '创建时间'
+                },
+                {
+                    field: 'createBy',
+                    title: '创建人'
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    formatter: function(value, row, index) {
+                        var actions = [];
+                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
+                        return actions.join('');
+                    }
+                }]
+        };
+        $.table.init(options);
+    }
+
+    function queryBiObjectTree() {
+        var url = ctx + "biz/biobject/threeLevelTreeData?rootObjectId=" + biObjectId;
+        var options = {
+            url: url,
+            expandLevel: 2,
+            onClick: zOnClick,
+        };
+        $.tree.init(options);
+
+        function zOnClick(event, treeId, treeNode) {
+            currentNode = treeNode;
+            $("#biObjectId").val(treeNode.id);
+            $.table.search();
+        }
+    }
+
+    $('#btnExpand').click(function () {
+        $._tree.expandAll(true);
+        $(this).hide();
+        $('#btnCollapse').show();
+    });
+
+    $('#btnCollapse').click(function () {
+        $._tree.expandAll(false);
+        $(this).hide();
+        $('#btnExpand').show();
+    });
+
+    $('#btnRefresh').click(function () {
+        queryBiObjectTree();
+    });
+
+    function addFile() {
+        if (!currentNode) {
+            $.modal.alertWarning("请先选择部件");
+            return;
+        }
+
+        // 判断是否是叶子节点
+        // if (currentNode.children && currentNode.children.length > 0) {
+        //     $.modal.alertWarning("请先选择叶子节点部件");
+        //     return;
+        // }
+        
+        var url = prefix + "/addBiObjectPhoto?biObjectId=" + currentNode.id;
+        $.modal.open("上传文件", url);
+    }
+    
+    // 显示大图
+    function showImage(url) {
+        // 先加载图片获取尺寸
+        var img = new Image();
+        img.src = url;
+        
+        img.onload = function() {
+            // 获取图片原始尺寸
+            var imgWidth = this.width;
+            var imgHeight = this.height;
+            
+            // 计算合适的弹窗大小，确保图片能够完整显示
+            // 设置最小尺寸为600x400，如果图片太小也能有足够的查看空间
+            var winWidth = Math.max(600, Math.min(imgWidth + 40, window.innerWidth * 0.9));
+            var winHeight = Math.max(400, Math.min(imgHeight + 40, window.innerHeight * 0.9));
+            
+            // 创建唯一ID，避免多个图片查看器冲突
+            var imgId = 'img_viewer_' + new Date().getTime();
+            var containerId = 'container_' + imgId;
+            
+            // 使用layer.open显示大图
+            layer.open({
+                type: 1,
+                title: false,
+                closeBtn: 1,
+                shadeClose: true,
+                area: ['100%', '100%'], // 设置为100%宽高，占据整个页面
+                skin: 'layui-layer-nobg', // 添加无背景样式
+                offset: ['0', '0'], // 从页面左上角开始
+                fixed: true, // 固定定位
+                isOutAnim: false, // 关闭动画
+                resize: false, // 禁止拉伸
+                scrollbar: false, // 禁止滚动条
+                content: '<div id="' + containerId + '" style="display:flex;justify-content:center;align-items:center;height:100%;width:100%;overflow:hidden;position:relative;background:transparent;border:0;padding:0;margin:0;">' +
+                         '<img id="' + imgId + '" src="' + url + '" style="max-width:90%;max-height:90%;cursor:zoom-in;transition:transform 0.1s ease;border:0;" data-zoom="1">' +
+                         '</div>',
+                success: function(layero, index) {
+                    var $img = $('#' + imgId);
+                    var $container = $('#' + containerId);
+                    var isEnlarged = false;
+                    
+                    // 点击图片切换大小
+                    $img.on('click', function(e) {
+                        if (!isEnlarged) {
+                            // 放大到原始尺寸
+                            $img.css({
+                                'max-width': 'none',
+                                'max-height': 'none',
+                                'transform': 'scale(1)',
+                                'cursor': 'zoom-out'
+                            });
+                            isEnlarged = true;
+                        } else {
+                            // 缩小到适应容器
+                            $img.css({
+                                'max-width': '100%',
+                                'max-height': '100%',
+                                'transform': 'scale(1)',
+                                'cursor': 'zoom-in'
+                            });
+                            isEnlarged = false;
+                        }
+                    });
+                    
+                    // 鼠标滚轮缩放
+                    $container.on('wheel', function(e) {
+                        e.preventDefault();
+                        
+                        var zoom = parseFloat($img.attr('data-zoom') || '1');
+                        
+                        // 根据滚轮方向调整缩放比例
+                        if (e.originalEvent.deltaY < 0) {
+                            // 向上滚动，放大
+                            zoom *= 1.1;
+                        } else {
+                            // 向下滚动，缩小
+                            zoom /= 1.1;
+                        }
+                        
+                        // 限制缩放范围
+                        zoom = Math.max(0.1, Math.min(5, zoom));
+                        
+                        // 应用缩放
+                        $img.css('transform', 'scale(' + zoom + ')');
+                        $img.attr('data-zoom', zoom);
+                        
+                        // 根据缩放状态更改鼠标样式
+                        if (zoom > 1) {
+                            $img.css('cursor', 'zoom-out');
+                        } else {
+                            $img.css('cursor', 'zoom-in');
+                        }
+                    });
+                }
+            });
+        };
+        
+        // 如果图片加载失败，使用默认尺寸
+        img.onerror = function() {
+            layer.msg('图片加载失败');
+        };
+    }
+</script>
+</body>
+</html> 

@@ -119,5 +119,5 @@ public interface IProjectService
      * @param userId
      * @param value
      */
-    List<Project> selectProjectListByUserIdAndRole(Long userId, String value);
+    List<Project> selectProjectListByUserIdAndRole(Project project, Long userId, String value);
 }

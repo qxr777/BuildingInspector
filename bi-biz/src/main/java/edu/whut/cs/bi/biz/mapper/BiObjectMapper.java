@@ -164,4 +164,16 @@ public interface BiObjectMapper {
      */
     List<BiObject> selectBiObjects(@Param("rootObjectIds") Set<Long> rootObjectIds);
 
+    /**
+     * 查询biObject树列表（至三级节点）
+     */
+    List<BiObject> selectBiObjectAndChildrenThreeLevel(Long rootObjectId);
+
+    /**
+     * 根据ID列表批量查询BiObject
+     *
+     * @param ids BiObject ID列表
+     * @return BiObject列表
+     */
+    public List<BiObject> selectBiObjectsByIds(List<Long> ids);
 }

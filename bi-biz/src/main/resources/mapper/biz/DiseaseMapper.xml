@@ -28,6 +28,7 @@
         <result property="crackType" column="crack_type"/>
         <result property="developmentTrend" column="development_trend"/>
         <result property="detectionMethod" column="detection_method"/>
+        <result property="attachmentCount" column="attachment_count"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -50,15 +51,16 @@
 
     <sql id="selectDiseaseVo">
         select
-        d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
-        d.nature , d.participate_assess, d.deduct_points,
-        d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
-        d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method, <!-- 新增字段 -->
-        d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
-        dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
+            d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
+            d.nature , d.participate_assess, d.deduct_points,
+            d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
+            d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
+            d.attachment_count,
+            d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
+            dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
         from bi_disease d
-        left join bi_disease_type dt on d.disease_type_id = dt.id
-        left join bi.bi_project bp on d.project_id = bp.id
+                 left join bi_disease_type dt on d.disease_type_id = dt.id
+                 left join bi.bi_project bp on d.project_id = bp.id
     </sql>
 
     <select id="selectDiseaseList" parameterType="Disease" resultMap="DiseaseResult">
@@ -119,7 +121,8 @@
             <if test="repairRecommendation != null and repairRecommendation != ''">repair_recommendation,</if>
             <if test="crackType != null and crackType != ''">crack_type,</if>
             <if test="developmentTrend != null and developmentTrend != ''">development_trend,</if>
-            <if test="detectionMethod != null and detectionMethod != ''">detection_method,</if> <!-- 新增字段 -->
+            <if test="detectionMethod != null and detectionMethod != ''">detection_method,</if>
+            <if test="attachmentCount != null">attachment_count,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
@@ -147,7 +150,8 @@
             <if test="repairRecommendation != null and repairRecommendation != ''">#{repairRecommendation},</if>
             <if test="crackType != null and crackType != ''">#{crackType},</if>
             <if test="developmentTrend != null and developmentTrend != ''">#{developmentTrend},</if>
-            <if test="detectionMethod != null and detectionMethod != ''">#{detectionMethod},</if> <!-- 新增字段 -->
+            <if test="detectionMethod != null and detectionMethod != ''">#{detectionMethod},</if>
+            <if test="attachmentCount != null">#{attachmentCount},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
@@ -155,71 +159,27 @@
         </trim>
     </insert>
 
-    <insert id="batchInsertDiseases" parameterType="java.util.Set" useGeneratedKeys="true" keyProperty="id">
-        <if test="diseaseSet != null and !diseaseSet.isEmpty()">
-            INSERT INTO bi_disease
-            <trim prefix="(" suffix=")" suffixOverrides=",">
-                <if test="diseaseSet.iterator().next().position != null and diseaseSet.iterator().next().position != ''">position,</if>
-                <if test="diseaseSet.iterator().next().type != null and diseaseSet.iterator().next().type != ''">type,</if>
-                <if test="diseaseSet.iterator().next().diseaseTypeId != null">disease_type_id,</if>
-                <if test="diseaseSet.iterator().next().description != null and diseaseSet.iterator().next().description != ''">description,</if>
-                <if test="diseaseSet.iterator().next().nature != null and diseaseSet.iterator().next().nature != ''">nature,</if>
-                <if test="diseaseSet.iterator().next().level != null">level,</if>
-                <if test="diseaseSet.iterator().next().quantity != null">quantity,</if>
-                <if test="diseaseSet.iterator().next().participateAssess != null and diseaseSet.iterator().next().participateAssess != ''">participate_assess,</if>
-                <if test="diseaseSet.iterator().next().deductPoints != null">deduct_points,</if>
-                <if test="diseaseSet.iterator().next().projectId != null">project_id,</if>
-                <if test="diseaseSet.iterator().next().biObjectId != null">bi_object_id,</if>
-                <if test="diseaseSet.iterator().next().biObjectName != null and diseaseSet.iterator().next().biObjectName != ''">bi_object_name,</if>
-                <if test="diseaseSet.iterator().next().buildingId != null">building_id,</if>
-                <if test="diseaseSet.iterator().next().componentId != null">component_id,</if>
-                <if test="diseaseSet.iterator().next().commitType != null">commit_type,</if>
-                <if test="diseaseSet.iterator().next().localId != null">local_id,</if>
-                <if test="diseaseSet.iterator().next().remark != null">remark,</if>
-                <if test="diseaseSet.iterator().next().cause != null and diseaseSet.iterator().next().cause != ''">cause,</if>
-                <if test="diseaseSet.iterator().next().repairRecommendation != null and diseaseSet.iterator().next().repairRecommendation != ''">repair_recommendation,</if>
-                <if test="diseaseSet.iterator().next().crackType != null and diseaseSet.iterator().next().crackType != ''">crack_type,</if>
-                <if test="diseaseSet.iterator().next().developmentTrend != null and diseaseSet.iterator().next().developmentTrend != ''">development_trend,</if>
-                <if test="diseaseSet.iterator().next().detectionMethod != null and diseaseSet.iterator().next().detectionMethod != ''">detection_method,</if> <!-- 新增字段 -->
-                <if test="diseaseSet.iterator().next().createBy != null">create_by,</if>
-                <if test="diseaseSet.iterator().next().createTime != null">create_time,</if>
-                <if test="diseaseSet.iterator().next().updateBy != null">update_by,</if>
-                <if test="diseaseSet.iterator().next().updateTime != null">update_time,</if>
-            </trim>
-            VALUES
-            <foreach collection="diseaseSet" item="disease" separator=",">
-                (
-                <trim suffixOverrides=",">
-                    <if test="disease.position != null and disease.position != ''">#{disease.position},</if>
-                    <if test="disease.type != null and disease.type != ''">#{disease.type},</if>
-                    <if test="disease.diseaseTypeId != null">#{disease.diseaseTypeId},</if>
-                    <if test="disease.description != null and disease.description != ''">#{disease.description},</if>
-                    <if test="disease.nature != null and disease.nature != ''">#{disease.nature},</if>
-                    <if test="disease.level != null">#{disease.level},</if>
-                    <if test="disease.quantity != null">#{disease.quantity},</if>
-                    <if test="disease.participateAssess != null and disease.participateAssess != ''">#{disease.participateAssess},</if>
-                    <if test="disease.deductPoints != null">#{disease.deductPoints},</if>
-                    <if test="disease.projectId != null">#{disease.projectId},</if>
-                    <if test="disease.biObjectId != null">#{disease.biObjectId},</if>
-                    <if test="disease.biObjectName != null and disease.biObjectName != ''">#{disease.biObjectName},</if>
-                    <if test="disease.buildingId != null">#{disease.buildingId},</if>
-                    <if test="disease.componentId != null">#{disease.componentId},</if>
-                    <if test="disease.commitType != null">#{disease.commitType},</if>
-                    <if test="disease.localId != null">#{disease.localId},</if>
-                    <if test="disease.remark != null">#{disease.remark},</if>
-                    <if test="disease.cause != null and disease.cause != ''">#{disease.cause},</if>
-                    <if test="disease.repairRecommendation != null and disease.repairRecommendation != ''">#{disease.repairRecommendation},</if>
-                    <if test="disease.crackType != null and disease.crackType != ''">#{disease.crackType},</if>
-                    <if test="disease.developmentTrend != null and disease.developmentTrend != ''">#{disease.developmentTrend},</if>
-                    <if test="disease.detectionMethod != null and disease.detectionMethod != ''">#{disease.detectionMethod},</if> <!-- 新增字段 -->
-                    <if test="disease.createBy != null">#{disease.createBy},</if>
-                    <if test="disease.createTime != null">#{disease.createTime},</if>
-                    <if test="disease.updateBy != null">#{disease.updateBy},</if>
-                    <if test="disease.updateTime != null">#{disease.updateTime},</if>
-                </trim>
-                )
-            </foreach>
-        </if>
+    <insert id="batchInsertDiseases" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO bi_disease (
+        position, type, disease_type_id, description, nature, level, quantity,
+        participate_assess, deduct_points, project_id, bi_object_id, bi_object_name,
+        building_id, component_id, commit_type, local_id, remark, cause,
+        repair_recommendation, crack_type, development_trend, detection_method,
+        attachment_count, create_by, create_time, update_by, update_time
+        ) VALUES
+        <foreach collection="list" item="disease" separator=",">
+            (
+            #{disease.position}, #{disease.type}, #{disease.diseaseTypeId},
+            #{disease.description}, #{disease.nature}, #{disease.level},
+            #{disease.quantity}, #{disease.participateAssess}, #{disease.deductPoints},
+            #{disease.projectId}, #{disease.biObjectId}, #{disease.biObjectName},
+            #{disease.buildingId}, #{disease.componentId}, #{disease.commitType},
+            #{disease.localId}, #{disease.remark}, #{disease.cause},
+            #{disease.repairRecommendation}, #{disease.crackType}, #{disease.developmentTrend},
+            #{disease.detectionMethod}, #{disease.attachmentCount}, #{disease.createBy},
+            #{disease.createTime}, #{disease.updateBy}, #{disease.updateTime}
+            )
+        </foreach>
     </insert>
 
     <update id="updateDisease" parameterType="Disease">
@@ -246,11 +206,150 @@
             <if test="repairRecommendation != null">repair_recommendation = #{repairRecommendation},</if>
             <if test="crackType != null">crack_type = #{crackType},</if>
             <if test="developmentTrend != null">development_trend = #{developmentTrend},</if>
-            <if test="detectionMethod != null">detection_method = #{detectionMethod},</if> <!-- 新增字段 -->
+            <if test="detectionMethod != null">detection_method = #{detectionMethod},</if>
+            <if test="attachmentCount != null">attachment_count = #{attachmentCount},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
         where id = #{id}
+    </update>
+
+    <update id="batchUpdateDiseases">
+        <if test="diseaseList != null and !diseaseList.isEmpty()">
+            UPDATE bi_disease
+            <trim prefix="SET" suffixOverrides=",">
+                <trim prefix="position = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.position != null and item.position != ''">
+                            WHEN #{item.id} THEN #{item.position}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="type = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.type != null and item.type != ''">
+                            WHEN #{item.id} THEN #{item.type}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="disease_type_id = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.diseaseTypeId != null">
+                            WHEN #{item.id} THEN #{item.diseaseTypeId}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="description = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.description != null and item.description != ''">
+                            WHEN #{item.id} THEN #{item.description}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="nature = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.nature != null and item.nature != ''">
+                            WHEN #{item.id} THEN #{item.nature}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="level = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.level != null">
+                            WHEN #{item.id} THEN #{item.level}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="quantity = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.quantity != null">
+                            WHEN #{item.id} THEN #{item.quantity}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="participate_assess = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.participateAssess != null and item.participateAssess != ''">
+                            WHEN #{item.id} THEN #{item.participateAssess}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="deduct_points = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.deductPoints != null">
+                            WHEN #{item.id} THEN #{item.deductPoints}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="remark = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.remark != null and item.remark != ''">
+                            WHEN #{item.id} THEN #{item.remark}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="cause = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.cause != null and item.cause != ''">
+                            WHEN #{item.id} THEN #{item.cause}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="repair_recommendation = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.repairRecommendation != null and item.repairRecommendation != ''">
+                            WHEN #{item.id} THEN #{item.repairRecommendation}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="crack_type = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.crackType != null and item.crackType != ''">
+                            WHEN #{item.id} THEN #{item.crackType}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="development_trend = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.developmentTrend != null and item.developmentTrend != ''">
+                            WHEN #{item.id} THEN #{item.developmentTrend}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="detection_method = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.detectionMethod != null and item.detectionMethod != ''">
+                            WHEN #{item.id} THEN #{item.detectionMethod}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="attachment_count = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.attachmentCount != null">
+                            WHEN #{item.id} THEN #{item.attachmentCount}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="update_by = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.updateBy != null">
+                            WHEN #{item.id} THEN #{item.updateBy}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="update_time = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.updateTime != null">
+                            WHEN #{item.id} THEN #{item.updateTime}
+                        </if>
+                    </foreach>
+                </trim>
+            </trim>
+            WHERE id IN
+            <foreach collection="diseaseList" item="item" open="(" separator="," close=")">
+                #{item.id}
+            </foreach>
+        </if>
     </update>
 
     <delete id="deleteDiseaseById" parameterType="Long">
@@ -263,4 +362,16 @@
             #{id}
         </foreach>
     </delete>
+
+    <select id="selectDiseaseListByLocalIds" parameterType="Disease" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        <where>
+            <if test="params.localIds != null and params.localIds.size() > 0">
+                d.local_id in
+                <foreach item="localId" collection="params.localIds" open="(" separator="," close=")">
+                    #{localId}
+                </foreach>
+            </if>
+        </where>
+    </select>
 </mapper>

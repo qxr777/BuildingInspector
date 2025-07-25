@@ -110,11 +110,22 @@ public class BiObject extends TreeEntity {
 
     private List<DiseaseType>  diseaseTypes = new ArrayList<>();
 
+    /** 现状图 */
+    private List<String> photo;
+
     /**
      * 构件数量
      */
     @Excel(name = "构件数量")
     private int count;
+
+    public List<String> getPhoto() {
+        return photo;
+    }
+
+    public void setPhoto(List<String> photo) {
+        this.photo = photo;
+    }
 
     public String getProps() {
         return props;

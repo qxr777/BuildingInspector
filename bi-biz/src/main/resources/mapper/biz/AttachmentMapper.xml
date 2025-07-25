@@ -33,15 +33,33 @@
         <include refid="selectAttachmentVo"/>
         where subject_id = #{id}
     </select>
-    <select id="getMinioId" >
+
+    <select id="getMinioId">
         select minio_id from bi_attachment where id = #{id}
     </select>
+
     <select id="selectMinioIdsByIds" parameterType="String">
         select CAST(minio_id AS CHAR) from bi_attachment where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
 
+    </select>
+
+    <select id="selectBySubjectIds" parameterType="java.util.List" resultMap="AttachmentResult">
+        SELECT * FROM bi_attachment
+        WHERE subject_id IN
+        <foreach item="id" collection="subjectIds" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="selectAttachmentByMinio" parameterType="java.util.List" resultMap="AttachmentResult">
+        select * from bi_attachment
+        WHERE minio_id IN
+        <foreach item="id" collection="minios" open="(" separator="," close=")">
+            #{id}
+        </foreach>
     </select>
 
     <insert id="insert" parameterType="Attachment" useGeneratedKeys="true" keyProperty="id"> <!-- 添加: useGeneratedKeys 和 keyProperty -->

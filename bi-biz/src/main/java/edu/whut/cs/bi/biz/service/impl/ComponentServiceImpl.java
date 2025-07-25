@@ -296,4 +296,18 @@ public class ComponentServiceImpl implements IComponentService {
     public Component selectComponent(Component component) {
         return componentMapper.selectComponent(component);
     }
+
+    /**
+     * 根据ID列表批量查询构件
+     *
+     * @param ids 构件ID列表
+     * @return 构件列表
+     */
+    @Override
+    public List<Component> selectComponentsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return componentMapper.selectComponentsByIds(ids);
+    }
 }

@@ -149,7 +149,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = #{id} and del_flag = '0'
     </update>
 
-    <update id="updateProjectTime">
+    <update id="updateProjectTimeByBuildingId">
         UPDATE bi_project bp
             INNER JOIN (
                 SELECT project_id
@@ -161,13 +161,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         WHERE start_date &lt;= CURDATE() AND end_date &gt;= CURDATE()
     </update>
 
+    <update id="updateProjectTimeByProjectId">
+        UPDATE bi.bi_project set update_time = NOW() where id = #{projectId}
+    </update>
+
 
     <delete id="deleteProjectById" parameterType="Long">
-        update bi_project set del_flag = '1' where id = #{id} and del_flag = '0'
+        update bi_project set del_flag = '1' and update_time = NOW() where id = #{id} and del_flag = '0'
     </delete>
 
     <delete id="deleteProjectByIds" parameterType="String">
-        update bi_project set del_flag = '1' where del_flag = '0' and id in
+        update bi_project set del_flag = '1' and update_time = NOW() where del_flag = '0' and id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>

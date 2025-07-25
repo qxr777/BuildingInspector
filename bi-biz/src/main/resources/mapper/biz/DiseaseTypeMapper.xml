@@ -16,7 +16,8 @@
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
-        <result property="selectColumn" column="select_column"/> <!-- 添加新字段 -->
+        <result property="selectColumn" column="select_column"/>
+        <result property="threshold" column="threshold"/>
     </resultMap>
 
     <resultMap type="TemplateDiseaseTypeVO" id="TemplateDiseaseTypeVOResult" extends="DiseaseTypeResult">
@@ -25,17 +26,18 @@
 
     <sql id="selectDiseaseTypeVo">
         select id,
-        name,
-        code,
-        max_scale,
-        min_scale,
-        status,
-        create_by,
-        create_time,
-        update_by,
-        update_time,
-        remark,
-        select_column <!-- 添加新字段 -->
+               name,
+               code,
+               max_scale,
+               min_scale,
+               status,
+               create_by,
+               create_time,
+               update_by,
+               update_time,
+               remark,
+               select_column,
+               threshold
         from bi_disease_type
     </sql>
 
@@ -117,6 +119,7 @@
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="selectColumn != null">select_column = #{selectColumn},</if>
+            <if test="threshold != null">threshold = #{threshold},</if>
             update_time = sysdate()
         </set>
         where id = #{id}
@@ -138,10 +141,11 @@
             <if test="status != null and status != ''">status,</if>
             <if test="remark != null and remark != ''">remark,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
-            <if test="selectColumn != null">select_column,</if> <!-- 添加新字段 -->
+            <if test="selectColumn != null">select_column,</if>
+            <if test="threshold != null">threshold,</if>
+            create_time
         </trim>
-        values
-        <trim prefix="(" suffix=")" suffixOverrides=",">
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="name != null and name != ''">#{name},</if>
             <if test="code != null and code != ''">#{code},</if>
             <if test="maxScale != null">#{maxScale},</if>
@@ -149,7 +153,9 @@
             <if test="status != null and status != ''">#{status},</if>
             <if test="remark != null and remark != ''">#{remark},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
-            <if test="selectColumn != null">#{selectColumn},</if> <!-- 添加新字段 -->
+            <if test="selectColumn != null">#{selectColumn},</if>
+            <if test="threshold != null">#{threshold},</if>
+            sysdate()
         </trim>
     </insert>
 
@@ -157,8 +163,8 @@
         SELECT
         d.id, d.name, d.code, d.max_scale, d.min_scale, d.status,
         d.remark, d.create_by, d.create_time, d.update_by, d.update_time,
-        d.select_column, <!-- 添加新字段 -->
-        CASE WHEN td.template_object_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
+        d.select_column,
+        d.threshold, CASE WHEN td.template_object_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
         FROM bi_disease_type d
         LEFT JOIN bi_template_object_disease_type td ON d.id = td.disease_type_id
         AND td.template_object_id = #{templateObjectId}

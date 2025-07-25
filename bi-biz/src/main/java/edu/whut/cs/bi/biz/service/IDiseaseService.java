@@ -1,13 +1,10 @@
 package edu.whut.cs.bi.biz.service;
 
 
-import com.ruoyi.common.core.domain.Ztree;
-import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -32,7 +29,7 @@ public interface IDiseaseService {
      * @param disease 病害
      * @return 病害集合
      */
-     List<Disease> selectDiseaseList(Disease disease);
+    List<Disease> selectDiseaseList(Disease disease);
 
     /**
      * 查询病害列表
@@ -41,6 +38,14 @@ public interface IDiseaseService {
      * @return 病害集合
      */
     List<Disease> selectDiseaseListForApi(Disease disease);
+
+    /**
+     * 查询病害列表
+     *
+     * @param disease 病害
+     * @return 病害集合
+     */
+    List<Disease> selectDiseaseListForZip(Disease disease);
 
     /**
      * 新增病害
@@ -109,5 +114,26 @@ public interface IDiseaseService {
     public int deleteDiseaseByDiseaseIds(String ids);
 
 
-    void readDiseaseExcel(MultipartFile file);
+    /**
+     * 批量导入病害信息
+     *
+     * @param file
+     */
+    void readDiseaseExcel(MultipartFile file, Long projectId);
+
+    /**
+     * 批量保存病害信息
+     *
+     * @param diseases 病害列表
+     * @return 处理结果
+     */
+    int batchSaveDiseases(List<Disease> diseases);
+
+    /**
+     * 批量导入病害信息
+     *
+     * @param file
+     */
+    Boolean readDiseaseZip(MultipartFile file);
+
 }

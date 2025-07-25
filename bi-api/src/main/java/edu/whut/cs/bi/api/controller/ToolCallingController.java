@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
@@ -41,6 +42,8 @@ public class ToolCallingController {
     private IProjectService projectService;
     @Resource
     private ITaskService taskService;
+    @Resource
+    private IDiseaseService diseaseService;
 
     @GetMapping("/building/{bName}/property")
     @ResponseBody
@@ -53,7 +56,7 @@ public class ToolCallingController {
         building_name.setName(bName);
         Long buildingId = buildingService.selectBuildingList(building_name).get(0).getId();
         Building building = buildingService.selectBuildingById(buildingId);
-        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId,"newfront","newside");
+        List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId, "newfront", "newside");
         Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
                 image -> image.getOldName().split("_")[1],
                 Collectors.mapping(FileMap::getNewName, Collectors.toList())
@@ -93,7 +96,7 @@ public class ToolCallingController {
     @ResponseBody
     public AjaxResult getProject(@PathVariable("id") Long userId) {
 
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(new Project(), userId, ProjectUserRoleEnum.INSPECTOR.getValue());
         ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
         projectsOfUserVo.setProjects(projects);
         projectsOfUserVo.setUserId(userId);
@@ -117,7 +120,49 @@ public class ToolCallingController {
         return AjaxResult.success("查询成功", tasksOfProjectVo);
     }
 
+    @GetMapping("/building/{bid}/disease")
+    @ResponseBody
+    public AjaxResult getDisease(@PathVariable("bid") Long buildingId, @RequestParam(required = false, name = "year") Integer year) {
+        if (buildingId == null) {
+            return AjaxResult.error("参数错误");
+        }
+        Disease disease = new Disease();
+        disease.setBuildingId(buildingId);
+        if (year != null) {
+            disease.setYear(year);
+        }
 
+        List<Disease> diseases = diseaseService.selectDiseaseListForApi(disease);
+        List<DiseasesOfYearVo> result = null;
+        if (year == null) {
+            Map<Integer, List<Disease>> map = diseases.stream()
+                    .collect(Collectors.groupingBy(d -> d.getProject().getYear()));
+
+            result = map.keySet().stream().map(y -> {
+                DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+                diseasesOfYearVo.setYear(y);
+                diseasesOfYearVo.setDiseases(map.get(y));
+                diseasesOfYearVo.setBuildingId(buildingId);
+                return diseasesOfYearVo;
+            }).toList();
+        } else {
+            DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+            diseasesOfYearVo.setDiseases(diseases);
+            diseasesOfYearVo.setYear(year);
+            diseasesOfYearVo.setBuildingId(buildingId);
+            result = List.of(diseasesOfYearVo);
+        }
+        return AjaxResult.success("查询成功", result);
+    }
+
+    @GetMapping("/building/{bName}")
+    @ResponseBody
+    public AjaxResult getBuildingListByName(@PathVariable(required = true) String bName) {
+        Building building = new Building();
+        building.setName(bName);
+        List<Building> buildings = buildingService.selectBuildingList(building);
+        return AjaxResult.success("查询成功", buildings);
+    }
 
 
 }

@@ -1,17 +1,11 @@
 package edu.whut.cs.bi.biz.service.impl;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.core.domain.entity.SysUser;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
@@ -19,20 +13,24 @@ import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysDeptMapper;
 import com.ruoyi.system.mapper.SysUserMapper;
 import com.ruoyi.system.service.ISysDeptService;
-import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.Project;
+import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.dto.ProjectUserAssignment;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
-import edu.whut.cs.bi.biz.mapper.*;
+import edu.whut.cs.bi.biz.mapper.PackageMapper;
+import edu.whut.cs.bi.biz.mapper.ProjectMapper;
+import edu.whut.cs.bi.biz.mapper.ProjectUserMapper;
+import edu.whut.cs.bi.biz.mapper.TaskMapper;
+import edu.whut.cs.bi.biz.service.IProjectService;
 import org.apache.shiro.util.CollectionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import edu.whut.cs.bi.biz.service.IProjectService;
-
-import com.ruoyi.common.core.text.Convert;
-
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * 项目Service业务层处理
@@ -61,7 +59,8 @@ public class ProjectServiceImpl implements IProjectService {
     private TaskMapper taskMapper;
 
     @Resource
-    private BuildingMapper buildingMapper;
+    private PackageMapper packageMapper;
+
 
     /**
      * 查询项目
@@ -142,6 +141,17 @@ public class ProjectServiceImpl implements IProjectService {
     @Override
     public int updateProject(Project project) {
         project.setUpdateTime(DateUtils.getNowDate());
+
+        if (project.getStatus() != null) {
+            // 更新任务状态
+            List<Task> tasks = taskMapper.selectTaskListByProjectId(project.getId());
+            tasks.forEach(task -> {
+                task.setStatus(project.getStatus());
+                task.setUpdateTime(DateUtils.getNowDate());
+                taskMapper.updateTask(task);
+            });
+        }
+
         return projectMapper.updateProject(project);
     }
 
@@ -153,7 +163,14 @@ public class ProjectServiceImpl implements IProjectService {
      */
     @Override
     public int deleteProjectByIds(String ids) {
-        return projectMapper.deleteProjectByIds(Convert.toStrArray(ids));
+        // 删除项目下的任务
+        String[] strArray = Convert.toStrArray(ids);
+        for (int i = 0; i < strArray.length; i++) {
+            Long id = Long.valueOf(strArray[i]);
+            taskMapper.deleteTaskByProjectId(id);
+            projectUserMapper.deleteProjectUser(id);
+        }
+        return projectMapper.deleteProjectByIds(strArray);
     }
 
     /**
@@ -163,7 +180,12 @@ public class ProjectServiceImpl implements IProjectService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteProjectById(Long id) {
+        // 删除项目下的任务
+        taskMapper.deleteTaskByProjectId(id);
+        // 删除项目相关的人员关联
+        projectUserMapper.deleteProjectUser(id);
         return projectMapper.deleteProjectById(id);
     }
 
@@ -332,6 +354,7 @@ public class ProjectServiceImpl implements IProjectService {
      * @return
      */
     @Override
+    @Transactional(rollbackFor = Exception.class )
     public int saveProjectUserAssignments(ProjectUserAssignment assignment) {
         if (ObjUtil.isEmpty(assignment) || assignment.getProjectId() == null) {
             throw new ServiceException("传入的参数不能为空");
@@ -340,11 +363,31 @@ public class ProjectServiceImpl implements IProjectService {
         Long projectId = assignment.getProjectId();
         // 如果存在项目相关人员，则删除，再添加
         int count = projectUserMapper.countProjectUser(projectId);
+        List<Long> preInspectors = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
         if (count > 0) {
             projectUserMapper.deleteProjectUser(projectId);
         }
         List<Long> inspectorIds = assignment.getInspectorIds();
         int save = projectUserMapper.saveProjectUser(projectId, inspectorIds, ProjectUserRoleEnum.INSPECTOR.getValue());
+
+        // 找出被删除的（旧集合有，新的没有）
+        List<Long> deletedInspectors = preInspectors.stream()
+                .filter(id -> !inspectorIds.contains(id))
+                .collect(Collectors.toList());
+
+        // 找出新增的（新集合有，旧的没有）
+        List<Long> addedInspectors = inspectorIds.stream()
+                .filter(id -> !preInspectors.contains(id))
+                .collect(Collectors.toList());
+
+        List<Long> changedInspectors = new ArrayList<>();
+        changedInspectors.addAll(deletedInspectors);
+        changedInspectors.addAll(addedInspectors);
+
+        //更新所有被删除的或者新增的检测人员的数据包的update_time
+        if(!changedInspectors.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(changedInspectors);
+        }
 
         Long authorId = assignment.getAuthorId();
         save += projectUserMapper.saveProjectUser(projectId, List.of(authorId), ProjectUserRoleEnum.AUTHOR.getValue());
@@ -355,6 +398,7 @@ public class ProjectServiceImpl implements IProjectService {
         Long approverId = assignment.getApproverId();
         save += projectUserMapper.saveProjectUser(projectId, List.of(approverId), ProjectUserRoleEnum.APPROVER.getValue());
 
+        projectMapper.updateProjectTimeByProjectId(projectId);
         return save;
     }
 
@@ -366,8 +410,8 @@ public class ProjectServiceImpl implements IProjectService {
      * @return
      */
     @Override
-    public List<Project> selectProjectListByUserIdAndRole(Long userId, String value) {
-        List<Project> projects = projectMapper.selectProjectList(null, userId, value);
+    public List<Project> selectProjectListByUserIdAndRole(Project projectQuery, Long userId, String value) {
+        List<Project> projects = projectMapper.selectProjectList(projectQuery, userId, value);
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 

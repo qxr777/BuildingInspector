@@ -11,6 +11,15 @@ import com.ruoyi.system.domain.SysUserRole;
  */
 public interface SysUserRoleMapper
 {
+
+    /**
+     * 根据条件分页查询角色数据
+     *
+     * @param userRole 用户角色信息
+     * @return 用户角色数据集合信息
+     */
+    public List<SysUserRole> selectSysUserRoleList(SysUserRole userRole);
+
     /**
      * 通过用户ID查询用户和角色关联
      * 

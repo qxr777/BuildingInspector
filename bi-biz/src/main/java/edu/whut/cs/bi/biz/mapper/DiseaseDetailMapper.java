@@ -60,7 +60,7 @@ public interface DiseaseDetailMapper {
      * @param ids 需要删除的数据ID数组
      * @return 结果
      */
-    int deleteDiseaseDetailByIds(Long[] ids);
+    int deleteDiseaseDetailByIds(@Param("ids") Long[] ids);
 
     /**
      * 批量新增病害详情
@@ -69,4 +69,28 @@ public interface DiseaseDetailMapper {
      * @return 结果
      */
     void insertDiseaseDetails(@Param("diseaseDetails") List<DiseaseDetail> diseaseDetails);
+
+    /**
+     * 根据病害ID列表批量查询病害详情
+     *
+     * @param diseaseIds 病害ID列表
+     * @return 病害详情列表
+     */
+    List<DiseaseDetail> selectDiseaseDetailsByDiseaseIds(List<Long> diseaseIds);
+
+    /**
+     * 根据病害ID删除病害详情
+     *
+     * @param diseaseId 病害ID
+     * @return 删除结果
+     */
+    int deleteDiseaseDetailByDiseaseId(@Param("diseaseId") Long diseaseId);
+
+    /**
+     * 根据病害ID列表批量删除病害详情
+     *
+     * @param ids 病害ID列表
+     * @return 删除结果
+     */
+    int deleteDiseaseDetailByDiseaseIds(Long[] ids);
 }

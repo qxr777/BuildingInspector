@@ -1,44 +1,42 @@
 package edu.whut.cs.bi.api.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import com.alibaba.fastjson.JSONObject;
-import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.annotation.Log;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
-import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
 import com.ruoyi.system.service.ISysUserService;
+import edu.whut.cs.bi.api.service.ApiService;
+import edu.whut.cs.bi.api.task.UserPackageTask;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
+import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
-import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
+import edu.whut.cs.bi.biz.mapper.PackageMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
-import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import springfox.documentation.schema.Collections;
 
 import javax.annotation.Resource;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import static com.ruoyi.common.utils.ShiroUtils.getSysUser;
 import static com.ruoyi.common.utils.ShiroUtils.setSysUser;
@@ -66,15 +64,6 @@ public class ApiController {
     private IProjectService projectService;
 
     @Resource
-    private IComponentService componentService;
-
-    @Resource
-    private DiseaseMapper diseaseMapper;
-
-    @Resource
-    private DiseaseDetailMapper diseaseDetailMapper;
-
-    @Resource
     private FileMapController fileMapController;
 
     @Resource
@@ -83,8 +72,20 @@ public class ApiController {
     @Resource
     private SysPasswordService passwordService;
 
-    @Resource
-    private AttachmentService attachmentService;
+    @Autowired
+    private FileMapServiceImpl fileMapServiceImpl;
+
+    @Autowired
+    private MinioConfig minioConfig;
+
+    @Autowired
+    private ApiService apiService;
+
+    @Autowired
+    private PackageMapper packageMapper;
+
+    @Autowired
+    private UserPackageTask userPackageTask;
 
 
     /**
@@ -240,105 +241,13 @@ public class ApiController {
     public AjaxResult getProject() {
         Long userId = ShiroUtils.getUserId();
 
-        List<Project> projects = projectService.selectProjectListByUserIdAndRole(userId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        List<Project> projects = projectService.selectProjectListByUserIdAndRole(new Project(), userId, ProjectUserRoleEnum.INSPECTOR.getValue());
 
         ProjectsOfUserVo projectsOfUserVo = new ProjectsOfUserVo();
         projectsOfUserVo.setProjects(projects);
         projectsOfUserVo.setUserId(userId);
 
         return AjaxResult.success("查询成功", projectsOfUserVo);
-    }
-
-    /**
-     * 批量保存病害信息
-     * 根据构件名称自动关联构件ID
-     */
-    @PostMapping("/disease/batchSave")
-    @RequiresPermissions("biz:disease:add")
-    @ResponseBody
-    @Transactional
-    public AjaxResult batchSaveDiseases(@RequestBody List<Disease> diseases) {
-        try {
-            if (diseases == null || diseases.isEmpty()) {
-                return AjaxResult.error("参数错误：病害列表为空");
-            }
-            int successCount = 0;
-            //记录已经插入了的构件
-            HashMap<String, Long> map = new HashMap<>(16);
-            List<Component> components = componentService.selectComponentList(new Component());
-            //记录已经插入的病害
-            List<Disease> diseaseList = diseaseMapper.selectDiseaseList(new Disease());
-            for (Component component : components) {
-                BiObject biObject = component.getBiObject();
-                String root = "";
-                if (biObject != null && StringUtils.isNotEmpty(biObject.getAncestors())) {
-                    String[] split = biObject.getAncestors().split(",");
-                    root = split[1];
-                }
-                map.put(component.getName() + root, component.getId());
-            }
-            HashMap<Long, Disease> localIdMap = new HashMap<>(16);
-            for (Disease disease : diseaseList) {
-                localIdMap.put(disease.getLocalId(), disease);
-            }
-            StringJoiner joiner = new StringJoiner(",");
-            // 删除对应的病害文件 类型为1或者2都先删除
-            for (Disease disease : diseases) {
-                int type = disease.getCommitType();
-                boolean isTypeValid = (type == 1 || type == 2);
-                if (isTypeValid && localIdMap.containsKey(disease.getLocalId())) {
-                    Disease oldDisease = localIdMap.get(disease.getLocalId());
-                    joiner.add(String.valueOf(oldDisease.getId()));
-                    StringJoiner attachmentJoiner = new StringJoiner(",");
-
-                    List<Attachment> attachmentBySubjectId = attachmentService.getAttachmentBySubjectId(oldDisease.getId()).stream().filter(e -> e.getName().startsWith("disease")).toList();
-                    for (Attachment attachment : attachmentBySubjectId) {
-                        attachmentJoiner.add(String.valueOf(attachment.getId()));
-                    }
-                    attachmentService.deleteAttachmentByIds(attachmentJoiner.toString());
-                }
-            }
-            //批量删除病害跟详细病害信息
-            diseaseService.deleteDiseaseByDiseaseIds(joiner.toString());
-            for (Disease disease : diseases) {
-                if (disease.getCommitType() == 0) {
-                    continue;
-                }
-                //类型为1的需要再插入
-                if (disease.getCommitType() == 1) {
-                    // 通过构件名称查找构件ID
-                    Component component = disease.getComponent();
-                    component.setCreateBy(ShiroUtils.getLoginName());
-                    component.setUpdateBy(ShiroUtils.getLoginName());
-                    String root = component.getBiObject().getAncestors().split(",")[1];
-                    if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !map.containsKey(component.getName() + root)) {
-                        componentService.insertComponent(component);
-                        map.put(component.getName() + root, component.getId());
-                    }
-                    if (disease.getComponent() != null && disease.getComponentId() != null) {
-                        componentService.updateComponent(component);
-                    }
-                    // 病害类型id为空则默认为其他的病害类型
-                    if (disease.getDiseaseTypeId() == null || disease.getDiseaseType().getId() == null || disease.getDiseaseType().getName().equals("其他")) {
-                        disease.setDiseaseTypeId(238L);
-                    }
-                    disease.setComponentId(map.get(component.getName() + root));
-                    disease.setCreateBy(ShiroUtils.getLoginName());
-                    disease.setUpdateBy(ShiroUtils.getLoginName());
-                    disease.setUpdateTime(new Date());
-                    // 插入病害记录
-                    successCount += diseaseMapper.insertDisease(disease);
-                    // 添加病害详情
-                    List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
-                    diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
-                    diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
-                }
-            }
-
-            return AjaxResult.success("批量保存病害成功", successCount);
-        } catch (Exception e) {
-            return AjaxResult.error("批量保存病害失败：" + e.getMessage());
-        }
     }
 
     /**
@@ -390,305 +299,10 @@ public class ApiController {
     @ResponseBody
     @Transactional
     public AjaxResult uploadBridgeData(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            return AjaxResult.error("上传文件为空");
-        }
-
-        // 检查文件是否为ZIP格式
-        if (!file.getOriginalFilename().endsWith(".zip")) {
-            return AjaxResult.error("请上传ZIP格式的文件");
-        }
-
-        Path tempDir = null;
         try {
-            // 创建临时目录存放解压文件
-            tempDir = Files.createTempDirectory("bridge_upload_");
-            Map<String, Path> extractedFiles = new HashMap<>();
-            Long buildingId = null;
-
-            // 解压文件
-
-            try (ZipInputStream zipIn = new ZipInputStream(file.getInputStream())) {
-                ZipEntry entry;
-                while ((entry = zipIn.getNextEntry()) != null) {
-                    if (!entry.isDirectory()) {
-                        // 获取文件路径
-                        String filePath = entry.getName().replace('\\', '/');
-
-                        // 提取buildingId
-                        if (buildingId == null) {
-                            String[] pathParts = filePath.split("/");
-                            if (pathParts.length > 0) {
-                                try {
-                                    buildingId = Long.parseLong(pathParts[0]);
-                                } catch (NumberFormatException e) {
-                                    // 忽略非数字目录名
-                                }
-                            }
-                        }
-
-                        // 创建文件并保存
-                        Path outputPath = tempDir.resolve(filePath);
-                        Files.createDirectories(outputPath.getParent());
-                        Files.copy(zipIn, outputPath, StandardCopyOption.REPLACE_EXISTING);
-                        extractedFiles.put(filePath, outputPath);
-                    }
-                }
-            }
-
-            // 验证buildingId是否有效
-            if (buildingId == null) {
-                return AjaxResult.error("压缩包结构无效：未找到有效的buildingId目录");
-            }
-
-            Building building = buildingService.selectBuildingById(buildingId);
-            if (building == null) {
-                return AjaxResult.error("未找到ID为 " + buildingId + " 的建筑物");
-            }
-
-            // 处理桥梁结构数据
-            String objectJsonPath = buildingId + "/object.json";
-            if (extractedFiles.containsKey(objectJsonPath)) {
-                String objectJson = new String(Files.readAllBytes(extractedFiles.get(objectJsonPath)));
-                JSONObject jsonObject = JSONObject.parseObject(objectJson);
-                BiObject rootObject = JSONObject.parseObject(objectJson, BiObject.class);
-
-                // 确保rootObject的ID与数据库中的一致
-                if (!rootObject.getId().equals(building.getRootObjectId())) {
-                    return AjaxResult.error("building与桥梁数据不对应");
-                }
-                biObjectService.updateBiObjectTreeRecursively(rootObject);
-            }
-
-            // 处理病害数据 - 根据当前年份获取对应的JSON文件
-            String diseaseDir = buildingId + "/disease/";
-            Calendar calendar = Calendar.getInstance();
-            int currentYear = calendar.get(Calendar.YEAR);
-            String yearJsonFileName = currentYear + ".json";
-
-            Optional<String> jsonFilePathOpt = extractedFiles.keySet().stream()
-                    .filter(path -> path.startsWith(diseaseDir) && path.endsWith(yearJsonFileName))
-                    .findFirst();
-
-            // 如果没有找到当前年份的文件，则直接返回
-            if (!jsonFilePathOpt.isPresent()) {
-                return AjaxResult.success("桥梁数据上传成功");
-            }
-
-            if (jsonFilePathOpt.isPresent()) {
-                String jsonFilePath = jsonFilePathOpt.get();
-                String diseaseJson = new String(Files.readAllBytes(extractedFiles.get(jsonFilePath)));
-                // 检查JSON格式，处理可能的包装对象
-                JSONObject jsonObject;
-                List<Disease> diseases;
-                try {
-                    jsonObject = JSONObject.parseObject(diseaseJson);
-                    // 检查是否有diseases数组字段
-                    if (jsonObject.containsKey("diseases")) {
-                        diseases = jsonObject.getJSONArray("diseases").toJavaList(Disease.class);
-                    } else {
-                        // 直接尝试解析为数组
-                        diseases = JSONObject.parseArray(diseaseJson, Disease.class);
-                    }
-                } catch (Exception e) {
-                    return AjaxResult.error("病害数据JSON格式错误: " + e.getMessage());
-                }
-
-                for (Disease disease : diseases) {
-                    if (!disease.getBuildingId().equals(building.getId())) {
-                        return AjaxResult.error("building与病害数据不对应");
-                    }
-                }
-                // 批量保存病害数据
-                batchSaveDiseases(diseases);
-                // 处理病害图片
-                for (Disease disease : diseases) {
-                    // 只有类型为1的才需要新增图片文件
-                    if (disease.getCommitType() == 1) {
-                        List<String> images = disease.getImages();
-                        List<String> ADImages = disease.getADImgs();
-                        List<MultipartFile> multipartImagesFiles = new ArrayList<>();
-                        List<MultipartFile> multipartADImagesFiles = new ArrayList<>();
-                        if (images != null && !images.isEmpty()) {
-                            for (String imagePath : images) {
-                                if (imagePath != null && !imagePath.isEmpty()) {
-                                    // 检查路径是否已经包含buildingId
-                                    String fullPath = imagePath;
-                                    // 尝试查找文件
-                                    if (extractedFiles.containsKey(fullPath)) {
-                                        // 处理图片附件
-                                        File imageFile = extractedFiles.get(fullPath).toFile();
-                                        byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                                        // 创建MockMultipartFile
-                                        MockMultipartFile mockFile = new MockMultipartFile(
-                                                "file",
-                                                imageFile.getName(),
-                                                Files.probeContentType(imageFile.toPath()),
-                                                fileContent);
-                                        multipartImagesFiles.add(mockFile);
-                                    }
-                                }
-                            }
-                            // 调用handleDiseaseAttachment方法
-                            if (!multipartImagesFiles.isEmpty()) {
-                                diseaseService.handleDiseaseAttachment(
-                                        multipartImagesFiles.toArray(new MultipartFile[0]),
-                                        disease.getId(),
-                                        1
-                                );
-                            }
-                        }
-                        if (ADImages != null && !ADImages.isEmpty()) {
-                            for (String imagePath : ADImages) {
-                                if (imagePath != null && !imagePath.isEmpty()) {
-                                    // 检查路径是否已经包含buildingId
-                                    String fullPath = imagePath;
-                                    // 尝试查找文件
-                                    if (extractedFiles.containsKey(fullPath)) {
-                                        // 处理图片附件
-                                        File imageFile = extractedFiles.get(fullPath).toFile();
-                                        byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                                        // 创建MockMultipartFile
-                                        MockMultipartFile mockFile = new MockMultipartFile(
-                                                "file",
-                                                imageFile.getName(),
-                                                Files.probeContentType(imageFile.toPath()),
-                                                fileContent);
-                                        multipartADImagesFiles.add(mockFile);
-                                    }
-                                }
-                            }
-                            // 调用handleDiseaseAttachment方法
-                            if (!multipartADImagesFiles.isEmpty()) {
-                                diseaseService.handleDiseaseAttachment(
-                                        multipartADImagesFiles.toArray(new MultipartFile[0]),
-                                        disease.getId(),
-                                        7
-                                );
-                            }
-                        }
-                    }
-                }
-                // 处理桥梁图片数据
-
-                String frontPhotoJsonPath = buildingId + "/frontPhoto.json";
-                if (extractedFiles.containsKey(frontPhotoJsonPath)) {
-                    String frontPhotoJson = new String(Files.readAllBytes(extractedFiles.get(frontPhotoJsonPath)));
-                    JSONObject jsonObject2 = JSONObject.parseObject(frontPhotoJson);
-
-                    // 获取现有的桥梁附件
-                    List<Attachment> existAttachments = attachmentService.getAttachmentBySubjectId(buildingId)
-                            .stream()
-                            .filter(e -> e.getName().matches("^\\d+_(newfront|newside)_.*$"))
-                            .toList();
-
-                    // 检查是否需要删除现有图片
-                    StringJoiner attachmentJoiner = new StringJoiner(",");
-
-                    // 处理前视图左侧图片
-                    List<String> frontLeftPaths = jsonObject2.getJSONArray("frontLeft").toJavaList(String.class);
-                    if (!frontLeftPaths.isEmpty()) {
-                        // 如果有新的frontLeft图片，删除现有的0_newfront
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("0_newfront"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 处理前视图右侧图片
-                    List<String> frontRightPaths = jsonObject2.getJSONArray("frontRight").toJavaList(String.class);
-                    if (!frontRightPaths.isEmpty()) {
-                        // 如果有新的frontRight图片，删除现有的1_newfront
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("1_newfront"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 处理侧视图左侧图片
-                    List<String> sideLeftPaths = jsonObject2.getJSONArray("sideLeft").toJavaList(String.class);
-                    if (!sideLeftPaths.isEmpty()) {
-                        // 如果有新的sideLeft图片，删除现有的0_newside
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("0_newside"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 处理侧视图右侧图片
-                    List<String> sideRightPaths = jsonObject2.getJSONArray("sideRight").toJavaList(String.class);
-                    if (!sideRightPaths.isEmpty()) {
-                        // 如果有新的sideRight图片，删除现有的1_newside
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("1_newside"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 如果有附件需要删除，执行删除操作
-                    String attachmentIds = attachmentJoiner.toString();
-                    if (!attachmentIds.isEmpty()) {
-                        attachmentService.deleteAttachmentByIds(attachmentIds);
-                    }
-
-                    // 处理前视图图片
-                    List<MultipartFile> frontFiles = new ArrayList<>();
-                    List<String> frontPaths = new ArrayList<>();
-                    frontPaths.addAll(frontLeftPaths);
-                    frontPaths.addAll(frontRightPaths);
-
-                    for (String imagePath : frontPaths) {
-                        if (extractedFiles.containsKey(imagePath)) {
-                            File imageFile = extractedFiles.get(imagePath).toFile();
-                            byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                            MockMultipartFile mockFile = new MockMultipartFile(
-                                    "front",
-                                    imageFile.getName(),
-                                    Files.probeContentType(imageFile.toPath()),
-                                    fileContent);
-                            frontFiles.add(mockFile);
-                        }
-                    }
-
-                    // 处理侧视图图片
-                    List<MultipartFile> sideFiles = new ArrayList<>();
-                    List<String> sidePaths = new ArrayList<>();
-                    sidePaths.addAll(sideLeftPaths);
-                    sidePaths.addAll(sideRightPaths);
-
-                    for (String imagePath : sidePaths) {
-                        if (extractedFiles.containsKey(imagePath)) {
-                            File imageFile = extractedFiles.get(imagePath).toFile();
-                            byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                            MockMultipartFile mockFile = new MockMultipartFile(
-                                    "side",
-                                    imageFile.getName(),
-                                    Files.probeContentType(imageFile.toPath()),
-                                    fileContent);
-                            sideFiles.add(mockFile);
-                        }
-                    }
-
-                    // 调用上传桥梁图片方法
-                    if (!frontFiles.isEmpty() || !sideFiles.isEmpty()) {
-                        MultipartFile[] frontArray = frontFiles.isEmpty() ? new MultipartFile[0] : frontFiles.toArray(new MultipartFile[0]);
-                        MultipartFile[] sideArray = sideFiles.isEmpty() ? new MultipartFile[0] : sideFiles.toArray(new MultipartFile[0]);
-                        uploadBridgeDataImage(buildingId, frontArray, sideArray);
-                    }
-                }
-            }
-
-            return AjaxResult.success("桥梁数据上传成功");
+            return apiService.uploadBridgeData(file);
         } catch (Exception e) {
             return AjaxResult.error("处理上传文件失败：" + e.getMessage());
-        } finally {
-            // 清理临时文件
-            if (tempDir != null) {
-                try {
-                    Files.walk(tempDir)
-                            .sorted(Comparator.reverseOrder())
-                            .map(Path::toFile)
-                            .forEach(File::delete);
-                } catch (IOException e) {
-                    // 忽略清理错误
-                }
-            }
         }
     }
 
@@ -696,10 +310,10 @@ public class ApiController {
     @PostMapping("/upload/bridgeDataImage")
     @ResponseBody
     public AjaxResult uploadBridgeDataImage(@RequestParam("id") long id, @RequestParam("front") MultipartFile frontFile[], @RequestParam("side") MultipartFile sideFile[]) {
-        for (int i = 0; i < frontFile.length && i < 2; i++) {
+        for (int i = 0; i < frontFile.length; i++) {
             fileMapController.uploadAttachment(id, frontFile[i], "newfront", i);
         }
-        for (int i = 0; i < sideFile.length && i < 2; i++) {
+        for (int i = 0; i < sideFile.length; i++) {
             fileMapController.uploadAttachment(id, sideFile[i], "newside", i);
         }
         return AjaxResult.success("上传成功");
@@ -727,9 +341,8 @@ public class ApiController {
 
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
-    @Transactional
-    public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file) {
-        diseaseService.readDiseaseExcel(file);
+    public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
+        diseaseService.readDiseaseExcel(file, projectId);
 
         return AjaxResult.success("上传成功");
     }
@@ -741,5 +354,57 @@ public class ApiController {
 
         return AjaxResult.success("上传成功");
     }
+
+    @PostMapping("/upload/diseaseZip")
+    @ResponseBody
+    public AjaxResult uploadDiseaseZip(@RequestParam("file") MultipartFile file) {
+        diseaseService.readDiseaseZip(file);
+
+        return AjaxResult.success("上传成功");
+    }
+
+    /**
+     * 根据用户ID生成用户完整数据的压缩包
+     * 压缩包结构:
+     * - UD日期-用户名/
+     * - building/
+     * - 建筑物ID/
+     * - object.json (getObjectTree方法结果)
+     * - property.json (getProperty方法结果)
+     * - disease/
+     * - 年份.json (getDisease方法结果)
+     * - images/ (存放从Minio获取的图片)
+     * - project/
+     * - project.json (getProject方法结果)
+     * - 项目ID/
+     * - task.json (getTask方法结果)
+     */
+    @GetMapping("/user/dataPackage")
+    @ResponseBody
+    public AjaxResult getUserDataPackage() {
+        Long userId = ShiroUtils.getUserId();
+        Package query = new Package();
+        query.setUserId(userId);
+        List<Package> packages = packageMapper.selectPackageList(query);
+        if (packages.isEmpty()) {
+            return AjaxResult.error("该用户暂时没有用户数据包");
+        }
+        FileMap fileMap = fileMapServiceImpl.selectFileMapById(packages.get(0).getMinioId());
+        if (fileMap == null || fileMap.getNewName() == null || fileMap.getOldName() == null) {
+            return AjaxResult.error("数据不完整");
+        }
+        String version = fileMap.getOldName();
+        String prefix = fileMap.getNewName().substring(0, 2);
+        String downloadUrl = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" +
+                prefix + "/" + fileMap.getNewName();
+        return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
+    }
+
+    @GetMapping("/user/dataPackageTest")
+    @ResponseBody
+    public AjaxResult getUserDataPackageTest() {
+        return userPackageTask.generateUserDataPackage();
+    }
+
 
 }

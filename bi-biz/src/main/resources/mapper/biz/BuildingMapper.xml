@@ -71,7 +71,7 @@
         FROM
         bi_building b
         LEFT JOIN
-        bi_task bt ON b.id = bt.building_id AND bt.project_id = #{projectId}
+        bi_task bt ON b.id = bt.building_id AND bt.project_id = #{projectId} AND bt.del_flag = '0'
         <where>
             b.del_flag = '0'
             and b.is_leaf = 1

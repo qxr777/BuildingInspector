@@ -83,6 +83,14 @@ public interface SysUserMapper
     public int deleteUserByIds(Long[] ids);
 
     /**
+     * 批量查询用户信息
+     *
+     * @param ids 需要查询的数据ID
+     * @return 结果
+     */
+    public List<SysUser> selectUserByIds(Long[] ids);
+
+    /**
      * 修改用户信息
      * 
      * @param user 用户信息

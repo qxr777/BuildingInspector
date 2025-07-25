@@ -126,7 +126,7 @@ public class SysLoginController extends BaseController
         {
             return AjaxResult.error("用户不存在/密码错误!");
         }
-        String token = JwtUtils.createToken(username, user.getPassword());
+        String token = JwtUtils.createToken(username, user.getPassword(), 30 * 60 * 1000 * 2);
         return AjaxResult.success("登录成功,请妥善保管您的token信息").put("token", token).put("userId", user.getUserId()).put("userName", user.getUserName()).put("userDept",sysDept.getDeptName());
     }
 

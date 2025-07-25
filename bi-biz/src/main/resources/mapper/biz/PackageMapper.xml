@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.PackageMapper">
+
+    <resultMap type="edu.whut.cs.bi.biz.domain.Package" id="PackageResult">
+        <id     property="id"           column="id"           />
+        <result property="userId"       column="user_id"      />
+        <result property="minioId"      column="minio_id"     />
+        <result property="packageTime"  column="package_time" />
+        <result property="updateTime"   column="update_time"  />
+        <result property="packageSize"  column="package_size" />
+        <result property="fileName"     column="oldName"     />
+        <result property="fileCreateBy" column="createBy"    />
+    </resultMap>
+
+    <sql id="selectPackageVo">
+        select p.id, p.user_id, p.minio_id, p.package_size, p.package_time, p.update_time,
+               f.oldName, f.createBy
+        from bi_package p
+                 left join bi_file_map f on p.minio_id = f.id
+    </sql>
+
+    <select id="selectPackageById" parameterType="Long" resultMap="PackageResult">
+        <include refid="selectPackageVo"/>
+        where p.id = #{id}
+    </select>
+
+    <select id="selectPackageListByUserId" parameterType="Long" resultMap="PackageResult">
+        <include refid="selectPackageVo"/>
+        where p.user_id = #{userId}
+    </select>
+
+    <select id="selectPackageList" parameterType="edu.whut.cs.bi.biz.domain.Package" resultMap="PackageResult">
+        <include refid="selectPackageVo"/>
+        <where>
+            <if test="id != null">
+                AND p.id = #{id}
+            </if>
+            <if test="userId != null">
+                AND p.user_id = #{userId}
+            </if>
+            <if test="minioId != null">
+                AND p.minio_id = #{minioId}
+            </if>
+            <if test="packageSize != null">
+                AND p.package_size = #{packageSize}
+            </if>
+            <if test="params.beginPackageTime != null and params.beginPackageTime != '' and params.endPackageTime != null and params.endPackageTime != ''">
+                and p.package_time between #{params.beginPackageTime} and #{params.endPackageTime}
+            </if>
+            <if test="params.beginUpdateTime != null and params.beginUpdateTime != '' and params.endUpdateTime != null and params.endUpdateTime != ''">
+                and p.update_time between #{params.beginUpdateTime} and #{params.endUpdateTime}
+            </if>
+            <if test="fileName != null and fileName != ''">
+                AND f.oldName like concat('%', #{fileName}, '%')
+            </if>
+            <if test="fileCreateBy != null and fileCreateBy != ''">
+                AND f.createBy like concat('%', #{fileCreateBy}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="selectPackagesWithUpdateTimeGreaterThanPackageTime" resultMap="PackageResult">
+        <include refid="selectPackageVo"/>
+        where p.update_time > p.package_time
+        order by p.update_time desc
+    </select>
+
+    <insert id="insertPackage" parameterType="edu.whut.cs.bi.biz.domain.Package" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_package
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="minioId != null">minio_id,</if>
+            <if test="packageTime != null">package_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="packageSize != null">package_size,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="minioId != null">#{minioId},</if>
+            <if test="packageTime != null">#{packageTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="packageSize != null">#{packageSize},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePackage" parameterType="edu.whut.cs.bi.biz.domain.Package">
+        update bi_package
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="packageTime != null">package_time = #{packageTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="packageSize != null">package_size = #{packageSize},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePackageById" parameterType="Long">
+        delete from bi_package where id = #{id}
+    </delete>
+
+    <delete id="deletePackageByIds" parameterType="Long[]">
+        delete from bi_package where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <insert id="batchInsertPackage" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_package (user_id, minio_id, package_size, package_time, update_time)
+        values
+        <foreach collection="list" item="item" index="index" separator=",">
+            (#{item.userId}, #{item.minioId}, #{item.packageSize}, #{item.packageTime}, #{item.updateTime})
+        </foreach>
+    </insert>
+
+    <update id="batchUpdatePackage" parameterType="java.util.List">
+        UPDATE bi_package
+        <set>
+            user_id = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.userId}
+            </foreach>
+            END,
+
+            minio_id = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.minioId}
+            </foreach>
+            END,
+
+            package_time = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.packageTime}
+            </foreach>
+            END,
+
+            update_time = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.updateTime}
+            </foreach>
+            END,
+
+            package_size = CASE
+            <foreach collection="list" item="item">
+                WHEN id = #{item.id} THEN #{item.packageSize}
+            </foreach>
+            END
+        </set>
+
+        WHERE id IN
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="batchUpdateUpdateTimeNow" parameterType="java.util.List">
+        update bi_package
+        set update_time = NOW()
+        where user_id in
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+</mapper>

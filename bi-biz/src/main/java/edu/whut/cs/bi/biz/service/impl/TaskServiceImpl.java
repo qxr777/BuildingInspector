@@ -11,6 +11,7 @@ import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysUserMapper;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.*;
 
 import edu.whut.cs.bi.biz.service.*;
@@ -53,8 +54,15 @@ public class TaskServiceImpl implements ITaskService {
 
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
+
     @Autowired
     private ProjectMapper projectMapper;
+
+    @Resource
+    private ProjectUserMapper projectUserMapper;
+
+    @Resource
+    private PackageMapper packageMapper;
 
     /**
      * 查询任务
@@ -79,7 +87,7 @@ public class TaskServiceImpl implements ITaskService {
      */
     @Override
     public List<Task> selectTaskList(Task task) {
-        String select =  task.getSelect();
+        String select = task.getSelect();
 
         Long currentUserId = ShiroUtils.getUserId();
         List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
@@ -254,8 +262,11 @@ public class TaskServiceImpl implements ITaskService {
     public int insertTask(Task task) {
         task.setCreateTime(DateUtils.getNowDate());
         int result = taskMapper.insertTask(task);
-
-        projectMapper.updateProjectTime(task.getBuildingId());
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(task.getProjectId(), ProjectUserRoleEnum.INSPECTOR.getValue());
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+        }
+        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return result;
     }
@@ -271,7 +282,7 @@ public class TaskServiceImpl implements ITaskService {
     public int updateTask(Task task) {
         task.setUpdateTime(DateUtils.getNowDate());
 
-        projectMapper.updateProjectTime(task.getBuildingId());
+        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return taskMapper.updateTask(task);
     }
@@ -287,7 +298,7 @@ public class TaskServiceImpl implements ITaskService {
     public int deleteTaskByIds(String ids) {
         List<Task> taskList = taskMapper.selectTaskByIds(ids);
         for (Task task : taskList) {
-            projectMapper.updateProjectTime(task.getBuildingId());
+            projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
         }
 
         return taskMapper.deleteTaskByIds(Convert.toStrArray(ids));
@@ -303,7 +314,7 @@ public class TaskServiceImpl implements ITaskService {
     @Transactional
     public int deleteTaskById(Long id) {
         Task task = taskMapper.selectTaskById(id);
-        projectMapper.updateProjectTime(task.getBuildingId());
+        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
         return taskMapper.deleteTaskById(id);
     }
@@ -346,6 +357,10 @@ public class TaskServiceImpl implements ITaskService {
         Project project = projectMapper.selectProjectById(projectId);
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+        }
 
         return taskMapper.deleteTaskByProjectIdAndBuildingId(projectId, buildingId);
     }
@@ -366,8 +381,22 @@ public class TaskServiceImpl implements ITaskService {
         Project project = projectMapper.selectProjectById(projectId);
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+        }
 
         return taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
+    }
+
+    @Override
+    public int deleteTaskByBuildingId(Long buildingId) {
+        return taskMapper.deleteTaskByBuildingId(buildingId);
+    }
+
+    @Override
+    public int deleteTaskByProjectId(Long projectId) {
+        return taskMapper.deleteTaskByProjectId(projectId);
     }
 
 }

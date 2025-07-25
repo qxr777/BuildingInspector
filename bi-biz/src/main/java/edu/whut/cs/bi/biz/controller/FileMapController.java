@@ -3,23 +3,24 @@ package edu.whut.cs.bi.biz.controller;
 import java.io.File;
 import java.util.*;
 import java.io.IOException;
+import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 
+import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.domain.Component;
+import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.enums.BusinessType;
@@ -33,6 +34,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 
 import java.net.URLEncoder;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * 文件管理Controller
@@ -51,8 +53,13 @@ public class FileMapController extends BaseController {
     @Autowired
     private AttachmentService attachmentService;
 
+    @Resource
+    private AttachmentMapper attachmentMapper;
+
     @Autowired
     private MinioConfig minioConfig;
+    @Autowired
+    private FileMapServiceImpl fileMapServiceImpl;
 
     @RequiresPermissions("biz:file:view")
     @GetMapping()
@@ -271,10 +278,9 @@ public class FileMapController extends BaseController {
     public void downloadByNewName(@PathVariable("newName") String newName, HttpServletResponse response)
             throws IOException {
         ServletOutputStream outputStream = null;
-        try {
-            // 获取文件数据
-            byte[] fileBytes = fileMapService.handleFileDownloadByNewName(newName);
+        boolean downloadStarted = false;
 
+        try {
             // 获取文件信息
             FileMap fileMap = fileMapService.selectFileMapByNewName(newName);
             if (fileMap == null) {
@@ -286,13 +292,24 @@ public class FileMapController extends BaseController {
             response.setHeader("Content-Disposition",
                     "attachment;filename=" + URLEncoder.encode(fileMap.getOldName(), "UTF-8"));
 
-            // 写入响应
+            // 获取输出流
             outputStream = response.getOutputStream();
-            outputStream.write(fileBytes);
+            downloadStarted = true;
+
+            // 流式传输文件
+            fileMapServiceImpl.streamFileDownloadByNewName(newName, outputStream);
             outputStream.flush();
+
         } catch (Exception e) {
-            response.setContentType("text/html;charset=utf-8");
-            response.getWriter().write("文件下载失败：" + e.getMessage());
+            // 如果还没有开始下载，返回错误信息
+            if (!downloadStarted) {
+                response.setContentType("application/json;charset=utf-8");
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                String errorMsg = "{\"error\":\"文件下载失败：" + e.getMessage() + "\"}";
+                response.getOutputStream().write(errorMsg.getBytes("UTF-8"));
+            } else {
+                System.err.println("文件下载过程中发生错误: " + e.getMessage());
+            }
         } finally {
             // 确保输出流关闭
             if (outputStream != null) {
@@ -300,6 +317,7 @@ public class FileMapController extends BaseController {
                     outputStream.close();
                 } catch (IOException e) {
                     // 记录关闭流失败但不抛出异常
+                    System.err.println("关闭输出流失败: " + e.getMessage());
                 }
             }
         }
@@ -444,14 +462,14 @@ public class FileMapController extends BaseController {
         List<FileMap> fileMapList = bySubjectId.stream()
                 .filter(e->{
                     String[] s = e.getName().split("_");
-                    if(s.length>=2&&(s[1].equals(type1)||s[1].equals(type2))){
+                    if(s[1].equals(type1)||s[1].equals(type2)){
                         return true;
                     }
                     return false;
                 })
                 .map(e -> fileMapService.selectFileMapById(e.getMinioId())) // 查询 FileMap
                 .filter(Objects::nonNull) // 只保留非 null 的 FileMap
-                .peek(e -> e.setNewName(minioConfig.getEndpoint()+ "/"+minioConfig.getBucketName()+"/"+e.getNewName().substring(0, 2) + "/" + e.getNewName())) // 修改 newName
+                .peek(e -> e.setNewName(minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+e.getNewName().substring(0, 2) + "/" + e.getNewName())) // 修改 newName
                 .toList();
 
         for(Attachment attachment: bySubjectId){
@@ -461,8 +479,62 @@ public class FileMapController extends BaseController {
                 }
             }
         }
-        System.out.println(bySubjectId.size());
         return fileMapList;
+    }
+
+    /**
+     * 查询biObject当前图片
+     */
+    @RequiresPermissions("biz:building:list")
+    @PostMapping("/listBiObjectPhoto")
+    @ResponseBody
+    public TableDataInfo listBiObjectPhoto(@RequestParam("biObjectId") Long biObjectId) {
+        startPage();
+        List<FileMap> list = fileMapService.selectBiObjectPhotoList(biObjectId);
+        return getDataTable(list);
+    }
+
+    /**
+     * 新增biObject图片
+     */
+    @GetMapping("/addBiObjectPhoto")
+    public String addBiObjectPhoto(Long biObjectId, ModelMap mma) {
+        if (biObjectId != null) {
+            mma.put("biObjectId", biObjectId);
+        }
+        return "biz/building/photo/add";
+    }
+
+    /**
+     * 新增保存biObject图片
+     */
+    @RequiresPermissions("biz:object:add")
+    @Log(title = "biObject图片", businessType = BusinessType.INSERT)
+    @PostMapping("/addBiObjectPhoto")
+    @ResponseBody
+    public AjaxResult addSaveBiObjectPhoto(Long biObjectId, MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return error("传入参数错误，请选择图片");
+        }
+        fileMapService.handleBiObjectAttachment(files, biObjectId, 8);
+
+        return toAjax(true);
+    }
+
+    @PostMapping("/removeBiObjectFile")
+    @ResponseBody
+    @Transactional
+    public AjaxResult removeBiObjectFile(@RequestParam("ids") List<Long> ids) {
+        List<Attachment> attachment = attachmentService.selectAttachmentByMinio(ids);
+        if (attachment == null || attachment.size() == 0) {
+            return error("未找到对应的图片记录");
+        }
+        String[] attachmentIdsString = attachment.stream().map(e -> e.getMinioId().toString()).toArray(String[]::new);
+        attachmentMapper.deleteByIds(attachmentIdsString);
+
+        fileMapService.deleteFileMapByIds(ids.stream().map(e -> e.toString()).collect(Collectors.joining(",")));
+
+        return toAjax(true);
     }
 
 }
