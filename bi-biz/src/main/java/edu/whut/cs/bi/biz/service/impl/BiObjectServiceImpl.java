@@ -426,6 +426,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
             node.setUpdateBy(updateBy);
             node.setUpdateTime(updateTime);
             List<String> photos = node.getPhoto();
+            List<String> informations = node.getInformation();
             List<MultipartFile> multipartImagesFiles = new ArrayList<>();
             // 处理结构图片
             if(photos != null && !photos.isEmpty()) {
@@ -456,7 +457,8 @@ public class BiObjectServiceImpl implements IBiObjectService {
                         fileMapServiceImpl.handleBiObjectAttachment(
                                 multipartImagesFiles.toArray(new MultipartFile[0]),
                                 node.getId(),
-                                8
+                                8,
+                                informations
                         );
                     }
                 }

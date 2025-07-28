@@ -516,7 +516,7 @@ public class FileMapController extends BaseController {
         if (files == null || files.length == 0) {
             return error("传入参数错误，请选择图片");
         }
-        fileMapService.handleBiObjectAttachment(files, biObjectId, 8);
+        fileMapService.handleBiObjectAttachment(files, biObjectId, 8,null);
 
         return toAjax(true);
     }

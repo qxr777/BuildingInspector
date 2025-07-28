@@ -469,6 +469,7 @@ public class FileMapServiceImpl implements IFileMapService {
             if(fileMap == null) continue;
             String s = fileMap.getNewName();
             String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
+            fileMap.setAttachmentRemark(attachment.getRemark());
             fileMap.setUrl(url);
             map.put("fileMap", fileMap);
             // 根据文件后缀判断是否为图片
@@ -517,20 +518,27 @@ public class FileMapServiceImpl implements IFileMapService {
                 extension.endsWith(".gif") ||
                 extension.endsWith(".bmp");
     }
-
     @Override
-    public void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type) {
-        if(files == null)
+    public void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type, List<String> informations) {
+        if(files == null){
             return;
-        Arrays.stream(files).forEach(e->{
-            FileMap fileMap = handleFileUpload(e);
+        }
+
+        for (int i = 0; i < files.length; i++) {
+            MultipartFile file = files[i];
+            String information = (informations != null && i < informations.size()) ? informations.get(i) : null;
+            
+            FileMap fileMap = handleFileUpload(file);
             Attachment attachment = new Attachment();
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setName("biObject_"+fileMap.getOldName());
             attachment.setSubjectId(biObjectId);
             attachment.setType(type);
+            if (information != null) {
+                attachment.setRemark(information);
+            }
             attachmentService.insertAttachment(attachment);
-        });
+        }
     }
 
     /**
