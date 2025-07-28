@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -24,11 +25,9 @@ import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.HashMap;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigInteger;
 import java.io.FileInputStream;
@@ -41,6 +40,8 @@ import java.io.FileInputStream;
 public class ReportController extends BaseController {
 
   private int tableCounter = 1; // 添加表格计数器
+  // 新增一个Map存储病害与图片序号的映射关系
+  Map<Long, List<String>> diseaseImageRefs = new HashMap<>();  // key: 病害ID, value: 图片序号列表
 
   @Autowired
   private IPropertyService propertyService;
@@ -69,6 +70,9 @@ public class ReportController extends BaseController {
   @Autowired
   BiObjectMapper biObjectMapper;
 
+  @Autowired
+  private IReportService reportService;
+
   @GetMapping("/export/{id}")
   public void exportTaskReport(@PathVariable("id") Long taskId, HttpServletResponse response) {
     try {
@@ -78,7 +82,7 @@ public class ReportController extends BaseController {
       Disease disease = new Disease();
       disease.setBuildingId(task.getBuildingId());
       disease.setProjectId(task.getProjectId());
-      List<Disease> properties = diseaseService.selectDiseaseList(disease);
+      List<Disease> properties = diseaseService.selectDiseaseListForApi(disease);
       List<BiObject> biObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
       // System.out.println(building.getRootObjectId());
       // biObjects.forEach(e -> {
@@ -90,8 +94,11 @@ public class ReportController extends BaseController {
       // 3. 创建Word文档
       XWPFDocument doc = new XWPFDocument();
 
+      Map<Long, List<Disease>> level3DiseaseMap = new LinkedHashMap<>();
+      collectDiseases(root, biObjects, properties, 1, level3DiseaseMap);
+
       // 4. 递归写入树结构和病害信息
-      writeBiObjectTreeToWord(doc, root, biObjects, properties, "4.1", 1);
+      writeBiObjectTreeToWord(doc, root, biObjects, level3DiseaseMap, "4.1", 1);
       // 5. 导出Word
       response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       response.setHeader("Content-Disposition", "attachment; filename=report.docx");
@@ -103,8 +110,63 @@ public class ReportController extends BaseController {
     }
   }
 
+  private void collectDiseases(BiObject node,
+                               List<BiObject> allNodes,
+                               List<Disease> properties,
+                               int level,
+                               Map<Long, List<Disease>> map) {
+
+    // 找到当前节点所属的 level3 祖先（如自身就是 level3 则返回自身）
+    BiObject level3 = findLevel3Ancestor(node, allNodes);
+
+    // 把当前节点的病害挂到 level3 名下
+    List<Disease> self = properties.stream()
+            .filter(d ->d.getBiObjectId() != null &&  node.getId().equals(d.getBiObjectId()))
+            .collect(Collectors.toList());
+    map.computeIfAbsent(level3.getId(), k -> new ArrayList<>()).addAll(self);
+
+    // 继续向下收集
+    List<BiObject> children = allNodes.stream()
+            .filter(o -> node.getId().equals(o.getParentId()))
+            .collect(Collectors.toList());
+    for (BiObject child : children) {
+      collectDiseases(child, allNodes, properties, level + 1, map);
+    }
+  }
+  private BiObject findLevel3Ancestor(BiObject node, List<BiObject> allNodes) {
+    BiObject cur = node;
+    int lv = getLevel(cur, allNodes);
+    while (lv > 3 && cur.getParentId() != null) {
+      BiObject finalCur = cur;
+      cur = allNodes.stream()
+              .filter(o -> o.getId().equals(finalCur.getParentId()))
+              .findFirst()
+              .orElse(null);
+      lv--;
+    }
+    return cur;
+  }
+
+  private int getLevel(BiObject node, List<BiObject> allNodes) {
+    int level = 2;
+    BiObject p = node;
+    while (p.getParentId() != null) {
+      BiObject finalP = p;
+      p = allNodes.stream()
+              .filter(o -> o.getId().equals(finalP.getParentId()))
+              .findFirst()
+              .orElse(null);
+      if (p != null) level++;
+      else break;
+    }
+    return level;
+  }
+
   private void writeBiObjectTreeToWord(XWPFDocument doc, BiObject node, List<BiObject> allNodes,
-      List<Disease> properties, String prefix, int level) {
+                                       Map<Long, List<Disease>> properties, String prefix, int level) throws JsonProcessingException {
+    if (level > 3) {
+      return; // 不再写标题，也不再递归写标题
+    }
     // 写目录标题
     XWPFParagraph p = doc.createParagraph();
     // 设置为标题样式
@@ -136,9 +198,26 @@ public class ReportController extends BaseController {
     run.setText(prefix + " " + node.getName());
 
     // 写病害信息
-    List<Disease> nodeDiseases = properties.stream()
-        .filter(d -> d.getBiObjectId() != null && d.getBiObjectId().equals(node.getId()))
-        .collect(Collectors.toList());
+    List<Disease> nodeDiseases = properties.getOrDefault(node.getId(), List.of());
+    String tableNumber = "4." + tableCounter;
+    // 提前收集所有病害的图片序号
+    diseaseImageRefs.clear();  // 清空上一节点的数据
+    int imageSeq = 1;
+    for (Disease d : nodeDiseases) {
+      List<String> imageNumbers = new ArrayList<>();
+      List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+      if (images != null) {
+        for (Map<String, Object> img : images) {
+          if (Boolean.TRUE.equals(img.get("isImage"))) {
+            // 生成图片序号 "图4.1-1" 格式
+            imageNumbers.add("图" + tableNumber + "-" + imageSeq);
+            imageSeq++;
+          }
+        }
+      }
+      diseaseImageRefs.put(d.getId(), imageNumbers);
+    }
+
 
     // 如果存在病害信息，则生成介绍段落和表格
     if (!nodeDiseases.isEmpty()) {
@@ -151,9 +230,12 @@ public class ReportController extends BaseController {
       runBold.setBold(true);
       runBold.setFontSize(12); // 设置字号与后面一致
 
-      // Part 2: 遍历病害，每个条目一行
-      int summarySeqNum = 1;
-      for (Disease d : nodeDiseases) {
+      // Part 2: 生成病害小结
+      String diseaseString = reportService.getDiseaseSummary(nodeDiseases);
+      // 按行分割字符串并创建多个段落
+      String[] lines = diseaseString.split("\\r?\\n"); // 支持Windows(\r\n)和Unix(\n)换行符
+
+      for (String line : lines) {
         // 创建新的段落并设置首行缩进
         XWPFParagraph diseasePara = doc.createParagraph();
         CTPPr diseasePpr = diseasePara.getCTP().getPPr();
@@ -164,13 +246,28 @@ public class ReportController extends BaseController {
         ind.setFirstLine(BigInteger.valueOf(480)); // 设置首行缩进为480（约2个字符）
 
         XWPFRun runItem = diseasePara.createRun();
-        runItem.setText(summarySeqNum++ + "） "
-            + (d.getComponent() != null ? d.getComponent().getName().split("（")[0] : "/") + " "
-            + (d.getType() != null ? d.getType() : "/") + " "
-            + (d.getQuantity() > 0 ? d.getQuantity() : "/") + " 处; "
-            + (d.getDescription() != null ? d.getDescription() : "/") + "; ");
+        runItem.setText(line); // 写入单行内容
         runItem.setFontSize(12); // 设置字号
       }
+//      int summarySeqNum = 1;
+//      for (Disease d : nodeDiseases) {
+//        // 创建新的段落并设置首行缩进
+//        XWPFParagraph diseasePara = doc.createParagraph();
+//        CTPPr diseasePpr = diseasePara.getCTP().getPPr();
+//        if (diseasePpr == null) {
+//          diseasePpr = diseasePara.getCTP().addNewPPr();
+//        }
+//        CTInd ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
+//        ind.setFirstLine(BigInteger.valueOf(480)); // 设置首行缩进为480（约2个字符）
+//
+//        XWPFRun runItem = diseasePara.createRun();
+//        runItem.setText(summarySeqNum++ + "） "
+//            + (d.getComponent() != null ? d.getComponent().getName().split("（")[0] : "/") + " "
+//            + (d.getType() != null ? d.getType() : "/") + " "
+//            + (d.getQuantity() > 0 ? d.getQuantity() : "/") + " 处; "
+//            + (d.getDescription() != null ? d.getDescription() : "/") + "; ");
+//        runItem.setFontSize(12); // 设置字号
+//      }
 
       // Part 3: 表格引用部分
       XWPFParagraph tableRefPara = doc.createParagraph();
@@ -183,7 +280,7 @@ public class ReportController extends BaseController {
       CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
       spacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距（240 * 1.5 = 360）
 
-      String tableNumber = "4." + tableCounter++; // 生成表格编号
+      tableNumber = "4." + tableCounter++; // 生成表格编号
       XWPFRun runTableRef = tableRefPara.createRun();
       runTableRef.setText("具体检测结果见下表 " + tableNumber + ":");
       runTableRef.setFontSize(12); // 设置字号
@@ -304,14 +401,17 @@ public class ReportController extends BaseController {
               cellR.setText("/");
               break;
             case 7:
-              cellR.setText("");
+              // 获取该病害对应的所有图片序号
+              List<String> refs = diseaseImageRefs.getOrDefault(d.getId(), new ArrayList<>());
+              // 将序号列表转为字符串，如 "图4.1-1,图4.1-2"
+              cellR.setText(String.join(",", refs));
               break;
           }
         }
       }
       // 在表格下方插入病害图片（不用表格，每行两个图片+标题，图片和标题均用段落并排）
       if (!nodeDiseases.isEmpty()) {
-        int imageSeq = 1;
+        imageSeq = 1;
         List<byte[]> imageDatas = new ArrayList<>();
         List<String> imageTitles = new ArrayList<>();
         for (Disease d : nodeDiseases) {
@@ -324,8 +424,9 @@ public class ReportController extends BaseController {
                 byte[] imageData = iFileMapService.handleFileDownloadByNewName(newName);
                 if (imageData != null && imageData.length > 0) {
                   imageDatas.add(imageData);
-                  String desc = d.getDescription() != null ? d.getDescription() : "";
-                  imageTitles.add("图" + tableNumber + "-" + imageSeq + "  " + desc);
+                  String componentName = d.getComponent().getName();
+                  String imageDesc = componentName.substring(componentName.lastIndexOf("#")+1) +d.getType();
+                  imageTitles.add("图" + tableNumber + "-" + imageSeq + "  " + imageDesc);
                   imageSeq++;
                 }
               }
@@ -376,6 +477,9 @@ public class ReportController extends BaseController {
               XWPFRun titleRun = titleRow.createRun();
               titleRun.setText(imageTitles.get(i + j));
               titleRun.setFontSize(10);
+              // 标题间 加 tab
+              titleRun.addTab();
+              titleRun.addTab();
               titleRun.addTab();
             }
           }

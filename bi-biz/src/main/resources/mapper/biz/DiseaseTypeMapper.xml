@@ -18,6 +18,7 @@
         <result property="updateTime" column="update_time"/>
         <result property="selectColumn" column="select_column"/>
         <result property="threshold" column="threshold"/>
+        <result property="groupName" column="group_name"/>
     </resultMap>
 
     <resultMap type="TemplateDiseaseTypeVO" id="TemplateDiseaseTypeVOResult" extends="DiseaseTypeResult">
@@ -37,7 +38,8 @@
                update_time,
                remark,
                select_column,
-               threshold
+               threshold,
+               group_name
         from bi_disease_type
     </sql>
 
@@ -60,7 +62,12 @@
                 and date_format(create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
             </if>
         </where>
-        order by code
+        ORDER BY
+            CAST(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 2), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 3), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 4), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 5), '.', -1) AS UNSIGNED)
     </select>
 
     <select id="selectDiseaseTypeAll" resultMap="DiseaseTypeResult">
@@ -71,13 +78,23 @@
     <select id="selectDiseaseTypeById" parameterType="Long" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
         where id = #{id}
-        order by code
+        ORDER BY
+            CAST(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 2), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 3), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 4), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 5), '.', -1) AS UNSIGNED)
     </select>
 
     <select id="selectDiseaseTypeByCode" parameterType="String" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
         where code = #{code}
-        order by code
+        ORDER BY
+            CAST(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 2), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 3), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 4), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 5), '.', -1) AS UNSIGNED)
     </select>
 
     <select id="checkDiseaseTypeUnique" parameterType="String" resultMap="DiseaseTypeResult">
@@ -120,6 +137,7 @@
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="selectColumn != null">select_column = #{selectColumn},</if>
             <if test="threshold != null">threshold = #{threshold},</if>
+            <if test="groupName != null and groupName != ''">group_name = #{groupName},</if>
             update_time = sysdate()
         </set>
         where id = #{id}
@@ -143,6 +161,7 @@
             <if test="createBy != null and createBy != ''">create_by,</if>
             <if test="selectColumn != null">select_column,</if>
             <if test="threshold != null">threshold,</if>
+            <if test="groupName != null and groupName != ''">group_name,</if>
             create_time
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -155,6 +174,7 @@
             <if test="createBy != null and createBy != ''">#{createBy},</if>
             <if test="selectColumn != null">#{selectColumn},</if>
             <if test="threshold != null">#{threshold},</if>
+            <if test="groupName != null and groupName != ''">#{groupName},</if>
             sysdate()
         </trim>
     </insert>
@@ -163,7 +183,7 @@
         SELECT
         d.id, d.name, d.code, d.max_scale, d.min_scale, d.status,
         d.remark, d.create_by, d.create_time, d.update_by, d.update_time,
-        d.select_column,
+        d.select_column, d.group_name,
         d.threshold, CASE WHEN td.template_object_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
         FROM bi_disease_type d
         LEFT JOIN bi_template_object_disease_type td ON d.id = td.disease_type_id
@@ -182,7 +202,12 @@
                 AND (td.template_object_id IS NOT NULL) = #{diseaseType.isSelected}
             </if>
         </where>
-        order by d.create_time desc
+        ORDER BY
+            CAST(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 2), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 3), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 4), '.', -1) AS UNSIGNED),
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 5), '.', -1) AS UNSIGNED)
     </select>
 
 </mapper>
