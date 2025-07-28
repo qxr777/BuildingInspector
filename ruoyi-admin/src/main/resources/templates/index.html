@@ -6,7 +6,7 @@
     <meta name="renderer" content="webkit">
     <title>桥梁现场检测与报告编制系统首页</title>
     <!-- 避免IE使用兼容模式 -->
- 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <link th:href="@{favicon.ico}" rel="shortcut icon"/>
     <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet"/>
     <link th:href="@{/css/jquery.contextMenu.min.css}" rel="stylesheet"/>
@@ -15,268 +15,10 @@
     <link th:href="@{/css/style.min.css}" rel="stylesheet"/>
     <link th:href="@{/css/skins.css}" rel="stylesheet"/>
     <link th:href="@{/ruoyi/css/ry-ui.css?v=4.6.2}" rel="stylesheet"/>
-	<!--聊天机器人 css-->
-	<style>
-		.floating-button {
-			position: fixed;
-			bottom: 10vh;
-			left: 4vw;
-			width: 65px;
-			height: 65px;
-			border-radius: 50%;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			cursor: pointer;
-			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-			z-index: 9999;
-			background-color: white;
-			overflow: hidden;
-		}
-
-		.robot-image {
-			width: 100%;
-			height: 100%;
-			object-fit: contain;
-			border-radius: 50%;
-		}
-
-		.chat-container {
-			position: fixed;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
-			width: 60vw;
-			height: 90vh;
-			background-color: white;
-			border-radius: 10px;
-			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-			z-index: 1001;
-			overflow: hidden;
-			display: flex;
-			flex-direction: column;
-		}
-
-		.chat-header {
-			background-color: white;
-			color: #333;
-			padding: 15px;
-			display: flex;
-			height: 40px;
-			justify-content: space-between;
-			align-items: center;
-			border-radius: 10px 10px 0 0;
-			border-bottom: 1px solid #eee;
-		}
-
-		.chat-header h3 {
-			margin: 0;
-			font-size: 16px;
-			display: flex;
-			align-items: center;
-		}
-
-		.chat-header h3 img {
-			width: 20px;
-			height: 20px;
-			margin-right: 8px;
-		}
-
-		.chat-header .header-actions {
-			display: flex;
-			align-items: center;
-		}
-
-		.chat-header .header-btn {
-			background: none;
-			border: none;
-			cursor: pointer;
-			margin-left: 10px;
-			font-size: 16px;
-			color: #555;
-		}
-
-		.close-button {
-			cursor: pointer;
-			font-size: 20px;
-		}
-
-		.chat-agent-info {
-			padding: 10px;
-			text-align: center;
-			border-bottom: 1px solid #f0f0f0;
-		}
-
-		.agent-avatar {
-			width: 60px;
-			height: 60px;
-			margin-bottom: 5px;
-		}
-
-		.agent-name {
-			font-size: 16px;
-			font-weight: bold;
-			margin-bottom: 3px;
-			color: #333;
-		}
-
-		.chat-messages {
-			height: 60vh;
-			padding: 10px;
-			overflow-y: auto;
-			background-color: #f8f9fa;
-			flex: 1;
-		}
-
-
-
-		.chat-input {
-			display: flex;
-			padding: 1vh 3vw;
-			border-top: 1px solid #eee;
-			background-color: white;
-			align-items: center;
-			min-height: 60px;
-			box-sizing: border-box;
-		}
-
-		.chat-input input {
-			flex: 1;
-			padding: 8px 15px;
-			border: 1px solid #ddd;
-			border-radius: 20px;
-			margin-right: 5px;
-			background-color: #f5f5f5;
-			height: 36px;
-			min-width: 160px;
-			outline: none;
-		}
-
-		.chat-input .functions-btn {
-			width: 36px;
-			height: 36px;
-			min-width: 36px;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			background: none;
-			border: none;
-			cursor: pointer;
-			font-size: 20px;
-			color: #555;
-			margin-right: 5px;
-		}
-
-		.chat-input button#sendMessage {
-			width: 36px;
-			height: 36px;
-			min-width: 36px;
-			border-radius: 50%;
-			background-color: #4CAF50;
-			color: white;
-			border: none;
-			cursor: pointer;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-		}
-		.chat-input button:hover { /* 新增悬停样式 */
-			background-color: #45a049; /* 颜色加深 */
-		}
-
-		.message {
-			background-color: #f0f0f0;
-			border: 1px solid #34688a;
-			margin-bottom: 10px;
-			padding: 10px 15px;
-			border-radius: 18px;
-			word-wrap: break-word;
-			word-break: break-word;
-		}
-		.message img{
-			cursor: pointer;
-			width: 75%;
-		}
-
-		.sent {
-			font-size: 16px;
-			background-color: #cce5d3;
-			text-align: left;
-			margin-left: auto;
-			max-width: 35%;
-			border-bottom-right-radius: 5px;
-		}
-
-		.received {
-			font-size: 15px;
-			/*background-color: #e6f2ff;*/
-			text-align: left;
-			margin-right: auto;
-			max-width: 60%;
-			border-bottom-left-radius: 5px;
-		}
-
-		.chat-footer {
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: 100%;
-			text-align: center;
-			font-size: 12px;
-			color: #999;
-			border-top: 1px solid #f0f0f0;
-			padding: 1vh 0;
-			margin-bottom: 0;
-		}
-		.message-reference {
-			margin-top: 5px;
-			padding: 10px;
-			background: #eceffb;
-			border-radius: 6px;
-			box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* 轻微投影 */
-			transition: all 0.3s ease;
-
-			/* 内容缩进 + 图标强化 */
-			text-indent: -1em;
-			padding-left: 2em;
-			position: relative;
-		}
-
-		/* 可选：添加来源图标 */
-		.message-reference::before {
-			content: "📖"; /* 图书 emoji 或自定义图标 */
-			display: inline-block;
-			margin-right: 6px;
-			color: #999;
-		}
-
-		.message-container{
-			margin-bottom: 20px;
-		}
-		.message-note {
-			font-size: 12px;
-			color: #999;
-			margin-top: 5px;
-			font-style: italic;
-			text-align: center; /* 新增：让文本居中 */
-		}
-
-		/* 适配移动设备 */
-		@media screen and (max-width: 600px) {
-			.chat-container {
-				width: 100%;
-				height: 100%;
-				bottom: 0;
-				right: 0;
-				border-radius: 0;
-			}
-		}
-	</style>
+    <!-- 智能助手样式 -->
+    <link th:href="@{/css/chat-agent.css}" rel="stylesheet"/>
 </head>
 <body class="fixed-sidebar full-height-layout gray-bg" style="overflow: hidden">
-<!-- Install SDK -->
-<!--<script src="https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.1.0-beta.1/libs/cn/index.js"></script>-->
-<script src="./index.js"></script>
 <div id="wrapper">
 
     <!--左侧导航开始-->
@@ -291,149 +33,149 @@
          </a>
         <div class="sidebar-collapse">
             <ul class="nav" id="side-menu">
-            	<li>
-            		<div class="user-panel">
-            			<a class="menuItem noactive" title="个人中心" th:href="@{/system/user/profile}">
-            				<div class="hide" th:text="个人中心"></div>
-					        <div class="pull-left image">
-		                    	<img th:src="(${#strings.isEmpty(user.avatar)}) ? @{/img/profile.jpg} : @{${user.avatar}}" th:onerror="this.src='img/profile.jpg'" class="img-circle" alt="User Image">
-					        </div>
-				        </a>
-				        <div class="pull-left info">
-				          <p>[[${user.loginName}]]</p>
-				          <a href="#"><i class="fa fa-circle text-success"></i> 在线</a>
-				          <a th:href="@{logout}" style="padding-left:5px;"><i class="fa fa-sign-out text-danger"></i> 注销</a>
-				        </div>
-				    </div>
-            	</li>
+                <li>
+                    <div class="user-panel">
+                        <a class="menuItem noactive" title="个人中心" th:href="@{/system/user/profile}">
+                            <div class="hide" th:text="个人中心"></div>
+                            <div class="pull-left image">
+                                <img th:src="(${#strings.isEmpty(user.avatar)}) ? @{/img/profile.jpg} : @{${user.avatar}}" th:onerror="this.src='img/profile.jpg'" class="img-circle" alt="User Image">
+                            </div>
+                        </a>
+                        <div class="pull-left info">
+                          <p>[[${user.loginName}]]</p>
+                          <a href="#"><i class="fa fa-circle text-success"></i> 在线</a>
+                          <a th:href="@{logout}" style="padding-left:5px;"><i class="fa fa-sign-out text-danger"></i> 注销</a>
+                        </div>
+                    </div>
+                </li>
                 <li>
                     <a class="menuItem" th:href="@{/system/main}"><i class="fa fa-home"></i> <span class="nav-label">首页</span> </a>
                 </li>
                 <li th:each="menu : ${menus}">
-                	<a th:class="@{${!#strings.isEmpty(menu.url) && menu.url != '#'} ? ${menu.target}}" th:href="@{${#strings.isEmpty(menu.url)} ? |#| : ${menu.url}}" th:data-refresh="${menu.isRefresh == '0'}">
-                		<i class="fa fa-bar-chart-o" th:class="${menu.icon}"></i>
-                    	<span class="nav-label" th:text="${menu.menuName}">一级菜单</span>
-                    	<span th:class="${#strings.isEmpty(menu.url) || menu.url == '#'} ? |fa arrow|"></span>
-                	</a>
+                    <a th:class="@{${!#strings.isEmpty(menu.url) && menu.url != '#'} ? ${menu.target}}" th:href="@{${#strings.isEmpty(menu.url)} ? |#| : ${menu.url}}" th:data-refresh="${menu.isRefresh == '0'}">
+                        <i class="fa fa-bar-chart-o" th:class="${menu.icon}"></i>
+                        <span class="nav-label" th:text="${menu.menuName}">一级菜单</span>
+                        <span th:class="${#strings.isEmpty(menu.url) || menu.url == '#'} ? |fa arrow|"></span>
+                    </a>
                     <ul class="nav nav-second-level collapse">
-						<li th:each="cmenu : ${menu.children}">
-							<a th:if="${#lists.isEmpty(cmenu.children)}" th:class="${#strings.isEmpty(cmenu.target)} ? |menuItem| : ${cmenu.target}" th:utext="${cmenu.menuName}" th:href="@{${cmenu.url}}" th:data-refresh="${cmenu.isRefresh == '0'}">二级菜单</a>
-							<a th:if="${not #lists.isEmpty(cmenu.children)}" href="#">[[${cmenu.menuName}]]<span class="fa arrow"></span></a>
-							<ul th:if="${not #lists.isEmpty(cmenu.children)}" class="nav nav-third-level">
-								<li th:each="emenu : ${cmenu.children}">
-								    <a th:if="${#lists.isEmpty(emenu.children)}" th:class="${#strings.isEmpty(emenu.target)} ? |menuItem| : ${emenu.target}" th:text="${emenu.menuName}" th:href="@{${emenu.url}}" th:data-refresh="${emenu.isRefresh == '0'}">三级菜单</a>
-								    <a th:if="${not #lists.isEmpty(emenu.children)}" href="#">[[${emenu.menuName}]]<span class="fa arrow"></span></a>
-								    <ul th:if="${not #lists.isEmpty(emenu.children)}" class="nav nav-four-level">
-								      	<li th:each="fmenu : ${emenu.children}"><a th:if="${#lists.isEmpty(fmenu.children)}" th:class="${#strings.isEmpty(fmenu.target)} ? |menuItem| : ${fmenu.target}" th:text="${fmenu.menuName}" th:href="@{${fmenu.url}}" th:data-refresh="${fmenu.isRefresh == '0'}">四级菜单</a></li>
-								    </ul>
-								</li>
-							</ul>
-						</li>
-					</ul>
+                        <li th:each="cmenu : ${menu.children}">
+                            <a th:if="${#lists.isEmpty(cmenu.children)}" th:class="${#strings.isEmpty(cmenu.target)} ? |menuItem| : ${cmenu.target}" th:utext="${cmenu.menuName}" th:href="@{${cmenu.url}}" th:data-refresh="${cmenu.isRefresh == '0'}">二级菜单</a>
+                            <a th:if="${not #lists.isEmpty(cmenu.children)}" href="#">[[${cmenu.menuName}]]<span class="fa arrow"></span></a>
+                            <ul th:if="${not #lists.isEmpty(cmenu.children)}" class="nav nav-third-level">
+                                <li th:each="emenu : ${cmenu.children}">
+                                    <a th:if="${#lists.isEmpty(emenu.children)}" th:class="${#strings.isEmpty(emenu.target)} ? |menuItem| : ${emenu.target}" th:text="${emenu.menuName}" th:href="@{${emenu.url}}" th:data-refresh="${emenu.isRefresh == '0'}">三级菜单</a>
+                                    <a th:if="${not #lists.isEmpty(emenu.children)}" href="#">[[${emenu.menuName}]]<span class="fa arrow"></span></a>
+                                    <ul th:if="${not #lists.isEmpty(emenu.children)}" class="nav nav-four-level">
+                                          <li th:each="fmenu : ${emenu.children}"><a th:if="${#lists.isEmpty(fmenu.children)}" th:class="${#strings.isEmpty(fmenu.target)} ? |menuItem| : ${fmenu.target}" th:text="${fmenu.menuName}" th:href="@{${fmenu.url}}" th:data-refresh="${fmenu.isRefresh == '0'}">四级菜单</a></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
                 </li>
                 <li th:if="${demoEnabled}">
                     <a href="#"><i class="fa fa-desktop"></i><span class="nav-label">实例演示</span><span class="fa arrow"></span></a>
                     <ul class="nav nav-second-level collapse">
                         <li> <a>表单<span class="fa arrow"></span></a>
                             <ul class="nav nav-third-level">
-								<li><a class="menuItem" th:href="@{/demo/form/button}">按钮</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/grid}">栅格</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/select}">下拉框</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/timeline}">时间轴</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/basic}">基本表单</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/cards}">卡片列表</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/jasny}">功能扩展</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/sortable}">拖动排序</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/invoice}">单据打印</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/labels_tips}">标签 & 提示</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/tabs_panels}">选项卡 & 面板</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/validate}">表单校验</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/wizard}">表单向导</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/upload}">文件上传</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/datetime}">日期和时间</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/summernote}">富文本编辑器</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/duallistbox}">左右互选组件</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/autocomplete}">搜索自动补全</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/cxselect}">多级联动下拉</a></li>
-								<li><a class="menuItem" th:href="@{/demo/form/localrefresh}">Ajax局部刷新</a></li>
-							</ul>
+                                <li><a class="menuItem" th:href="@{/demo/form/button}">按钮</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/grid}">栅格</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/select}">下拉框</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/timeline}">时间轴</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/basic}">基本表单</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/cards}">卡片列表</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/jasny}">功能扩展</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/sortable}">拖动排序</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/invoice}">单据打印</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/labels_tips}">标签 & 提示</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/tabs_panels}">选项卡 & 面板</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/validate}">表单校验</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/wizard}">表单向导</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/upload}">文件上传</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/datetime}">日期和时间</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/summernote}">富文本编辑器</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/duallistbox}">左右互选组件</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/autocomplete}">搜索自动补全</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/cxselect}">多级联动下拉</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/form/localrefresh}">Ajax局部刷新</a></li>
+                            </ul>
                         </li>
                         <li> <a>表格<span class="fa arrow"></span></a>
                             <ul class="nav nav-third-level">
-								<li><a class="menuItem" th:href="@{/demo/table/search}">查询条件</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/footer}">数据汇总</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/groupHeader}">组合表头</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/export}">表格导出</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/exportSelected}">导出选择列</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/remember}">翻页记住选择</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/pageGo}">跳转至指定页</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/params}">自定义查询参数</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/multi}">初始多表格</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/button}">点击按钮加载表格</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/data}">直接加载表格数据</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/fixedColumns}">表格冻结列</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/event}">自定义触发事件</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/headerStyle}">表格标题格式化</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/detail}">表格细节视图</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/child}">表格父子视图</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/image}">表格图片预览</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/curd}">动态增删改查</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/reorderRows}">表格行拖拽操作</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/reorderColumns}">表格列拖拽操作</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/resizable}">表格列宽拖动</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/editable}">表格行内编辑</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/subdata}">主子表提交</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/refresh}">表格自动刷新</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/print}">表格打印配置</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/dynamicColumns}">表格动态列</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/customView}">自定义视图分页</a></li>
-								<li><a class="menuItem" th:href="@{/demo/table/other}">表格其他操作</a></li>
-							</ul>
+                                <li><a class="menuItem" th:href="@{/demo/table/search}">查询条件</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/footer}">数据汇总</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/groupHeader}">组合表头</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/export}">表格导出</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/exportSelected}">导出选择列</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/remember}">翻页记住选择</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/pageGo}">跳转至指定页</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/params}">自定义查询参数</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/multi}">初始多表格</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/button}">点击按钮加载表格</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/data}">直接加载表格数据</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/fixedColumns}">表格冻结列</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/event}">自定义触发事件</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/headerStyle}">表格标题格式化</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/detail}">表格细节视图</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/child}">表格父子视图</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/image}">表格图片预览</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/curd}">动态增删改查</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/reorderRows}">表格行拖拽操作</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/reorderColumns}">表格列拖拽操作</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/resizable}">表格列宽拖动</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/editable}">表格行内编辑</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/subdata}">主子表提交</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/refresh}">表格自动刷新</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/print}">表格打印配置</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/dynamicColumns}">表格动态列</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/customView}">自定义视图分页</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/table/other}">表格其他操作</a></li>
+                            </ul>
                         </li>
                         <li> <a>弹框<span class="fa arrow"></span></a>
                             <ul class="nav nav-third-level">
-								<li><a class="menuItem" th:href="@{/demo/modal/dialog}">模态窗口</a></li>
-								<li><a class="menuItem" th:href="@{/demo/modal/layer}">弹层组件</a></li>
-								<li><a class="menuItem" th:href="@{/demo/modal/table}">弹层表格</a></li>
-							</ul>
+                                <li><a class="menuItem" th:href="@{/demo/modal/dialog}">模态窗口</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/modal/layer}">弹层组件</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/modal/table}">弹层表格</a></li>
+                            </ul>
                         </li>
                         <li> <a>操作<span class="fa arrow"></span></a>
                             <ul class="nav nav-third-level">
-								<li><a class="menuItem" th:href="@{/demo/operate/table}">表格</a></li>
-								<li><a class="menuItem" th:href="@{/demo/operate/other}">其他</a></li>
-							</ul>
+                                <li><a class="menuItem" th:href="@{/demo/operate/table}">表格</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/operate/other}">其他</a></li>
+                            </ul>
                         </li>
                         <li> <a>报表<span class="fa arrow"></span></a>
                             <ul class="nav nav-third-level">
-								<li><a class="menuItem" th:href="@{/demo/report/echarts}">百度ECharts</a></li>
-								<li><a class="menuItem" th:href="@{/demo/report/peity}">peity</a></li>
-								<li><a class="menuItem" th:href="@{/demo/report/sparkline}">sparkline</a></li>
-								<li><a class="menuItem" th:href="@{/demo/report/metrics}">图表组合</a></li>
-							</ul>
+                                <li><a class="menuItem" th:href="@{/demo/report/echarts}">百度ECharts</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/report/peity}">peity</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/report/sparkline}">sparkline</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/report/metrics}">图表组合</a></li>
+                            </ul>
                         </li>
                         <li> <a>图标<span class="fa arrow"></span></a>
                             <ul class="nav nav-third-level">
-								<li><a class="menuItem" th:href="@{/demo/icon/fontawesome}">Font Awesome</a></li>
-								<li><a class="menuItem" th:href="@{/demo/icon/glyphicons}">Glyphicons</a></li>
-							</ul>
+                                <li><a class="menuItem" th:href="@{/demo/icon/fontawesome}">Font Awesome</a></li>
+                                <li><a class="menuItem" th:href="@{/demo/icon/glyphicons}">Glyphicons</a></li>
+                            </ul>
                         </li>
                         <li>
-	                        <a href="#"><i class="fa fa-sitemap"></i>四层菜单<span class="fa arrow"></span></a>
-	                        <ul class="nav nav-third-level collapse">
-	                            <li>
-	                                <a href="#" id="damian">三级菜单1<span class="fa arrow"></span></a>
-	                                <ul class="nav nav-third-level">
-	                                    <li>
-	                                        <a href="#">四级菜单1</a>
-	                                    </li>
-	                                    <li>
-	                                        <a href="#">四级菜单2</a>
-	                                    </li>
-	                                </ul>
-	                            </li>
-	                            <li><a href="#">三级菜单2</a></li>
-	                        </ul>
-	                    </li>
+                            <a href="#"><i class="fa fa-sitemap"></i>四层菜单<span class="fa arrow"></span></a>
+                            <ul class="nav nav-third-level collapse">
+                                <li>
+                                    <a href="#" id="damian">三级菜单1<span class="fa arrow"></span></a>
+                                    <ul class="nav nav-third-level">
+                                        <li>
+                                            <a href="#">四级菜单1</a>
+                                        </li>
+                                        <li>
+                                            <a href="#">四级菜单2</a>
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li><a href="#">三级菜单2</a></li>
+                            </ul>
+                        </li>
                     </ul>
                 </li>
             </ul>
@@ -447,42 +189,42 @@
             <nav class="navbar navbar-static-top" role="navigation" style="margin-bottom: 0">
                 <div class="navbar-header">
                     <a class="navbar-minimalize minimalize-styl-2" style="color:#FFF;" href="#" title="收起菜单">
-                    	<i class="fa fa-bars"></i>
+                        <i class="fa fa-bars"></i>
                     </a>
                 </div>
                 <ul class="nav navbar-top-links navbar-right welcome-message">
                     <li><a data-toggle="tooltip" data-trigger="hover" data-placement="bottom" title="开发文档" href="http://whut.edu.cn" target="_blank"><i class="fa fa-question-circle"></i> 文档</a></li>
                     <li><a data-toggle="tooltip" data-trigger="hover" data-placement="bottom" title="锁定屏幕" href="#" id="lockScreen"><i class="fa fa-lock"></i> 锁屏</a></li>
-	                <li><a data-toggle="tooltip" data-trigger="hover" data-placement="bottom" title="全屏显示" href="#" id="fullScreen"><i class="fa fa-arrows-alt"></i> 全屏</a></li>
+                    <li><a data-toggle="tooltip" data-trigger="hover" data-placement="bottom" title="全屏显示" href="#" id="fullScreen"><i class="fa fa-arrows-alt"></i> 全屏</a></li>
                     <li class="dropdown user-menu">
-						<a href="javascript:void(0)" class="dropdown-toggle" data-hover="dropdown">
-							<img th:src="(${#strings.isEmpty(user.avatar)}) ? @{/img/profile.jpg} : @{${user.avatar}}" th:onerror="this.src='img/profile.jpg'" class="user-image">
-							<span class="hidden-xs">[[${#strings.defaultString(user.userName, '-')}]]</span>
-						</a>
-						<ul class="dropdown-menu">
-							<li class="mt5">
-								<a th:href="@{/system/user/profile}" class="menuItem noactive">
-								<i class="fa fa-user"></i> 个人中心</a>
-							</li>
-							<li>
-								<a onclick="resetPwd()">
-								<i class="fa fa-key"></i> 修改密码</a>
-							</li>
-							<li>
-								<a onclick="switchSkin()">
-								<i class="fa fa-dashboard"></i> 切换主题</a>
-							</li>
-							<li>
-								<a onclick="toggleMenu()">
-								<i class="fa fa-toggle-off"></i> 横向菜单</a>
-							</li>
-							<li class="divider"></li>
-							<li>
-								<a th:href="@{logout}">
-								<i class="fa fa-sign-out"></i> 退出登录</a>
-							</li>
-						</ul>
-					</li>
+                        <a href="javascript:void(0)" class="dropdown-toggle" data-hover="dropdown">
+                            <img th:src="(${#strings.isEmpty(user.avatar)}) ? @{/img/profile.jpg} : @{${user.avatar}}" th:onerror="this.src='img/profile.jpg'" class="user-image">
+                            <span class="hidden-xs">[[${#strings.defaultString(user.userName, '-')}]]</span>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li class="mt5">
+                                <a th:href="@{/system/user/profile}" class="menuItem noactive">
+                                <i class="fa fa-user"></i> 个人中心</a>
+                            </li>
+                            <li>
+                                <a onclick="resetPwd()">
+                                <i class="fa fa-key"></i> 修改密码</a>
+                            </li>
+                            <li>
+                                <a onclick="switchSkin()">
+                                <i class="fa fa-dashboard"></i> 切换主题</a>
+                            </li>
+                            <li>
+                                <a onclick="toggleMenu()">
+                                <i class="fa fa-toggle-off"></i> 横向菜单</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li>
+                                <a th:href="@{logout}">
+                                <i class="fa fa-sign-out"></i> 退出登录</a>
+                            </li>
+                        </ul>
+                    </li>
                 </ul>
             </nav>
         </div>
@@ -493,7 +235,7 @@
             <nav class="page-tabs menuTabs">
                 <div class="page-tabs-content">
 <!--                    <a href="javascript:;" class="active menuTab" th:data-id="@{/system/main}">首页</a>-->
-					<a href="javascript:;" class="active menuTab" th:data-id="@{/biz/fullmap}">首页</a>
+                    <a href="javascript:;" class="active menuTab" th:data-id="@{/biz/fullmap}">首页</a>
                 </div>
             </nav>
             <button class="roll-nav roll-right tabRight">
@@ -504,11 +246,11 @@
 
         <a id="ax_close_max" class="ax_close_max" href="#" title="关闭全屏"> <i class="fa fa-times-circle-o"></i> </a>
 
-        <div class="row mainContent" id="content-main" th:style="${#bools.isFalse(ignoreFooter)} ? |height: calc(100% - 91px)|">
+        <div class="row mainContent" id="content-main" th:classappend="${mainClass}">
 <!--            <iframe class="RuoYi_iframe" name="iframe0" width="100%" height="100%" th:data-id="@{/system/main}"-->
 <!--                    th:src="@{/system/main}" frameborder="0" seamless></iframe>-->
-			<iframe class="RuoYi_iframe" name="iframe0" width="100%" height="100%" th:data-id="@{/biz/fullmap}"
-					th:src="@{/biz/fullmap}" frameborder="0" seamless></iframe>
+            <iframe class="RuoYi_iframe" name="iframe0" width="100%" height="100%" th:data-id="@{/biz/fullmap}"
+                    th:src="@{/biz/fullmap}" frameborder="0" seamless></iframe>
         </div>
         
         <div th:if="${ignoreFooter}" class="footer">
@@ -518,36 +260,84 @@
     <!--右侧部分结束-->
 </div>
 
+<div id="chat-agent-container">
+    <div id="chat-agent-button" class="chat-agent-button">
+        <i class="fa fa-commenting"></i>
+        <span>智能助手</span>
+    </div>
 
+    <div class="chat-agent-window" id="chat-agent-window" style="display: none;">
+        <div class="chat-agent-header">
+            业务助理
+            <button id="chat-agent-close" class="chat-agent-close-btn">&times;</button>
+        </div>
+        <div class="chat-agent-logo">
+            <img th:src="@{/img/bridge-road.jpeg}" alt="Logo" class="chat-agent-logo-img">
+        </div>
+        <div class="chat-agent-messages" id="chat-agent-messages">
+        </div>
+        <div class="chat-agent-upload-area">
+            <button class="chat-agent-upload-btn" id="chat-agent-upload-btn">
+                <i class="fa fa-paperclip"></i> 上传文件
+            </button>
+            <span class="chat-agent-upload-info">支持图片、文档等格式</span>
+            <input type="file" id="chat-agent-file-input" style="display: none;" multiple accept="image/*,.pdf,.doc,.docx,.txt">
+        </div>
+        <div class="chat-agent-input-area">
+            <textarea id="chat-agent-input" placeholder="请输入你的问题..." rows="1"></textarea>
+            <button id="chat-agent-send" class="chat-agent-send-btn">
+                <i class="fa fa-paper-plane"></i>
+            </button>
+        </div>
+        <div class="chat-agent-footer">
+            Powered by 湖北交投
+        </div>
+    </div>
+</div>
 
-<!-- 悬浮聊天助手 -->
-<div class="floating-button" id="chatButton">
-	<img th:src="@{/img/robot.jpeg}" alt="聊天助手" class="robot-image" draggable="false">
-</div>
-<div class="chat-container" id="chatContainer" style="display:none;">
-	<div class="chat-header">
-		<h3><img th:src="@{/img/robot.jpeg}" alt="业务助理图标"> 业务助理</h3>
-		<div class="header-actions">
-			<span class="close-button" id="closeChat">×</span>
-		</div>
-	</div>
-	<div class="chat-agent-info">
-		<img th:src="@{/img/bridge-road.jpeg}" alt="Agent Avatar" class="agent-avatar">
-		<div class="agent-name">湖北交投智能检测Agent</div>
-	</div>
-	<div class="chat-messages" id="chatMessages">
-		<!-- 消息将通过JS动态添加 -->
-	</div>
-	<div class="chat-input">
-		<input type="text" id="messageInput" placeholder="输入消息...">
-		<label for="fileInput" class="functions-btn" title="上传文件"><i class="fa fa-file"></i></label>
-		<input type="file" id="fileInput" style="display: none;">
-		<button id="sendMessage"><i class="fa fa-paper-plane"></i></button>
-	</div>
-	<div class="chat-footer">
-		Powered by 湖北交投
-	</div>
-</div>
+<template id="message-item-template">
+    <div class="message">
+        <div class="avatar"></div>
+        <div class="content">
+        </div>
+    </div>
+</template>
+
+<template id="status-timeline-template">
+    <div class="status-timeline">
+        <div class="status-timeline-header">执行过程</div>
+        <div class="timeline"></div>
+    </div>
+</template>
+
+<template id="attachment-card-template">
+    <a class="attachment-card" target="_blank" download>
+        <div class="attachment-info">
+            <i class="fa fa-file-text-o"></i>
+            <span class="attachment-name"></span>
+        </div>
+    </a>
+</template>
+
+<template id="knowledge-sources-template">
+    <div class="knowledge-sources-container">
+        <div class="knowledge-sources-header">
+            <i class="fa fa-lightbulb-o"></i>
+            知识来源:
+        </div>
+        <div class="knowledge-sources-list"></div>
+    </div>
+</template>
+
+<template id="knowledge-source-card-template">
+    <div class="knowledge-source-card">
+        <div class="knowledge-source-info">
+            <i class="fa fa-link"></i>
+            <span class="knowledge-source-text"></span>
+        </div>
+    </div>
+</template>
+
 <!-- 全局js -->
 <script th:src="@{/js/marked.min.js}"></script>
 <!--md语法解析-->
@@ -562,6 +352,8 @@
 <script th:src="@{/ruoyi/js/common.js?v=4.6.2}"></script>
 <script th:src="@{/ruoyi/index.js?v=20201208}"></script>
 <script th:src="@{/ajax/libs/fullscreen/jquery.fullscreen.js}"></script>
+<!-- 智能助手脚本 -->
+<script th:src="@{/js/chat-agent.js}"></script>
 <script th:inline="javascript">
 window.history.forward(1);
 var ctx_index = [[@{/}]]; 
@@ -578,11 +370,11 @@ var isLinkage = true;
 
 // 本地主题优先，未设置取系统配置
 if($.common.isNotEmpty(skin)){
-	$("body").addClass(skin.split('|')[0]);
-	$("body").addClass(skin.split('|')[1]);
+    $("body").addClass(skin.split('|')[0]);
+    $("body").addClass(skin.split('|')[1]);
 } else {
-	$("body").addClass([[${sideTheme}]]);
-	$("body").addClass([[${skinName}]]);
+    $("body").addClass([[${sideTheme}]]);
+    $("body").addClass([[${skinName}]]);
 }
 
 /* 用户管理-重置密码 */
@@ -594,347 +386,84 @@ function resetPwd() {
 /* 切换主题 */
 function switchSkin() {
     layer.open({
-		type : 2,
-		shadeClose : true,
-		title : "切换主题",
-		area : ["530px", "386px"],
-		content : [ctx_index + "system/switchSkin", 'no']
-	})
+        type : 2,
+        shadeClose : true,
+        title : "切换主题",
+        area : ["530px", "386px"],
+        content : [ctx_index + "system/switchSkin", 'no']
+    })
 }
 
 /* 切换菜单 */
 function toggleMenu() {
-	$.modal.confirm("确认要切换成横向菜单吗？", function() {
-		$.get(ctx_index + 'system/menuStyle/topnav', function(result) {
+    $.modal.confirm("确认要切换成横向菜单吗？", function() {
+        $.get(ctx_index + 'system/menuStyle/topnav', function(result) {
             window.location.reload();
-	    });
-	})
+        });
+    })
 }
 
 /** 刷新时访问路径页签 */
 function applyPath(url) {
-	$('a[href$="' + decodeURI(url) + '"]').click();
-	if (!$('a[href$="' + url + '"]').hasClass("noactive")) {
-	    $('a[href$="' + url + '"]').parent("li").addClass("selected").parents("li").addClass("active").end().parents("ul").addClass("in");
-	}
+    $('a[href$="' + decodeURI(url) + '"]').click();
+    if (!$('a[href$="' + url + '"]').hasClass("noactive")) {
+        $('a[href$="' + url + '"]').parent("li").addClass("selected").parents("li").addClass("active").end().parents("ul").addClass("in");
+    }
 }
 
 $(function() {
-	var lockPath = storage.get('lockPath');
-	if($.common.equals("history", mode) && window.performance.navigation.type == 1) {
-		var url = storage.get('publicPath');
-	    if ($.common.isNotEmpty(url)) {
-	    	applyPath(url);
-	    }
-	} else if($.common.isNotEmpty(lockPath)) {
-	    applyPath(lockPath);
-	    storage.remove('lockPath');
-	} else {
-		var hash = location.hash;
-	    if ($.common.isNotEmpty(hash)) {
-	        var url = hash.substring(1, hash.length);
-	        applyPath(url);
-	    } else {
-	    	if($.common.equals("history", mode)) {
-	    		storage.set('publicPath', "");
-	    	}
-	    }
-	}
-	
-	/* 初始密码提示 */
-	if([[${isDefaultModifyPwd}]]) {
-		layer.confirm("您的密码还是初始密码，请修改密码！", {
-			icon: 0,
-			title: "安全提示",
-			btn: ['确认'	, '取消'],
-			offset: ['30%']
-		}, function (index) {
-			resetPwd();
-			layer.close(index);
-		});
-	}
-	
-	/* 过期密码提示 */
-	if([[${isPasswordExpired}]]) {
-		layer.confirm("您的密码已过期，请尽快修改密码！", {
-			icon: 0,
-			title: "安全提示",
-			btn: ['确认'	, '取消'],
-			offset: ['30%']
-		}, function (index) {
-			resetPwd();
-			layer.close(index);
-		});
-	}
-	$("[data-toggle='tooltip']").tooltip();
+    var lockPath = storage.get('lockPath');
+    if($.common.equals("history", mode) && window.performance.navigation.type == 1) {
+        var url = storage.get('publicPath');
+        if ($.common.isNotEmpty(url)) {
+            applyPath(url);
+        }
+    } else if($.common.isNotEmpty(lockPath)) {
+        applyPath(lockPath);
+        storage.remove('lockPath');
+    } else {
+        var hash = location.hash;
+        if ($.common.isNotEmpty(hash)) {
+            var url = hash.substring(1, hash.length);
+            applyPath(url);
+        } else {
+            if($.common.equals("history", mode)) {
+                storage.set('publicPath', "");
+            }
+        }
+    }
+    
+    /* 初始密码提示 */
+    if([[${isDefaultModifyPwd}]]) {
+        layer.confirm("您的密码还是初始密码，请修改密码！", {
+            icon: 0,
+            title: "安全提示",
+            btn: ['确认'	, '取消'],
+            offset: ['30%']
+        }, function (index) {
+            resetPwd();
+            layer.close(index);
+        });
+    }
+    
+    /* 过期密码提示 */
+    if([[${isPasswordExpired}]]) {
+        layer.confirm("您的密码已过期，请尽快修改密码！", {
+            icon: 0,
+            title: "安全提示",
+            btn: ['确认'	, '取消'],
+            offset: ['30%']
+        }, function (index) {
+            resetPwd();
+            layer.close(index);
+        });
+    }
+    $("[data-toggle='tooltip']").tooltip();
 });
 
 
-// 聊天机器人 js
-const RagUrl = 'http://47.94.205.90:8081';  // springai 项目地址
-const BootUrl = 'http://60.205.13.156:8090';    // 主项目地址
-// const BootUrl = 'http://localhost:80' // 本地测试
-// const RagUrl = 'http://localhost:8081' //本地测试
 
 
-
-async function getUserId() {
-	try {
-		const userIdUrl = BootUrl+'/biz/chat/getUserId';
-		const response = await fetch(userIdUrl);
-		if (!response.ok) throw new Error('获取userId失败');
-		const userId = await response.json();
-		return userId;
-	} catch (error) {
-		console.error('获取userId失败:', error);
-		return null;
-	}
-}
-// 获取元素引用
-const chatButton = document.getElementById('chatButton');
-const chatContainer = document.getElementById('chatContainer');
-const closeChat = document.getElementById('closeChat');
-const messageInput = document.getElementById('messageInput');
-const sendMessageButton = document.getElementById('sendMessage');
-const chatMessages = document.getElementById('chatMessages');
-
-
-
-// 发送消息函数
-async function sendMessage() {
-	const message = messageInput.value.trim();
-	if (!message) return;
-
-	// 添加用户消息
-	addMessage(message, 'sent');
-	messageInput.value = '';
-
-	try {
-		const userId = await getUserId();
-		if (userId === null) {
-			addMessage('您的token已过期，请重新登录', 'received');
-			return;
-		}
-		// 调用API
-		const params = new URLSearchParams({
-			message: message,  // 包含特殊字符的消息
-			userId: userId
-		});
-		const url = RagUrl+'/api-ai/dialog';
-		const response = await fetch(url +`?${params}`,{
-			method : 'GET',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-			},
-	});
-		if (!response.ok){
-			throw new Error('请求失败');
-		}
-		// 解析JSON响应
-		const data = await response.json();
-		const content = data.content || '';
-		const reference = data.reference || '';
-
-		// 添加机器人回复（包含来源）
-		addMessageWithReference(content, reference, 'received');
-	} catch (error) {
-		addMessage('服务暂时不可用，请稍后再试', 'received');
-		console.error('API请求错误:', error);
-	}
-}
-
-// 添加消息到聊天窗口
-function addMessage(content, type) {
-	const messageDiv = document.createElement('div');
-	messageDiv.className = `message ${type}`;
-	messageDiv.textContent = content;
-	chatMessages.appendChild(messageDiv);
-	chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// 新增：支持显示来源的消息添加函数
-function addMessageWithReference(content, reference, type) {
-	const chatMessages = document.getElementById('chatMessages');
-	const messageDiv = document.createElement('div');
-	messageDiv.className = `message-container received`;
-
-	// 消息内容
-	const contentDiv = document.createElement('div');
-	contentDiv.className = `message ${type}}`;
-	contentDiv.innerHTML = marked.parse(content);
-
-	// 来源信息
-	const referenceDiv = document.createElement('div');
-	referenceDiv.className = 'message-reference';
-	referenceDiv.innerHTML = reference;
-
-	const noteDiv = document.createElement('div');
-	noteDiv.className = 'message-note';
-	noteDiv.textContent = '注：内容由AI生成，仅供参考';
-
-	messageDiv.appendChild(contentDiv);
-	messageDiv.appendChild(referenceDiv);
-	messageDiv.appendChild(noteDiv);
-	chatMessages.appendChild(messageDiv);
-
-	// 滚动到底部
-	chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// 事件监听 (发送按钮和输入框)
-sendMessageButton.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', (e) => {
-	if (e.key === 'Enter') sendMessage();
-});
-
-document.addEventListener('click', function(e) {
-	// 检查点击的元素或其祖先是否属于 clickable-images 容器
-	let target = e.target;
-	while (target && target !== document) {
-		if (target.classList.contains('message')) {
-			// 如果点击的是容器内的图片
-			if (e.target.tagName === 'IMG') {
-				window.open(e.target.src, '_blank');
-			}
-			break;
-		}
-		target = target.parentElement;
-	}
-});
-
-
-// // 拖动功能
-// let isDragging = false;
-// let hasMoved = false;
-// let isMouseDown = false;
-// let offsetX, offsetY;
-// let startX, startY;
-// const DRAG_THRESHOLD = 5; // 拖动阈值
-//
-// function makeDraggable(element) {
-//
-// 	function onMouseDown(e) {
-// 		e.preventDefault();
-// 		isDragging = false;
-// 		hasMoved = false;
-// 		isMouseDown = true;
-// 		startX = e.clientX;
-// 		startY = e.clientY;
-// 		offsetX = e.clientX - element.getBoundingClientRect().left;
-// 		offsetY = e.clientY - element.getBoundingClientRect().top;
-// 	}
-//
-// 	function onMouseMove(e) {
-// 		if(isMouseDown){
-// 			const deltaX = Math.abs(e.clientX - startX);
-// 			const deltaY = Math.abs(e.clientY - startY);
-//
-// 			if (deltaX > 0 || deltaY > 0) {
-// 				hasMoved = true;
-// 			}
-// 			if (!isDragging && (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD)) {
-// 				isDragging = true;
-// 				element.style.cursor = 'grabbing';
-// 			}
-// 			if (!isDragging) return;
-// 			const x = e.clientX - offsetX;
-// 			const y = e.clientY - offsetY;
-// 			const maxX = window.innerWidth - element.offsetWidth;
-// 			const maxY = window.innerHeight - element.offsetHeight;
-// 			const newX = Math.max(0, Math.min(x, maxX));
-// 			const newY = Math.max(0, Math.min(y, maxY));
-// 			element.style.left = newX + 'px';
-// 			element.style.right = 'auto';
-// 			element.style.top = newY + 'px';
-// 			element.style.bottom = 'auto';
-// 		}
-//
-// 	}
-//
-// 	element.addEventListener('mousedown', onMouseDown);
-// 	document.addEventListener('mousemove', onMouseMove);
-// }
-// function onMouseUp(e) {
-//
-// 	// 只有在没有拖动的情况下才触发点击事件
-// 	if (!isDragging && e.target.closest('#chatButton')) {
-// 		toggleChatContainer();
-// 	}
-// 	isDragging = false;
-// 	hasMoved = false;
-// 	isMouseDown = false;
-// }
-// document.addEventListener('mouseup', onMouseUp);
-//
-// // 更新聊天窗口位置
-// function updateChatContainerPosition() {
-// 	const buttonRect = chatButton.getBoundingClientRect();
-// 	const chatX = buttonRect.left;
-// 	const chatY = buttonRect.top - chatContainer.offsetHeight - 10; // 10px 间距
-// 	const maxX = window.innerWidth - chatContainer.offsetWidth;
-// 	const newX = Math.max(0, Math.min(chatX, maxX));
-// 	let newY = chatY;
-// 	if (newY < 0) {
-// 		newY = buttonRect.top;
-// 		// 尝试放在右侧
-// 		if (buttonRect.left + buttonRect.width + chatContainer.offsetWidth < window.innerWidth) {
-// 			chatContainer.style.left = (buttonRect.left + buttonRect.width + 10) + 'px';
-// 		}
-// 		// 否则放在左侧
-// 		else if (buttonRect.left - chatContainer.offsetWidth > 0) {
-// 			chatContainer.style.left = (buttonRect.left - chatContainer.offsetWidth - 10) + 'px';
-// 		}
-// 		// 如果左右都不行，就放在按钮下方
-// 		else {
-// 			newY = buttonRect.top + buttonRect.height + 10;
-// 			chatContainer.style.left = newX + 'px';
-// 		}
-// 	} else {
-// 		chatContainer.style.left = newX + 'px';
-// 	}
-// 	chatContainer.style.top = newY + 'px';
-// 	chatContainer.style.right = 'auto';
-// 	chatContainer.style.bottom = 'auto';
-// }
-// // 添加拖动功能
-// makeDraggable(chatButton);
-// 关闭按钮的点击事件
-closeChat.addEventListener('click', function(e) {
-	chatContainer.style.display = 'none';
-});
-
-// 切换聊天窗口显示状态
-function toggleChatContainer() {
-	if (chatContainer.style.display === 'none') {
-		chatContainer.style.display = 'block';
-		// updateChatContainerPosition();
-	} else {
-		chatContainer.style.display = 'none';
-	}
-}
-chatButton.addEventListener('click', toggleChatContainer);
-
-
-// 初始化
-document.addEventListener('DOMContentLoaded', function() {
-	// 添加欢迎消息
-	setTimeout(function() {
-		addMessage("嗨，你好！我是智能助手，专注于为你提供桥梁检测服务。", 'received');
-	}, 500);
-
-
-
-	// 文件上传按钮点击事件
-	document.getElementById('fileInput').addEventListener('change', function() {
-		if (this.files && this.files.length > 0) {
-			const fileName = this.files[0].name;
-			addMessage(`已选择文件: ${fileName}`, 'sent');
-			addMessage('文件上传功能正在开发中，暂不支持将文件作为上下文处理', 'received');
-			// 清空选择，允许重复选择相同文件
-			this.value = '';
-		}
-	});
-});
 </script>
 </body>
 </html>

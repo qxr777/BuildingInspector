@@ -1031,7 +1031,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
 
     static {
-        BRIDGE_TYPE_MAP.put("梁试桥", 1L);
+        BRIDGE_TYPE_MAP.put("梁式桥", 1L);
         BRIDGE_TYPE_MAP.put("箱形拱桥", 3L);
         BRIDGE_TYPE_MAP.put("双曲拱桥", 4L);
         BRIDGE_TYPE_MAP.put("板拱桥", 5L);
