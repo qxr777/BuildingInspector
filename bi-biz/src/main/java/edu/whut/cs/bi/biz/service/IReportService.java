@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Disease;
@@ -34,4 +35,11 @@ public interface IReportService {
    * @return Word文档
    */
   XWPFDocument exportPropertyWord(Long buildingId);
+
+  /**
+   * 调用后台 ai 模型获取报告中的病害 小结。
+   * @param diseases
+   * @return
+   */
+  String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException;
 }
