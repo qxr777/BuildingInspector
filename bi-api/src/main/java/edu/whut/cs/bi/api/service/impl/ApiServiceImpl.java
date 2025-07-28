@@ -260,20 +260,31 @@ public class ApiServiceImpl implements ApiService {
 
             // 3. 获取建筑物病害数据
             try {
-                // 只获取上一年的病害数据
-                int targetYear = currentYear - 1;
+                // 查找近三年中最近一年有病害数据的年份
+                List<Disease> diseases = null;
+                int targetYear = 0;
 
-                Disease disease = new Disease();
-                disease.setBuildingId(buildingId);
-                // 设置为上一年
-                disease.setYear(targetYear);
+                // 尝试从最近一年到往前三年，找到第一个有病害数据的年份
+                for (int i = 1; i <= 3; i++) {
+                    targetYear = currentYear - i;
+                    Disease disease = new Disease();
+                    disease.setBuildingId(buildingId);
+                    disease.setYear(targetYear);
 
-                // 使用selectDiseaseListForZip方法，不加载图片URLs
-                log.info(userId + "病害信息开始收集" + disease.getBuildingId());
-                List<Disease> diseases = diseaseService.selectDiseaseListForZip(disease);
-                log.info(userId + " 病害信息数据完成" + disease.getBuildingId());
-                log.info(userId + "图片信息开始收集" + disease.getBuildingId());
-                if (!diseases.isEmpty()) {
+                    // 使用selectDiseaseListForZip方法，不加载图片URLs
+                    List<Disease> yearDiseases = diseaseService.selectDiseaseListForZip(disease);
+                    if (yearDiseases != null && !yearDiseases.isEmpty()) {
+                        diseases = yearDiseases;
+                        log.info(userId + "找到" + targetYear + "年的病害数据，共" + diseases.size() + "条");
+                        break;
+                    }
+                }
+
+                if (diseases != null && !diseases.isEmpty()) {
+                    log.info(userId + "病害信息开始收集" + buildingId + "，年份：" + targetYear);
+                    log.info(userId + " 病害信息数据完成" + buildingId);
+                    log.info(userId + "图片信息开始收集" + buildingId);
+
                     // 创建年份病害数据对象，此时Disease对象中的图片路径已更新为相对路径
                     DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
                     diseasesOfYearVo.setYear(targetYear);
@@ -287,6 +298,8 @@ public class ApiServiceImpl implements ApiService {
                     // 添加到zip文件
                     String diseaseJsonPath = rootDirName + "/building/" + buildingId + "/disease/" + targetYear + ".json";
                     addJsonToZip(zipOut, diseaseJsonPath, jsonString);
+                } else {
+                    log.info(userId + "近三年内未找到病害数据，buildingId=" + buildingId);
                 }
                 // 收集所有需要处理的路径和对应的文件名
                 List<String> allFileNames = new ArrayList<>();
@@ -319,7 +332,7 @@ public class ApiServiceImpl implements ApiService {
                 if (!allFileNames.isEmpty()) {
                     addDiseaseImages(zipOut, rootDirName, buildingId, allFileNames, ids);
                 }
-                log.info(userId + "图片信息收集完成" + disease.getBuildingId());
+                log.info(userId + "图片信息收集完成" + buildingId);
             } catch (Exception e) {
                 // 记录错误但继续处理
                 log.error("获取建筑物病害数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);

@@ -1,6 +1,8 @@
 package edu.whut.cs.bi.biz.controller;
 
 import java.util.List;
+
+import edu.whut.cs.bi.biz.config.MinioConfig;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -34,10 +36,15 @@ public class PackageController extends BaseController
     @Autowired
     private IPackageService packageService;
 
+    @Autowired
+    private MinioConfig minioConfig;
+
     @RequiresPermissions("biz:package:view")
     @GetMapping()
-    public String package1()
+    public String package1(ModelMap mmap)
     {
+        mmap.put("minioUrl", minioConfig.getUrl());
+        mmap.put("minioBucket", minioConfig.getBucketName());
         return prefix + "/packages";
     }
 
