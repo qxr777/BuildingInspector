@@ -169,7 +169,8 @@
         function zOnClick(event, treeId, treeNode) {
             currentNode = treeNode;
             $("#biObjectId").val(treeNode.id);
-            $.table.search();
+            // 重置分页参数到第一页
+            $.table.search('formId', 'bootstrap-table', 1);
         }
     }
 

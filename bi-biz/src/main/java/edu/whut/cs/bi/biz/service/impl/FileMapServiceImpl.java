@@ -10,10 +10,12 @@ import java.util.zip.ZipOutputStream;
 
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import io.minio.*;
@@ -30,6 +32,8 @@ import org.apache.commons.io.FilenameUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
+
+import static com.ruoyi.common.utils.PageUtils.startPage;
 
 /**
  * 文件管理Service业务层处理
@@ -54,6 +58,8 @@ public class FileMapServiceImpl implements IFileMapService {
 
     @Resource
     private IBiObjectService biObjectService;
+    @Autowired
+    private BiObjectMapper biObjectMapper;
 
     /**
      * 查询文件管理
@@ -444,7 +450,7 @@ public class FileMapServiceImpl implements IFileMapService {
 
     @Override
     public List<FileMap> selectBiObjectPhotoList(Long biObjectId) {
-        List<BiObject> biObjects = biObjectService.selectBiObjectAndChildren(biObjectId);
+        List<BiObject> biObjects = biObjectMapper.selectBiObjectAndChildren(biObjectId);
         List<Long> biObjectIds = biObjects.stream().map(biObject -> biObject.getId()).toList();
 
         List<Map<String, Object>> imageMap = getImage(biObjectIds, "biObject");

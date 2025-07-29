@@ -455,4 +455,35 @@
         </foreach>
     </select>
 
+    <select id="selectBiObjectAndChildren" resultMap="BiObjectResult">
+        -- 获取根节点
+        SELECT t.*,
+               c.id as child_id,
+               c.name as child_name,
+               c.parent_id as child_parent_id,
+               c.ancestors as child_ancestors,
+               c.order_num as child_order_num,
+               c.status as child_status,
+               c.del_flag as child_del_flag
+        FROM bi_object t
+                 LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+        WHERE t.id = #{rootId} AND t.del_flag = '0'
+
+        UNION
+
+        -- 获取所有子节点
+        SELECT t.*,
+               c.id as child_id,
+               c.name as child_name,
+               c.parent_id as child_parent_id,
+               c.ancestors as child_ancestors,
+               c.order_num as child_order_num,
+               c.status as child_status,
+               c.del_flag as child_del_flag
+        FROM bi_object t
+                 LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+        WHERE FIND_IN_SET(#{rootId}, t.ancestors) AND t.del_flag = '0'
+        ORDER BY parent_id, order_num
+    </select>
+
 </mapper>
