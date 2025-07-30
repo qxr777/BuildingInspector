@@ -13,6 +13,7 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.file.MimeTypeUtils;
 import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
@@ -228,7 +229,7 @@ public class FileMapServiceImpl implements IFileMapService {
                     .bucket(minioConfig.getBucketName())
                     .object(objectName.substring(0, 2) + "/" + objectName)
                     .stream(fileInputStream, file.length(), -1)
-                    .contentType("application/zip")
+                    .contentType(MimeTypeUtils.getContentType(extension))
                     .build());
 
             // 保存文件信息
