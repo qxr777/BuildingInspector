@@ -1,14 +1,16 @@
 /**
  * 智能助手配置
  */
-const CHAT_ID = crypto.randomUUID();
+let CHAT_ID = ''
 let USER_ID = ''
 
 fetch('/biz/chat/getUserId')
     .then(response => response.text())
     .then(userId => {
         USER_ID = userId;
+        CHAT_ID = userId;
         CHAT_AGENT_CONFIG.USER_ID = userId;
+        CHAT_AGENT_CONFIG.CHAT_ID = userId;
     })
     .catch(error => {
         console.error('获取用户ID失败:', error);
