@@ -252,7 +252,7 @@
             <iframe class="RuoYi_iframe" name="iframe0" width="100%" height="100%" th:data-id="@{/biz/fullmap}"
                     th:src="@{/biz/fullmap}" frameborder="0" seamless></iframe>
         </div>
-        
+
         <div th:if="${ignoreFooter}" class="footer">
             <div class="pull-right">© [[${copyrightYear}]] WHUT Copyright </div>
         </div>
@@ -275,6 +275,13 @@
             <img th:src="@{/img/bridge-road.jpeg}" alt="Logo" class="chat-agent-logo-img">
         </div>
         <div class="chat-agent-messages" id="chat-agent-messages">
+            <div class="message ai" id="msg_init">
+                <div class="avatar"><i class="fa fa-user-md"></i></div>
+                <div class="content">
+                    <div class="ai-text-content"><p>你好！我是你的智能助手，有什么可以帮你的吗？</p>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="chat-agent-upload-area">
             <button class="chat-agent-upload-btn" id="chat-agent-upload-btn">
@@ -295,48 +302,8 @@
     </div>
 </div>
 
-<template id="message-item-template">
-    <div class="message">
-        <div class="avatar"></div>
-        <div class="content">
-        </div>
-    </div>
-</template>
 
-<template id="status-timeline-template">
-    <div class="status-timeline">
-        <div class="status-timeline-header">执行过程</div>
-        <div class="timeline"></div>
-    </div>
-</template>
 
-<template id="attachment-card-template">
-    <a class="attachment-card" target="_blank" download>
-        <div class="attachment-info">
-            <i class="fa fa-file-text-o"></i>
-            <span class="attachment-name"></span>
-        </div>
-    </a>
-</template>
-
-<template id="knowledge-sources-template">
-    <div class="knowledge-sources-container">
-        <div class="knowledge-sources-header">
-            <i class="fa fa-lightbulb-o"></i>
-            知识来源:
-        </div>
-        <div class="knowledge-sources-list"></div>
-    </div>
-</template>
-
-<template id="knowledge-source-card-template">
-    <div class="knowledge-source-card">
-        <div class="knowledge-source-info">
-            <i class="fa fa-link"></i>
-            <span class="knowledge-source-text"></span>
-        </div>
-    </div>
-</template>
 
 <!-- 全局js -->
 <script th:src="@{/js/marked.min.js}"></script>
@@ -356,8 +323,8 @@
 <script th:src="@{/js/chat-agent.js}"></script>
 <script th:inline="javascript">
 window.history.forward(1);
-var ctx_index = [[@{/}]]; 
-var lockscreen = [[${session.lockscreen}]]; 
+var ctx_index = [[@{/}]];
+var lockscreen = [[${session.lockscreen}]];
 if(lockscreen){window.top.location=ctx_index+"lockscreen";}
 // 皮肤缓存
 var skin = storage.get("skin");
@@ -432,7 +399,7 @@ $(function() {
             }
         }
     }
-    
+
     /* 初始密码提示 */
     if([[${isDefaultModifyPwd}]]) {
         layer.confirm("您的密码还是初始密码，请修改密码！", {
@@ -445,7 +412,7 @@ $(function() {
             layer.close(index);
         });
     }
-    
+
     /* 过期密码提示 */
     if([[${isPasswordExpired}]]) {
         layer.confirm("您的密码已过期，请尽快修改密码！", {
