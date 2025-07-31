@@ -1,7 +1,7 @@
 // API和用户ID配置
 const CHAT_AGENT_CONFIG = {
-    // API_URL: 'http://47.94.205.90:8081/api-ai/chat-stream',
-    API_URL: 'http://localhost:8081/api-ai/chat-stream',
+    API_URL: 'http://47.94.205.90:8081/api-ai/chat-stream',
+    // API_URL: 'http://localhost:8081/api-ai/chat-stream',
     CHAT_ID: '',
     USER_ID: ''
 };
@@ -56,7 +56,7 @@ const AgentUI = {
                 <div class="timeline"></div>
             </div>
             <div class="ai-text-content"></div>
-            <div class="knowledge-sources-container">
+            <div class="knowledge-sources-container" style="display: none">
                 <div class="knowledge-sources-header">
                     <i class="fa fa-lightbulb-o"></i>
                     知识来源:
