@@ -1,6 +1,6 @@
 // API和用户ID配置
 const CHAT_AGENT_CONFIG = {
-    API_URL: 'http://47.94.205.90:8081/api-ai/chat-stream',
+    API_URL: 'http://59.110.81.142:8081/api-ai/chat-stream',
     // API_URL: 'http://localhost:8081/api-ai/chat-stream',
     CHAT_ID: '',
     USER_ID: ''
@@ -183,7 +183,7 @@ const AgentUI = {
      * 滚动到底部
      */
     scrollToBottom() {
-        this.chatBox.stop().animate({ scrollTop: this.chatBox[0].scrollHeight }, 300);
+        this.chatBox.stop().animate({ scrollTop: this.chatBox[0].scrollHeight }, 30);
     }
 };
 
@@ -300,11 +300,12 @@ const ChatAgentController = {
         AgentUI.renderMessage(aiMessage);
 
         // 3. 连接SSE并处理事件流
-        this.connectToAgent(prompt, aiMessage.id);
+        setTimeout(() => this.connectToAgent(prompt, aiMessage.id), 100)
+
     },
 
     /**
-     * 连接到智能助手服务 (核心重构逻辑 + 计时功能)
+     * 连接到智能助手服务
      * @param {string} prompt - 用户输入
      * @param {string} aiMessageId - AI消息的ID
      */
@@ -319,7 +320,6 @@ const ChatAgentController = {
             timerId: null // 用于存放setInterval的ID
         };
 
-        // --- 计时器核心逻辑 ---
         const startStepTimer = () => {
             // 先清除旧的计时器
             if (aiResponseState.timerId) {
