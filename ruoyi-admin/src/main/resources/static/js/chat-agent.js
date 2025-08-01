@@ -28,6 +28,8 @@ const AgentUI = {
         }
     },
 
+
+
     /**
      * 渲染一条消息（用户或AI）
      * @param {object} msgData - 消息数据 { id, sender, text }
@@ -64,11 +66,8 @@ const AgentUI = {
                 <div class="knowledge-sources-list"></div>
             </div>`;
             $message.find('.content').html(aiContentHtml);
-            if (msgData.text) {
-                // 如果有初始文本，则直接渲染
-                this.updateAiText(msgData.id, msgData.text);
-            }
         }
+
 
         this.chatBox.append($message);
         this.scrollToBottom();
@@ -92,7 +91,7 @@ const AgentUI = {
     /**
      * 更新时间线显示
      * @param {string} messageId - 消息ID
-     * @param {object} timelineState - 时间线状态 { completed: Array<{name: string, duration: string}>, current: {name: string, elapsed: string} }
+     * @param {object} timelineState - 时间线状态 { completed: Array<object>, current: object }
      */
     updateTimeline(messageId, timelineState) {
         const $message = $('#' + messageId);
@@ -100,21 +99,48 @@ const AgentUI = {
 
         const $timelineContainer = $message.find('.status-timeline');
         const $timeline = $timelineContainer.find('.timeline');
-
         $timelineContainer.show();
         $timeline.empty(); // 每次都重新渲染，保证状态正确
+
+        // 内部辅助函数，用于创建工具调用列表的HTML
+        const createToolCallsHtml = (toolCalls) => {
+            if (!toolCalls || toolCalls.length === 0) {
+                return '';
+            }
+            const itemsHtml = toolCalls.map(toolName =>
+                `<div class="tool-call-item">
+                    <i class="fa fa-gear"></i>
+                    <span>${toolName}</span>
+                 </div>`
+            ).join('');
+            return `<div class="timeline-step-details">${itemsHtml}</div>`;
+        };
 
         // 渲染已完成的步骤
         timelineState.completed.forEach(step => {
             const durationHtml = `<span class="status-timer">${step.duration}s</span>`;
-            const stepHtml = `<div class="completed">${step.name}${durationHtml}<span class="status-label">已完成</span></div>`;
+            const toolCallsHtml = createToolCallsHtml(step.toolCalls); // 生成工具列表
+            const stepHtml = `
+                <div class="completed">
+                    <div class="timeline-item-header">
+                        ${step.name}${durationHtml}<span class="status-label">已完成</span>
+                    </div>
+                    ${toolCallsHtml}
+                </div>`;
             $timeline.append(stepHtml);
         });
 
         // 渲染当前步骤
         if (timelineState.current && timelineState.current.name) {
             const timerHtml = `<span class="status-timer current-timer">0.0s</span>`;
-            const currentHtml = `<div class="current">${timelineState.current.name}...${timerHtml}</div>`;
+            const toolCallsHtml = createToolCallsHtml(timelineState.current.toolCalls); // 生成工具列表
+            const currentHtml = `
+                <div class="current">
+                     <div class="timeline-item-header">
+                        ${timelineState.current.name}...${timerHtml}
+                     </div>
+                    ${toolCallsHtml}
+                </div>`;
             $timeline.append(currentHtml);
         }
 
@@ -196,6 +222,7 @@ const AgentSSE = {
         const eventSource = new EventSource(url);
 
         eventSource.addEventListener('runAgent', (event) => callbacks.onRunAgent?.(JSON.parse(event.data)));
+        eventSource.addEventListener('toolCall', (event) => callbacks.onToolCall?.(JSON.parse(event.data)));
         eventSource.addEventListener('agentEnd', (event) => callbacks.onAgentEnd?.(JSON.parse(event.data)));
         eventSource.addEventListener('text', (event) => callbacks.onText?.(JSON.parse(event.data)));
         eventSource.addEventListener('reference', (event) => callbacks.onReference?.(JSON.parse(event.data)));
@@ -222,7 +249,6 @@ const ChatAgentUtils = {
     generateMessageId: () => `msg_${Date.now()}`,
     setLoading(loading) {
         ChatAgentState.isLoading = loading;
-        $('#chat-agent-input').prop('disabled', loading);
         $('#chat-agent-send').prop('disabled', loading);
     }
 };
@@ -337,7 +363,8 @@ const ChatAgentController = {
                 const duration = ((Date.now() - aiResponseState.currentStep.startTime) / 1000).toFixed(1);
                 aiResponseState.completedSteps.push({
                     name: aiResponseState.currentStep.name,
-                    duration: duration
+                    duration: duration,
+                    toolCalls: aiResponseState.currentStep.toolCalls || [] // 保存该步骤的工具调用
                 });
             }
         };
@@ -358,7 +385,8 @@ const ChatAgentController = {
                 // 更新当前步骤
                 aiResponseState.currentStep = {
                     name: "正在调用: " + data.agentName,
-                    startTime: Date.now()
+                    startTime: Date.now(),
+                    toolCalls: []
                 };
 
                 AgentUI.updateTimeline(aiMessageId, {
@@ -366,6 +394,18 @@ const ChatAgentController = {
                     current: { name: aiResponseState.currentStep.name }
                 });
                 startStepTimer(); // 为新步骤重启计时器
+            },
+            onToolCall: (data) => {
+                // 确保当前有一个正在执行的agent步骤
+                if (data && data.toolName && aiResponseState.currentStep && !aiResponseState.isTextPhase) {
+                    // 将工具调用信息添加到当前步骤的状态中
+                    aiResponseState.currentStep.toolCalls.push(data.toolName);
+                    // 使用更新后的状态，重新渲染整个时间线
+                    AgentUI.updateTimeline(aiMessageId, {
+                        completed: aiResponseState.completedSteps,
+                        current: aiResponseState.currentStep
+                    });
+                }
             },
 
             onText: (data) => {

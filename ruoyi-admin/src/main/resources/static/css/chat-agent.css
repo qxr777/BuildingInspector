@@ -1,4 +1,4 @@
-/* 智能助手现代化样式 */
+
 #chat-agent-container .chat-agent-button {
     position: fixed;
     left: 25px;
@@ -16,17 +16,23 @@
     font-weight: 500;
     cursor: pointer;
     box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.3);
+
+    -webkit-transition: all 0.2s ease;
     transition: all 0.2s ease;
     z-index: 9999;
 }
 
 #chat-agent-container .chat-agent-button:hover {
     background: #1d4ed8;
+
+    -webkit-transform: translateY(-1px);
     transform: translateY(-1px);
     box-shadow: 0 6px 20px 0 rgba(37, 99, 235, 0.4);
 }
 
 #chat-agent-container .chat-agent-button:active {
+
+    -webkit-transform: translateY(0);
     transform: translateY(0);
 }
 
@@ -39,6 +45,8 @@
     position: fixed;
     top: 50%;
     left: 50%;
+
+    -webkit-transform: translate(-50%, -50%);
     transform: translate(-50%, -50%);
     width: 70vw;
     height: 95vh;
@@ -66,6 +74,8 @@
     position: absolute;
     right: 16px;
     top: 50%;
+
+    -webkit-transform: translateY(-50%);
     transform: translateY(-50%);
     border: none;
     background: #f3f4f6;
@@ -75,6 +85,8 @@
     font-size: 14px;
     cursor: pointer;
     color: #6b7280;
+
+    -webkit-transition: all 0.2s ease;
     transition: all 0.2s ease;
 }
 
@@ -90,8 +102,15 @@
     align-items: center;
     justify-content: center;
     padding: 8px 4px;
-    gap: 12px;
+
+    /* gap: 12px; */ /* 移除 gap */
 }
+
+/* 使用 margin 代替 gap */
+#chat-agent-container .chat-agent-logo > *:not(:last-child) {
+    margin-bottom: 12px;
+}
+
 
 #chat-agent-container .chat-agent-logo-img {
     width: fit-content;
@@ -127,33 +146,51 @@
     background: #9ca3af;
 }
 
-#chat-agent-container .message { 
-    display: flex; 
-    margin-bottom: 16px; 
-    max-width: 100%; 
+#chat-agent-container .message {
+    display: flex;
+    margin-bottom: 16px;
+    max-width: 100%;
+
+    -webkit-animation: fadeInUp 0.3s ease-out;
     animation: fadeInUp 0.3s ease-out;
     align-items: flex-start;
+}
+
+
+@-webkit-keyframes fadeInUp {
+    from {
+        opacity: 0;
+        -webkit-transform: translateY(10px);
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        -webkit-transform: translateY(0);
+        transform: translateY(0);
+    }
 }
 
 @keyframes fadeInUp {
     from {
         opacity: 0;
+        -webkit-transform: translateY(10px);
         transform: translateY(10px);
     }
     to {
         opacity: 1;
+        -webkit-transform: translateY(0);
         transform: translateY(0);
     }
 }
 
-#chat-agent-container .message.user { 
-    flex-direction: row-reverse; 
+#chat-agent-container .message.user {
+    flex-direction: row-reverse;
     align-self: flex-end;
     border: none;
     justify-content: flex-start;
 }
 
-#chat-agent-container .message.ai { 
+#chat-agent-container .message.ai {
     flex-direction: row;
     border: none;
     align-self: flex-start;
@@ -162,15 +199,15 @@
 
 
 
-#chat-agent-container .message .avatar { 
-    width: 36px; 
-    height: 36px; 
-    border-radius: 50%; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    color: white; 
-    flex-shrink: 0; 
+#chat-agent-container .message .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
     margin: 0 10px;
     font-weight: 600;
     font-size: 16px;
@@ -180,20 +217,20 @@
     font-size: 16px;
 }
 
-#chat-agent-container .message.user .avatar { 
+#chat-agent-container .message.user .avatar {
     background: #374151;
     order: 1; /* 头像在右侧 */
 }
 
-#chat-agent-container .message.ai .avatar { 
+#chat-agent-container .message.ai .avatar {
     background: #6b7280;
     order: 1; /* 头像在左侧 */
 }
 
 #chat-agent-container .message .content {
-    padding: 8px 12px; 
-    border-radius: 16px; 
-    word-wrap: break-word; 
+    padding: 8px 12px;
+    border-radius: 16px;
+    word-wrap: break-word;
     max-width: 600px;
     line-height: 1.5;
     font-size: 14px;
@@ -212,7 +249,7 @@
 }
 
 /* AI消息在左侧 */
-#chat-agent-container .message.ai .content { 
+#chat-agent-container .message.ai .content {
     background: #f9fafb;
     color: #111827;
     border: 1px solid #e5e7eb;
@@ -232,32 +269,30 @@
 }
 
 
-#chat-agent-container .message .content code { 
+#chat-agent-container .message .content code {
     background: #e5e7eb;
-    color: #111827;     
-    padding: 2px 5px; 
+    color: #111827;
+    padding: 2px 5px;
     border-radius: 4px;
     font-family: Consolas, 'Courier New', monospace;
-    font-size: 0.9em; 
+    font-size: 0.9em;
 }
-#chat-agent-container .ai-text-content { 
-    margin-top: 8px; 
-    margin-bottom: 8px; 
+#chat-agent-container .ai-text-content {
+    margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 /* 状态时间线 */
-#chat-agent-container .status-timeline { 
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
+#chat-agent-container .status-timeline {
     padding: 12px;
     margin-bottom: 8px;
-    font-size: 11px;
+    font-size: 14px;
 }
 
-#chat-agent-container .status-timeline-header { 
-    font-weight: 600; 
-    padding-bottom: 12px; 
-    margin-bottom: 12px; 
+#chat-agent-container .status-timeline-header {
+    font-weight: 600;
+    padding-bottom: 4px;
+    margin-bottom: 12px;
     border-bottom: 1px solid #e5e7eb;
     color: #374151;
     font-size: 14px;
@@ -271,30 +306,27 @@
     content: '';
     position: absolute;
     left: 8px;
-    top: 0;
-    bottom: 0;
+    top: 2px;
+    bottom: 6px;
     width: 2px;
     background: #e5e7eb;
 }
 
-#chat-agent-container .status-timeline .timeline div { 
-    margin-bottom: 12px;
-    color: #374151;
+#chat-agent-container .status-timeline .timeline > div {
     position: relative;
     padding-left: 28px;
-    font-size: 13px;
-    line-height: 1.4;
+    margin-bottom: 12px;
 }
 
 #chat-agent-container .status-timeline .timeline div:last-child {
     margin-bottom: 0;
 }
 
-#chat-agent-container .status-timeline .timeline div:before {
+#chat-agent-container .status-timeline .timeline > div:before {
     content: '';
     position: absolute;
     left: 4px;
-    top: 2px;
+    top: 4px; /* 修正垂直对齐 */
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -311,8 +343,24 @@
 #chat-agent-container .status-timeline .timeline div.current:before {
     background: #2563eb;
     box-shadow: 0 0 0 1px #2563eb;
+
+    -webkit-animation: pulse 2s infinite;
     animation: pulse 2s infinite;
 }
+
+
+@-webkit-keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 1px #2563eb, 0 0 0 3px rgba(37, 99, 235, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 0 1px #2563eb, 0 0 0 6px rgba(37, 99, 235, 0.1);
+    }
+    100% {
+        box-shadow: 0 0 0 1px #2563eb, 0 0 0 3px rgba(37, 99, 235, 0.3);
+    }
+}
+
 
 @keyframes pulse {
     0% {
@@ -422,16 +470,18 @@
 }
 
 /* 附件样式 */
-#chat-agent-container .attachment-card { 
-    display: block; 
+#chat-agent-container .attachment-card {
+    display: block;
     background: #f0f9ff;
-    border: 1px solid #bfdbfe; 
-    padding: 10px 12px; 
+    border: 1px solid #bfdbfe;
+    padding: 10px 12px;
     margin-bottom: 6px;
-    border-radius: 6px; 
-    text-decoration: none; 
+    border-radius: 6px;
+    text-decoration: none;
     color: #2563eb;
     font-size: 13px;
+
+    -webkit-transition: all 0.2s ease;
     transition: all 0.2s ease;
 }
 
@@ -439,13 +489,13 @@
     margin-bottom: 0;
 }
 
-#chat-agent-container .attachment-card:hover { 
+#chat-agent-container .attachment-card:hover {
     background: #dbeafe;
     border-color: #93c5fd;
 }
 
-#chat-agent-container .attachment-info i { 
-    margin-right: 6px; 
+#chat-agent-container .attachment-info i {
+    margin-right: 6px;
 }
 
 #chat-agent-container .knowledge-sources-container {
@@ -479,23 +529,25 @@
     padding: 0;
 }
 
-#chat-agent-container .knowledge-source-card { 
+#chat-agent-container .knowledge-source-card {
     display: inline;
     background: transparent;
     border: 1px solid #9fa1a4;
     padding: 2px 4px;
     margin: 0 3px;
-    border-radius: 8px; 
+    border-radius: 8px;
     text-decoration-color: #e5e7eb;
     color: #9ca3af;
     font-size: 12px;
+
+    -webkit-transition: all 0.2s ease;
     transition: all 0.2s ease;
     line-height: inherit;
     white-space: nowrap;
-    
+
 }
 
-#chat-agent-container .knowledge-source-card:hover { 
+#chat-agent-container .knowledge-source-card:hover {
     background: transparent;
     color: #6b7280;
     text-decoration-color: #9ca3af;
@@ -506,7 +558,7 @@
     display: inline;
 }
 
-#chat-agent-container .knowledge-source-info i { 
+#chat-agent-container .knowledge-source-info i {
     display: none;
 }
 
@@ -533,6 +585,8 @@
     min-height: 80px;
     font-size: 14px;
     line-height: 1.4;
+
+    -webkit-transition: all 0.2s ease;
     transition: all 0.2s ease;
     background: #ffffff;
 }
@@ -553,6 +607,8 @@
     margin-left: 10px;
     cursor: pointer;
     font-size: 14px;
+
+    -webkit-transition: all 0.2s ease;
     transition: all 0.2s ease;
 }
 
@@ -561,6 +617,8 @@
 }
 
 #chat-agent-container .chat-agent-input-area .chat-agent-send-btn:active:not(:disabled) {
+
+    -webkit-transform: scale(0.95);
     transform: scale(0.95);
 }
 
@@ -586,8 +644,16 @@
     background: #f8fafc;
     display: flex;
     align-items: center;
-    gap: 8px;
+
+    /* gap: 8px; */ /* 移除 gap */
 }
+
+
+/* 使用 margin 代替 gap */
+#chat-agent-container .chat-agent-upload-area > *:not(:last-child) {
+    margin-right: 8px;
+}
+
 
 #chat-agent-container .chat-agent-upload-btn {
     background: #f3f4f6;
@@ -597,6 +663,8 @@
     font-size: 12px;
     color: #374151;
     cursor: pointer;
+
+    -webkit-transition: all 0.2s ease;
     transition: all 0.2s ease;
 }
 
@@ -617,11 +685,11 @@
         max-width: 900px;
         max-height: 700px;
     }
-    
+
     #chat-agent-container .message .content {
         max-width: 450px;
     }
-    
+
     #chat-agent-container .chat-agent-messages {
         padding: 16px;
     }
@@ -636,67 +704,69 @@
         right: 20px;
         bottom: 20px;
     }
-    
+
     #chat-agent-container .chat-agent-button span {
         display: none;
     }
-    
+
     #chat-agent-container .chat-agent-button i {
         margin-right: 0;
         font-size: 20px;
     }
-    
+
     #chat-agent-container .chat-agent-window {
         width: 100vw;
         height: 100vh;
         border-radius: 0;
         top: 0;
         left: 0;
+
+        -webkit-transform: none;
         transform: none;
     }
-    
+
     #chat-agent-container .message .content {
         max-width: 280px;
         font-size: 14px;
         padding: 10px 12px;
     }
-    
+
     #chat-agent-container .message .avatar {
         width: 32px;
         height: 32px;
         font-size: 14px;
         margin: 0 8px;
     }
-    
+
     #chat-agent-container .chat-agent-messages {
         padding: 12px;
     }
-    
+
     #chat-agent-container .chat-agent-header {
         padding: 12px 16px;
         font-size: 16px;
         color: #374151;
     }
-    
+
     #chat-agent-container .chat-agent-close-btn {
         width: 32px;
         height: 32px;
         font-size: 16px;
         right: 12px;
     }
-    
+
     #chat-agent-container .chat-agent-input-area textarea {
         min-height: 40px;
         font-size: 16px;
         padding: 12px 16px;
     }
-    
+
     #chat-agent-container .chat-agent-input-area .chat-agent-send-btn {
         width: 44px;
         height: 44px;
         font-size: 16px;
     }
-    
+
     #chat-agent-container .chat-agent-upload-area {
         padding: 8px 12px;
     }
@@ -791,11 +861,63 @@
     margin: 20px 0;
 }
 
-/* 链接 a */
+
 #chat-agent-container .message .content a {
     color: #2563eb;
     text-decoration: none;
 }
 #chat-agent-container .message .content a:hover {
     text-decoration: underline;
+}
+
+/* 时间线步骤中，包裹主要信息（名称、计时器等）的容器 */
+#chat-agent-container .status-timeline .timeline .timeline-item-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    margin: -3px;
+}
+#chat-agent-container .status-timeline .timeline .timeline-item-header > * {
+    margin: 3px;
+}
+
+
+
+#chat-agent-container .timeline-step-details {
+    margin-top: 4px;
+    padding-left: 0;
+    display: flex;
+    flex-direction: column;
+
+}
+
+#chat-agent-container .timeline-step-details > *:not(:last-child) {
+    margin-bottom: 6px;
+}
+
+
+/* 单个工具调用项的样式 */
+#chat-agent-container .tool-call-item {
+    font-size: 12px;
+    color: #6b7280;
+    background-color: #f8fafc;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    width: fit-content;
+}
+
+#chat-agent-container .tool-call-item i {
+    margin-right: 6px;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* 已完成步骤中的工具调用项，颜色可以更灰一些 */
+#chat-agent-container .status-timeline .timeline div.completed .tool-call-item {
+    background-color: #f9fafb;
+    color: #8c96a5;
+    margin-bottom: 0;
 }
