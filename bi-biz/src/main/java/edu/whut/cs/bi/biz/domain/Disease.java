@@ -25,6 +25,9 @@ public class Disease extends BaseEntity {
     /** 病害位置 */
     private String position;
 
+    /** 病害位置编号 */
+    private Integer positionNumber;
+
     /** 病害类型 */
     private DiseaseType diseaseType;
     private Long diseaseTypeId;
@@ -37,6 +40,9 @@ public class Disease extends BaseEntity {
 
     /** 病害数量 */
     private int quantity;
+
+    /** 单位 */
+    private String units;
 
     /** 病害类型 */
     private String type;

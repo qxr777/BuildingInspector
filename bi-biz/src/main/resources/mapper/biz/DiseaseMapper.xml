@@ -7,12 +7,14 @@
     <resultMap type="Disease" id="DiseaseResult">
         <result property="id" column="id"/>
         <result property="position" column="position"/>
+        <result property="positionNumber" column="position_number"/>
         <result property="type" column="type"/>
         <result property="diseaseTypeId" column="disease_type_id"/>
         <result property="description" column="description"/>
         <result property="nature" column="nature"/>
         <result property="level" column="level"/>
         <result property="quantity" column="quantity"/>
+        <result property="units" column="units"/>
         <result property="participateAssess" column="participate_assess"/>
         <result property="deductPoints" column="deduct_points"/>
         <result property="projectId" column="project_id"/>
@@ -51,7 +53,7 @@
 
     <sql id="selectDiseaseVo">
         select
-            d.id, d.position, d.type, d.disease_type_id, d.description, d.level, d.quantity,
+            d.id, d.position, d.position_number, d.type, d.disease_type_id, d.description, d.level, d.quantity, d.units,
             d.nature , d.participate_assess, d.deduct_points,
             d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
             d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
@@ -101,12 +103,14 @@
         insert into bi_disease
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="position != null and position != ''">position,</if>
+            <if test="positionNumber != null">position_number,</if>
             <if test="type != null and type != ''">type,</if>
             <if test="diseaseTypeId != null">disease_type_id,</if>
             <if test="description != null and description != ''">description,</if>
             <if test="nature != null and nature != ''">nature,</if>
             <if test="level != null">level,</if>
             <if test="quantity != null">quantity,</if>
+            <if test="units != null and units != ''">units,</if>
             <if test="participateAssess != null and participateAssess != ''">participate_assess,</if>
             <if test="deductPoints != null">deduct_points,</if>
             <if test="projectId != null">project_id,</if>
@@ -130,12 +134,14 @@
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="position != null and position != ''">#{position},</if>
+            <if test="positionNumber != null">#{positionNumber},</if>
             <if test="type != null and type != ''">#{type},</if>
             <if test="diseaseTypeId != null">#{diseaseTypeId},</if>
             <if test="description != null and description != ''">#{description},</if>
             <if test="nature != null and nature != ''">#{nature},</if>
             <if test="level != null">#{level},</if>
             <if test="quantity != null">#{quantity},</if>
+            <if test="units != null and units != ''">#{units},</if>
             <if test="participateAssess != null and participateAssess != ''">#{participateAssess},</if>
             <if test="deductPoints != null">#{deductPoints},</if>
             <if test="projectId != null">#{projectId},</if>
@@ -161,7 +167,7 @@
 
     <insert id="batchInsertDiseases" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO bi_disease (
-        position, type, disease_type_id, description, nature, level, quantity,
+        position, position_number, type, disease_type_id, description, nature, level, quantity, units,
         participate_assess, deduct_points, project_id, bi_object_id, bi_object_name,
         building_id, component_id, commit_type, local_id, remark, cause,
         repair_recommendation, crack_type, development_trend, detection_method,
@@ -169,9 +175,9 @@
         ) VALUES
         <foreach collection="list" item="disease" separator=",">
             (
-            #{disease.position}, #{disease.type}, #{disease.diseaseTypeId},
+            #{disease.position}, #{disease.positionNumber}, #{disease.type}, #{disease.diseaseTypeId},
             #{disease.description}, #{disease.nature}, #{disease.level},
-            #{disease.quantity}, #{disease.participateAssess}, #{disease.deductPoints},
+            #{disease.quantity}, #{disease.units}, #{disease.participateAssess}, #{disease.deductPoints},
             #{disease.projectId}, #{disease.biObjectId}, #{disease.biObjectName},
             #{disease.buildingId}, #{disease.componentId}, #{disease.commitType},
             #{disease.localId}, #{disease.remark}, #{disease.cause},
@@ -186,12 +192,14 @@
         update bi_disease
         <trim prefix="SET" suffixOverrides=",">
             <if test="position != null and position != ''">position = #{position},</if>
+            <if test="positionNumber != null">position_number = #{positionNumber},</if>
             <if test="type != null and type != ''">type = #{type},</if>
             <if test="diseaseTypeId != null">disease_type_id = #{diseaseTypeId},</if>
             <if test="description != null and description != ''">description = #{description},</if>
             <if test="nature != null and nature != ''">nature = #{nature},</if>
             <if test="level != null">level = #{level},</if>
             <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="units != null and units != ''">units = #{units},</if>
             <if test="participateAssess != null and participateAssess != ''">participate_assess = #{participateAssess},</if>
             <if test="deductPoints != null">deduct_points = #{deductPoints},</if>
             <if test="projectId != null">project_id = #{projectId},</if>
@@ -222,6 +230,13 @@
                     <foreach collection="diseaseList" item="item">
                         <if test="item.position != null and item.position != ''">
                             WHEN #{item.id} THEN #{item.position}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="position_number = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.positionNumber != null">
+                            WHEN #{item.id} THEN #{item.positionNumber}
                         </if>
                     </foreach>
                 </trim>
@@ -264,6 +279,13 @@
                     <foreach collection="diseaseList" item="item">
                         <if test="item.quantity != null">
                             WHEN #{item.id} THEN #{item.quantity}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="units = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.units != null and item.units != ''">
+                            WHEN #{item.id} THEN #{item.units}
                         </if>
                     </foreach>
                 </trim>
