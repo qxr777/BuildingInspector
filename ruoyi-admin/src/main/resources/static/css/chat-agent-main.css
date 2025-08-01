@@ -1,0 +1,275 @@
+/* --- chat-agent-main.css --- */
+#chat-agent-container {
+    /* 定义组件级别的CSS变量，方便维护和统一风格 */
+    --agent-color-primary: #2563eb;
+    --agent-color-primary-hover: #1d4ed8;
+    --agent-color-success: #22c55e;
+    --agent-color-success-bg: #f0fdf4;
+    --agent-color-success-border: #bbf7d0;
+    --agent-color-success-text: #166534;
+    --agent-color-error: #dc2626;
+    --agent-color-error-light: #ef4444;
+    --agent-color-white: #ffffff;
+
+    --agent-color-text-dark: #374151;
+    --agent-color-text-body: #111827;
+    --agent-color-text-muted: #6b7280;
+    --agent-color-text-light: #9ca3af;
+
+    --agent-color-border: #e5e7eb;
+    --agent-color-border-muted: #d1d5db;
+    --agent-color-border-primary: #bfdbfe;
+
+    --agent-color-bg-lightest: #f8fafc;
+    --agent-color-bg-lighter: #f9fafb;
+    --agent-color-bg-muted: #f3f4f6;
+    --agent-color-bg-primary-light: #eff6ff;
+
+    --agent-font-size-xs: 10px;
+    --agent-font-size-sm: 12px;
+    --agent-font-size-md: 14px;
+    --agent-font-size-lg: 15px;
+    --agent-font-size-xl: 16px;
+
+    --agent-radius-sm: 4px;
+    --agent-radius-md: 6px;
+    --agent-radius-lg: 8px;
+    --agent-radius-xl: 12px;
+    --agent-radius-xxl: 25px;
+    --agent-radius-full: 50%;
+
+    --agent-shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --agent-shadow-md: 0 4px 14px 0 rgba(37, 99, 235, 0.3);
+    --agent-shadow-lg: 0 6px 20px 0 rgba(37, 99, 235, 0.4);
+    --agent-shadow-xl: 0 10px 40px rgba(0, 0, 0, 0.1);
+    --agent-shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* --- 基础布局与按钮 --- */
+#chat-agent-container .chat-agent-button {
+    position: fixed;
+    left: 25px;
+    bottom: 30px;
+    width: 130px;
+    height: 50px;
+    background: var(--agent-color-primary);
+    color: var(--agent-color-white);
+    border: none;
+    border-radius: var(--agent-radius-xxl);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: var(--agent-font-size-lg);
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--agent-shadow-md);
+    z-index: 9999;
+    -webkit-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+}
+
+#chat-agent-container .chat-agent-button:hover {
+    background: var(--agent-color-primary-hover);
+    box-shadow: var(--agent-shadow-lg);
+    -webkit-transform: translateY(-1px);
+    transform: translateY(-1px);
+}
+
+#chat-agent-container .chat-agent-button:active {
+    -webkit-transform: translateY(0);
+    transform: translateY(0);
+}
+
+#chat-agent-container .chat-agent-button i {
+    margin-right: 8px;
+    font-size: var(--agent-font-size-xl);
+}
+
+#chat-agent-container .chat-agent-window {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 70vw;
+    height: 95vh;
+    background: var(--agent-color-white);
+    border-radius: var(--agent-radius-xl);
+    box-shadow: var(--agent-shadow-xl);
+    border: 1px solid var(--agent-color-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1000;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+}
+
+#chat-agent-container .chat-agent-header {
+    padding: 12px;
+    background: var(--agent-color-bg-lightest);
+    border-bottom: 1px solid var(--agent-color-border);
+    color: var(--agent-color-text-dark);
+    font-weight: 600;
+    font-size: var(--agent-font-size-sm);
+    position: relative;
+}
+
+#chat-agent-container .chat-agent-close-btn {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    width: 28px;
+    height: 28px;
+    background: var(--agent-color-bg-muted);
+    color: var(--agent-color-text-muted);
+    border: none;
+    border-radius: var(--agent-radius-full);
+    font-size: var(--agent-font-size-md);
+    cursor: pointer;
+    -webkit-transform: translateY(-50%);
+    transform: translateY(-50%);
+    -webkit-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+}
+
+#chat-agent-container .chat-agent-close-btn:hover {
+    background: var(--agent-color-border);
+    color: var(--agent-color-text-dark);
+}
+
+/* --- Logo --- */
+#chat-agent-container .chat-agent-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
+}
+#chat-agent-container .chat-agent-logo > *:not(:last-child) {
+    margin-bottom: 12px; /* 替代 gap */
+}
+#chat-agent-container .chat-agent-logo-img {
+    width: fit-content;
+    max-height: 70px;
+    object-fit: cover;
+}
+
+
+/* --- 输入区域 --- */
+#chat-agent-container .chat-agent-input-area {
+    display: flex;
+    padding: 8px;
+    border-top: 1px solid var(--agent-color-border);
+    background: var(--agent-color-bg-lightest);
+    align-items: flex-end;
+}
+
+#chat-agent-container .chat-agent-input-area textarea {
+    flex-grow: 1;
+    border: 1px solid var(--agent-color-border-muted);
+    border-radius: 20px;
+    padding: 10px 16px;
+    resize: none;
+    min-height: 80px;
+    font-size: var(--agent-font-size-md);
+    line-height: 1.4;
+    background: var(--agent-color-white);
+    -webkit-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+}
+
+#chat-agent-container .chat-agent-input-area textarea:focus {
+    outline: none;
+    border-color: var(--agent-color-primary);
+    box-shadow: var(--agent-shadow-focus);
+}
+
+#chat-agent-container .chat-agent-input-area .chat-agent-send-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: var(--agent-color-primary);
+    color: var(--agent-color-white);
+    border-radius: var(--agent-radius-full);
+    margin-left: 10px;
+    cursor: pointer;
+    font-size: var(--agent-font-size-md);
+    -webkit-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+}
+
+#chat-agent-container .chat-agent-input-area .chat-agent-send-btn:hover:not(:disabled) {
+    background: var(--agent-color-primary-hover);
+}
+
+#chat-agent-container .chat-agent-input-area .chat-agent-send-btn:active:not(:disabled) {
+    -webkit-transform: scale(0.95);
+    transform: scale(0.95);
+}
+
+#chat-agent-container .chat-agent-input-area .chat-agent-send-btn:disabled {
+    background: var(--agent-color-text-light);
+    cursor: not-allowed;
+}
+
+/* --- 文件上传与页脚 --- */
+#chat-agent-container .chat-agent-upload-area {
+    padding: 8px 16px;
+    border-top: 1px solid var(--agent-color-border);
+    background: var(--agent-color-bg-lightest);
+    display: flex;
+    align-items: center;
+}
+#chat-agent-container .chat-agent-upload-area > *:not(:last-child) { margin-right: 8px; /* 替代 gap */ }
+#chat-agent-container .chat-agent-upload-btn {
+    background: var(--agent-color-bg-muted);
+    border: 1px solid var(--agent-color-border-muted);
+    border-radius: var(--agent-radius-md);
+    padding: 6px 12px;
+    font-size: var(--agent-font-size-sm);
+    color: var(--agent-color-text-dark);
+    cursor: pointer;
+    -webkit-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+}
+#chat-agent-container .chat-agent-upload-btn:hover {
+    background: var(--agent-color-border);
+    border-color: var(--agent-color-text-light);
+}
+#chat-agent-container .chat-agent-upload-info {
+    font-size: var(--agent-font-size-sm);
+    color: var(--agent-color-text-light);
+}
+
+#chat-agent-container .chat-agent-footer {
+    padding: 8px;
+    background: var(--agent-color-bg-lightest);
+    border-top: 1px solid var(--agent-color-border);
+    text-align: center;
+    font-size: var(--agent-font-size-sm);
+    color: var(--agent-color-text-muted);
+}
+
+/* --- 动画 --- */
+@-webkit-keyframes fadeInUp {
+    from { opacity: 0; -webkit-transform: translateY(10px); transform: translateY(10px); }
+    to { opacity: 1; -webkit-transform: translateY(0); transform: translateY(0); }
+}
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@-webkit-keyframes pulse {
+    0% { box-shadow: 0 0 0 1px var(--agent-color-primary), 0 0 0 3px rgba(37, 99, 235, 0.3); }
+    50% { box-shadow: 0 0 0 1px var(--agent-color-primary), 0 0 0 6px rgba(37, 99, 235, 0.1); }
+    100% { box-shadow: 0 0 0 1px var(--agent-color-primary), 0 0 0 3px rgba(37, 99, 235, 0.3); }
+}
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 1px var(--agent-color-primary), 0 0 0 3px rgba(37, 99, 235, 0.3); }
+    50% { box-shadow: 0 0 0 1px var(--agent-color-primary), 0 0 0 6px rgba(37, 99, 235, 0.1); }
+    100% { box-shadow: 0 0 0 1px var(--agent-color-primary), 0 0 0 3px rgba(37, 99, 235, 0.3); }
+}
+
+#chat-agent-container .message {
+    border: none;
+}
