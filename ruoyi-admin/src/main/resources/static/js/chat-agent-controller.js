@@ -14,7 +14,7 @@ const ChatAgentController = {
     /**
      * 获取初始数据，如UserID
      */
-    fetchInitialData() {
+     fetchInitialData() {
         fetch('/biz/chat/getUserId')
             .then(response => response.text())
             .then(userId => {
