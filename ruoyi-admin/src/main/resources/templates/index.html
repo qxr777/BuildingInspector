@@ -16,7 +16,9 @@
     <link th:href="@{/css/skins.css}" rel="stylesheet"/>
     <link th:href="@{/ruoyi/css/ry-ui.css?v=4.6.2}" rel="stylesheet"/>
     <!-- 智能助手样式 -->
-    <link th:href="@{/css/chat-agent.css}" rel="stylesheet"/>
+    <link th:href="@{/css/chat-agent-main.css}" rel="stylesheet"/>
+    <link th:href="@{/css/chat-agent-components.css}" rel="stylesheet"/>
+    <link th:href="@{/css/chat-agent-markdown.css}" rel="stylesheet"/>
 </head>
 <body class="fixed-sidebar full-height-layout gray-bg" style="overflow: hidden">
 <div id="wrapper">
@@ -253,7 +255,7 @@
                     th:src="@{/biz/fullmap}" frameborder="0" seamless></iframe>
         </div>
 
-        <div th:if="${ignoreFooter}" class="footer">
+        <div th:if="${footer}" class="footer">
             <div class="pull-right">© [[${copyrightYear}]] WHUT Copyright </div>
         </div>
     </div>
@@ -320,7 +322,10 @@
 <script th:src="@{/ruoyi/index.js?v=20201208}"></script>
 <script th:src="@{/ajax/libs/fullscreen/jquery.fullscreen.js}"></script>
 <!-- 智能助手脚本 -->
-<script th:src="@{/js/chat-agent.js}"></script>
+<script th:src="@{/js/chat-agent-config.js}"></script>
+<script th:src="@{/js/chat-agent-sse.js}"></script>
+<script th:src="@{/js/chat-agent-ui.js}"></script>
+<script th:src="@{/js/chat-agent-controller.js}"></script>
 <script th:inline="javascript">
 window.history.forward(1);
 var ctx_index = [[@{/}]];
