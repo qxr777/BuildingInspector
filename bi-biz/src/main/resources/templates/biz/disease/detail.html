@@ -71,12 +71,18 @@
         </div>
         <h4 class="form-header h4">病害定量数据</h4>
         <div class="row mb-4">
-            <div class="col-sm-12">
+            <div class="col-sm-6">
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-5 control-label is-required">缺损数量:</label>
-                    <div class="col-sm-7">
-                        <div class="input-group">
+                    <label class="col-sm-4 control-label is-required">缺损数量:</label>
+                    <div class="col-sm-8">
+                        <div class="input-group" style="width: 200px;">
                             <input class="form-control" type="text" th:value="${disease.quantity}" readonly>
+                            <div class="input-group-addon">
+                                <select class="form-control" th:value="${disease.units}" disabled style="border: none; background: transparent; width: 60px;">
+                                    <option value="条" th:selected="${disease.units == '条'}">条</option>
+                                    <option value="处" th:selected="${disease.units == '处'}">处</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
