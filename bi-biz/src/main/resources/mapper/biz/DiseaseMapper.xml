@@ -44,9 +44,9 @@
             <result property="minScale" column="dt_min_scale"/>
             <result property="maxScale" column="dt_max_scale"/>
             <result property="status" column="dt_status"/>
-            <result property="selectColumn" column="select_column"/>
-            <result property="threshold" column="threshold"/>
-            <result property="groupName" column="group_name"/>
+            <result property="selectColumn" column="dt_select_column"/>
+            <result property="threshold" column="dt_threshold"/>
+            <result property="groupName" column="dt_group_name"/>
         </association>
 
         <association property="project" javaType="Project">
@@ -62,7 +62,8 @@
             d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
             d.attachment_count,
             d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
-            dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status
+            dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status,
+            dt.select_column as dt_select_column, dt.threshold as dt_threshold, dt.group_name as dt_group_name
         from bi_disease d
                  left join bi_disease_type dt on d.disease_type_id = dt.id
                  left join bi.bi_project bp on d.project_id = bp.id
