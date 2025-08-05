@@ -638,7 +638,7 @@ public class PropertyServiceImpl implements IPropertyService {
      * @return
      */
     public String getJsonData(MultipartFile file) {
-        String host = "47.94.205.90";
+        String host = "59.110.81.142";
         int port = 8081;
         String url = "http://" + host + ":" + port + "/api-ai/word2Json";
 

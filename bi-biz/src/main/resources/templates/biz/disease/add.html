@@ -202,7 +202,7 @@
             </div>
         </div>
         <div class="row mb-4" style="margin-top: 20px;">
-            <div class="col-sm-4" th:if="${biObject.name != '其他'}">
+            <div class="col-sm-4">
                 <div class="form-group" style="margin-top: 20px;">
                     <label class="col-sm-5 control-label is-required">评定标度：</label>
                     <div class="col-sm-7">
@@ -601,7 +601,7 @@
                 options += '<option value="' + item.id + '">' + item.name + '</option>';
             });
             // 添加"其他"选项
-            options += '<option value="other">其他</option>';
+            // options += '<option value="other">其他</option>';
             $("#position").html(options).selectpicker('refresh');
         });
     }
@@ -826,7 +826,7 @@
                         placeholder: "长度"
                     });
                 }
-                
+
                 if (showHeightDepth) {
                     fieldsToShow.push({
                         label: "高度/深度",

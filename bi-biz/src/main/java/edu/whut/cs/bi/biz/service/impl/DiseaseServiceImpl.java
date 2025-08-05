@@ -681,7 +681,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
      */
     @Override
     public String getCauseAnalysis(CauseQuery causeQuery) {
-        String host = "47.94.205.90";
+        String host = "59.110.81.142";
         int port = 8081;
         String url = "http://" + host + ":" + port + "/api-ai/disease/cause";
 
