@@ -44,6 +44,9 @@
             <result property="minScale" column="dt_min_scale"/>
             <result property="maxScale" column="dt_max_scale"/>
             <result property="status" column="dt_status"/>
+            <result property="selectColumn" column="select_column"/>
+            <result property="threshold" column="threshold"/>
+            <result property="groupName" column="group_name"/>
         </association>
 
         <association property="project" javaType="Project">

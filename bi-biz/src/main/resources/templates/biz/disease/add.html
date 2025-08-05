@@ -51,6 +51,19 @@
             </div>
             <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-4 control-label is-required">病害分组:</label>
+                    <div class="col-sm-8">
+                        <select class="form-control selectpicker" name="diseaseGroupName" id="diseaseGroupName"
+                                data-live-search="true" required>
+                            <option value="">请选择病害分组</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px;">
                     <label class="col-sm-4 control-label is-required">病害类型:</label>
                     <div class="col-sm-8">
                         <select class="form-control selectpicker" name="diseaseTypeId" id="diseaseTypeId"
@@ -62,8 +75,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="row mb-4">
             <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label class="col-sm-4 control-label">位置序号：</label>
@@ -92,6 +103,7 @@
                 </div>
             </div>
         </div>
+
         <h4 class="form-header h4">病害定量数据</h4>
         <div class="row mb-4">
             <div class="col-sm-3">
@@ -284,6 +296,35 @@
             $("#form-disease-add").append('<input type="hidden" name="level" value="1">');
         }
 
+        // 监听病害分组选择变化
+        $("#diseaseGroupName").change(function () {
+            var selectedGroupName = $(this).val();
+            if (selectedGroupName) {
+                // 根据选择的分组过滤病害类型
+                var filteredDiseaseTypes = diseaseTypes.filter(function (item) {
+                    return item.groupName === selectedGroupName;
+                });
+                
+                var options = '<option value="">请选择病害类型</option>';
+                $.each(filteredDiseaseTypes, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                });
+                try {
+                    $("#diseaseTypeId").html(options).selectpicker('refresh');
+                } catch (e) {
+                    console.log(e);
+                }
+            } else {
+                // 如果没有选择分组，清空病害类型
+                try {
+                    $("#diseaseTypeId").html('<option value="">请先选择病害分组</option>').selectpicker('refresh');
+                } catch (e) {
+                    console.log(e);
+                }
+                
+            }
+        });
+
         // 监听病害类型选择变化
         $("#diseaseTypeId").change(function () {
             var selectedText = $("#diseaseTypeId option:selected").text().trim();
@@ -363,7 +404,6 @@
 
                         }
 
-                        console.log("------")
                         if (parsedProps['ref2']) {
                             parsedProps['ref2'].forEach(function(item) {
                                 ref2Select.append($('<option></option>').val(item.id).text(item.name));
@@ -444,6 +484,7 @@
         // 表单验证
         $("#form-disease-add").validate({
             rules: {
+                diseaseGroupName: "required",
                 diseaseTypeId: "required",
                 level: "required"
             },
@@ -504,12 +545,23 @@
             biObjectId: biObject.id
         }, function (result) {
             diseaseTypes = result;
-            var options = '<option value="">请选择病害类型</option>';
+            
+            // 提取所有的groupName并去重
+            var groupNames = [];
+            var groupNameSet = new Set();
             $.each(result, function (i, item) {
-                options += '<option value="' + item.id + '">' + item.name + '</option>';
+                if (item.groupName && !groupNameSet.has(item.groupName)) {
+                    groupNameSet.add(item.groupName);
+                    groupNames.push(item.groupName);
+                }
             });
-
-            $("#diseaseTypeId").html(options).selectpicker('refresh');
+            
+            // 填充病害分组下拉框
+            var groupOptions = '<option value="">请选择病害分组</option>';
+            $.each(groupNames, function (i, groupName) {
+                groupOptions += '<option value="' + groupName + '">' + groupName + '</option>';
+            });
+            $("#diseaseGroupName").html(groupOptions).selectpicker('refresh');
         });
     }
 
@@ -830,8 +882,8 @@
                     });
                 }
                 
-                // 按每行最多4个字段进行排列
-                const fieldsPerRow = 4;
+                // 按每行最多3个字段进行排列
+                const fieldsPerRow = 3;
                 const rows = Math.ceil(fieldsToShow.length / fieldsPerRow);
                 
                 for (let row = 0; row < rows; row++) {
@@ -847,15 +899,12 @@
                     
                     if (fieldsInRow === 1) {
                         colWidth = 6; // 单个字段使用6列宽度
-                        offset = 2;   // 左边空出3列，确保居中
+                        offset = 3;   // 左边空出3列，确保居中
                     } else if (fieldsInRow === 2) {
-                        colWidth = 5; // 2个字段各用5列宽度
-                        offset = 1;   // 左边空出1列，确保居中
+                        colWidth = 6; // 2个字段各用6列宽度
+                        offset = 0;   // 不需要偏移
                     } else if (fieldsInRow === 3) {
                         colWidth = 4; // 3个字段各用4列宽度
-                        offset = 0;   // 不需要偏移
-                    } else {
-                        colWidth = 3; // 4个字段各用3列宽度
                         offset = 0;   // 不需要偏移
                     }
                     
@@ -909,7 +958,7 @@
                         }
                     }
                     
-                    // 添加右侧偏移，确保对称（如果是奇数列的情况）
+                    // 添加右侧偏移，确保对称（如果是单个字段的情况）
                     if (offset > 0 && fieldsInRow === 1) {
                         html += `<div class="col-sm-${offset}"></div>`;
                     }
