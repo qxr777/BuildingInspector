@@ -24,6 +24,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -673,6 +674,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
         });
     }
 
+
+    @Value("${springAi_Rag.endpoint}")
+    private String springAiRagEndpoint;
+
     /**
      * 获取成因分析
      *
@@ -681,9 +686,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
      */
     @Override
     public String getCauseAnalysis(CauseQuery causeQuery) {
-        String host = "59.110.81.142";
-        int port = 8081;
-        String url = "http://" + host + ":" + port + "/api-ai/disease/cause";
+//        String host = "59.110.81.142";
+//        int port = 8081;
+        String url = springAiRagEndpoint + "/api-ai/disease/cause";
 
         causeQuery.setObjectId(null);
         try {

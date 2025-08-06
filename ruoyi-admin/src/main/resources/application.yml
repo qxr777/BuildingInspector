@@ -160,7 +160,8 @@ minio:
   url: http://59.110.81.142:9000
 
   bucket-name: public
+
 springAi_Rag:
 #  springai 项目地址， 后端连接时可用 , 如有改动 ，需和 index 页面的地址同步。
-  endpoint: http://47.94.205.90:8081
+  endpoint: http://59.110.81.142:8081
 #  endpoint: http://localhost:8081   # 测试用
