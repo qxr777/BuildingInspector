@@ -78,6 +78,14 @@ public interface BiObjectMapper {
     public List<BiObject> selectChildrenById(Long id);
 
     /**
+     * 查询指定节点的所有子节点及其所有子节点
+     *
+     * @param rootId 节点ID
+     * @return 所有子节点
+     */
+    public List<BiObject> selectBiObjectAndChildren(Long rootId);
+
+    /**
      * 查询指定节点的所有子节点 (不包含叶子节点)
      *
      * @param id 节点ID

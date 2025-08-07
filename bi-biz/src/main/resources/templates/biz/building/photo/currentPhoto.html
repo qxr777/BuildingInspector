@@ -133,6 +133,10 @@
                     title: '原文件名'
                 },
                 {
+                    field: 'attachmentRemark',
+                    title: '备注'
+                },
+                {
                     field: 'createTime',
                     title: '创建时间'
                 },
@@ -165,7 +169,8 @@
         function zOnClick(event, treeId, treeNode) {
             currentNode = treeNode;
             $("#biObjectId").val(treeNode.id);
-            $.table.search();
+            // 重置分页参数到第一页
+            $.table.search('formId', 'bootstrap-table', 1);
         }
     }
 

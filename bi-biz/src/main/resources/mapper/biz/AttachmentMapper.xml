@@ -10,6 +10,7 @@
         <result property="subjectId" column="subject_id"/>
         <result property="minioId" column="minio_id"/>
         <result property="type" column="type"/>
+        <result property="remark" column="remark"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -17,7 +18,7 @@
     </resultMap>
 
     <sql id="selectAttachmentVo">
-        select id, name, type, minio_id, subject_id, create_by, create_time, update_by, update_time from bi_attachment
+        select id, name, type, minio_id, subject_id, remark, create_by, create_time, update_by, update_time from bi_attachment
     </sql>
 
     <select id="selectAll" resultMap="AttachmentResult">
@@ -69,6 +70,7 @@
             <if test="subjectId != null">subject_id,</if>
             <if test="type != null">type,</if>
             <if test="minioId != null">minio_id,</if>
+            <if test="remark != null">remark,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
         </trim>
@@ -77,6 +79,7 @@
             <if test="subjectId != null">#{subjectId},</if>
             <if test="type != null">#{type},</if>
             <if test="minioId != null">#{minioId},</if>
+            <if test="remark != null">#{remark},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
         </trim>
@@ -89,6 +92,7 @@
             <if test="subjectId != null">subject_id = #{subjectId},</if>
             <if test="type != null">type = #{type},</if>
             <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="remark != null">remark = #{remark},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>

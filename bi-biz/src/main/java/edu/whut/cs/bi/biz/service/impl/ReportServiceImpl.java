@@ -1,8 +1,14 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -10,6 +16,8 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.service.*;
+import org.springframework.web.client.RestTemplate;
+
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +57,9 @@ public class ReportServiceImpl implements IReportService {
 
   @Autowired
   private AttachmentService attachmentService;
+
+  @Value("${springAi_Rag.endpoint}")
+  private String SpringAiUrl;
 
   @Override
   public XWPFDocument exportTaskReport(Long taskId) {
@@ -492,5 +503,19 @@ public class ReportServiceImpl implements IReportService {
       return "0".equals(prefix) ? "${桥梁立面照}" : "${桥梁立面照1}";
     }
     return "";
+  }
+
+
+  public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
+    // 序列化为JSON字符串
+    ObjectMapper mapper = new ObjectMapper();
+    String diseasesJson = mapper.writeValueAsString(diseases);
+    // 发送POST请求
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    HttpEntity<String> request = new HttpEntity<>(diseasesJson, headers);
+    RestTemplate restTemplate = new RestTemplate();
+    String response = restTemplate.postForObject(SpringAiUrl + "/api-ai" + "/diseaseSummary", request, String.class);
+    return response;
   }
 }

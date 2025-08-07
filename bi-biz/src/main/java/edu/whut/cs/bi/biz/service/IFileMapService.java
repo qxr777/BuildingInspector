@@ -144,7 +144,7 @@ public interface IFileMapService {
     /**
      * 处理biObject附件
      */
-    void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type);
+    void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type, List<String> informations);
 
     /**
      * 批量查询文件管理

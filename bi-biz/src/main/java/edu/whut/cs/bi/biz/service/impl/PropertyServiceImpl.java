@@ -29,6 +29,7 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFPictureData;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -631,6 +632,9 @@ public class PropertyServiceImpl implements IPropertyService {
 
     }
 
+    @Value("${springAi_Rag.endpoint}")
+    private String springAiRagEndpoint;
+
     /**
      * 获取json数据
      *
@@ -638,9 +642,9 @@ public class PropertyServiceImpl implements IPropertyService {
      * @return
      */
     public String getJsonData(MultipartFile file) {
-        String host = "47.94.205.90";
-        int port = 8081;
-        String url = "http://" + host + ":" + port + "/api-ai/word2Json";
+//        String host = "59.110.81.142";
+//        int port = 8081;
+        String url = springAiRagEndpoint + "/api-ai/word2Json";
 
         try {
             // 构建Multipart请求体

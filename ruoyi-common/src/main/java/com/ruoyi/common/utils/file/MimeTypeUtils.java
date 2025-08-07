@@ -16,6 +16,18 @@ public class MimeTypeUtils
     public static final String IMAGE_BMP = "image/bmp";
 
     public static final String IMAGE_GIF = "image/gif";
+    
+    public static final String APPLICATION_ZIP = "application/zip";
+    
+    public static final String APPLICATION_RAR = "application/x-rar-compressed";
+    
+    public static final String APPLICATION_PDF = "application/pdf";
+    
+    public static final String APPLICATION_WORD = "application/msword";
+    
+    public static final String APPLICATION_EXCEL = "application/vnd.ms-excel";
+    
+    public static final String APPLICATION_PPT = "application/vnd.ms-powerpoint";
 
     public static final String[] IMAGE_EXTENSION = { "bmp", "gif", "jpg", "jpeg", "png" };
 
@@ -54,6 +66,55 @@ public class MimeTypeUtils
                 return "gif";
             default:
                 return "";
+        }
+    }
+    
+    /**
+     * 根据文件扩展名获取对应的MIME类型
+     * 
+     * @param extension 文件扩展名
+     * @return MIME类型
+     */
+    public static String getContentType(String extension) {
+        if (extension == null || extension.isEmpty()) {
+            return "application/octet-stream";
+        }
+        
+        extension = extension.toLowerCase();
+        
+        // 图片类型
+        if ("bmp".equals(extension)) {
+            return IMAGE_BMP;
+        } else if ("gif".equals(extension)) {
+            return IMAGE_GIF;
+        } else if ("jpg".equals(extension) || "jpeg".equals(extension)) {
+            return IMAGE_JPEG;
+        } else if ("png".equals(extension)) {
+            return IMAGE_PNG;
+        } 
+        // 文档类型
+        else if ("pdf".equals(extension)) {
+            return APPLICATION_PDF;
+        } else if ("doc".equals(extension) || "docx".equals(extension)) {
+            return APPLICATION_WORD;
+        } else if ("xls".equals(extension) || "xlsx".equals(extension)) {
+            return APPLICATION_EXCEL;
+        } else if ("ppt".equals(extension) || "pptx".equals(extension)) {
+            return APPLICATION_PPT;
+        }
+        // 压缩文件类型
+        else if ("zip".equals(extension)) {
+            return APPLICATION_ZIP;
+        } else if ("rar".equals(extension)) {
+            return APPLICATION_RAR;
+        }
+        // 其他文本文件
+        else if ("txt".equals(extension) || "html".equals(extension) || "htm".equals(extension)) {
+            return "text/" + extension;
+        }
+        // 默认类型
+        else {
+            return "application/octet-stream";
         }
     }
 }

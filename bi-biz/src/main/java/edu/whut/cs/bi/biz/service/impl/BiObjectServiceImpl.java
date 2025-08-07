@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.bean.BeanUtils;
@@ -426,6 +427,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
             node.setUpdateBy(updateBy);
             node.setUpdateTime(updateTime);
             List<String> photos = node.getPhoto();
+            List<String> informations = node.getInformation();
             List<MultipartFile> multipartImagesFiles = new ArrayList<>();
             // 处理结构图片
             if(photos != null && !photos.isEmpty()) {
@@ -456,7 +458,8 @@ public class BiObjectServiceImpl implements IBiObjectService {
                         fileMapServiceImpl.handleBiObjectAttachment(
                                 multipartImagesFiles.toArray(new MultipartFile[0]),
                                 node.getId(),
-                                8
+                                8,
+                                informations
                         );
                     }
                 }

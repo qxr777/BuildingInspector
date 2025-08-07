@@ -101,10 +101,14 @@
                 {
                     field: 'code',
                     title: '病害类型编码',
-                    sortable: true,
                     formatter: function (value, row, index) {
                         return '<a href="javascript:void(0)" onclick="detail(\'' + row.id + '\')">' + value + '</a>';
                     }
+                },
+                {
+                    field: 'groupName',
+                    title: '病害类型分组名称',
+                    sortable: true,
                 },
                 {
                     field: 'status',

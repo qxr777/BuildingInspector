@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('修改模板变量')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-template_variable-edit">
+            <input name="id" th:field="*{templateVariable.id}" type="hidden">
+            <input name="reportTemplateId" th:field="*{templateVariable.reportTemplateId}" type="hidden">
+            <div class="form-group">    
+                <label class="col-sm-3 control-label is-required">变量名称：</label>
+                <div class="col-sm-8">
+                    <input name="name" th:field="*{templateVariable.name}" class="form-control" type="text" required>
+                    <span class="help-block m-b-none"><i class="fa fa-info-circle"></i> 变量名称将作为Word模板中的占位符，如${变量名称}</span>
+                </div>
+            </div>
+            <div class="form-group">    
+                <label class="col-sm-3 control-label is-required">变量类型：</label>
+                <div class="col-sm-8">
+                    <div class="radio-box" th:each="dict : ${@dict.getType('bi_template_variable_type')}">
+                        <input type="radio" th:id="${'type_' + dict.dictCode}" name="type" th:value="${dict.dictValue}" th:field="*{templateVariable.type}">
+                        <label th:for="${'type_' + dict.dictCode}" th:text="${dict.dictLabel}"></label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">备注：</label>
+                <div class="col-sm-8">
+                    <textarea name="remark" class="form-control" th:field="*{templateVariable.remark}"></textarea>
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/template_variable";
+        
+        $("#form-template_variable-edit").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/edit", $('#form-template_variable-edit').serialize());
+            }
+        }
+    </script>
+</body>
+</html> 

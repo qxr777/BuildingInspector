@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import com.ruoyi.common.core.text.Convert;
 
+import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.DiseaseScale;
 import edu.whut.cs.bi.biz.mapper.DiseaseScaleMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseScaleService;
@@ -31,6 +32,10 @@ public class DiseaseScaleServiceImpl implements IDiseaseScaleService
     @Override
     public List<DiseaseScale> selectDiseaseScaleList(DiseaseScale diseaseScale)
     {
+        String typeCode = diseaseScale.getTypeCode();
+        if (StringUtils.isNotEmpty(typeCode) && typeCode.split("-").length > 2) {
+            diseaseScale.setTypeCode(typeCode.substring(0, typeCode.lastIndexOf("-")));
+        }
         return diseaseScaleMapper.selectDiseaseScaleList(diseaseScale);
     }
 

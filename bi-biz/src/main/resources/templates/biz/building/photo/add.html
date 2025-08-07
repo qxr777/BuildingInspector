@@ -50,6 +50,7 @@
         .file-info {
             display: flex;
             align-items: center;
+            max-width: 100%;
         }
         .file-icon {
             margin-right: 10px;
@@ -57,15 +58,51 @@
             color: #1890ff;
         }
         .file-name {
-            max-width: 250px;
+            max-width: 60px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+            cursor: help;
         }
+        .file-name:hover {
+             color: #1890ff;
+         }
         .upload-btn-container {
             margin-top: 15px;
             text-align: center;
         }
+        .batch-description-container {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #e1e1e1;
+        }
+        .batch-description-input {
+            margin-bottom: 8px;
+        }
+        .batch-description-input .form-control {
+            height: 45px;
+            font-size: 14px;
+            padding: 10px 12px;
+        }
+        .batch-description-input .form-control:focus {
+            border-color: #1890ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+        }
+        .description-input {
+             font-size: 14px;
+             height: 45px;
+             padding: 10px 12px;
+             resize: vertical;
+             min-height: 45px;
+         }
+         .description-input:focus {
+             border-color: #1890ff;
+             box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+         }
     </style>
 </head>
 <body class="white-bg">
@@ -93,6 +130,7 @@
 <script type="text/javascript">
     var prefix = ctx + "biz/file";
     var fileList = []; // 存储所有选择的文件
+    var fileDescriptions = {}; // 存储每个文件的描述信息，key为文件索引
     
     function submitHandler() {
         if ($.validate.form()) {
@@ -110,6 +148,9 @@
             // 手动添加所有文件到FormData
             for (var i = 0; i < fileList.length; i++) {
                 formData.append('files', fileList[i]);
+                // 添加对应的描述信息
+                var description = fileDescriptions[i] || '';
+                formData.append('descriptions', description);
             }
             
             $.modal.loading("正在上传，请稍候...");
@@ -138,13 +179,27 @@
         fileListContainer.empty();
         
         if (fileList.length > 0) {
+            // 添加批量描述设置区域
+            var batchContainer = $('<div class="batch-description-container"></div>');
+            var batchTitle = $('<label class="control-label">批量设置描述：</label>');
+            var batchInputGroup = $('<div class="input-group batch-description-input"></div>');
+            var batchInput = $('<input type="text" class="form-control" id="batch-description" placeholder="输入描述内容，将应用到所有图片" maxlength="100">');
+            var batchButton = $('<span class="input-group-btn"><button type="button" class="btn btn-primary" onclick="applyBatchDescription()">应用到所有</button></span>');
+            
+            batchInputGroup.append(batchInput);
+            batchInputGroup.append(batchButton);
+            batchContainer.append(batchTitle);
+            batchContainer.append(batchInputGroup);
+            fileListContainer.append(batchContainer);
+            
             var table = $('<table class="table table-hover table-striped file-list-table"></table>');
             var thead = $('<thead></thead>');
             var headerRow = $('<tr></tr>');
             headerRow.append('<th width="5%">#</th>');
-            headerRow.append('<th width="50%">文件名</th>');
-            headerRow.append('<th width="15%">大小</th>');
-            headerRow.append('<th width="15%">类型</th>');
+            headerRow.append('<th width="25%">文件名</th>');
+            headerRow.append('<th width="35%">图片描述</th>');
+            headerRow.append('<th width="10%">大小</th>');
+            headerRow.append('<th width="10%">类型</th>');
             headerRow.append('<th width="15%">操作</th>');
             thead.append(headerRow);
             
@@ -159,6 +214,10 @@
                 // 根据文件类型显示不同的图标
                 var fileIconClass = getFileIconClass(extension);
                 row.append('<td><div class="file-info"><span class="file-icon"><i class="fa ' + fileIconClass + '"></i></span><span class="file-name" title="' + file.name + '">' + file.name + '</span></div></td>');
+                
+                // 添加描述输入框
+                var currentDescription = fileDescriptions[i] || '';
+                row.append('<td><input type="text" class="form-control input-sm description-input" placeholder="请输入图片描述" value="' + currentDescription + '" onchange="updateFileDescription(' + i + ', this.value)" maxlength="100"></td>');
                 
                 // 格式化文件大小
                 var formattedSize = formatFileSize(file.size);
@@ -215,7 +274,43 @@
     // 删除文件
     function removeFile(index) {
         fileList.splice(index, 1);
+        
+        // 重新整理描述信息的索引
+        var newDescriptions = {};
+        for (var i = 0; i < fileList.length; i++) {
+            if (i < index && fileDescriptions[i]) {
+                newDescriptions[i] = fileDescriptions[i];
+            } else if (i >= index && fileDescriptions[i + 1]) {
+                newDescriptions[i] = fileDescriptions[i + 1];
+            }
+        }
+        fileDescriptions = newDescriptions;
+        
         updateFileList();
+    }
+    
+    // 更新文件描述
+    function updateFileDescription(index, description) {
+        fileDescriptions[index] = description;
+    }
+    
+    // 批量应用描述
+    function applyBatchDescription() {
+        var batchDescription = $('#batch-description').val();
+        if (batchDescription.trim() === '') {
+            $.modal.alertWarning('请输入要批量应用的描述内容');
+            return;
+        }
+        
+        // 更新所有文件的描述
+        for (var i = 0; i < fileList.length; i++) {
+            fileDescriptions[i] = batchDescription;
+        }
+        
+        // 重新渲染文件列表以显示更新后的描述
+        updateFileList();
+        
+        $.modal.msg('已成功应用描述到所有 ' + fileList.length + ' 个图片');
     }
     
     // 添加文件到列表
@@ -249,7 +344,10 @@
             }
             
             if (!isDuplicate) {
+                var newIndex = fileList.length;
                 fileList.push(file);
+                // 为新添加的文件初始化空描述
+                fileDescriptions[newIndex] = '';
             }
         }
         
@@ -303,4 +401,4 @@
     });
 </script>
 </body>
-</html> 
+</html>

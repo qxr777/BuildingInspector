@@ -19,7 +19,7 @@
         <h4 class="form-header h4">基本信息</h4>
         <!-- 病害基本信息 -->
         <div class="row mb-4">
-            <div class="col-sm-2">
+            <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px">
                     <label class="col-sm-4 control-label is-required"
                     >构件名称:</label
@@ -50,12 +50,12 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
+            <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-3 control-label">构件编码：</label>
+                    <label class="col-sm-4 control-label">构件编码：</label>
                     <div class="col-sm-8">
                         <input
-                                name="component.code"
+                                name="cosmponent.code"
                                 class="form-control"
                                 type="text"
                                 th:field="*{component.code}"
@@ -66,7 +66,20 @@
             </div>
             <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-3 control-label is-required"
+                    <label class="col-sm-4 control-label is-required">病害分组:</label>
+                    <div class="col-sm-8">
+                        <select class="form-control select2" name="diseaseGroupName" id="diseaseGroupName"
+                                required>
+                            <option value="">请选择病害分组</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required"
                     >病害类型:</label
                     >
                     <div class="col-sm-8">
@@ -91,15 +104,30 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
+<div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-3 control-label">病害位置：</label>
+                    <label class="col-sm-4 control-label">位置序号：</label>
+                    <div class="col-sm-8">
+                        <input
+                                class="form-control"
+                                type="text"
+                                name="positionNumber"
+                                th:field="*{positionNumber}"
+                                id="positionNumber"
+                                placeholder="第x号"
+                        />
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label">病害位置：</label>
                     <div class="col-sm-8">
                         <select
                                 class="form-control select2"
                                 name="position"
                                 id="position"
-                                th:field="*{position}"
+                                placeholder="请选择病害位置"
                                 required
                         >
                             <option value="">请选择病害位置</option>
@@ -117,36 +145,43 @@
                 </div>
             </div>
         </div>
+
         <h4 class="form-header h4">病害定量数据</h4>
         <div class="row mb-4">
-            <div class="col-sm-12">
-                <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-5 control-label is-required"
-                    >缺损数量:</label
-                    >
+            <div class="col-sm-3">
+            </div>    
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-5 control-label is-required">缺损数量:</label>
                     <div class="col-sm-7">
-                        <div class="input-group">
-                            <input
-                                    name="quantity"
-                                    id="quantityInput"
-                                    class="form-control"
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    required
-                                    th:field="*{quantity}"
-                                    oninput="validateQuantity(this)"
-                                    onblur="formatQuantity(this)"
-                            />
-                        </div>
-                        <div
-                                id="quantityError"
-                                class="invalid-feedback"
-                                style="display: none; color: red"
-                        ></div>
+                        <input name="quantity"
+                               id="quantityInput"
+                               class="form-control"
+                               type="number"
+                               min="1"
+                               step="1"
+                               required
+                               th:field="*{quantity}"
+                               oninput="validateQuantity(this)"
+                               onblur="formatQuantity(this)"
+                               style="width: 120px;">
+                        <div id="quantityError" class="invalid-feedback" style="display: none; color: red;"></div>
                     </div>
                 </div>
             </div>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label is-required">单位:</label>
+                    <div class="col-sm-9">
+                        <select name="units" class="form-control" th:field="*{units}" style="width: 80px;">
+                            <option value="条">条</option>
+                            <option value="处">处</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+            </div>    
         </div>
         <div class="row mb-4">
             <div class="col-sm-12">
@@ -450,6 +485,26 @@
             $("#causeAnalysisBox").html(disease.cause);
         }
 
+        // 监听病害分组选择变化
+        $("#diseaseGroupName").change(function () {
+            var selectedGroupName = $(this).val();
+            if (selectedGroupName) {
+                // 根据选择的分组过滤病害类型
+                var filteredDiseaseTypes = diseaseTypes.filter(function (item) {
+                    return item.groupName === selectedGroupName;
+                });
+                
+                var options = '<option value="">请选择病害类型</option>';
+                $.each(filteredDiseaseTypes, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                });
+                $("#diseaseTypeId").html(options);
+            } else {
+                // 如果没有选择分组，清空病害类型
+                $("#diseaseTypeId").html('<option value="">请先选择病害分组</option>');
+            }
+        });
+
         // 病害类型自定义输入显示隐藏
         $('#diseaseTypeId').on('change', function () {
             var selectedText = $(this).find('option:selected').text().trim();
@@ -497,6 +552,7 @@
         $("#form-disease-edit").validate({
             rules: {
                 componentId: "required",
+                diseaseGroupName: "required",
                 diseaseTypeId: "required",
                 level: "required"
             },
@@ -646,18 +702,39 @@
             },
             success: function (result) {
                 diseaseTypes = result;
-                var options = '<option value="">请选择病害类型</option>';
+                
+                // 提取所有唯一的groupName
+                var groupNames = [];
                 $.each(result, function (i, item) {
-                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                    if (item.groupName && groupNames.indexOf(item.groupName) === -1) {
+                        groupNames.push(item.groupName);
+                    }
                 });
-                $("#diseaseTypeId").html(options).trigger('change');
-                // 编辑模式选中
+                
+                // 填充病害分组下拉框
+                var groupOptions = '<option value="">请选择病害分组</option>';
+                $.each(groupNames, function (i, groupName) {
+                    groupOptions += '<option value="' + groupName + '">' + groupName + '</option>';
+                });
+                $("#diseaseGroupName").html(groupOptions);
+                
+                // 编辑模式时，如果有选中的病害类型，需要先选中对应的分组
                 if (disease && disease.diseaseTypeId) {
-                    $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
-
-                    // 在设置选中值后，根据已选病害类型初始化病害详情区域
-                    var quantity = $("#quantityInput").val() || 1;
-                    updateDiseaseDetails(quantity);
+                    var selectedDiseaseType = result.find(function(item) {
+                        return item.id == disease.diseaseTypeId;
+                    });
+                    if (selectedDiseaseType && selectedDiseaseType.groupName) {
+                        $("#diseaseGroupName").val(selectedDiseaseType.groupName).trigger('change');
+                        
+                        // 延迟设置病害类型选择，确保分组选择事件已处理
+                        setTimeout(function() {
+                            $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
+                            
+                            // 在设置选中值后，根据已选病害类型初始化病害详情区域
+                            var quantity = $("#quantityInput").val() || 1;
+                            updateDiseaseDetails(quantity);
+                        }, 100);
+                    }
                 } else {
                     // 如果没有选中病害类型，使用默认显示
                     updateDiseaseDetails($("#quantityInput").val() || 1);
@@ -680,21 +757,25 @@
                 $.each(result, function (i, item) {
                     options += '<option value="' + item.id + '">' + item.name + '</option>';
                 });
+                // options += '<option value="other">其他</option>';
+
                 $("#position").html(options).trigger('change');
                 // 编辑模式选中
                 if (disease && disease.position) {
                     // 检查position是否在下拉选项中
                     var positionFound = false;
+                    var positionValue = null;
                     $("#position option").each(function () {
                         if ($(this).text() === disease.position) {
                             positionFound = true;
+                            positionValue = $(this).val();
                             return false; // 跳出循环
                         }
                     });
 
                     // 如果在选项中找到，直接选中；否则选择"其他"并显示自定义输入框
                     if (positionFound) {
-                        $("#position").val(disease.position).trigger('change');
+                        $("#position").val(positionValue).trigger('change');
                     } else {
                         // 添加"其他"选项（如果不存在）
                         if ($("#position option:contains('其他')").length === 0 &&
@@ -767,20 +848,12 @@
                 if (showLength) {
                     fieldsToShow.push({
                         label: "长度",
-                        name: `diseaseDetails[${i}].length`,
+                        name: `diseaseDetails[${i}].length1`,
                         step: "0.01",
                         placeholder: "长度",
-                        value: diseaseDetails[i]?.length || ""
+                        value: diseaseDetails[i]?.length1 || ""
                     });
                 }
-
-                fieldsToShow.push({
-                    label: "宽度",
-                    name: `diseaseDetails[${i}].width`,
-                    step: "0.01",
-                    placeholder: "宽度",
-                    value: diseaseDetails[i]?.width || ""
-                });
 
                 if (showHeightDepth) {
                     fieldsToShow.push({
@@ -918,8 +991,8 @@
                                       </div>
                                   </div>`);
 
-                // 按每行最多4个字段进行排列
-                const fieldsPerRow = 4;
+                // 按每行最多3个字段进行排列
+                const fieldsPerRow = 3;
                 const rows = Math.ceil(fieldsToShow.length / fieldsPerRow);
 
                 for (let row = 0; row < rows; row++) {
@@ -934,16 +1007,13 @@
                     let offset = 0;
 
                     if (fieldsInRow === 1) {
-                        colWidth = 6; // 单个字段使用6列宽度
+                        colWidth = 8; // 单个字段使用8列宽度
                         offset = 2;   // 左边空出2列，确保居中
                     } else if (fieldsInRow === 2) {
                         colWidth = 5; // 2个字段各用5列宽度
                         offset = 1;   // 左边空出1列，确保居中
                     } else if (fieldsInRow === 3) {
                         colWidth = 4; // 3个字段各用4列宽度
-                        offset = 0;   // 不需要偏移
-                    } else {
-                        colWidth = 3; // 4个字段各用3列宽度
                         offset = 0;   // 不需要偏移
                     }
 
@@ -997,7 +1067,7 @@
                         }
                     }
 
-                    // 添加右侧偏移，确保对称（如果是奇数列的情况）
+                    // 添加右侧偏移，确保对称（单个字段的情况）
                     if (offset > 0 && fieldsInRow === 1) {
                         rowDiv.append(`<div class="col-sm-${offset}"></div>`);
                     }
@@ -1052,7 +1122,7 @@
 
                     // 设置其他字段值（长度、宽度等）
                     if (showLength) {
-                        detailDiv.find(`input[name="diseaseDetails[${i}].length"]`).val(detail.length || "");
+                        detailDiv.find(`input[name="diseaseDetails[${i}].length1"]`).val(detail.length1 || "");
                     }
                     detailDiv.find(`input[name="diseaseDetails[${i}].width"]`).val(detail.width || "");
                     if (showHeightDepth) {

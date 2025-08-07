@@ -74,13 +74,16 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
     /**
      * 根据病害类型查询病害类型标度
      *
-     * @param code 病害类型
+     * @param typeCode 病害类型
      * @return 病害类型标度集合信息
      */
     @Override
-    public List<DiseaseScale> selectDiseaseScaleByCode(String code)
+    public List<DiseaseScale> selectDiseaseScaleByCode(String typeCode)
     {
-        return diseaseScaleMapper.selectDiseaseScaleByTypeCode(code);
+        if (StringUtils.isNotEmpty(typeCode) && typeCode.split("-").length > 2) {
+            typeCode = (typeCode.substring(0, typeCode.lastIndexOf("-")));
+        }
+        return diseaseScaleMapper.selectDiseaseScaleByTypeCode(typeCode);
     }
 
     /**
@@ -119,7 +122,11 @@ public class DiseaseTypeServiceImpl implements IDiseaseTypeService
         for (Long diseaseTypeId : diseaseTypeIds)
         {
             DiseaseType diseaseType = selectDiseaseTypeById(diseaseTypeId);
-            if (diseaseScaleMapper.countDiseaseScaleByTypeCode(diseaseType.getCode()) > 0)
+            String typeCode = diseaseType.getCode();
+            if (StringUtils.isNotEmpty(typeCode) && typeCode.split("-").length > 2) {
+                typeCode = (typeCode.substring(0, typeCode.lastIndexOf("-")));
+            }
+            if (diseaseScaleMapper.countDiseaseScaleByTypeCode(typeCode) > 0)
             {
                 throw new ServiceException(String.format("%1$s已分配,不能删除", diseaseType.getName()));
             }

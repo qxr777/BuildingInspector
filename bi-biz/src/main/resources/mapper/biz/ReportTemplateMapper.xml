@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ReportTemplateMapper">
+
+    <resultMap type="edu.whut.cs.bi.biz.domain.ReportTemplate" id="ReportTemplateResult">
+        <id     property="id"           column="id"          />
+        <result property="name"         column="name"        />
+        <result property="isActive"     column="is_active"   />
+        <result property="fileUrl"      column="file_url"    />
+        <result property="version"      column="version"     />
+        <result property="minioId"      column="minio_id"    />
+        <result property="createBy"     column="create_by"   />
+        <result property="createTime"   column="create_time" />
+        <result property="updateBy"     column="update_by"   />
+        <result property="updateTime"   column="update_time" />
+        <result property="remark"       column="remark"      />
+        <result property="flag"         column="flag"        />
+    </resultMap>
+
+    <sql id="selectReportTemplateVo">
+        select id, name, is_active, file_url, version, minio_id, create_by, create_time, update_by, update_time, remark, flag
+        from bi_report_template
+    </sql>
+
+    <select id="selectReportTemplateList" parameterType="edu.whut.cs.bi.biz.domain.ReportTemplate" resultMap="ReportTemplateResult">
+        <include refid="selectReportTemplateVo"/>
+        <where>
+            flag = 0
+            <if test="name != null and name != ''">
+                AND name like concat('%', #{name}, '%')
+            </if>
+            <if test="isActive != null">
+                AND is_active = #{isActive}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectReportTemplateById" parameterType="Long" resultMap="ReportTemplateResult">
+        <include refid="selectReportTemplateVo"/>
+        where id = #{id} and flag = 0
+    </select>
+
+    <insert id="insertReportTemplate" parameterType="edu.whut.cs.bi.biz.domain.ReportTemplate" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_report_template (
+            name,
+            is_active,
+            file_url,
+            version,
+            minio_id,
+            create_by,
+            create_time,
+            remark,
+            flag
+        ) values (
+                     #{name},
+                     #{isActive},
+                     #{fileUrl},
+                     #{version},
+                     #{minioId},
+                     #{createBy},
+                     sysdate(),
+                     #{remark},
+                     0
+                 )
+    </insert>
+
+    <update id="updateReportTemplate" parameterType="edu.whut.cs.bi.biz.domain.ReportTemplate">
+        update bi_report_template
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="isActive != null">is_active = #{isActive},</if>
+            <if test="fileUrl != null and fileUrl != ''">file_url = #{fileUrl},</if>
+            <if test="version != null">version = #{version},</if>
+            <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where id = #{id} and flag = 0
+    </update>
+
+    <update id="deleteReportTemplateById" parameterType="Long">
+        update bi_report_template set flag = 1 where id = #{id} and flag = 0
+    </update>
+
+    <update id="deleteReportTemplateByIds" parameterType="String">
+        update bi_report_template set flag = 1
+        where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and flag = 0
+    </update>
+
+</mapper> 

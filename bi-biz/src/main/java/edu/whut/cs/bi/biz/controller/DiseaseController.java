@@ -153,15 +153,7 @@ public class DiseaseController extends BaseController
 
         BiObject biObject = disease.getBiObject();
         mmap.put("biObject", biObject);
-        if (!biObject.getName().equals("其他")) {
-            BiObject select = new BiObject();
-            select.setParentId(biObject.getId());
-            select.setName(disease.getPosition());
-            List<BiObject> biObjects = biObjectService.selectBiObjectList(select);
-            if (biObjects != null && biObjects.size() > 0) {
-                disease.setPosition(String.valueOf(biObjects.get(0).getId()));
-            }
-        } else {
+        if (biObject.getName().equals("其他")) {
             String customPosition = disease.getPosition();
             disease.setPosition(String.valueOf(biObject.getChildren().get(0).getId()));
             mmap.put("customPosition", customPosition);

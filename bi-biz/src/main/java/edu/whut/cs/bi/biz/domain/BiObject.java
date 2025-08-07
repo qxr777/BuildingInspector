@@ -113,11 +113,22 @@ public class BiObject extends TreeEntity {
     /** 现状图 */
     private List<String> photo;
 
+    /** 现状图对应备注 */
+    private List<String> information;
+
     /**
      * 构件数量
      */
     @Excel(name = "构件数量")
     private int count;
+
+    public List<String> getInformation() {
+        return information;
+    }
+
+    public void setInformation(List<String> information) {
+        this.information = information;
+    }
 
     public List<String> getPhoto() {
         return photo;

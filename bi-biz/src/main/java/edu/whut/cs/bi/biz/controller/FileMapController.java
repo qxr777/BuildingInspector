@@ -7,6 +7,8 @@ import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 
+import com.ruoyi.common.core.page.PageDomain;
+import com.ruoyi.common.core.page.TableSupport;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.Attachment;
@@ -489,9 +491,24 @@ public class FileMapController extends BaseController {
     @PostMapping("/listBiObjectPhoto")
     @ResponseBody
     public TableDataInfo listBiObjectPhoto(@RequestParam("biObjectId") Long biObjectId) {
-        startPage();
         List<FileMap> list = fileMapService.selectBiObjectPhotoList(biObjectId);
-        return getDataTable(list);
+        int size = list.size();
+        TableDataInfo rspData = new TableDataInfo();
+        rspData.setCode(0);
+        rspData.setTotal(size);
+        PageDomain pageDomain = TableSupport.buildPageRequest();
+        Integer pageNum = pageDomain.getPageNum();
+        Integer pageSize = pageDomain.getPageSize();
+
+        int start = (pageNum - 1) * pageSize;
+        int end = Math.min(pageNum * pageSize, size);
+        if (start >= size || start > end) {
+            return getDataTable(new ArrayList<>());
+        }
+        list = list.subList(start, end);
+        rspData.setRows(list);
+
+        return rspData;
     }
 
     /**
@@ -512,11 +529,12 @@ public class FileMapController extends BaseController {
     @Log(title = "biObject图片", businessType = BusinessType.INSERT)
     @PostMapping("/addBiObjectPhoto")
     @ResponseBody
-    public AjaxResult addSaveBiObjectPhoto(Long biObjectId, MultipartFile[] files) {
+    public AjaxResult addSaveBiObjectPhoto(Long biObjectId, MultipartFile[] files, String[] descriptions) {
         if (files == null || files.length == 0) {
             return error("传入参数错误，请选择图片");
         }
-        fileMapService.handleBiObjectAttachment(files, biObjectId, 8);
+        List<String> descriptionsList = descriptions == null ? null : Arrays.asList(descriptions);
+        fileMapService.handleBiObjectAttachment(files, biObjectId, 8,descriptionsList);
 
         return toAjax(true);
     }

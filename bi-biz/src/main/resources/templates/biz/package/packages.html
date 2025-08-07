@@ -53,6 +53,7 @@
     $(function() {
         var options = {
             url: prefix + "/list",
+            uniqueId: "id",
             createUrl: prefix + "/add",
             updateUrl: prefix + "/edit/{id}",
             removeUrl: prefix + "/remove",
@@ -67,7 +68,10 @@
                 },
                 {
                     field: 'fileName',
-                    title: '文件名称'
+                    title: '文件名称',
+                    formatter: function(value, row, index) {
+                        return '<a href="javascript:void(0)" onclick="downloadPackage(\'' + row.id + '\')">' + value + '</a>';
+                    }
                 },
                 {
                     field: 'packageTime',
@@ -84,6 +88,39 @@
         };
         $.table.init(options);
     });
+
+    // 下载文件的函数
+    function downloadPackage(id) {
+        // 获取表格中当前行的数据
+        var row = $("#bootstrap-table").bootstrapTable('getRowByUniqueId', id);
+
+        if (row && row.minioId) {
+            // 直接使用行数据中的minioId
+            $.ajax({
+                type: "GET",
+                url: ctx + "biz/file/get/" + row.minioId,
+                success: function(result) {
+                    if (result.code == 0) {
+                        var fileMap = result.data;
+                        if (fileMap && fileMap.newName) {
+                            var prefix = fileMap.newName.substring(0, 2);
+                            var downloadUrl = [[${minioUrl}]] + "/" + [[${minioBucket}]] + "/" + prefix + "/" + fileMap.newName;
+                            window.open(downloadUrl, '_blank');
+                        } else {
+                            $.modal.alertWarning("文件信息不完整，无法下载");
+                        }
+                    } else {
+                        $.modal.alertError("获取文件信息失败：" + result.msg);
+                    }
+                },
+                error: function() {
+                    $.modal.alertError("系统错误，请联系管理员");
+                }
+            });
+        } else {
+            $.modal.alertWarning("无法获取文件信息");
+        }
+    }
 </script>
 </body>
 </html>

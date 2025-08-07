@@ -24,6 +24,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -673,6 +674,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
         });
     }
 
+
+    @Value("${springAi_Rag.endpoint}")
+    private String springAiRagEndpoint;
+
     /**
      * 获取成因分析
      *
@@ -681,9 +686,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
      */
     @Override
     public String getCauseAnalysis(CauseQuery causeQuery) {
-        String host = "47.94.205.90";
-        int port = 8081;
-        String url = "http://" + host + ":" + port + "/api-ai/disease/cause";
+//        String host = "59.110.81.142";
+//        int port = 8081;
+        String url = springAiRagEndpoint + "/api-ai/disease/cause";
 
         causeQuery.setObjectId(null);
         try {
@@ -1031,7 +1036,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
 
     static {
-        BRIDGE_TYPE_MAP.put("梁试桥", 1L);
+        BRIDGE_TYPE_MAP.put("梁式桥", 1L);
         BRIDGE_TYPE_MAP.put("箱形拱桥", 3L);
         BRIDGE_TYPE_MAP.put("双曲拱桥", 4L);
         BRIDGE_TYPE_MAP.put("板拱桥", 5L);

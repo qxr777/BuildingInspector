@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.TemplateVariableMapper">
+    
+    <resultMap type="edu.whut.cs.bi.biz.domain.TemplateVariable" id="TemplateVariableResult">
+        <id     property="id"                column="id"                 />
+        <result property="name"              column="name"               />
+        <result property="type"              column="type"               />
+        <result property="reportTemplateId"  column="report_template_id" />
+        <result property="createBy"          column="create_by"          />
+        <result property="createTime"        column="create_time"        />
+        <result property="updateBy"          column="update_by"          />
+        <result property="updateTime"        column="update_time"        />
+        <result property="remark"            column="remark"             />
+        <result property="flag"              column="flag"               />
+    </resultMap>
+    
+    <sql id="selectTemplateVariableVo">
+        select id, name, type, report_template_id, create_by, create_time, update_by, update_time, remark, flag
+        from bi_template_variable
+    </sql>
+    
+    <select id="selectTemplateVariableList" parameterType="edu.whut.cs.bi.biz.domain.TemplateVariable" resultMap="TemplateVariableResult">
+        <include refid="selectTemplateVariableVo"/>
+        <where>
+            flag = 0
+            <if test="name != null and name != ''">
+                AND name like concat('%', #{name}, '%')
+            </if>
+            <if test="type != null">
+                AND type = #{type}
+            </if>
+            <if test="reportTemplateId != null">
+                AND report_template_id = #{reportTemplateId}
+            </if>
+        </where>
+    </select>
+    
+    <select id="selectTemplateVariableById" parameterType="Long" resultMap="TemplateVariableResult">
+        <include refid="selectTemplateVariableVo"/>
+        where id = #{id} and flag = 0
+    </select>
+    
+    <select id="selectTemplateVariablesByTemplateId" parameterType="Long" resultMap="TemplateVariableResult">
+        <include refid="selectTemplateVariableVo"/>
+        where report_template_id = #{reportTemplateId} and flag = 0
+    </select>
+    
+    <insert id="insertTemplateVariable" parameterType="edu.whut.cs.bi.biz.domain.TemplateVariable" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_template_variable (
+            name,
+            type,
+            report_template_id,
+            create_by,
+            create_time,
+            remark,
+            flag
+        ) values (
+            #{name},
+            #{type},
+            #{reportTemplateId},
+            #{createBy},
+            sysdate(),
+            #{remark},
+            0
+        )
+    </insert>
+    
+    <update id="updateTemplateVariable" parameterType="edu.whut.cs.bi.biz.domain.TemplateVariable">
+        update bi_template_variable
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="reportTemplateId != null">report_template_id = #{reportTemplateId},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where id = #{id} and flag = 0
+    </update>
+    
+    <update id="deleteTemplateVariableById" parameterType="Long">
+        update bi_template_variable set flag = 1 where id = #{id} and flag = 0
+    </update>
+    
+    <update id="deleteTemplateVariableByIds" parameterType="String">
+        update bi_template_variable set flag = 1 
+        where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and flag = 0
+    </update>
+    
+</mapper> 

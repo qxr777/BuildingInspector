@@ -10,10 +10,13 @@ import java.util.zip.ZipOutputStream;
 
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.file.MimeTypeUtils;
 import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import io.minio.*;
@@ -30,6 +33,8 @@ import org.apache.commons.io.FilenameUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
+
+import static com.ruoyi.common.utils.PageUtils.startPage;
 
 /**
  * 文件管理Service业务层处理
@@ -54,6 +59,8 @@ public class FileMapServiceImpl implements IFileMapService {
 
     @Resource
     private IBiObjectService biObjectService;
+    @Autowired
+    private BiObjectMapper biObjectMapper;
 
     /**
      * 查询文件管理
@@ -222,7 +229,7 @@ public class FileMapServiceImpl implements IFileMapService {
                     .bucket(minioConfig.getBucketName())
                     .object(objectName.substring(0, 2) + "/" + objectName)
                     .stream(fileInputStream, file.length(), -1)
-                    .contentType("application/zip")
+                    .contentType(MimeTypeUtils.getContentType(extension))
                     .build());
 
             // 保存文件信息
@@ -444,7 +451,7 @@ public class FileMapServiceImpl implements IFileMapService {
 
     @Override
     public List<FileMap> selectBiObjectPhotoList(Long biObjectId) {
-        List<BiObject> biObjects = biObjectService.selectBiObjectAndChildren(biObjectId);
+        List<BiObject> biObjects = biObjectMapper.selectBiObjectAndChildren(biObjectId);
         List<Long> biObjectIds = biObjects.stream().map(biObject -> biObject.getId()).toList();
 
         List<Map<String, Object>> imageMap = getImage(biObjectIds, "biObject");
@@ -469,6 +476,7 @@ public class FileMapServiceImpl implements IFileMapService {
             if(fileMap == null) continue;
             String s = fileMap.getNewName();
             String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
+            fileMap.setAttachmentRemark(attachment.getRemark());
             fileMap.setUrl(url);
             map.put("fileMap", fileMap);
             // 根据文件后缀判断是否为图片
@@ -517,20 +525,27 @@ public class FileMapServiceImpl implements IFileMapService {
                 extension.endsWith(".gif") ||
                 extension.endsWith(".bmp");
     }
-
     @Override
-    public void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type) {
-        if(files == null)
+    public void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type, List<String> informations) {
+        if(files == null){
             return;
-        Arrays.stream(files).forEach(e->{
-            FileMap fileMap = handleFileUpload(e);
+        }
+
+        for (int i = 0; i < files.length; i++) {
+            MultipartFile file = files[i];
+            String information = (informations != null && i < informations.size()) ? informations.get(i) : null;
+            
+            FileMap fileMap = handleFileUpload(file);
             Attachment attachment = new Attachment();
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setName("biObject_"+fileMap.getOldName());
             attachment.setSubjectId(biObjectId);
             attachment.setType(type);
+            if (information != null) {
+                attachment.setRemark(information);
+            }
             attachmentService.insertAttachment(attachment);
-        });
+        }
     }
 
     /**
