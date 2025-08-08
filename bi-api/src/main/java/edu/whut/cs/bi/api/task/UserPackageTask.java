@@ -10,6 +10,7 @@ import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.mapper.PackageMapper;
 import edu.whut.cs.bi.biz.service.IFileMapService;
+import edu.whut.cs.bi.biz.service.IPackageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,9 @@ public class UserPackageTask {
     @Autowired
     private IFileMapService fileMapService;
 
+    @Autowired
+    private IPackageService packageService;
+
     public AjaxResult generateUserDataPackage() {
         try {
             SysUserRole query = new SysUserRole();
@@ -67,7 +71,7 @@ public class UserPackageTask {
             for (SysUser user : sysUsers) {
                 sysUserMap.put(user.getUserId(), user);
                 if (!packageMap.containsKey(user.getUserId())) {
-                    AjaxResult ajaxResult = apiService.generateUserDataPackage(user);
+                    AjaxResult ajaxResult = packageService.generateUserDataPackage(user);
                     if (ajaxResult.isSuccess()) {
                         Package aPackage = new Package();
                         aPackage.setUserId(user.getUserId());
@@ -85,7 +89,7 @@ public class UserPackageTask {
                 if (aPackage.getUpdateTime().after(aPackage.getPackageTime())) {
                     if (sysUserMap.containsKey(aPackage.getUserId())) {
                         fileMapService.deleteFileMapById(aPackage.getMinioId());
-                        AjaxResult ajaxResult = apiService.generateUserDataPackage(sysUserMap.get(aPackage.getUserId()));
+                        AjaxResult ajaxResult = packageService.generateUserDataPackage(sysUserMap.get(aPackage.getUserId()));
                         if (ajaxResult.isSuccess()) {
                             Date nowDate = DateUtils.getNowDate();
                             aPackage.setPackageTime(nowDate);
@@ -94,7 +98,7 @@ public class UserPackageTask {
                             aPackage.setPackageSize(ajaxResult.get("size").toString());
                             packagesUpdate.add(aPackage);
                         } else {
-                            return AjaxResult.error("打包用户数据失败" );
+                            return AjaxResult.error("打包用户数据失败");
                         }
                     }
                 }
