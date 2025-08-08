@@ -510,4 +510,15 @@ public class ApiController {
             return "application/octet-stream"; // 默认类型
         }
     }
+    
+    // 根据桥梁名称，桥梁行程编号，桥梁路线确定唯一桥梁
+    @GetMapping("/building/unique")
+    @ResponseBody
+    public AjaxResult getUniqueBuilding(@RequestParam("bridgeName") String bridgeName, @RequestParam("lineCode") String lineCode, @RequestParam("zipCode") String zipCode) {
+        Building building = buildingService.getUniqueBuilding(bridgeName, lineCode, zipCode);
+        if (building == null) {
+            return AjaxResult.error("没有找到该桥梁");
+        }
+        return AjaxResult.success("查询成功", building);
+    }
 }
