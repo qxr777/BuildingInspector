@@ -20,6 +20,8 @@ public class BiDevice extends BaseEntity {
     private SysDept dept;
     // 所属部门id
     private Long deptId;
+    // 是否已选择（用于项目设备选择页面）
+    private Boolean isSelected;
 
     public Long getId() {
         return id;
@@ -67,5 +69,13 @@ public class BiDevice extends BaseEntity {
 
     public void setDeptId(Long deptId) {
         this.deptId = deptId;
+    }
+
+    public Boolean getIsSelected() {
+        return isSelected;
+    }
+
+    public void setIsSelected(Boolean isSelected) {
+        this.isSelected = isSelected;
     }
 }
