@@ -569,6 +569,8 @@ public class PropertyServiceImpl implements IPropertyService {
                 p4.setValue(collect.get("side").get(1));
                 propertyMapper.updateProperty(p2);
             }
+
+
         }, executorService)
                 .whenComplete((r, ex) -> {
                     executorService.shutdown();
@@ -654,6 +656,25 @@ public class PropertyServiceImpl implements IPropertyService {
             attachment.setSubjectId(buildingId);
             attachment.setType(2);
             attachmentService.insertAttachment(attachment);
+        }
+
+        if (fileMaps.size() == 0) {
+            return;
+        }
+        // 上传正面照
+        for (int i = 0; i < Math.max(2, images.size()); i++) {
+            MultipartFile image = images.get(i);
+
+            // 处理附件
+            fileMapController.uploadAttachment(buildingId, image, "newfront", i % 2);
+        }
+
+        // 上传侧面照
+        for (int i = 2; i < images.size(); i++) {
+            MultipartFile image = images.get(i);
+
+            // 处理附件
+            fileMapController.uploadAttachment(buildingId, image, "newside", i % 2);
         }
 
     }
