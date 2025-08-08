@@ -235,27 +235,48 @@ public class ApiServiceImpl implements ApiService {
                 log.error("获取建筑物病害数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
                 continue;
             }
-
-            // 2. 获取建筑物属性
+            // 2 获取建筑物照片数据并创建frontPhoto.json 获取建筑物属性
             try {
-                List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId, "newfront", "newside");
-                Map<String, List<String>> collect = imageMaps.stream().collect(Collectors.groupingBy(
-                        image -> image.getOldName().split("_")[1],
-                        Collectors.mapping(FileMap::getNewName, Collectors.toList())
-                ));
+                // 获取建筑物的附件列表
+                List<Attachment> attachments = attachmentService.getAttachmentBySubjectId(buildingId);
 
-                Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
+                // 过滤出与桥梁照片相关的附件
+                List<Attachment> bridgePhotoAttachments = attachments.stream()
+                        .filter(e -> {
+                            String name = e.getName();
+                            return name != null && name.matches("^\\d+_(newfront|newside)_.*$");
+                        })
+                        .collect(Collectors.toList());
 
-                PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
-                propertyTreeVo.setProperty(property);
-                propertyTreeVo.setImages(collect);
+                List<Attachment> propertyPhotoAttachments = attachments.stream()
+                        .filter(e -> {
+                            String name = e.getName();
+                            return name != null && name.matches("^\\d+_(front|side)_.*$");
+                        })
+                        .collect(Collectors.toList());
 
-                String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
-                addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
+                if (!bridgePhotoAttachments.isEmpty()) {
+
+                    // 创建frontPhoto.json
+                    Map<String, List<String>> newfrontAndSide = getFrontAndSide(bridgePhotoAttachments, zipOut, buildingId, rootDirName);
+                    String frontPhotoJsonPath = rootDirName + "/building/" + buildingId + "/frontPhoto.json";
+                    addJsonToZip(zipOut, frontPhotoJsonPath, JSONObject.toJSONString(newfrontAndSide));
+                    log.info(userId + " 桥梁正立面照收集完成" + buildingId);
+
+                    Map<String, List<String>> frontAndSide = getFrontAndSide(propertyPhotoAttachments, zipOut, buildingId, rootDirName);
+                    Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
+
+                    PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
+                    propertyTreeVo.setProperty(property);
+                    propertyTreeVo.setImages(frontAndSide);
+
+                    String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
+                    addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
+                    log.info(userId + " 桥梁属性卡片收集完成" + buildingId);
+                }
             } catch (Exception e) {
                 // 记录错误但继续处理
-                log.error("获取建筑物属性失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
-                continue;
+                log.error("获取建筑物照片数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
             }
 
             // 3. 获取建筑物病害数据
@@ -304,29 +325,31 @@ public class ApiServiceImpl implements ApiService {
                 // 收集所有需要处理的路径和对应的文件名
                 List<String> allFileNames = new ArrayList<>();
                 List<Long> ids = new ArrayList<>();
-                for (Disease d : diseases) {
-                    // 处理普通图片路径列表
-                    List<String> imagePaths = d.getImages();
-                    if (imagePaths != null && !imagePaths.isEmpty()) {
-                        for (String relativePath : imagePaths) {
-                            // 获取原始文件名
-                            String[] parts = relativePath.split("/");
-                            String fileName = parts[parts.length - 1];
-                            allFileNames.add(fileName);
+                if (diseases != null && !diseases.isEmpty()) {
+                    for (Disease d : diseases) {
+                        // 处理普通图片路径列表
+                        List<String> imagePaths = d.getImages();
+                        if (imagePaths != null && !imagePaths.isEmpty()) {
+                            for (String relativePath : imagePaths) {
+                                // 获取原始文件名
+                                String[] parts = relativePath.split("/");
+                                String fileName = parts[parts.length - 1];
+                                allFileNames.add(fileName);
+                            }
+                            ids.add(d.getId());
                         }
-                        ids.add(d.getId());
-                    }
 
-                    // 处理AD图片路径列表
-                    List<String> adImagePaths = d.getADImgs();
-                    if (adImagePaths != null && !adImagePaths.isEmpty()) {
-                        for (String relativePath : adImagePaths) {
-                            // 获取原始文件名
-                            String[] parts = relativePath.split("/");
-                            String fileName = parts[parts.length - 1];
-                            allFileNames.add(fileName);
+                        // 处理AD图片路径列表
+                        List<String> adImagePaths = d.getADImgs();
+                        if (adImagePaths != null && !adImagePaths.isEmpty()) {
+                            for (String relativePath : adImagePaths) {
+                                // 获取原始文件名
+                                String[] parts = relativePath.split("/");
+                                String fileName = parts[parts.length - 1];
+                                allFileNames.add(fileName);
+                            }
+                            ids.add(d.getId());
                         }
-                        ids.add(d.getId());
                     }
                 }
                 if (!allFileNames.isEmpty()) {
@@ -338,6 +361,78 @@ public class ApiServiceImpl implements ApiService {
                 log.error("获取建筑物病害数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
             }
         }
+    }
+
+
+    public Map<String, List<String>> getFrontAndSide(List<Attachment> attachments, ZipOutputStream zipOut, Long buildingId, String rootDirName) throws Exception {
+        // 分组照片（frontLeft, frontRight, sideLeft, sideRight）
+        Map<String, List<String>> photoGroups = new HashMap<>();
+        photoGroups.put("frontLeft", new ArrayList<>());
+        photoGroups.put("frontRight", new ArrayList<>());
+        photoGroups.put("sideLeft", new ArrayList<>());
+        photoGroups.put("sideRight", new ArrayList<>());
+        if (!attachments.isEmpty()) {
+            // 获取MinIO ID列表
+            List<Long> minioIds = attachments.stream()
+                    .map(Attachment::getMinioId)
+                    .collect(Collectors.toList());
+
+            // 批量查询FileMap
+            Map<Long, FileMap> fileMapMap = new HashMap<>();
+            if (!minioIds.isEmpty()) {
+                List<FileMap> fileMaps = fileMapServiceImpl.selectFileMapByIds(minioIds);
+                fileMapMap = fileMaps.stream()
+                        .collect(Collectors.toMap(fileMap -> Long.valueOf(fileMap.getId()), fileMap -> fileMap));
+            }
+
+            // 处理每个附件
+            for (Attachment attachment : attachments) {
+                FileMap fileMap = fileMapMap.get(attachment.getMinioId());
+                if (fileMap == null) continue;
+
+                String[] nameParts = attachment.getName().split("_");
+                if (nameParts.length < 2) continue;
+
+                String position = nameParts[0]; // 0 或 1
+                String type = nameParts[1];     // newfront 或 newside
+
+                // 确定分组
+                String groupKey;
+                if ("newfront".equals(type)) {
+                    groupKey = "0".equals(position) ? "frontLeft" : "frontRight";
+                } else if ("newside".equals(type)) {
+                    groupKey = "0".equals(position) ? "sideLeft" : "sideRight";
+                } else {
+                    continue; // 跳过不匹配的类型
+                }
+
+                // 使用fileMap的oldName作为图片名称
+                String imageName = fileMap.getOldName();
+                String imagePath = buildingId + "/images/" + imageName;
+                photoGroups.get(groupKey).add(imagePath);
+
+                // 从MinIO下载并添加到zip
+                String zipImagePath = rootDirName + "/building/" + imagePath;
+                ZipEntry entry = new ZipEntry(zipImagePath);
+                zipOut.putNextEntry(entry);
+
+                // 从MinIO读取
+                try (InputStream imageStream = minioClient.getObject(GetObjectArgs.builder()
+                        .bucket(minioConfig.getBucketName())
+                        .object(fileMap.getNewName().substring(0, 2) + "/" + fileMap.getNewName())
+                        .build())) {
+
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = imageStream.read(buffer)) != -1) {
+                        zipOut.write(buffer, 0, bytesRead);
+                    }
+                }
+                zipOut.closeEntry();
+            }
+            return photoGroups;
+        }
+        return photoGroups;
     }
 
     /**

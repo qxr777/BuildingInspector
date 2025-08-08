@@ -38,8 +38,7 @@ import java.util.List;
  */
 @Controller
 @RequestMapping("/biz/standard")
-public class StandardController extends BaseController
-{
+public class StandardController extends BaseController {
     private String prefix = "biz/standard";
 
     @Autowired
@@ -54,10 +53,10 @@ public class StandardController extends BaseController
 
     @Value("${springAi_Rag.endpoint}")
     private String springai_url;
+
     @RequiresPermissions("biz:standard:view")
     @GetMapping()
-    public String standard()
-    {
+    public String standard() {
         return prefix + "/standard";
     }
 
@@ -67,8 +66,7 @@ public class StandardController extends BaseController
     @RequiresPermissions("biz:standard:list")
     @PostMapping("/list")
     @ResponseBody
-    public TableDataInfo list(Standard standard)
-    {
+    public TableDataInfo list(Standard standard) {
         startPage();
         List<Standard> list = standardService.selectStandardList(standard);
         return getDataTable(list);
@@ -81,8 +79,7 @@ public class StandardController extends BaseController
 //    @Log(title = "标准", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     @ResponseBody
-    public AjaxResult export(Standard standard)
-    {
+    public AjaxResult export(Standard standard) {
         List<Standard> list = standardService.selectStandardList(standard);
         ExcelUtil<Standard> util = new ExcelUtil<Standard>(Standard.class);
         return util.exportExcel(list, "标准数据");
@@ -93,8 +90,7 @@ public class StandardController extends BaseController
      */
     @RequiresPermissions("biz:standard:add")
     @GetMapping("/add")
-    public String add()
-    {
+    public String add() {
         return prefix + "/add";
     }
 
@@ -105,36 +101,36 @@ public class StandardController extends BaseController
 //    @Log(title = "标准", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
-    public AjaxResult addSave(Standard standard,@RequestParam("file") MultipartFile file)
-    {
+    public AjaxResult addSave(Standard standard, @RequestParam("file") MultipartFile file) {
         // 处理文件上传
         if (!file.isEmpty()) {
 
-                // 上传到 milvus 向量数据库
-                uploadFileToExternalService(file);
+            // 上传到 milvus 向量数据库
+            uploadFileToExternalService(file);
 
-                FileMap fileMap = fileMapService.handleFileUpload(file);
-                Attachment attachment = null;
-                standard.setAttachment(attachment);
-                int flag = standardService.insertStandard(standard);
-                attachment = new Attachment();
-                attachment.setName(standard.getName());
-                attachment.setSubjectId(standard.getId());
-                attachment.setType(5);
-                attachment.setMinioId(Long.valueOf(fileMap.getId()));
-                // MioId
-                attachmentService.insertAttachment(attachment);
-                standardService.setAttachmentId(attachment.getId(),standard.getId());
-                return toAjax(flag);
+            FileMap fileMap = fileMapService.handleFileUpload(file);
+            Attachment attachment = null;
+            standard.setAttachment(attachment);
+            int flag = standardService.insertStandard(standard);
+            attachment = new Attachment();
+            attachment.setName(standard.getName());
+            attachment.setSubjectId(standard.getId());
+            attachment.setType(5);
+            attachment.setMinioId(Long.valueOf(fileMap.getId()));
+            // MioId
+            attachmentService.insertAttachment(attachment);
+            standardService.setAttachmentId(attachment.getId(), standard.getId());
+            return toAjax(flag);
 
         }
         return toAjax(0);
     }
+
     // 私有方法：调用外部文件上传服务
     private String uploadFileToExternalService(MultipartFile file) {
         try {
             // 暂定的url
-            String url = springai_url+"/api-ai/upload";
+            String url = springai_url + "/api-ai/upload";
             // 创建请求的文件资源
 
             byte[] fileContent = file.getBytes();
@@ -154,7 +150,7 @@ public class StandardController extends BaseController
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(map, headers);
 
             // 调用外部文件上传接口
-            ResponseEntity<String> response = restTemplate.postForEntity( url, requestEntity, String.class);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, requestEntity, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {
                 // 返回外部接口的响应内容
@@ -169,14 +165,12 @@ public class StandardController extends BaseController
     }
 
 
-
     /**
      * 修改标准
      */
     @RequiresPermissions("biz:standard:edit")
     @GetMapping("/edit/{id}")
-    public String edit(@PathVariable("id") Long id, ModelMap mmap)
-    {
+    public String edit(@PathVariable("id") Long id, ModelMap mmap) {
         Standard standard = standardService.selectStandardById(id);
         mmap.put("standard", standard);
         return prefix + "/edit";
@@ -189,8 +183,7 @@ public class StandardController extends BaseController
 //    @Log(title = "标准", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
-    public AjaxResult editSave(Standard standard)
-    {
+    public AjaxResult editSave(Standard standard) {
         int flag = standardService.updateStandard(standard);
         return toAjax(flag);
     }
@@ -200,22 +193,20 @@ public class StandardController extends BaseController
      */
     @RequiresPermissions("biz:standard:remove")
 //    @Log(title = "标准", businessType = BusinessType.DELETE)
-    @PostMapping( "/remove")
+    @PostMapping("/remove")
     @ResponseBody
-    public AjaxResult remove(String ids)
-    {
+    public AjaxResult remove(String ids) {
         // service 中 对附件 进行删除
         int flag = standardService.deleteStandardByIds(ids);
         return toAjax(flag);
     }
-    
+
     /**
      * 下载标准文件
      */
     @RequiresPermissions("biz:standard:download")
     @GetMapping("/download/{id}")
-    public void downloadFile(@PathVariable("id") Long id, HttpServletResponse response) throws IOException
-    {
+    public void downloadFile(@PathVariable("id") Long id, HttpServletResponse response) throws IOException {
         Standard standard = standardService.selectStandardById(id);
         if (standard == null || standard.getAttachment() == null) {
             throw new RuntimeException("文件不存在");
@@ -229,7 +220,7 @@ public class StandardController extends BaseController
         }
 
         response.setContentType("application/octet-stream");
-        response.setHeader("Content-Disposition", "attachment; filename=" + 
+        response.setHeader("Content-Disposition", "attachment; filename=" +
                 URLEncoder.encode(filemap.getOldName(), "UTF-8"));
         response.setHeader("X-FileName", URLEncoder.encode(filemap.getOldName(), "UTF-8"));
 

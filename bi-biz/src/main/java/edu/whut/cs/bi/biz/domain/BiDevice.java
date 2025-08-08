@@ -52,4 +52,20 @@ public class BiDevice extends BaseEntity {
     public void setPurpose(String purpose) {
         this.purpose = purpose;
     }
+
+    public SysDept getDept() {
+        return dept;
+    }
+
+    public void setDept(SysDept dept) {
+        this.dept = dept;
+    }
+
+    public Long getDeptId() {
+        return deptId;
+    }
+
+    public void setDeptId(Long deptId) {
+        this.deptId = deptId;
+    }
 }

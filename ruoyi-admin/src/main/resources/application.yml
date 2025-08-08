@@ -30,7 +30,7 @@ server:
       max: 800
       # Tomcat启动初始化的线程数，默认值10
       min-spare: 100
- 
+
 # 日志配置
 logging:
   level:
@@ -148,20 +148,20 @@ swagger:
   enabled: true
 
 minio:
-  endpoint: http://bi_minio:9000          #使用容器名称，走Docker内网
-#  endpoint: http://60.205.13.156:9000  # 公网地址，速度慢
-#  endpoint: http://59.110.81.142:9000
-#  endpoint: http://localhost:9000      # 本地地址，在容器内不可用
-#  access-key: admin
-#  secret-key: admin123      密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
-  access-key: minioadmin
-  secret-key: minioadmin
-#  url: http://60.205.13.156:9000
-  url: http://59.110.81.142:9000
+    endpoint: http://bi_minio:9000          #使用容器名称，走Docker内网
+  #  endpoint: http://60.205.13.156:9000  # 公网地址，速度慢
+  #  endpoint: http://59.110.81.142:9000  #最新的 公网地址
+  #  endpoint: http://localhost:9000      # 本地地址，在容器内不可用
+  #  access-key: admin
+  #  secret-key: admin123      密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
+    access-key: minioadmin
+    secret-key: minioadmin
+    #  url: http://60.205.13.156:9000
+    url: http://59.110.81.142:9000
 
-  bucket-name: public
+    bucket-name: public
 
 springAi_Rag:
-#  springai 项目地址， 后端连接时可用 , 如有改动 ，需和 index 页面的地址同步。
+  #  springai 项目地址， 后端连接时可用 , 如有改动 ，需和 index 页面的地址同步。
   endpoint: http://59.110.81.142:8081
 #  endpoint: http://localhost:8081   # 测试用

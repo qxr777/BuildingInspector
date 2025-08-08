@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BiDeviceMapper">
+    <resultMap id="BiDeviceResult" type="biDevice">
+        <id property="id" column="device_id"/>
+        <result property="name" column="device_name"/>
+        <result property="model" column="device_model"/>
+        <result property="purpose" column="device_purpose"/>
+        <result property="deptId" column="device_dept_id"/>
+        <result property="remark" column="device_remark"/>
+        <result property="createBy" column="device_create_by"/>
+        <result property="createTime" column="device_create_time"/>
+        <result property="updateBy" column="device_update_by"/>
+        <result property="updateTime" column="device_update_time"/>
+        <association property="dept" javaType="com.ruoyi.common.core.domain.entity.SysDept">
+            <id property="deptId" column="device_dept_id"/>
+            <result property="parentId" column="dept_parent_id"/>
+            <result property="ancestors" column="dept_ancestors"/>
+            <result property="deptName" column="dept_dept_name"/>
+            <result property="orderNum" column="dept_order_num"/>
+            <result property="leader" column="dept_leader"/>
+            <result property="phone" column="dept_phone"/>
+            <result property="email" column="dept_email"/>
+            <result property="status" column="dept_status"/>
+            <result property="parentName" column="dept_parentName"/>
+        </association>
+    </resultMap>
+    <sql id="selectBiDevice">            select d.id                                                                     as device_id,
+                                                d.name                                                                   as device_name,
+                                                d.model                                                                  as device_model,
+                                                d.purpose                                                                as device_purpose,
+                                                d.dept_id                                                                as device_dept_id,
+                                                d.remark                                                                 as device_remark,
+                                                d.create_by                                                              as device_create_by,
+                                                d.create_time                                                            as device_create_time,
+                                                d.update_by                                                              as device_update_by,
+                                                d.update_time                                                            as device_update_time,
+                                                dept.parent_id                                                           as dept_parent_id,
+                                                dept.ancestors                                                           as dept_ancestors,
+                                                dept.dept_name                                                           as dept_dept_name,
+                                                dept.order_num                                                           as dept_order_num,
+                                                dept.leader                                                              as dept_leader,
+                                                dept.phone                                                               as dept_phone,
+                                                dept.email                                                               as dept_email,
+                                                dept.status                                                              as dept_status,
+                                                (select dept_name from sys_dept where sys_dept.dept_id = dept_parent_id) as dept_parentName
+                                         from bi_device as d
+                                                  left join sys_dept as dept on d.dept_id = dept.dept_id</sql>
+
+
+    <select id="selectBiDeviceById" resultMap="BiDeviceResult">
+        <include refid="selectBiDevice"/>
+        where d.id = #{id}
+    </select>
+    <select id="selectBiDeviceList" resultMap="BiDeviceResult" parameterType="BiDevice">
+        <include refid="selectBiDevice"/>
+        <where>
+            <if test="name != null and name != '' ">and d.name like concat('%',#{name},'%')</if>
+            <if test="model != null and model != '' ">and d.model like concat('%',#{model},'%')</if>
+            <if test="purpose != null and purpose != '' ">and d.purpose like concat('%',#{purpose},'%')</if>
+            <if test="deptId != null">and d.dept_id = #{deptId}</if>
+            <if test="dept != null and dept.name != null and dept.name != '' ">and dept.dept_name like
+                concat('%',#{dept.deptName},'%')
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertBiDevice" parameterType="BiDevice" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_device
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name!=null and name!=''">name,</if>
+            <if test="model!=null and model!=''">model,</if>
+            <if test="purpose!=null and purpose!=''">purpose,</if>
+            <if test="deptId!=null">dept_id,</if>
+            <if test="createBy!=null and createBy!=''">create_by,</if>
+            <if test="createTime!=null">create_time,</if>
+            <if test="updateBy!=null and updateBy!=''">update_by,</if>
+            <if test="updateTime!=null">update_time,</if>
+            <if test="remark!=null and remark!=''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name!=null and name!=''">#{name},</if>
+            <if test="model!=null and model!=''">#{model},</if>
+            <if test="purpose!=null and purpose!=''">#{purpose},</if>
+            <if test="deptId!=null">#{deptId},</if>
+            <if test="createBy!=null and createBy!=''">#{createBy},</if>
+            <if test="createTime!=null">#{createTime},</if>
+            <if test="updateBy!=null and updateTime!=''">#{updateBy},</if>
+            <if test="updateTime!=null">#{updateTime},</if>
+            <if test="remark!=null and remark!=''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBiDevice" parameterType="BiDevice">
+        update bi_device
+        set
+        <trim suffixOverrides=",">
+            <if test="name!=null and name!=''">name = #{name},</if>
+            <if test="model!=null and model!=''">model = #{model},</if>
+            <if test="purpose!=null and purpose!=''">purpose = #{purpose},</if>
+            <if test="deptId!=null and deptId!=''">dept_id = #{deptId},</if>
+            <if test="remark!=null and remark!=''">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBiDeviceById" parameterType="java.lang.Long">
+        delete
+        from bi_device
+        where id = #{id}
+    </delete>
+
+    <delete id="deleteBiDeviceByIds" parameterType="String">
+        delete from bi_device
+        where id in
+        <foreach collection="array" open="(" close=")" separator="," item="id">
+            #{id}
+        </foreach>
+    </delete>
+
+
+</mapper>
