@@ -521,4 +521,36 @@ public class ApiController {
         }
         return AjaxResult.success("查询成功", building);
     }
+    
+    
+    
+    /**
+     * 通过word文件添加
+     */
+    @PostMapping( "/readWord" )
+    @ResponseBody
+//    @RequiresPermissions("biz:property:add")
+    @Log(title = "读取属性word文件", businessType = BusinessType.INSERT)
+    public Building readWordFile(@RequestPart("file") MultipartFile file, Long buildingId)
+    {
+        if (buildingId == null) {
+            throw new ServiceException("buildingId不能为空");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("上传文件不能为空");
+        }
+        Property property = new Property();
+        property.setCreateBy(ShiroUtils.getLoginName());
+        property.setUpdateBy(ShiroUtils.getLoginName());
+        
+        Boolean read = propertyService.readWordFile(file, property, buildingId);
+        if (read == null || !read) {
+            throw new ServiceException("读取Word并写入属性失败");
+        }
+        Building building = null;
+        building = buildingService.selectBuildingById(buildingId);
+        
+        return building;
+    }
+    
 }
