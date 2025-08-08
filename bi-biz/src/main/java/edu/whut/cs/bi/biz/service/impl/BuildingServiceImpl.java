@@ -1,23 +1,23 @@
 package edu.whut.cs.bi.biz.service.impl;
 
-import java.util.List;
-import java.io.IOException;
-import java.util.stream.Collectors;
-import java.util.ArrayList;
-import java.util.Set;
-import java.util.Queue;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.Date;
-import java.util.HashMap;
-
 import cn.hutool.core.collection.CollUtil;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.system.mapper.SysDictDataMapper;
+import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.domain.BiTemplateObject;
+import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
-import edu.whut.cs.bi.biz.mapper.ProjectBuildingMapper;
+import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.service.IBiObjectService;
+import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
+import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -26,19 +26,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import edu.whut.cs.bi.biz.mapper.BuildingMapper;
-import edu.whut.cs.bi.biz.domain.Building;
-import edu.whut.cs.bi.biz.domain.BiObject;
-import edu.whut.cs.bi.biz.service.IBuildingService;
-import edu.whut.cs.bi.biz.service.IBiObjectService;
-import com.ruoyi.common.core.text.Convert;
 import org.springframework.web.multipart.MultipartFile;
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.JSONArray;
-import edu.whut.cs.bi.biz.domain.BiTemplateObject;
-import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
 
 import javax.annotation.Resource;
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 建筑Service业务层处理
@@ -60,6 +53,8 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Resource
     private ITaskService taskService;
+    @Autowired
+    private SysDictDataMapper sysDictDataMapper;
 
 
     /**
@@ -702,10 +697,38 @@ public class BuildingServiceImpl implements IBuildingService {
         return buildingMapper.selectBuildingWithParentInfo(id);
     }
 
+    private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
+
+    static {
+        BRIDGE_TYPE_MAP.put("梁桥", 1L);
+        BRIDGE_TYPE_MAP.put("箱形拱桥", 3L);
+        BRIDGE_TYPE_MAP.put("双曲拱", 4L);
+        BRIDGE_TYPE_MAP.put("板拱", 5L);
+        BRIDGE_TYPE_MAP.put("刚架拱", 6L);
+        BRIDGE_TYPE_MAP.put("桁架拱", 7L);
+        BRIDGE_TYPE_MAP.put("钢-混凝土组合拱桥", 8L);
+        BRIDGE_TYPE_MAP.put("预应力混凝土悬索桥", 9L);
+        BRIDGE_TYPE_MAP.put("预应力混凝土斜拉桥", 10L);
+        BRIDGE_TYPE_MAP.put("钢箱梁斜拉桥", 11L);
+        BRIDGE_TYPE_MAP.put("肋拱桥", 12L);
+        BRIDGE_TYPE_MAP.put("钢箱梁悬索桥", 13L);
+        BRIDGE_TYPE_MAP.put("钢桁梁悬索桥", 14L);
+        BRIDGE_TYPE_MAP.put("叠合梁悬索桥", 15L);
+        BRIDGE_TYPE_MAP.put("钢桁梁斜拉桥", 16L);
+        BRIDGE_TYPE_MAP.put("叠合梁斜拉桥", 17L);
+    }
+
     @Override
     @Transactional
     public void readBuildingExcel(MultipartFile file, Long projectId) {
         List<Long> buildings = new ArrayList<>();
+
+        Task task = new Task();
+        task.setProjectId(projectId);
+        task.setSelect("platform");
+        task.setStatus("0");
+        List<Task> tasks = taskService.selectTaskList(task);
+        Set<Long> taskSet = tasks.stream().map(t -> t.getBuildingId()).collect(Collectors.toSet());
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
@@ -714,45 +737,55 @@ public class BuildingServiceImpl implements IBuildingService {
                 for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                     Row row = sheet.getRow(i);
 
-                    String buildingName = getCellValueAsString(row.getCell(0));
-                    String side = getCellValueAsString(row.getCell(1));
+                    String buildingArea = getCellValueAsString(row.getCell(1));
+                    String buildingName = getCellValueAsString(row.getCell(4));
+                    String lineCode = getCellValueAsString(row.getCell(7));
+                    String lineName = getCellValueAsString(row.getCell(8));
+                    String buildingTemplate = getCellValueAsString(row.getCell(15));
+
+                    SysDictData areaDictData = new SysDictData();
+                    areaDictData.setDictType("bi_building_area");
+                    areaDictData.setDictLabel(buildingArea);
+                    List<SysDictData> areaDictDatas = sysDictDataMapper.selectDictDataList(areaDictData);
+                    if (areaDictDatas == null || CollUtil.isEmpty(areaDictDatas)) {
+                        // 这里值是随便给的
+                        areaDictData.setDictSort(100L);
+                        sysDictDataMapper.insertDictData(areaDictData);
+                        areaDictDatas = sysDictDataMapper.selectDictDataList(areaDictData);
+                    }
+
+                    SysDictData lineDictData = new SysDictData();
+                    lineDictData.setDictType("bi_buildeing_line");
+                    lineDictData.setDictLabel(lineName);
+                    List<SysDictData> lineDictDatas = sysDictDataMapper.selectDictDataList(lineDictData);
+                    if (lineDictDatas == null || CollUtil.isEmpty(lineDictDatas)) {
+                        // 这里值是随便给的
+                        lineDictData.setDictSort(100L);
+                        lineDictData.setDictValue(lineCode);
+                        sysDictDataMapper.insertDictData(lineDictData);
+                    }
 
                     Building building = new Building();
+                    building.setArea(areaDictDatas.get(0).getDictValue());
+                    building.setLine(lineCode);
                     building.setName(buildingName);
 
-                    List<Building> mianBuilidng = buildingMapper.selectBuildingList(building);
+                    List<Building> buildingList = buildingMapper.selectBuildingList(building);
 
-                    if (CollUtil.isEmpty(mianBuilidng) || mianBuilidng.size() == 0) {
+                    if (CollUtil.isEmpty(buildingList) || buildingList.size() == 0) {
                         building.setStatus("0");
-                        building.setArea("420100");
-                        building.setLine("G70");
-                        building.setIsLeaf("0");
+                        building.setIsLeaf("1");
+                        building.setTemplateId(BRIDGE_TYPE_MAP.get(buildingTemplate));
                         building.setCreateBy(ShiroUtils.getLoginName());
                         this.insertBuilding(building);
                     } else {
-                        building = mianBuilidng.get(0);
+                        building = buildingList.get(0);
                     }
 
-                    Building childBuilding = new Building();
-                    childBuilding.setName(buildingName + "-" + side);
-                    childBuilding.setParentId(building.getId());
+                    if (taskSet.contains(building.getId()))
+                        continue;
 
-                    List<Building> sideBuilding = buildingMapper.selectBuildingList(childBuilding);
-
-                    if (CollUtil.isEmpty(sideBuilding) || sideBuilding.size() == 0) {
-                        childBuilding.setStatus("0");
-                        childBuilding.setArea("420100");
-                        childBuilding.setLine("G70");
-                        childBuilding.setIsLeaf("1");
-                        childBuilding.setTemplateId(1L);
-
-                        childBuilding.setParentId(building.getId());
-                        this.insertBuilding(childBuilding);
-                    } else {
-                        childBuilding = sideBuilding.get(0);
-                    }
-
-                    buildings.add(childBuilding.getId());
+                    buildings.add(building.getId());
                 }
             }
         } catch (IOException e) {

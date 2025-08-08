@@ -64,10 +64,15 @@ public class DiseaseController extends BaseController
 
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
+
     @Autowired
     private AttachmentMapper attachmentMapper;
+
     @Autowired
     private DiseaseMapper diseaseMapper;
+
+    @Resource
+    private ReadFileService readFileService;
 
     @RequiresPermissions("biz:disease:view")
     @GetMapping()
@@ -346,4 +351,19 @@ public class DiseaseController extends BaseController
         return AjaxResult.success(diseaseService.getCauseAnalysis(causeQuery));
     }
 
+    @RequiresPermissions("biz:disease:add")
+    @GetMapping("/importHistory")
+    public String importHistory(@RequestParam("taskId") Long taskId, ModelMap mmap) {
+        mmap.put("taskId", taskId);
+        return prefix + "/importHistory";
+    }
+
+    @RequiresPermissions("biz:disease:add")
+    @PostMapping("/upload/bridgeExcel")
+    @ResponseBody
+    public AjaxResult uploadBridgeExcel(@RequestParam("file") MultipartFile file, @RequestParam("taskId") Long taskId) {
+        readFileService.readDiseaseExcel(file, taskId);
+
+        return AjaxResult.success("上传成功");
+    }
 }
