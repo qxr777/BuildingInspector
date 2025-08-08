@@ -78,12 +78,15 @@ public class ReadFileServiceImpl implements ReadFileService {
                     Row row = sheet.getRow(i);
                     if (row == null) continue;
 
+                    String component_3 = getCellValueAsString(row.getCell(0));
+                    if (component_3 == null || component_3.equals("/") || component_3.equals("")) {
+                        continue;
+                    }
 
                     CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
 
                         ThreadContext.bind(subject);
 
-                        String component_3 = getCellValueAsString(row.getCell(0));
                         String componentCode = getCellValueAsString(row.getCell(1));
                         String diseaseType = getCellValueAsString(row.getCell(2));
                         String position = getCellValueAsString(row.getCell(3));
@@ -91,6 +94,8 @@ public class ReadFileServiceImpl implements ReadFileService {
                         String scale = getCellValueAsString(row.getCell(5));
                         String photoName = getCellValueAsString(row.getCell(11));
                         String diseaseNumber = getCellValueAsString(row.getCell(13));
+
+
 
                         BiObject biObject3 = biObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
 
@@ -171,6 +176,10 @@ public class ReadFileServiceImpl implements ReadFileService {
             if (row == null) continue;
 
             String component_3 = getCellValueAsString(row.getCell(0));
+            if (component_3 == null || component_3.equals("/") || component_3.equals("")) {
+                continue;
+            }
+
             String componentCode = getCellValueAsString(row.getCell(1));
 
             BiObject biObject3 = biObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);

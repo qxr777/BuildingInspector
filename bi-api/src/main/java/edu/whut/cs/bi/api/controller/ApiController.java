@@ -26,22 +26,29 @@ import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.PackageMapper;
+import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.ruoyi.common.utils.ShiroUtils.getSysUser;
 import static com.ruoyi.common.utils.ShiroUtils.setSysUser;
 
+@Slf4j
 @RestController
 @RequestMapping("/api")
 public class ApiController {
@@ -408,6 +415,99 @@ public class ApiController {
     }
 
     @Resource
-    private  DiseaseTypeMapper diseaseTypeMapper;
+    private ReadFileService readFileService;
 
+    @Resource
+    private TaskMapper taskMapper;
+
+    @GetMapping("/batchDisease")
+    @ResponseBody
+    @Transactional
+    public AjaxResult batchDisease() {
+        // 指定文件夹路径
+        String folderPath = "C:\\Users\\10512\\Desktop\\桥梁病害-宣恩11";
+        File folder = new File(folderPath);
+
+        // 检查文件夹是否存在
+        if (!folder.exists() || !folder.isDirectory()) {
+            System.out.println("指定的文件夹路径无效！");
+            return AjaxResult.error("指定的文件夹路径无效！");
+        }
+
+        Task task = new Task();
+        task.setProjectId(40L);
+        Building building = new Building();
+        building.setArea("422800");
+        task.setBuilding(building);
+        List<Task> tasks = taskMapper.selectTaskList(task, null);
+
+        // 遍历文件夹中的所有文件
+        File[] files = folder.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (isExcelFile(file)) {
+                    String name = file.getName();
+                    String buildingName = name.substring(0, name.indexOf("病"));
+                    tasks.stream().filter(t -> t.getBuilding().getName().equals(buildingName)).findFirst().ifPresent(t -> {
+                        readFileService.readDiseaseExcel(convert(file), t.getId());
+                    });
+                }
+            }
+        }
+
+        return AjaxResult.success("处理成功");
+    }
+
+    // 判断是否为Excel文件
+    private static boolean isExcelFile(File file) {
+        String fileName = file.getName().toLowerCase();
+        return fileName.endsWith(".xls") || fileName.endsWith(".xlsx");
+    }
+
+    /**
+     * 将 File 转换为 MultipartFile
+     *
+     * @param file Excel 文件
+     * @return MultipartFile 对象
+     */
+    public static MultipartFile convert(File file) {
+        if (file == null || !file.exists()) {
+            throw new IllegalArgumentException("文件不存在: " + file.getAbsolutePath());
+        }
+
+        try (FileInputStream inputStream = new FileInputStream(file)) {
+            // 获取文件内容
+            byte[] fileContent = inputStream.readAllBytes();
+
+            // 获取文件扩展名并推断 MIME 类型
+            String originalFilename = file.getName();
+            String contentType = determineContentType(originalFilename);
+
+            // 创建 MockMultipartFile 实例
+            return new MockMultipartFile(
+                    "file",               // 表单字段名
+                    originalFilename,    // 原始文件名
+                    contentType,         // 内容类型
+                    fileContent          // 文件内容
+            );
+        } catch (IOException e) {
+            throw new RuntimeException("文件转换失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 根据文件扩展名推断 MIME 类型
+     *
+     * @param filename 文件名
+     * @return MIME 类型
+     */
+    private static String determineContentType(String filename) {
+        if (filename.toLowerCase().endsWith(".xls")) {
+            return "application/vnd.ms-excel"; // Excel 97-2003
+        } else if (filename.toLowerCase().endsWith(".xlsx")) {
+            return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // Excel 2007+
+        } else {
+            return "application/octet-stream"; // 默认类型
+        }
+    }
 }

@@ -37,7 +37,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectChildrenObjectById" parameterType="Long" resultMap="PropertyResult">
-		select * from bi_property where find_in_set(#{objectId}, ancestors)
+		select * from bi_property where find_in_set(#{objectId}, ancestors) order by order_num
 	</select>
 
     <select id="getOrderNum" resultType="java.lang.Integer">
@@ -59,6 +59,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 parent_id = #{parentId}
             </otherwise>
         </choose>
+        order by order_num
     </select>
 
     <select id="selectPropertyByName" parameterType="Property" resultMap="PropertyResult">
@@ -67,7 +68,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             parent_id IS NULL
             <if test="name != null  and name != ''"> AND name like concat('%', #{name}, '%')</if>
         </where>
-        order by create_time desc
+        order by order_num
     </select>
 
     <select id="selectAllChildrenById" resultType="edu.whut.cs.bi.biz.domain.Property">

@@ -515,10 +515,36 @@ public class PropertyServiceImpl implements IPropertyService {
         CompletableFuture.runAsync(() -> {
             extractImagesFromWord(file, buildingId);
 
-            Property p1 = propertyMapper.selectByRootIdAndName(rootId[0], "左幅桥梁正面照");
-            Property p2 = propertyMapper.selectByRootIdAndName(rootId[0], "左幅桥梁立面照");
-            Property p3 = propertyMapper.selectByRootIdAndName(rootId[0], "右幅桥梁正面照");
-            Property p4 = propertyMapper.selectByRootIdAndName(rootId[0], "右幅桥梁立面照");
+                    Building building = buildingMapper.selectBuildingById(buildingId);
+                    String isLeaf = building.getIsLeaf();
+                    Property p1, p2, p3, p4;
+                    if ("1".equals(isLeaf)) {
+                        p1 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁总体照片");
+                        p2 = propertyMapper.selectByRootIdAndName(rootId[0], "桥梁正面照片");
+
+                        // 新增两个空属性
+                        p3 = new Property();
+                        String s = p1.getAncestors().split(",")[2];
+                        p3.setParentId(Long.valueOf(s));
+                        p3.setName("桥梁总体照片2");
+                        p3.setAncestors(p1.getAncestors());
+                        p3.setOrderNum(2);
+                        p3.setValue("/");
+                        propertyMapper.insertProperty(p3);
+                        p4 = new Property();
+                        p4.setParentId(Long.valueOf(s));
+                        p4.setOrderNum(2);
+                        p4.setName("桥梁正面照片2");
+                        p4.setValue("/");
+                        p4.setAncestors(p2.getAncestors());
+                        propertyMapper.insertProperty(p4);
+                    } else {
+                        p3 = propertyMapper.selectByRootIdAndName(rootId[0], "左幅桥梁正面照");
+                        p4 = propertyMapper.selectByRootIdAndName(rootId[0], "左幅桥梁立面照");
+                        p1 = propertyMapper.selectByRootIdAndName(rootId[0], "右幅桥梁正面照");
+                        p2 = propertyMapper.selectByRootIdAndName(rootId[0], "右幅桥梁立面照");
+                    }
+
 
             List<FileMap> imageMaps = fileMapController.getImageMaps(buildingId,  "front", "side");
 
@@ -528,19 +554,19 @@ public class PropertyServiceImpl implements IPropertyService {
             ));
 
             if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty()) {
-                p3.setValue(collect.get("front").get(0));
-                propertyMapper.updateProperty(p3);
+                p1.setValue(collect.get("front").get(0));
+                propertyMapper.updateProperty(p1);
             }
             if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty()) {
-                p4.setValue(collect.get("side").get(0));
-                propertyMapper.updateProperty(p4);
+                p2.setValue(collect.get("side").get(0));
+                propertyMapper.updateProperty(p2);
             }
             if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty() && collect.get("front").size() > 1) {
-                p1.setValue(collect.get("front").get(1));
+                p3.setValue(collect.get("front").get(1));
                 propertyMapper.updateProperty(p1);
             }
             if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty() && collect.get("side").size() > 1) {
-                p2.setValue(collect.get("side").get(1));
+                p4.setValue(collect.get("side").get(1));
                 propertyMapper.updateProperty(p2);
             }
         }, executorService)

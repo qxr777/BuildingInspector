@@ -85,6 +85,12 @@
                 <if test="task.building.name != null and task.building.name != ''">
                     and b.name like concat('%', #{task.building.name}, '%')
                 </if>
+                <if test="task.building.area != null and task.building.area != ''">
+                    and b.area = #{task.building.area}
+                </if>
+                <if test="task.building.line != null and task.building.line != ''">
+                    and b.line = #{task.building.line}
+                </if>
             </if>
 
             <!-- 项目表条件 -->
