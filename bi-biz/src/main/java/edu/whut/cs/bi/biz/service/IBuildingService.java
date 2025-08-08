@@ -102,4 +102,6 @@ public interface IBuildingService {
      * @param file
      */
     public void readBuildingExcel(MultipartFile file, Long projectId);
+    
+    Building getUniqueBuilding(String bridgeName, String lineCode, String zipCode);
 }
