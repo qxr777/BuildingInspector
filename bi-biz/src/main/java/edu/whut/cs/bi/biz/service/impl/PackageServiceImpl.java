@@ -369,18 +369,17 @@ public class PackageServiceImpl implements IPackageService {
                     String frontPhotoJsonPath = rootDirName + "/building/" + buildingId + "/frontPhoto.json";
                     addJsonToZip(zipOut, frontPhotoJsonPath, JSONObject.toJSONString(newfrontAndSide));
                     log.info(userId + " 桥梁正立面照收集完成" + buildingId);
-
-                    Map<String, List<String>> frontAndSide = getFrontAndSide(propertyPhotoAttachments, zipOut, buildingId, rootDirName);
-                    Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
-
-                    PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
-                    propertyTreeVo.setProperty(property);
-                    propertyTreeVo.setImages(frontAndSide);
-
-                    String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
-                    addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
-                    log.info(userId + " 桥梁属性卡片收集完成" + buildingId);
                 }
+                Map<String, List<String>> frontAndSide = getFrontAndSide(propertyPhotoAttachments, zipOut, buildingId, rootDirName);
+                Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
+
+                PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
+                propertyTreeVo.setProperty(property);
+                propertyTreeVo.setImages(frontAndSide);
+
+                String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
+                addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
+                log.info(userId + " 桥梁属性卡片收集完成" + buildingId);
             } catch (Exception e) {
                 // 记录错误但继续处理
                 log.error("获取建筑物照片数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
