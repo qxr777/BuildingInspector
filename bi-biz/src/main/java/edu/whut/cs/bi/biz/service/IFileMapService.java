@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -153,4 +154,9 @@ public interface IFileMapService {
      * @return 文件管理集合
      */
     public List<FileMap> selectFileMapByIds(List<Long> ids);
+
+    /**
+     * 直接从文件上传到MinIO，避免重复读取到内存
+     */
+    public FileMap handleFileUploadFromFile(File file, String originalFilename, String loginName) ;
 }

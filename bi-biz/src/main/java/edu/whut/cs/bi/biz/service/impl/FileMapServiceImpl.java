@@ -212,6 +212,7 @@ public class FileMapServiceImpl implements IFileMapService {
     /**
      * 直接从文件上传到MinIO，避免重复读取到内存
      */
+    @Override
     public FileMap handleFileUploadFromFile(File file, String originalFilename, String loginName) {
         FileInputStream fileInputStream = null;
         try {
