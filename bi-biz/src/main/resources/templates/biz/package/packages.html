@@ -40,6 +40,11 @@
         </div>
 
         <div class="col-sm-12 select-table table-striped">
+            <div class="btn-group-sm" id="toolbar" role="group">
+                <a class="btn btn-success" onclick="batchGeneratePackage()" shiro:hasPermission="biz:package:add">
+                    <i class="fa fa-plus"></i> 批量生成压缩包
+                </a>
+            </div>
             <table id="bootstrap-table"></table>
         </div>
     </div>
@@ -84,6 +89,11 @@
                 {
                     field: 'packageSize',
                     title: '文件大小'
+                },
+                {
+                    field: 'userId',
+                    title: '用户ID',
+                    visible: false  // 隐藏该列，仅用于获取数据
                 }]
         };
         $.table.init(options);
@@ -120,6 +130,31 @@
         } else {
             $.modal.alertWarning("无法获取文件信息");
         }
+    }
+
+    // 批量生成压缩包
+    function batchGeneratePackage() {
+        var rows = $.table.selectColumns("userId");
+        if (rows.length == 0) {
+            $.modal.alertWarning("请至少选择一条记录");
+            return;
+        }
+
+        var userIds = rows.join(",");
+        $.modal.confirm("确认要为选中的" + rows.length + "个用户生成压缩包吗？", function() {
+            var url = prefix + "/batchGenerate";
+            var data = { "userIds": userIds };
+            $.modal.loading("正在生成压缩包，请稍候...");
+            $.operate.post(url, data, function(result) {
+                if (result.code == 0) {
+                    $.modal.alertSuccess("已开始生成压缩包，请稍后刷新页面查看结果");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+                $.modal.closeLoading();
+            });
+        });
     }
 </script>
 </body>

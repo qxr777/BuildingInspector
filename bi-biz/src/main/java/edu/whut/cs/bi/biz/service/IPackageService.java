@@ -1,6 +1,9 @@
 package edu.whut.cs.bi.biz.service;
 
 import java.util.List;
+
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import edu.whut.cs.bi.biz.domain.Package;
 
 /**
@@ -58,4 +61,20 @@ public interface IPackageService
      * @return 结果
      */
     public int deletePackageById(Long id);
+
+    /**
+     * 用户压缩包信息
+     *
+     * @param  user 生成用户压缩包主键
+     * @return 结果
+     */
+    AjaxResult generateUserDataPackage(SysUser user);
+
+    /**
+     * 用户压缩包信息
+     *
+     * @param  userIds 异步生成用户压缩包主键
+     * @return 结果
+     */
+    public void batchGeneratePackagesAsync(List<Long> userIds);
 }
