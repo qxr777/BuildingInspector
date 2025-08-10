@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @Controller
 @RequestMapping("/biz/device")
 public class BiDeviceController extends BaseController {
-    private String prefix = "/biz/device";
+    private String prefix = "biz/device";
 
     @Resource
     private BiDeviceService biDeviceService;
