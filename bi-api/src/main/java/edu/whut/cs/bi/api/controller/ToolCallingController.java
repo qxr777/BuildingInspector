@@ -11,7 +11,9 @@ import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.domain.vo.Disease2FunctionCall;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.Convert2VO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -133,25 +135,7 @@ public class ToolCallingController {
         }
 
         List<Disease> diseases = diseaseService.selectDiseaseListForApi(disease);
-        List<DiseasesOfYearVo> result = null;
-        if (year == null) {
-            Map<Integer, List<Disease>> map = diseases.stream()
-                    .collect(Collectors.groupingBy(d -> d.getProject().getYear()));
-
-            result = map.keySet().stream().map(y -> {
-                DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
-                diseasesOfYearVo.setYear(y);
-                diseasesOfYearVo.setDiseases(map.get(y));
-                diseasesOfYearVo.setBuildingId(buildingId);
-                return diseasesOfYearVo;
-            }).toList();
-        } else {
-            DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
-            diseasesOfYearVo.setDiseases(diseases);
-            diseasesOfYearVo.setYear(year);
-            diseasesOfYearVo.setBuildingId(buildingId);
-            result = List.of(diseasesOfYearVo);
-        }
+        List<Disease2FunctionCall> result = Convert2VO.copyList(diseases, Disease2FunctionCall.class);
         return AjaxResult.success("查询成功", result);
     }
 
