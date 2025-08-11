@@ -299,6 +299,10 @@
         // 监听病害分组选择变化
         $("#diseaseGroupName").change(function () {
             var selectedGroupName = $(this).val();
+            
+            // 每次选择病害分组时，隐藏病害类型自定义输入框
+            $("#customDiseaseType").hide().removeAttr("required").val('');
+            
             if (selectedGroupName) {
                 // 根据选择的分组过滤病害类型
                 var filteredDiseaseTypes = diseaseTypes.filter(function (item) {
@@ -330,6 +334,19 @@
             var selectedText = $("#diseaseTypeId option:selected").text().trim();
             if (selectedText === "0.0.0.0-3#其他（最大标度3）" || selectedText === "0.0.0.0-4#其他（最大标度4）" || selectedText === "0.0.0.0-5#其他（最大标度5）") {
                 $("#customDiseaseType").show().attr("required", true);
+                
+                // 为"其他"类型也需要更新病害标度
+                var selectedId = $(this).val();
+                if (selectedId) {
+                    updateLevelGroup(selectedId);
+                    var selectedType = diseaseTypes.find(function (item) {
+                        return item.id == selectedId;
+                    });
+                    $("#maxScale").val(selectedType.maxScale);
+                    if (selectedType) {
+                        loadDiseaseScales(selectedType.code, selectedType.maxScale);
+                    }
+                }
             } else {
                 $("#customDiseaseType").hide().removeAttr("required").val('');
                 var selectedId = $(this).val();
