@@ -2,9 +2,13 @@ package edu.whut.cs.bi.biz.domain.vo;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.whut.cs.bi.biz.domain.*;
+import lombok.Data;
+import lombok.ToString;
 
 import java.util.List;
 
+@Data
+@ToString
 public class Disease2FunctionCall {
 
     /**
