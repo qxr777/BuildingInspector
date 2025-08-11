@@ -82,4 +82,7 @@ public class Project extends BaseEntity {
 
     // 业务实体根据部门查询项目
     Long selectDeptId;
+
+    // 已经选择的桥梁数
+    int bridgeCount;
 }

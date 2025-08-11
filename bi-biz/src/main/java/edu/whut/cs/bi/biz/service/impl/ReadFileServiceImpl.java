@@ -65,8 +65,10 @@ public class ReadFileServiceImpl implements ReadFileService {
             for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
                 Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
 
-                List<BiObject> biObjects = biObjectMapper.selectBiObjectAndChildrenThreeLevel(building.getRootObjectId());
-                addComponent(sheet, biObjects, componentMap);
+                List<BiObject> threeBiObjects = biObjectMapper.selectBiObjectAndChildrenThreeLevel(building.getRootObjectId());
+                List<BiObject> allBiObjects = biObjectMapper.selectBiObjectAndChildren(building.getRootObjectId());
+
+                addComponent(sheet, threeBiObjects, allBiObjects,  componentMap);
 
                 components = componentService.selectComponentList(new Component());
                 Map<String, List<Component>> newComponentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
@@ -96,19 +98,20 @@ public class ReadFileServiceImpl implements ReadFileService {
                         String diseaseNumber = getCellValueAsString(row.getCell(13));
 
 
-
-                        BiObject biObject3 = biObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
+                        BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
 
                         if (biObject3 == null) {
                             log.info("未找到对应的部件：{}", component_3);
-                            biObject3 = biObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
+                            biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
                             if (biObject3 == null)
                                 throw new RuntimeException("未找到对应的部件：" + component_3);
                         }
+                        BiObject finalBiObject = biObject3;
+                        BiObject biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals("其他"))
+                                .findFirst().orElse(null);
 
                         List<Component> componentList = newComponentMap.get(componentCode + "#" + component_3);
-                        BiObject finalBiObject1 = biObject3;
-                        Component component = componentList.stream().filter(c -> c.getBiObjectId().equals(finalBiObject1.getId())).findFirst().orElse(null);
+                        Component component = componentList.stream().filter(c -> c.getBiObjectId().equals(biObject4.getId())).findFirst().orElse(null);
 
                         Disease disease = new Disease();
                         disease.setPosition(position);
@@ -146,7 +149,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setBuildingId(building.getId());
                         disease.setProjectId(task.getProjectId());
                         disease.setBiObjectName(component_3);
-                        disease.setBiObjectId(biObject3.getId());
+                        disease.setBiObjectId(biObject4.getId());
                         if (photoName != null && !photoName.equals("")) {
                             disease.setRemark("图片名称：" + photoName);
                         }
@@ -168,7 +171,7 @@ public class ReadFileServiceImpl implements ReadFileService {
         }
     }
 
-    private void addComponent(Sheet sheet, List<BiObject> biObjects, Map<String, List<Component>> componentMap) {
+    private void addComponent(Sheet sheet, List<BiObject> threeBiObjects, List<BiObject> allBiObjects, Map<String, List<Component>> componentMap) {
         Set<Component> componentSet = new HashSet<>();
 
         for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -182,15 +185,18 @@ public class ReadFileServiceImpl implements ReadFileService {
 
             String componentCode = getCellValueAsString(row.getCell(1));
 
-            BiObject biObject3 = biObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
+            BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
 
             if (biObject3 == null) {
                 log.info("未找到对应的部件：{}", component_3);
-                biObject3 = biObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
+                biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
                 if (biObject3 == null)
                     throw new RuntimeException("未找到对应的部件：" + component_3);
             }
 
+            BiObject finalBiObject = biObject3;
+            BiObject biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals("其他"))
+                    .findFirst().orElse(null);
 
             // 新增部件
             Component component = new Component();
@@ -200,15 +206,14 @@ public class ReadFileServiceImpl implements ReadFileService {
             List<Component> oldComponents = componentMap.get(component.getName());
 
             if (oldComponents != null && oldComponents.size() > 0) {
-                BiObject finalBiObject = biObject3;
-                Component old = oldComponents.stream().filter(oldComponent -> oldComponent.getBiObjectId() == finalBiObject.getId()).findFirst().orElse(null);
+                Component old = oldComponents.stream().filter(oldComponent -> oldComponent.getBiObjectId().equals(biObject4.getId())).findFirst().orElse(null);
 
                 if (old != null) {
                     continue;
                 }
             }
 
-            component.setBiObjectId(biObject3.getId());
+            component.setBiObjectId(biObject4.getId());
             component.setCreateBy(ShiroUtils.getLoginName());
             component.setStatus("0");
             componentSet.add(component);

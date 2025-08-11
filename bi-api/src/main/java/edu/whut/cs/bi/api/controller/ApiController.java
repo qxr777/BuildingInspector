@@ -8,6 +8,7 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
 import com.ruoyi.system.service.ISysUserService;
@@ -23,10 +24,7 @@ import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
-import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
-import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
-import edu.whut.cs.bi.biz.mapper.PackageMapper;
-import edu.whut.cs.bi.biz.mapper.TaskMapper;
+import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +41,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static com.ruoyi.common.utils.ShiroUtils.getSysUser;
@@ -94,6 +95,8 @@ public class ApiController {
 
     @Autowired
     private UserPackageTask userPackageTask;
+    @Autowired
+    private ComponentMapper componentMapper;
 
 
     /**
@@ -423,9 +426,8 @@ public class ApiController {
     @GetMapping("/batchDisease")
     @ResponseBody
     @Transactional
-    public AjaxResult batchDisease() {
+    public AjaxResult batchDisease(@RequestParam("folderPath") String folderPath, @RequestParam("area") String area) {
         // 指定文件夹路径
-        String folderPath = "C:\\Users\\10512\\Desktop\\桥梁病害-宣恩11";
         File folder = new File(folderPath);
 
         // 检查文件夹是否存在
@@ -437,7 +439,7 @@ public class ApiController {
         Task task = new Task();
         task.setProjectId(40L);
         Building building = new Building();
-        building.setArea("422800");
+        building.setArea(area);
         task.setBuilding(building);
         List<Task> tasks = taskMapper.selectTaskList(task, null);
 

@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.core.domain.Ztree;
@@ -114,6 +115,11 @@ public class ProjectServiceImpl implements IProjectService {
             // 所属单位
             SysDept ownerDept = deptService.selectDeptById(pj.getOwnerDeptId());
             pj.setOwnerDept(ownerDept);
+            // 已选择桥梁数
+            List<Task> tasks = taskMapper.selectTaskListByProjectId(pj.getId());
+            if (CollUtil.isNotEmpty(tasks)) {
+                pj.setBridgeCount(tasks.size());
+            }
         });
         return projects;
     }
