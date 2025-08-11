@@ -421,9 +421,6 @@ public class BiObjectServiceImpl implements IBiObjectService {
         String updateBy = ShiroUtils.getLoginName();
         Date updateTime = new Date();
         for (BiObject node : nodesToUpdate) {
-            if (biObject.getWeight() == null || biObject.getWeight().equals(BigDecimal.ZERO)) {
-                biObject.setCount(0);
-            }
             node.setUpdateBy(updateBy);
             node.setUpdateTime(updateTime);
             List<String> photos = node.getPhoto();
@@ -481,8 +478,10 @@ public class BiObjectServiceImpl implements IBiObjectService {
      * @param nodesToUpdate 收集的节点列表
      */
     private void collectNodesToUpdate(BiObject biObject, List<BiObject> nodesToUpdate) {
-        // 添加当前节点
-        nodesToUpdate.add(biObject);
+        // 只有数量的才会添加当前节点
+        if(biObject.getCount() != 0) {
+            nodesToUpdate.add(biObject);
+        }
 
         // 递归处理子节点
         List<BiObject> children = biObject.getChildren();
