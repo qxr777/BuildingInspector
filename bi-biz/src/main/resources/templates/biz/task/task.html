@@ -77,6 +77,8 @@
     var evaluateFlag = [[${@permission.hasPermi('biz:evaluation:calculate')}]];
     var evaluateDetailFlag = [[${@permission.hasPermi('biz:evaluation:detail')}]];
     var statusDatas = [[${@dict.getType('bi_task_status')}]];
+    var areaDatas = [[${@dict.getType('bi_building_area')}]];
+    var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
     var select = [[${select}]]
     var prefix = ctx + "biz/task";
     var evaluationPrefix = ctx + "biz/bievaluation";
@@ -102,6 +104,20 @@
                 {
                     field: 'building.name',
                     title: '桥梁名称'
+                },
+                {
+                    field: 'building.area',
+                    title: '片区',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(areaDatas, value);
+                    }
+                },
+                {
+                    field: 'building.line',
+                    title: '线路',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(lineDatas, value);
+                    }
                 },
                 {
                     field: 'status',

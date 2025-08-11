@@ -21,6 +21,8 @@
             <result property="name"    column="building_name"/>
             <result property="rootObjectId" column="root_object_id"/>
             <result property="rootPropertyId" column="root_property_id"/>
+            <result property="area" column="building_area"/>
+            <result property="line" column="building_line"/>
         </association>
 
         <!-- 关联项目对象 -->
@@ -50,6 +52,8 @@
             b.name as building_name,
             b.root_object_id as root_object_id,
             b.root_property_id as root_property_id,
+            b.area as building_area,
+            b.line as building_line,
             <!-- 项目表字段 -->
             p.id as project_id,
             p.name as project_name,
