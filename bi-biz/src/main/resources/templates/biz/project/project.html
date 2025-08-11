@@ -34,7 +34,8 @@
                         </li>
                         <li class="select-time">
                             <label>项目日期： </label>
-                            <input type="text" class="time-input" id="startTime" placeholder="开始日期" name="startDate"/>
+                            <input type="text" class="time-input" id="startTime" placeholder="开始日期"
+                                   name="startDate"/>
                             <span>-</span>
                             <input type="text" class="time-input" id="endTime" placeholder="结束日期" name="endDate"/>
                         </li>
@@ -128,7 +129,7 @@
                     field: 'startDate',
                     title: '开始时间',
                     sortable: true,
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value ? value.substring(0, 10) : ''; // 只取前10位（YYYY-MM-DD）
                     }
                 },
@@ -136,7 +137,7 @@
                     field: 'endDate',
                     title: '结束时间',
                     sortable: true,
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value ? value.substring(0, 10) : ''; // 只取前10位（YYYY-MM-DD）
                     }
                 },
@@ -151,21 +152,38 @@
                 {
                     title: '操作',
                     align: 'center',
+                    width: '20%',
                     formatter: function (value, row, index) {
                         var actions = [];
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.editTab(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-                        actions.push('<a class="btn btn-info btn-xs' + viewFlag +  '" href="javascript:void(0)" onclick="viewDetail(\'' + row.id + '\')"><i class="fa fa-eye"></i>详情</a> ');
+                        actions.push('<a class="btn btn-info btn-xs' + viewFlag + '" href="javascript:void(0)" onclick="viewDetail(\'' + row.id + '\')"><i class="fa fa-eye"></i>详情</a> ');
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
+
+                        // 创建更多操作菜单
+                        var more = [];
                         if (typeof hasDepartmentBusinessAdminRole !== 'undefined' && !hasDepartmentBusinessAdminRole) {
-                            actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="assignUsers(\'' + row.id + '\')"><i class="fa fa-user-plus"></i>安排人员</a> ');
-                            actions.push('<a class="btn btn-primary btn-xs"  href="javascript:void(0)" onclick="selectBuildings(\'' + row.id + '\')"><i class="fa fa-list"></i>选择桥梁</a>');
+                            more.push('<a class=\'btn btn-default btn-xs\' href="javascript:void(0)" onclick="assignUsers(\'' + row.id + '\')"><i class="fa fa-user-plus"></i>安排人员</a> ');
+                            more.push('<a class=\'btn btn-default btn-xs\' href="javascript:void(0)" onclick="selectBuildings(\'' + row.id + '\')"><i class="fa fa-list"></i>选择桥梁</a> ');
+                            more.push('<a class=\'btn btn-default btn-xs\' href="javascript:void(0)" onclick="selectDevices(\'' + row.id + '\')"><i class="fa fa-cogs"></i>安排设备</a> ');
                         }
-                        return actions.length > 0 ? actions.join('') : '';
+
+                        if(more.length > 0) {
+                            actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
+                        }
+                        return actions.join('');
                     },
                     visible: showActionColumn
                 }]
         };
         $.table.init(options);
+
+        // 初始化popover组件
+        $('[data-toggle="popover"]').popover();
+
+        // 监听表格加载完成事件，重新初始化popover
+        $('#bootstrap-table').on('post-body.bs.table', function () {
+            $('[data-toggle="popover"]').popover();
+        });
 
         // 加载承担单位下拉框数据
         loadSysDeptData();
@@ -180,6 +198,11 @@
     function selectBuildings(projectId) {
         var url = ctx + "biz/building/list/" + projectId;
         $.modal.openTab("选择桥梁", url);
+    }
+
+    function selectDevices(projectId) {
+        var url = ctx + "biz/device/list/" + projectId;
+        $.modal.openTab("安排设备", url);
     }
 
     function loadSysDeptData() {

@@ -31,6 +31,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +53,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -84,6 +87,12 @@ public class PropertyServiceImpl implements IPropertyService {
     private TaskMapper taskMapper;
     @Autowired
     private ProjectMapper projectMapper;
+
+    // 共享线程池，避免每次请求创建线程池的额外开销
+    private final ExecutorService imageExecutor = Executors.newFixedThreadPool(Math.max(2, Runtime.getRuntime().availableProcessors() / 2));
+
+    // 针对同一 buildingId 的异步更新加锁，避免同一桥梁并发写导致锁冲突
+    private static final ConcurrentHashMap<Long, ReentrantLock> BUILDING_LOCKS = new ConcurrentHashMap<>();
 
     /**
      * 查询属性
@@ -293,7 +302,8 @@ public class PropertyServiceImpl implements IPropertyService {
         }
         Building building = new Building();
         building.setRootPropertyId(rootId);
-        Long buildingId = buildingMapper.selectBuildingList(building).get(0).getId();
+    // 触发一次查询以确保相关缓存/映射刷新（返回值不使用）
+    buildingMapper.selectBuildingList(building);
     }
 
     /**
@@ -463,10 +473,16 @@ public class PropertyServiceImpl implements IPropertyService {
      */
     @Override
     public Boolean readWordFile(MultipartFile file, Property property, Long buildingId) {
-        String jsonData = getJsonData(file);
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("上传文件不能为空");
+        }
+        if (buildingId == null) {
+            throw new ServiceException("buildingId不能为空");
+        }
+    String jsonData = getJsonData(file);
 
         if (StringUtils.isEmpty(jsonData)) {
-            throw new ServiceException("word解析失败！");
+            throw new ServiceException("word解析失败：AI服务返回为空");
         }
 
         // 使用正则表达式去除多余的前缀和后缀
@@ -474,7 +490,7 @@ public class PropertyServiceImpl implements IPropertyService {
 
         String finalJsonData = jsonData;
         final Long[] rootId = new Long[1];
-        transactionTemplate.execute(status -> {
+    transactionTemplate.execute(status -> {
             try {
                 // 先删除原本的属性树
                 Building bd = buildingMapper.selectBuildingById(buildingId);
@@ -504,16 +520,26 @@ public class PropertyServiceImpl implements IPropertyService {
                 return true;
             } catch (Exception e) {
                 status.setRollbackOnly();
-                throw new ServiceException(e.getMessage());
+                throw new ServiceException("属性树写入失败：" + e.getMessage());
             }
         });
 
 
-        ExecutorService executorService = Executors.newFixedThreadPool(1);
+        // 并发安全：在请求线程内缓存上传文件数据，避免异步读取已被清理的临时文件
+        final byte[] safeWordBytes;
+        try {
+            safeWordBytes = file.getBytes();
+        } catch (IOException ioe) {
+            throw new ServiceException("读取上传文件失败：" + ioe.getMessage());
+        }
 
         // 桥梁属性正立面照
         CompletableFuture.runAsync(() -> {
-            extractImagesFromWord(file, buildingId);
+            // 针对同一 buildingId 串行执行，降低锁竞争
+            ReentrantLock lock = BUILDING_LOCKS.computeIfAbsent(buildingId, id -> new ReentrantLock());
+            lock.lock();
+            try {
+                extractImagesFromWord(safeWordBytes, buildingId);
 
                     Building building = buildingMapper.selectBuildingById(buildingId);
                     String isLeaf = building.getIsLeaf();
@@ -553,31 +579,31 @@ public class PropertyServiceImpl implements IPropertyService {
                     Collectors.mapping(FileMap::getNewName, Collectors.toList())
             ));
 
-            if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty()) {
+            if (CollUtil.isNotEmpty(collect) && CollUtil.isNotEmpty(collect.get("front")) && p1 != null) {
                 p1.setValue(collect.get("front").get(0));
                 propertyMapper.updateProperty(p1);
             }
-            if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty()) {
+            if (CollUtil.isNotEmpty(collect) && CollUtil.isNotEmpty(collect.get("side")) && p2 != null) {
                 p2.setValue(collect.get("side").get(0));
                 propertyMapper.updateProperty(p2);
             }
-            if (CollUtil.isNotEmpty(collect) && !collect.get("front").isEmpty() && collect.get("front").size() > 1) {
+            if (CollUtil.isNotEmpty(collect) && CollUtil.isNotEmpty(collect.get("front")) && collect.get("front").size() > 1 && p3 != null) {
                 p3.setValue(collect.get("front").get(1));
-                propertyMapper.updateProperty(p1);
+                propertyMapper.updateProperty(p3);
             }
-            if (CollUtil.isNotEmpty(collect) && !collect.get("side").isEmpty() && collect.get("side").size() > 1) {
+            if (CollUtil.isNotEmpty(collect) && CollUtil.isNotEmpty(collect.get("side")) && collect.get("side").size() > 1 && p4 != null) {
                 p4.setValue(collect.get("side").get(1));
-                propertyMapper.updateProperty(p2);
+                propertyMapper.updateProperty(p4);
             }
-
-
-        }, executorService)
-                .whenComplete((r, ex) -> {
-                    executorService.shutdown();
-                    if (ex != null) {
-                        log.error("添加桥梁属性正立面照失败！", ex);
-                    }
-                });
+            } finally {
+                lock.unlock();
+            }
+        }, imageExecutor)
+        .whenComplete((r, ex) -> {
+            if (ex != null) {
+                log.error("添加桥梁属性正立面照失败！", ex);
+            }
+        });
 
         // 更新项目和任务的updateTime
         updateTaskAndProject(buildingId);
@@ -617,15 +643,14 @@ public class PropertyServiceImpl implements IPropertyService {
     /**
      * 从word中提取图片
      *
-     * @param file
      * @param buildingId
      */
-    public void extractImagesFromWord(MultipartFile file, Long buildingId) {
+    public void extractImagesFromWord(byte[] fileBytes, Long buildingId) {
         List<MultipartFile> images = new ArrayList<>();
 
-        // 将MultipartFile转换成InputStream
-        try (InputStream inputStream = file.getInputStream()) {
-            XWPFDocument document = new XWPFDocument(inputStream);
+    // 将字节数组转换成InputStream，并确保文档资源关闭
+    try (InputStream inputStream = new java.io.ByteArrayInputStream(fileBytes);
+         XWPFDocument document = new XWPFDocument(inputStream)) {
 
             // 遍历文档中的所有图片
             for (XWPFPictureData pictureData : document.getAllPictures()) {
@@ -658,11 +683,11 @@ public class PropertyServiceImpl implements IPropertyService {
             attachmentService.insertAttachment(attachment);
         }
 
-        if (fileMaps.size() == 0) {
+    if (fileMaps.size() == 0) {
             return;
         }
         // 上传正面照
-        for (int i = 0; i < Math.max(2, images.size()); i++) {
+    for (int i = 0; i < Math.min(2, images.size()); i++) {
             MultipartFile image = images.get(i);
 
             // 处理附件
@@ -696,7 +721,15 @@ public class PropertyServiceImpl implements IPropertyService {
         try {
             // 构建Multipart请求体
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-            body.add("file", file.getResource());  // 将MultipartFile转换为Resource
+            byte[] bytes = file.getBytes();
+            String originalFilename = file.getOriginalFilename();
+            ByteArrayResource resource = new ByteArrayResource(bytes) {
+                @Override
+                public String getFilename() {
+                    return originalFilename != null ? originalFilename : "upload.docx";
+                }
+            };
+            body.add("file", resource);  // 使用内存资源，避免依赖底层临时文件
 
             // 使用WebClient发送请求
             String response = WebClient.create()
