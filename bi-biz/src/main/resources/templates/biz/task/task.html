@@ -43,7 +43,7 @@
                         </li>
                         <li>
                             <label>已提交：</label>
-                            <select name="submitted">
+                            <select name="type">
                                 <option value="">所有</option>
                                 <option value="1">已提交</option>
                                 <option value="0">未提交</option>
@@ -88,6 +88,7 @@
     var statusDatas = [[${@dict.getType('bi_task_status')}]];
     var areaDatas = [[${@dict.getType('bi_building_area')}]];
     var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
+    var taskTypeDatas = [[${@dict.getType('bi_task_type')}]];
     var select = [[${select}]]
     var projectId = [[${projectId}]];
     var prefix = ctx + "biz/task";
@@ -146,13 +147,10 @@
                     }
                 },
                 {
-                    field: 'submitted',
-                    title: '已提交',
+                    field: 'type',
+                    title: '类型',
                     formatter: function(value, row, index) {
-                        var isYes = (value === 1 || value === '1' || value === true);
-                        var text = isYes ? '是' : '否';
-                        var cls = isYes ? 'label label-success' : 'label label-default';
-                        return '<span class="' + cls + '">' + text + '</span>';
+                        return $.table.selectDictLabel(taskTypeDatas, value);
                     }
                 },
                 {

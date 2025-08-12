@@ -274,8 +274,8 @@
         <module>ruoyi-quartz</module>
         <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
-<!--        <module>bm-iot</module>-->
-<!--        <module>bm-common</module>-->
+        <module>bm-iot</module>
+        <module>bm-common</module>
         <module>bm-biz</module>
         <module>bi-biz</module>
         <module>bi-api</module>
