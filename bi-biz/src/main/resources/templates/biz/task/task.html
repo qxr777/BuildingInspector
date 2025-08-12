@@ -8,6 +8,7 @@
     <div class="row">
         <div class="col-sm-12 search-collapse">
             <form id="formId">
+                <input type="hidden" name="projectId" th:value="${projectId}"/>
                 <div class="select-list">
                     <ul>
                         <li>
@@ -38,6 +39,14 @@
                                 <option value="">所有</option>
                                 <option th:each="dict : ${type}" th:text="${dict.dictLabel}"
                                         th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
+                            <label>已提交：</label>
+                            <select name="submitted">
+                                <option value="">所有</option>
+                                <option value="1">已提交</option>
+                                <option value="0">未提交</option>
                             </select>
                         </li>
                         <li class="select-time">
@@ -80,15 +89,25 @@
     var areaDatas = [[${@dict.getType('bi_building_area')}]];
     var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
     var select = [[${select}]]
+    var projectId = [[${projectId}]];
     var prefix = ctx + "biz/task";
     var evaluationPrefix = ctx + "biz/bievaluation";
 
     $(function () {
+        // 若存在项目ID，则隐藏项目相关的查询条件
+        if (projectId !== null && projectId !== undefined && projectId !== '' && projectId !== 'null' && projectId !== 'undefined') {
+            $('#formId input[name="project.name"]').closest('li').hide();
+            $('#formId input[name="project.code"]').closest('li').hide();
+            $('#formId input[name="project.year"]').closest('li').hide();
+            $('#formId .select-time').hide();
+        }
+        
         var options = {
             url: prefix + "/list/" + select,
             updateUrl: prefix + "/edit/{id}",
             exportUrl: prefix + "/export",
             modalName: "检测任务",
+
             columns: [{
                 checkbox: true
             },
@@ -124,6 +143,16 @@
                     title: '状态',
                     formatter: function (value, row, index) {
                         return $.table.selectDictLabel(statusDatas, value);
+                    }
+                },
+                {
+                    field: 'submitted',
+                    title: '已提交',
+                    formatter: function(value, row, index) {
+                        var isYes = (value === 1 || value === '1' || value === true);
+                        var text = isYes ? '是' : '否';
+                        var cls = isYes ? 'label label-success' : 'label label-default';
+                        return '<span class="' + cls + '">' + text + '</span>';
                     }
                 },
                 {

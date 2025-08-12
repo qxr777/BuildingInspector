@@ -40,4 +40,7 @@ public class Task extends BaseEntity {
 
     /** 桥梁技术状况评定结果 */
     private Integer evaluationResult;
+
+    /** 桥梁病害是否提交 */
+    private String submitted;
 }
