@@ -60,6 +60,7 @@
                 AND f.createBy like concat('%', #{fileCreateBy}, '%')
             </if>
         </where>
+        ORDER BY p.update_time DESC
     </select>
 
     <select id="selectPackagesWithUpdateTimeGreaterThanPackageTime" resultMap="PackageResult">

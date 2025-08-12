@@ -20,6 +20,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.bean.BeanUtils;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
     private BiObjectMapper biObjectMapper;
 
     @Autowired
-    private ComponentServiceImpl componentService;
+    private AttachmentService attachmentService;
 
     @Autowired
     private DiseaseTypeServiceImpl diseaseTypeService;
@@ -410,29 +411,47 @@ public class BiObjectServiceImpl implements IBiObjectService {
             throw new RuntimeException("未找到ID为 " + biObject.getId() + " 的节点");
         }
         // web修改的结构信息已确认状态的桥梁不让再次修改
-        if("3".equals(existingObject.getStatus())) {
+        if ("3".equals(existingObject.getStatus())) {
             return 0;
         }
         // 2. 收集所有需要更新的节点
         List<BiObject> nodesToUpdate = new ArrayList<>();
-        collectNodesToUpdate(biObject, nodesToUpdate);
+        List<BiObject> photoUpdate = new ArrayList<>();
+        collectNodesToUpdate(biObject, nodesToUpdate, photoUpdate);
+        // 1. 收集所有 BiObject 的 id
+        List<Long> ids = photoUpdate.stream()
+                .map(BiObject::getId)
+                .toList();
+
+        Set<String> attachmentNames = attachmentService.getAttachmentBySubjectIds(ids).stream()
+                .filter(e -> e.getType() == 8 && e.getName() != null && e.getName().startsWith("biObject_"))
+                .map(e -> {
+                    String name = e.getName();
+                    if (name.startsWith("biObject_")) {
+                        return name.substring("biObject_".length());
+                    } else {
+                        return name;
+                    }
+                })
+                .collect(Collectors.toSet());
+
 
         // 3. 设置更新时间和更新人
         String updateBy = ShiroUtils.getLoginName();
         Date updateTime = new Date();
         for (BiObject node : nodesToUpdate) {
-            if (biObject.getWeight() == null || biObject.getWeight().equals(BigDecimal.ZERO)) {
-                biObject.setCount(0);
-            }
             node.setUpdateBy(updateBy);
             node.setUpdateTime(updateTime);
+        }
+
+        for (BiObject node : photoUpdate) {
             List<String> photos = node.getPhoto();
             List<String> informations = node.getInformation();
             List<MultipartFile> multipartImagesFiles = new ArrayList<>();
             // 处理结构图片
-            if(photos != null && !photos.isEmpty()) {
+            if (photos != null && !photos.isEmpty()) {
                 for (String photo : photos) {
-                    if (photo != null && !photo.isEmpty()) {
+                    if (photo != null && !photo.isEmpty() && !attachmentNames.contains(photo.substring(photo.lastIndexOf('/') + 1))) {
                         // 检查路径是否已经包含buildingId
                         String fullPath = photo;
                         // 尝试查找文件
@@ -442,27 +461,27 @@ public class BiObjectServiceImpl implements IBiObjectService {
                             byte[] fileContent = null;
                             try {
                                 fileContent = Files.readAllBytes(imageFile.toPath());
-                            // 创建MockMultipartFile
-                            MockMultipartFile mockFile = new MockMultipartFile(
-                                    "file",
-                                    imageFile.getName(),
-                                    Files.probeContentType(imageFile.toPath()),
-                                    fileContent);
-                            multipartImagesFiles.add(mockFile);
+                                // 创建MockMultipartFile
+                                MockMultipartFile mockFile = new MockMultipartFile(
+                                        "file",
+                                        imageFile.getName(),
+                                        Files.probeContentType(imageFile.toPath()),
+                                        fileContent);
+                                multipartImagesFiles.add(mockFile);
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
                         }
                     }
-                    if (!multipartImagesFiles.isEmpty()) {
-                        fileMapServiceImpl.handleBiObjectAttachment(
-                                multipartImagesFiles.toArray(new MultipartFile[0]),
-                                node.getId(),
-                                8,
-                                informations
-                        );
-                    }
                 }
+            }
+            if (!multipartImagesFiles.isEmpty()) {
+                fileMapServiceImpl.handleBiObjectAttachment(
+                        multipartImagesFiles.toArray(new MultipartFile[0]),
+                        node.getId(),
+                        8,
+                        informations
+                );
             }
         }
 
@@ -480,15 +499,20 @@ public class BiObjectServiceImpl implements IBiObjectService {
      * @param biObject      当前节点
      * @param nodesToUpdate 收集的节点列表
      */
-    private void collectNodesToUpdate(BiObject biObject, List<BiObject> nodesToUpdate) {
-        // 添加当前节点
-        nodesToUpdate.add(biObject);
-
+    private void collectNodesToUpdate(BiObject biObject, List<BiObject> nodesToUpdate, List<BiObject> photos) {
+        // 只有数量的才会添加当前节点
+        if (biObject.getCount() != 0) {
+            nodesToUpdate.add(biObject);
+        }
+        // 照片添加当前节点
+        if (biObject.getPhoto() != null && !biObject.getPhoto().isEmpty()) {
+            photos.add(biObject);
+        }
         // 递归处理子节点
         List<BiObject> children = biObject.getChildren();
         if (children != null && !children.isEmpty()) {
             for (BiObject child : children) {
-                collectNodesToUpdate(child, nodesToUpdate);
+                collectNodesToUpdate(child, nodesToUpdate, photos);
             }
         }
     }
