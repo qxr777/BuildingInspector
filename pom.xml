@@ -210,6 +210,13 @@
                 <version>${fastjson.version}</version>
             </dependency>
 
+            <!-- 强制所有依赖使用 OkHttp 4.11.0 -->
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>4.11.0</version>
+            </dependency>
+
             <!-- 定时任务-->
             <dependency>
                 <groupId>com.ruoyi</groupId>
@@ -267,8 +274,8 @@
         <module>ruoyi-quartz</module>
         <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
-        <module>bm-iot</module>
-        <module>bm-common</module>
+<!--        <module>bm-iot</module>-->
+<!--        <module>bm-common</module>-->
         <module>bm-biz</module>
         <module>bi-biz</module>
         <module>bi-api</module>
