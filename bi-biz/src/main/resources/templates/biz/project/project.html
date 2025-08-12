@@ -158,6 +158,7 @@
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.editTab(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                         actions.push('<a class="btn btn-info btn-xs' + viewFlag + '" href="javascript:void(0)" onclick="viewDetail(\'' + row.id + '\')"><i class="fa fa-eye"></i>详情</a> ');
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
+                        actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="viewTasks(\'' + row.id + '\')"><i class="fa fa-tasks"></i>任务</a> ');
 
                         // 创建更多操作菜单
                         var more = [];
@@ -203,6 +204,11 @@
     function selectDevices(projectId) {
         var url = ctx + "biz/device/list/" + projectId;
         $.modal.openTab("安排设备", url);
+    }
+
+    function viewTasks(projectId) {
+        var url = ctx + "biz/task/" + select + "?projectId=" + projectId;
+        $.modal.openTab("检测任务列表", url);
     }
 
     function loadSysDeptData() {
