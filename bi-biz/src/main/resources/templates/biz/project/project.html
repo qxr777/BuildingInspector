@@ -158,10 +158,11 @@
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.editTab(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                         actions.push('<a class="btn btn-info btn-xs' + viewFlag + '" href="javascript:void(0)" onclick="viewDetail(\'' + row.id + '\')"><i class="fa fa-eye"></i>详情</a> ');
                         actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
-                        actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="viewTasks(\'' + row.id + '\')"><i class="fa fa-tasks"></i>任务</a> ');
 
                         // 创建更多操作菜单
                         var more = [];
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="viewTasks(\'' + row.id + '\')"><i class="fa fa-tasks"></i>任务</a> ');
+
                         if (typeof hasDepartmentBusinessAdminRole !== 'undefined' && !hasDepartmentBusinessAdminRole) {
                             more.push('<a class=\'btn btn-default btn-xs\' href="javascript:void(0)" onclick="assignUsers(\'' + row.id + '\')"><i class="fa fa-user-plus"></i>安排人员</a> ');
                             more.push('<a class=\'btn btn-default btn-xs\' href="javascript:void(0)" onclick="selectBuildings(\'' + row.id + '\')"><i class="fa fa-list"></i>选择桥梁</a> ');
