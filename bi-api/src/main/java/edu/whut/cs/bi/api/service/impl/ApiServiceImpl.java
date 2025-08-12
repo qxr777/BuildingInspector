@@ -5,8 +5,10 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.DiseaseServiceImpl;
+import edu.whut.cs.bi.biz.service.impl.TaskServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -45,6 +47,10 @@ public class ApiServiceImpl implements ApiService {
 
     @Autowired
     private DiseaseServiceImpl diseaseServiceImpl;
+    @Autowired
+    private TaskServiceImpl taskServiceImpl;
+    @Autowired
+    private TaskMapper taskMapper;
 
     /**
      * 上传桥梁压缩包
@@ -155,7 +161,9 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
                 // 批量保存病害数据
+                Long projectId = null;
                 if (!diseases.isEmpty()) {
+                    projectId =diseases.get(0).getProjectId();
                     diseaseService.batchSaveDiseases(diseases);
                 }
                 // 处理病害图片
@@ -306,6 +314,17 @@ public class ApiServiceImpl implements ApiService {
                         MultipartFile[] frontArray = frontFiles.isEmpty() ? new MultipartFile[0] : frontFiles.toArray(new MultipartFile[0]);
                         MultipartFile[] sideArray = sideFiles.isEmpty() ? new MultipartFile[0] : sideFiles.toArray(new MultipartFile[0]);
                         uploadBridgeDataImage(buildingId, frontArray, sideArray);
+                    }
+                }
+                if (projectId != null) {
+                    Task queryTask = new Task();
+                    queryTask.setBuildingId(buildingId);
+                    queryTask.setProjectId(projectId);
+                    List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
+                    if(!tasks.isEmpty()) {
+                        Task task = tasks.get(0);
+                        task.setType("1");
+                        taskMapper.updateTask(task);
                     }
                 }
             }

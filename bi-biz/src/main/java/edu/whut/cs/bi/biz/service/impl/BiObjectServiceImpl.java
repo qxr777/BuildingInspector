@@ -422,19 +422,20 @@ public class BiObjectServiceImpl implements IBiObjectService {
         List<Long> ids = photoUpdate.stream()
                 .map(BiObject::getId)
                 .toList();
-
-        Set<String> attachmentNames = attachmentService.getAttachmentBySubjectIds(ids).stream()
-                .filter(e -> e.getType() == 8 && e.getName() != null && e.getName().startsWith("biObject_"))
-                .map(e -> {
-                    String name = e.getName();
-                    if (name.startsWith("biObject_")) {
-                        return name.substring("biObject_".length());
-                    } else {
-                        return name;
-                    }
-                })
-                .collect(Collectors.toSet());
-
+        Set<String> attachmentNames = new HashSet<>();
+        if(!ids.isEmpty()) {
+            attachmentNames = attachmentService.getAttachmentBySubjectIds(ids).stream()
+                    .filter(e -> e.getType() == 8 && e.getName() != null && e.getName().startsWith("biObject_"))
+                    .map(e -> {
+                        String name = e.getName();
+                        if (name.startsWith("biObject_")) {
+                            return name.substring("biObject_".length());
+                        } else {
+                            return name;
+                        }
+                    })
+                    .collect(Collectors.toSet());
+        }
 
         // 3. 设置更新时间和更新人
         String updateBy = ShiroUtils.getLoginName();
