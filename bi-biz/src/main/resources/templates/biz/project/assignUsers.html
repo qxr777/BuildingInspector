@@ -137,6 +137,21 @@
 
     $("#form-assign-users").validate({
         focusCleanup: true,
+        rules: {
+            // 移除所有必填验证，允许空值提交
+            inspectorIds: {
+                required: false
+            },
+            authorId: {
+                required: false
+            },
+            reviewerId: {
+                required: false
+            },
+            approverId: {
+                required: false
+            }
+        },
         submitHandler: function(form) {
             var $btn = $("#submit");
             $btn.button('loading');

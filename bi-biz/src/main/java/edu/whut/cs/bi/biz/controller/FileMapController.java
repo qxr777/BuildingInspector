@@ -9,6 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.ruoyi.common.core.page.PageDomain;
 import com.ruoyi.common.core.page.TableSupport;
+import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.Attachment;
@@ -547,9 +548,10 @@ public class FileMapController extends BaseController {
         if (attachment == null || attachment.size() == 0) {
             return error("未找到对应的图片记录");
         }
-        String[] attachmentIdsString = attachment.stream().map(e -> e.getMinioId().toString()).toArray(String[]::new);
-        attachmentMapper.deleteByIds(attachmentIdsString);
-
+        String idsStr = attachment.stream()
+                .map(a -> String.valueOf(a.getId()))
+                .collect(Collectors.joining(","));
+        attachmentMapper.deleteByIds(Convert.toStrArray(idsStr));
         fileMapService.deleteFileMapByIds(ids.stream().map(e -> e.toString()).collect(Collectors.joining(",")));
 
         return toAjax(true);

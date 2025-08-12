@@ -20,6 +20,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.bean.BeanUtils;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
     private BiObjectMapper biObjectMapper;
 
     @Autowired
-    private ComponentServiceImpl componentService;
+    private AttachmentService attachmentService;
 
     @Autowired
     private DiseaseTypeServiceImpl diseaseTypeService;
@@ -417,6 +418,23 @@ public class BiObjectServiceImpl implements IBiObjectService {
         List<BiObject> nodesToUpdate = new ArrayList<>();
         List<BiObject> photoUpdate = new ArrayList<>();
         collectNodesToUpdate(biObject, nodesToUpdate, photoUpdate);
+        // 1. 收集所有 BiObject 的 id
+        List<Long> ids = photoUpdate.stream()
+                .map(BiObject::getId)
+                .toList();
+
+        Set<String> attachmentNames = attachmentService.getAttachmentBySubjectIds(ids).stream()
+                .filter(e -> e.getType() == 8 && e.getName() != null && e.getName().startsWith("biObject_"))
+                .map(e -> {
+                    String name = e.getName();
+                    if (name.startsWith("biObject_")) {
+                        return name.substring("biObject_".length());
+                    } else {
+                        return name;
+                    }
+                })
+                .collect(Collectors.toSet());
+
 
         // 3. 设置更新时间和更新人
         String updateBy = ShiroUtils.getLoginName();
@@ -433,7 +451,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
             // 处理结构图片
             if (photos != null && !photos.isEmpty()) {
                 for (String photo : photos) {
-                    if (photo != null && !photo.isEmpty()) {
+                    if (photo != null && !photo.isEmpty() && !attachmentNames.contains(photo.substring(photo.lastIndexOf('/') + 1))) {
                         // 检查路径是否已经包含buildingId
                         String fullPath = photo;
                         // 尝试查找文件

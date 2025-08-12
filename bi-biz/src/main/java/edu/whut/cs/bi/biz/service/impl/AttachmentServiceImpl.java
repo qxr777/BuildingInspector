@@ -80,7 +80,7 @@ public class AttachmentServiceImpl  implements AttachmentService {
     @Override
     public int deleteAttachmentByIds(String ids) {
         // 拿到 文件的 ids
-        if(ids == null || ids.length() == 0){
+        if(ids == null || ids.isEmpty()){
             return 0;
         }
         String[] FileMapIds = attachmentMapper.selectMinioIdsByIds(Convert.toStrArray(ids));
