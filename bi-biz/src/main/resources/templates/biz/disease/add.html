@@ -1231,6 +1231,68 @@
             var deductPoints = $("#deductPoints").val();
             formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
 
+            var quantity = $("#quantityInput").val();
+            
+            // 获取当前选中的病害类型
+            var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+            var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                return item.id == selectedDiseaseTypeId;
+            }) : null;
+            
+            // 获取threshold值，默认为10
+            var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+            
+            // 处理参考面位置值：当选择"其他"时，设置为自定义输入值
+            if (quantity >= threshold) {
+                // 单病害情况
+                var ref1Select = $("#reference1Location");
+                var ref2Select = $("#reference2Location");
+
+                var ref1Value = ref1Select.val();
+                var ref2Value = ref2Select.val();
+
+                // 如果选择了"其他"，使用自定义输入框的值
+                if (ref1Value === "其他") {
+                    ref1Value = $("#reference1LocationCustom").val();
+                }
+                if (ref2Value === "其他") {
+                    ref2Value = $("#reference2LocationCustom").val();
+                }
+
+                // 设置到FormData中
+                if (ref1Value && ref1Value !== "") {
+                    formData.set("diseaseDetails[0].reference1Location", ref1Value);
+                }
+                if (ref2Value && ref2Value !== "") {
+                    formData.set("diseaseDetails[0].reference2Location", ref2Value);
+                }
+            } else {
+                // 多病害情况
+                for (var i = 0; i < quantity; i++) {
+                    var ref1Select = $("#reference1Location_" + i);
+                    var ref2Select = $("#reference2Location_" + i);
+
+                    var ref1Value = ref1Select.val();
+                    var ref2Value = ref2Select.val();
+
+                    // 如果选择了"其他"，使用自定义输入框的值
+                    if (ref1Value === "其他") {
+                        ref1Value = $("#reference1LocationCustom_" + i).val();
+                    }
+                    if (ref2Value === "其他") {
+                        ref2Value = $("#reference2LocationCustom_" + i).val();
+                    }
+
+                    // 设置到FormData中
+                    if (ref1Value && ref1Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference1Location", ref1Value);
+                    }
+                    if (ref2Value && ref2Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference2Location", ref2Value);
+                    }
+                }
+            }
+
             // 添加图片文件
             $("#imagePreview").find('.thumbnail').each(function() {
                 var fileName = $(this).find('input[name="imageFiles"]').val();
@@ -1309,6 +1371,68 @@
             // 确保deductPoints是整数
             var deductPoints = $("#deductPoints").val();
             formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
+
+            var quantity = $("#quantityInput").val();
+            
+            // 获取当前选中的病害类型
+            var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+            var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                return item.id == selectedDiseaseTypeId;
+            }) : null;
+            
+            // 获取threshold值，默认为10
+            var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+            
+            // 处理参考面位置值：当选择"其他"时，设置为自定义输入值
+            if (quantity >= threshold) {
+                // 单病害情况
+                var ref1Select = $("#reference1Location");
+                var ref2Select = $("#reference2Location");
+
+                var ref1Value = ref1Select.val();
+                var ref2Value = ref2Select.val();
+
+                // 如果选择了"其他"，使用自定义输入框的值
+                if (ref1Value === "其他") {
+                    ref1Value = $("#reference1LocationCustom").val();
+                }
+                if (ref2Value === "其他") {
+                    ref2Value = $("#reference2LocationCustom").val();
+                }
+
+                // 设置到FormData中
+                if (ref1Value && ref1Value !== "") {
+                    formData.set("diseaseDetails[0].reference1Location", ref1Value);
+                }
+                if (ref2Value && ref2Value !== "") {
+                    formData.set("diseaseDetails[0].reference2Location", ref2Value);
+                }
+            } else {
+                // 多病害情况
+                for (var i = 0; i < quantity; i++) {
+                    var ref1Select = $("#reference1Location_" + i);
+                    var ref2Select = $("#reference2Location_" + i);
+
+                    var ref1Value = ref1Select.val();
+                    var ref2Value = ref2Select.val();
+
+                    // 如果选择了"其他"，使用自定义输入框的值
+                    if (ref1Value === "其他") {
+                        ref1Value = $("#reference1LocationCustom_" + i).val();
+                    }
+                    if (ref2Value === "其他") {
+                        ref2Value = $("#reference2LocationCustom_" + i).val();
+                    }
+
+                    // 设置到FormData中
+                    if (ref1Value && ref1Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference1Location", ref1Value);
+                    }
+                    if (ref2Value && ref2Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference2Location", ref2Value);
+                    }
+                }
+            }
 
             // 添加图片文件
             $("#imagePreview").find('.thumbnail').each(function() {
