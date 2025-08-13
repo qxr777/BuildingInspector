@@ -275,7 +275,8 @@ public class ReadFileServiceImpl implements ReadFileService {
         // 病害类型”其他“，当病害类型都不存在时，默认为其他 (5)
         DiseaseType otherDiseaseType = diseaseTypeMapper.selectDiseaseTypeByCode("0.0.0.0-5");
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
+            for (int j = 0; j < 1; j++) {
+//            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
                 Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
 
                 List<BiObject> threeBiObjects = biObjectMapper.selectBiObjectAndChildrenThreeLevel(building.getRootObjectId());

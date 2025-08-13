@@ -16,6 +16,14 @@
         </foreach>
     </insert>
 
+    <insert id="batchInsertBridgeTemplateDiseaseType">
+        INSERT INTO bi_template_object_disease_type (template_object_id, disease_type_id)
+        VALUES
+        <foreach collection="diseaseTypeIds" item="diseaseTypeId" separator=",">
+            (#{bridgeTemplateId}, #{diseaseTypeId})
+        </foreach>
+    </insert>
+
     <select id="selectByTemplateObjectId" resultType="java.lang.Long">
         select disease_type_id
         from bi_template_object_disease_type

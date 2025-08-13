@@ -95,8 +95,6 @@ public class ApiController {
 
     @Autowired
     private UserPackageTask userPackageTask;
-    @Autowired
-    private ComponentMapper componentMapper;
 
 
     /**
@@ -459,5 +457,57 @@ public class ApiController {
         
         return building;
     }
-    
+
+    @Autowired
+    private BiTemplateObjectMapper biTemplateObjectMapper;
+
+    @Resource
+    private TODiseaseTypeMapper toDiseaseTypeMapper;
+
+    @GetMapping("/updateTDiseaseType")
+    @ResponseBody
+    @Transactional
+    public AjaxResult updateTDiseaseType(@RequestParam("tdId") Long tdId) {
+        List<BiTemplateObject> liangshis = biTemplateObjectMapper.selectChildrenById(102L);
+
+        List<BiTemplateObject> biTemplateObjects = biTemplateObjectMapper.selectChildrenById(tdId);
+        BiTemplateObject biTemplateObject_2 = biTemplateObjects.stream().filter(biTemplateObject -> biTemplateObject.getName().equals("下部结构")).findFirst().orElse(null);
+
+        List<BiTemplateObject> children = biTemplateObjectMapper.selectChildrenById(biTemplateObject_2.getId());
+        List<BiTemplateObject> children_3 = children.stream().filter(child -> child.getParentId().equals(biTemplateObject_2.getId())).toList();
+
+        List<BiTemplateObject> liangshis_3 = liangshis.stream().filter(liangshi -> liangshi.getParentId().equals(102L)).toList();
+
+
+        Map<Long, List<Long>> templateToDiseaseTypeIds = new HashMap<>();
+
+        liangshis_3.forEach(liangshi_3 -> {
+            children_3.stream().filter(child_3 -> child_3.getName().equals(liangshi_3.getName())).findFirst().ifPresent(child_3 -> {
+                List<BiTemplateObject> liangshiList = liangshis.stream()
+                        .filter(langshi -> langshi.getParentId().equals(liangshi_3.getId()))
+                        .toList();
+                Map<Long, BiTemplateObject> collect = liangshiList.stream().collect(Collectors.toMap(liangshi -> liangshi.getId(), liangshi -> liangshi));
+                List<Long> liangshiIds = liangshiList.stream().map(liangshi -> liangshi.getId()).toList();
+                List<Map<String, Object>> mappings = toDiseaseTypeMapper.selectTemplateObjectDiseaseTypeMappings(liangshiIds);
+
+
+                for (Map<String, Object> mapping : mappings) {
+                    Long templateObjectId = ((Number) mapping.get("template_object_id")).longValue();
+                    Long diseaseTypeId = ((Number) mapping.get("disease_type_id")).longValue();
+
+                    BiTemplateObject biTemplateObject = collect.get(templateObjectId);
+                    children.stream().filter(child -> child.getParentId().equals(child_3.getId()) && child.getName().equals(biTemplateObject.getName()))
+                            .findFirst().ifPresent(child -> {
+                        templateToDiseaseTypeIds.computeIfAbsent(child.getId(), k -> new ArrayList<>()).add(diseaseTypeId);
+                    });
+                }
+            });
+        });
+
+        templateToDiseaseTypeIds.forEach((templateObjectId, diseaseTypeIds) -> {
+            toDiseaseTypeMapper.batchInsertBridgeTemplateDiseaseType(templateObjectId, diseaseTypeIds);
+        });
+
+        return AjaxResult.success();
+    }
 }
