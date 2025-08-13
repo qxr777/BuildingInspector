@@ -323,7 +323,7 @@ public class ApiServiceImpl implements ApiService {
                     List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
                     if(!tasks.isEmpty()) {
                         Task task = tasks.get(0);
-                        task.setType("1");
+                        task.setType(1);
                         taskMapper.updateTask(task);
                     }
                 }
