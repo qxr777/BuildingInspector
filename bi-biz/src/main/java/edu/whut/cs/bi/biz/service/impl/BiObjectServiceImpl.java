@@ -14,11 +14,9 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
-import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.bean.BeanUtils;
-import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -422,20 +420,20 @@ public class BiObjectServiceImpl implements IBiObjectService {
         List<Long> ids = photoUpdate.stream()
                 .map(BiObject::getId)
                 .toList();
-        Set<String> attachmentNames = new HashSet<>();
-        if(!ids.isEmpty()) {
-            attachmentNames = attachmentService.getAttachmentBySubjectIds(ids).stream()
-                    .filter(e -> e.getType() == 8 && e.getName() != null && e.getName().startsWith("biObject_"))
+        Set<String> attachmentMap = new HashSet<>();
+        if (!ids.isEmpty()) {
+            attachmentMap = attachmentService.getAttachmentBySubjectIds(ids).stream()
+                    .filter(e -> e.getType() == 8
+                            && e.getName() != null
+                            && e.getName().startsWith("biObject_"))
                     .map(e -> {
-                        String name = e.getName();
-                        if (name.startsWith("biObject_")) {
-                            return name.substring("biObject_".length());
-                        } else {
-                            return name;
-                        }
+                        String namePart = e.getName().substring("biObject_".length());
+                        String remarkPart = e.getRemark() == null ? "" : e.getRemark();
+                        return remarkPart.isEmpty() ? namePart : namePart + "_" + remarkPart;
                     })
                     .collect(Collectors.toSet());
         }
+
 
         // 3. 设置更新时间和更新人
         String updateBy = ShiroUtils.getLoginName();
@@ -449,26 +447,36 @@ public class BiObjectServiceImpl implements IBiObjectService {
             List<String> photos = node.getPhoto();
             List<String> informations = node.getInformation();
             List<MultipartFile> multipartImagesFiles = new ArrayList<>();
+            List<String> filteredInformations = new ArrayList<>();
+
             // 处理结构图片
             if (photos != null && !photos.isEmpty()) {
-                for (String photo : photos) {
-                    if (photo != null && !photo.isEmpty() && !attachmentNames.contains(photo.substring(photo.lastIndexOf('/') + 1))) {
-                        // 检查路径是否已经包含buildingId
+                for (int i = 0; i < photos.size(); i++) {
+                    String photo = photos.get(i);
+                    if (photo != null && !photo.isEmpty()) {
+                        String photoName = photo.substring(photo.lastIndexOf('/') + 1);
+                        String remarkPart = informations.get(i).isEmpty() ? "" : ("_" + informations.get(i));
+
+                        // 重复名字且备注一样则跳过
+                        if (attachmentMap.contains(photoName + remarkPart)) {
+                            continue;
+                        }
+
                         String fullPath = photo;
-                        // 尝试查找文件
+
+                        // 查找文件
                         if (extractedFiles.containsKey(fullPath)) {
-                            // 处理图片附件
                             File imageFile = extractedFiles.get(fullPath).toFile();
-                            byte[] fileContent = null;
                             try {
-                                fileContent = Files.readAllBytes(imageFile.toPath());
-                                // 创建MockMultipartFile
+                                byte[] fileContent = Files.readAllBytes(imageFile.toPath());
                                 MockMultipartFile mockFile = new MockMultipartFile(
                                         "file",
                                         imageFile.getName(),
                                         Files.probeContentType(imageFile.toPath()),
-                                        fileContent);
+                                        fileContent
+                                );
                                 multipartImagesFiles.add(mockFile);
+                                filteredInformations.add(informations.get(i));
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
@@ -476,12 +484,13 @@ public class BiObjectServiceImpl implements IBiObjectService {
                     }
                 }
             }
+
             if (!multipartImagesFiles.isEmpty()) {
                 fileMapServiceImpl.handleBiObjectAttachment(
                         multipartImagesFiles.toArray(new MultipartFile[0]),
                         node.getId(),
                         8,
-                        informations
+                        filteredInformations
                 );
             }
         }
