@@ -5,6 +5,13 @@ import org.springframework.web.multipart.MultipartFile;
 public interface ReadFileService {
 
     /**
+     * 批量导入CBMS病害信息
+     *
+     * @param file
+     */
+    void readCBMSDiseaseExcel(MultipartFile file, Long taskId);
+
+    /**
      * 批量导入病害信息
      *
      * @param file

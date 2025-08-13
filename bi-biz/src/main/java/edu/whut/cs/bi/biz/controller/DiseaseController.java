@@ -352,6 +352,22 @@ public class DiseaseController extends BaseController
     }
 
     @RequiresPermissions("biz:disease:add")
+    @GetMapping("/importCBMS")
+    public String importCBMS(@RequestParam("taskId") Long taskId, ModelMap mmap) {
+        mmap.put("taskId", taskId);
+        return prefix + "/importCBMS";
+    }
+
+    @RequiresPermissions("biz:disease:add")
+    @PostMapping("/upload/CBMSExcel")
+    @ResponseBody
+    public AjaxResult uploadCBMSExcel(@RequestParam("file") MultipartFile file, @RequestParam("taskId") Long taskId) {
+        readFileService.readCBMSDiseaseExcel(file, taskId);
+
+        return AjaxResult.success("上传成功");
+    }
+
+    @RequiresPermissions("biz:disease:add")
     @GetMapping("/importHistory")
     public String importHistory(@RequestParam("taskId") Long taskId, ModelMap mmap) {
         mmap.put("taskId", taskId);
@@ -359,11 +375,12 @@ public class DiseaseController extends BaseController
     }
 
     @RequiresPermissions("biz:disease:add")
-    @PostMapping("/upload/bridgeExcel")
+    @PostMapping("/upload/diseaseHistoryExcel")
     @ResponseBody
-    public AjaxResult uploadBridgeExcel(@RequestParam("file") MultipartFile file, @RequestParam("taskId") Long taskId) {
+    public AjaxResult diseaseHistoryExcel(@RequestParam("file") MultipartFile file, @RequestParam("taskId") Long taskId) {
         readFileService.readDiseaseExcel(file, taskId);
 
         return AjaxResult.success("上传成功");
     }
+
 }

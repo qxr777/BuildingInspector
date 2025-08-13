@@ -74,9 +74,9 @@
                 formData.append('taskId', $("#taskId").val());
                 formData.append('biObjectId', $("#biObjectId").val());
                 
-                $.operate.submitJsonFile(prefix + "/upload/diseaseHistoryExcel", formData, function(result) {
+                $.operate.submitJsonFile(prefix + "/upload/CBMSExcel", formData, function(result) {
                     if (result && result.code) {
-                        $.modal.alertWarning(result.msg);
+                        $.modal.alertWarning("系统错误，导入失败！");
                     } else {
                         $.modal.alertSuccess("导入成功");
                         $.modal.close();
