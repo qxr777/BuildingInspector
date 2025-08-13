@@ -42,5 +42,5 @@ public class Task extends BaseEntity {
     private Integer evaluationResult;
 
     /** 1 已提交  0 未提交 */
-    private String type;
+    private Integer type;
 }
