@@ -35,6 +35,7 @@
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
+        <result property="taskId" column="task_id"/>
 
         <!-- diseaseType object -->
         <association property="diseaseType" javaType="DiseaseType">
