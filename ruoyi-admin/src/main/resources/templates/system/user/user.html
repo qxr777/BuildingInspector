@@ -180,14 +180,17 @@
 			                actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.editTab(\'' + row.userId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
 			                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.userId + '\')"><i class="fa fa-remove"></i>删除</a> ');
 			                var more = [];
+							more.push("<a class='btn btn-warning btn-xs ' href='javascript:void(0)' onclick='viewUserCertificate(" + row.userId + ")'><i class='fa fa-certificate'></i>用户证书</a> ")
+							more.push("<a class='btn btn-info btn-xs ' href='javascript:void(0)' onclick='viewUserTitle(" + row.userId + ")'><i class='fa fa-graduation-cap'></i>用户职称</a> ");
 			                more.push("<a class='btn btn-default btn-xs " + resetPwdFlag + "' href='javascript:void(0)' onclick='resetPwd(" + row.userId + ")'><i class='fa fa-key'></i>重置密码</a> ");
 			                more.push("<a class='btn btn-default btn-xs " + editFlag + "' href='javascript:void(0)' onclick='authRole(" + row.userId + ")'><i class='fa fa-check-square-o'></i>分配角色</a>");
+
 			                actions.push('<a tabindex="0" class="btn btn-info btn-xs" role="button" data-container="body" data-placement="left" data-toggle="popover" data-html="true" data-trigger="hover" data-content="' + more.join('') + '"><i class="fa fa-chevron-circle-right"></i>更多操作</a>');
 			                return actions.join('');
 		            	} else {
 		                    return "";
-		                }
-		            }
+						}
+					}
 		        }]
 		    };
 		    $.table.init(options);
@@ -275,6 +278,18 @@
 			$.modal.confirm("确认要启用用户吗？", function() {
 				$.operate.post(prefix + "/changeStatus", { "userId": userId, "status": 0 });
 		    })
+		}
+		
+		/* 用户管理-查看用户证书 */
+		function viewUserCertificate(userId) {
+		    var url = prefix + '/certificate/' + userId;
+		    $.modal.openTab("用户证书", url);
+		}
+		
+		/* 用户管理-查看用户职称 */
+		function viewUserTitle(userId) {
+		    var url = prefix + '/title/' + userId;
+		    $.modal.openTab("用户职称", url);
 		}
 	</script>
 </body>

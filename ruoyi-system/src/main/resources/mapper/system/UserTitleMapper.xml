@@ -1,0 +1,80 @@
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.UserTitleMapper">
+
+    <resultMap type="UserTitle" id="UserTitleResult">
+        <id     property="id"           column="id"          />
+        <result property="userId"       column="user_id"     />
+        <result property="title"        column="title"       />
+        <result property="serialNumber" column="serial_number" />
+        <result property="createBy"     column="create_by"   />
+        <result property="createTime"   column="create_time" />
+        <result property="updateBy"     column="update_by"   />
+        <result property="updateTime"   column="update_time" />
+        <result property="remark"      column="remark"      />
+    </resultMap>
+
+    <sql id="selectUserTitleVo">
+        select id, user_id, title, serial_number, create_by, create_time, update_by, update_time, remark
+        from bi_user_title
+    </sql>
+
+    <select id="selectUserTitleById" parameterType="Long" resultMap="UserTitleResult">
+        <include refid="selectUserTitleVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectUserTitleList" parameterType="UserTitle" resultMap="UserTitleResult">
+        <include refid="selectUserTitleVo"/>
+        <where>
+            <if test="userId != null "> and user_id = #{userId}</if>
+            <if test="title != null  and title != ''"> and title like concat('%', #{title}, '%')</if>
+            <if test="serialNumber != null  and serialNumber != ''"> and serial_number = #{serialNumber}</if>
+        </where>
+    </select>
+
+    <insert id="insertUserTitle" parameterType="UserTitle" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_user_title
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="title != null and title != ''">title,</if>
+            <if test="serialNumber != null and serialNumber != ''">serial_number,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            create_time
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="serialNumber != null and serialNumber != ''">#{serialNumber},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            sysdate()
+        </trim>
+    </insert>
+
+    <update id="updateUserTitle" parameterType="UserTitle">
+        update bi_user_title
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="serialNumber != null and serialNumber != ''">serial_number = #{serialNumber},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteUserTitleById" parameterType="Long">
+        delete from bi_user_title where id = #{id}
+    </delete>
+
+    <delete id="deleteUserTitleByIds" parameterType="Long">
+        delete from bi_user_title where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>
