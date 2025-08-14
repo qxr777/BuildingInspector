@@ -10,6 +10,7 @@ import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.stereotype.Controller;
@@ -33,10 +34,17 @@ public class TaskController extends BaseController {
     @Resource
     private ITaskService taskService;
 
+    @Resource
+    private ProjectMapper projectMapper;
+
     @RequiresPermissions("biz:task:view")
     @GetMapping("/{select}")
-    public String task(@PathVariable("select") String select, ModelMap mmap) {
+    public String task(@PathVariable("select") String select, @RequestParam(name = "projectId", required = false) Long projectId, ModelMap mmap) {
         mmap.put("select", select);
+        if (projectId != null) {
+            mmap.put("projectId", projectId);
+        }
+
         return prefix + "/task";
     }
 

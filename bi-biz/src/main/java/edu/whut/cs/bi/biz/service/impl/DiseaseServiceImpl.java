@@ -917,7 +917,6 @@ public class DiseaseServiceImpl implements IDiseaseService {
                         }
 
                         DiseaseDetail diseaseDetail = new DiseaseDetail();
-                        diseaseDetail.setDiseaseId(disease.getId());
                         if (length != null && !length.equals("/") && !length.equals("")) {
                             BigDecimal decimal = new BigDecimal(length);
                             diseaseDetail.setLength1(decimal);

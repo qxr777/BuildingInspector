@@ -54,6 +54,12 @@
                 <a class="btn btn-warning" onclick="exportReport()" shiro:hasPermission="biz:disease:export">
                     <i class="fa fa-download"></i> 导出报告
                 </a>
+                <a class="btn btn-info" onclick="importCBMSDisease()" shiro:hasPermission="biz:disease:add">
+                    <i class="fa fa-upload"></i> 导入CBMS病害
+                </a>
+                <a class="btn btn-info" onclick="importHistoryDisease()" shiro:hasPermission="biz:disease:add">
+                    <i class="fa fa-upload"></i> 导入历史病害
+                </a>
             </div>
             <div class="col-sm-12 select-table table-striped">
                 <table id="bootstrap-table"></table>
@@ -268,6 +274,17 @@
         queryPropertyTree();
     });
     
+    function importCBMSDisease() {
+        var taskId = task.id;
+        $.modal.open("导入CBMS历史病害", prefix + "/importCBMS?taskId=" + taskId, '800', '600');
+    }
+
+    function importHistoryDisease() {
+        var taskId = task.id;
+        $.modal.open("导入历史病害", prefix + "/importHistory?taskId=" + taskId, '800', '600');
+    }
+
+
     function exportReport() {
         var taskId = task.id;
         var url = ctx + "biz/report/export/" + taskId;

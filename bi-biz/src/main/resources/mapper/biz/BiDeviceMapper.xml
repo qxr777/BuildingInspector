@@ -61,7 +61,7 @@
             <if test="model != null and model != '' ">and d.model like concat('%',#{model},'%')</if>
             <if test="purpose != null and purpose != '' ">and d.purpose like concat('%',#{purpose},'%')</if>
             <if test="deptId != null">and d.dept_id = #{deptId}</if>
-            <if test="dept != null and dept.name != null and dept.name != '' ">and dept.dept_name like
+            <if test="dept != null and dept.deptName != null and dept.deptName != '' ">and dept.dept_name like
                 concat('%',#{dept.deptName},'%')
             </if>
         </where>

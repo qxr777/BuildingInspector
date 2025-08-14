@@ -10,8 +10,5 @@ import org.springframework.web.multipart.MultipartFile;
  * @Description:
  **/
 public interface ApiService {
-
-    AjaxResult generateUserDataPackage(SysUser user);
-
     AjaxResult uploadBridgeData( MultipartFile file);
 }

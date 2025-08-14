@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.core.domain.Ztree;
@@ -114,6 +115,11 @@ public class ProjectServiceImpl implements IProjectService {
             // 所属单位
             SysDept ownerDept = deptService.selectDeptById(pj.getOwnerDeptId());
             pj.setOwnerDept(ownerDept);
+            // 已选择桥梁数
+            List<Task> tasks = taskMapper.selectTaskListByProjectId(pj.getId());
+            if (CollUtil.isNotEmpty(tasks)) {
+                pj.setBridgeCount(tasks.size());
+            }
         });
         return projects;
     }
@@ -368,7 +374,10 @@ public class ProjectServiceImpl implements IProjectService {
             projectUserMapper.deleteProjectUser(projectId);
         }
         List<Long> inspectorIds = assignment.getInspectorIds();
-        int save = projectUserMapper.saveProjectUser(projectId, inspectorIds, ProjectUserRoleEnum.INSPECTOR.getValue());
+        int save = 0;
+        if (inspectorIds != null && !inspectorIds.isEmpty()) {
+            save = projectUserMapper.saveProjectUser(projectId, inspectorIds, ProjectUserRoleEnum.INSPECTOR.getValue());
+        }
 
         // 找出被删除的（旧集合有，新的没有）
         List<Long> deletedInspectors = preInspectors.stream()
@@ -390,13 +399,20 @@ public class ProjectServiceImpl implements IProjectService {
         }
 
         Long authorId = assignment.getAuthorId();
-        save += projectUserMapper.saveProjectUser(projectId, List.of(authorId), ProjectUserRoleEnum.AUTHOR.getValue());
+        if (authorId != null) {
+            save += projectUserMapper.saveProjectUser(projectId, List.of(authorId), ProjectUserRoleEnum.AUTHOR.getValue());
+
+        }
 
         Long reviewerId = assignment.getReviewerId();
-        save += projectUserMapper.saveProjectUser(projectId, List.of(reviewerId), ProjectUserRoleEnum.REVIEWER.getValue());
+        if (reviewerId != null) {
+            save += projectUserMapper.saveProjectUser(projectId, List.of(reviewerId), ProjectUserRoleEnum.REVIEWER.getValue());
+        }
 
         Long approverId = assignment.getApproverId();
-        save += projectUserMapper.saveProjectUser(projectId, List.of(approverId), ProjectUserRoleEnum.APPROVER.getValue());
+        if (approverId != null) {
+            save += projectUserMapper.saveProjectUser(projectId, List.of(approverId), ProjectUserRoleEnum.APPROVER.getValue());
+        }
 
         projectMapper.updateProjectTimeByProjectId(projectId);
         return save;

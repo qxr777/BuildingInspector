@@ -78,4 +78,10 @@ public interface TODiseaseTypeMapper
      * @return
      */
     int selectTemplateObjectDiseaseType(@Param("templateObjectId") Long templateObjectId, @Param("diseaseTypeId") Long diseaseTypeId);
+
+    /**
+     * 批量插入桥梁模板和病害类型
+     *
+     */
+    int batchInsertBridgeTemplateDiseaseType(@Param("bridgeTemplateId") Long bridgeTemplateId, @Param("diseaseTypeIds") List<Long> diseaseTypeIds);
 }

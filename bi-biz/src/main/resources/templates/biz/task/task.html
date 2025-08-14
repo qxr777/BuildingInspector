@@ -8,6 +8,7 @@
     <div class="row">
         <div class="col-sm-12 search-collapse">
             <form id="formId">
+                <input type="hidden" name="projectId" th:value="${projectId}"/>
                 <div class="select-list">
                     <ul>
                         <li>
@@ -38,6 +39,14 @@
                                 <option value="">所有</option>
                                 <option th:each="dict : ${type}" th:text="${dict.dictLabel}"
                                         th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
+                            <label>业务状态：</label>
+                            <select name="type">
+                                <option value="">所有</option>
+                                <option value="1">已提交</option>
+                                <option value="0">未提交</option>
                             </select>
                         </li>
                         <li class="select-time">
@@ -77,16 +86,29 @@
     var evaluateFlag = [[${@permission.hasPermi('biz:evaluation:calculate')}]];
     var evaluateDetailFlag = [[${@permission.hasPermi('biz:evaluation:detail')}]];
     var statusDatas = [[${@dict.getType('bi_task_status')}]];
+    var areaDatas = [[${@dict.getType('bi_building_area')}]];
+    var lineDatas = [[${@dict.getType('bi_buildeing_line')}]];
+    var taskTypeDatas = [[${@dict.getType('bi_task_type')}]];
     var select = [[${select}]]
+    var projectId = [[${projectId}]];
     var prefix = ctx + "biz/task";
     var evaluationPrefix = ctx + "biz/bievaluation";
 
     $(function () {
+        // 若存在项目ID，则隐藏项目相关的查询条件
+        if (projectId !== null && projectId !== undefined && projectId !== '' && projectId !== 'null' && projectId !== 'undefined') {
+            $('#formId input[name="project.name"]').closest('li').hide();
+            $('#formId input[name="project.code"]').closest('li').hide();
+            $('#formId input[name="project.year"]').closest('li').hide();
+            $('#formId .select-time').hide();
+        }
+        
         var options = {
             url: prefix + "/list/" + select,
             updateUrl: prefix + "/edit/{id}",
             exportUrl: prefix + "/export",
             modalName: "检测任务",
+
             columns: [{
                 checkbox: true
             },
@@ -104,10 +126,31 @@
                     title: '桥梁名称'
                 },
                 {
+                    field: 'building.area',
+                    title: '片区',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(areaDatas, value);
+                    }
+                },
+                {
+                    field: 'building.line',
+                    title: '线路',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(lineDatas, value);
+                    }
+                },
+                {
                     field: 'status',
                     title: '状态',
                     formatter: function (value, row, index) {
                         return $.table.selectDictLabel(statusDatas, value);
+                    }
+                },
+                {
+                    field: 'type',
+                    title: '类型',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(taskTypeDatas, value);
                     }
                 },
                 {

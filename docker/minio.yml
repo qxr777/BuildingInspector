@@ -10,7 +10,8 @@ services:
 #      - MINIO_ROOT_PASSWORD=admin123   密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
-      - MINIO_REGION=cn-north-1
+      - MINIO_REGION_NAME=cn-north-1
+      - MINIO_SERVER_URL=http://biminio
       - TZ=Asia/Shanghai
     ports:
       - 9000:9000

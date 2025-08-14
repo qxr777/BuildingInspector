@@ -8,6 +8,7 @@
         <result property="id"    column="id"    />
         <result property="projectId" column="project_id"/>
         <result property="buildingId" column="building_id"/>
+        <result property="type" column="type"/>
         <result property="status"    column="status"    />
         <result property="remark"    column="remark"    />
         <result property="createBy"    column="create_by"    />
@@ -21,6 +22,8 @@
             <result property="name"    column="building_name"/>
             <result property="rootObjectId" column="root_object_id"/>
             <result property="rootPropertyId" column="root_property_id"/>
+            <result property="area" column="building_area"/>
+            <result property="line" column="building_line"/>
         </association>
 
         <!-- 关联项目对象 -->
@@ -39,6 +42,7 @@
             t.id,
             t.project_id,
             t.building_id,
+            t.type,
             t.status,
             t.remark,
             t.create_by,
@@ -50,6 +54,8 @@
             b.name as building_name,
             b.root_object_id as root_object_id,
             b.root_property_id as root_property_id,
+            b.area as building_area,
+            b.line as building_line,
             <!-- 项目表字段 -->
             p.id as project_id,
             p.name as project_name,
@@ -74,6 +80,7 @@
                 AND pu.user_id = #{currentUserId}
                 )
             </if>
+            <if test="task.type != null">and t.type = #{task.type}</if>
             <if test="task.buildingId != null"> and t.building_id = #{task.buildingId}</if>
             <if test="task.projectId != null"> and t.project_id = #{task.projectId}</if>
             <if test="task.status != null and task.status != ''"> and t.status = #{task.status}</if>
@@ -84,6 +91,12 @@
             <if test="task.building != null">
                 <if test="task.building.name != null and task.building.name != ''">
                     and b.name like concat('%', #{task.building.name}, '%')
+                </if>
+                <if test="task.building.area != null and task.building.area != ''">
+                    and b.area = #{task.building.area}
+                </if>
+                <if test="task.building.line != null and task.building.line != ''">
+                    and b.line = #{task.building.line}
                 </if>
             </if>
 
@@ -129,6 +142,7 @@
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="projectId != null">project_id,</if>
             <if test="buildingId != null">building_id,</if>
+            <if test="type != null">type,</if>
             <if test="status != null and status != ''">status,</if>
             <if test="remark != null and remark != ''">remark,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
@@ -139,6 +153,7 @@
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="projectId != null">#{projectId},</if>
             <if test="buildingId != null">#{buildingId},</if>
+            <if test="type != null">#{type},</if>
             <if test="status != null">#{status},</if>
             <if test="remark != null and remark != ''">#{remark},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
@@ -168,6 +183,7 @@
         <trim prefix="SET" suffixOverrides=",">
             <if test="projectId != null">project_id = #{projectId},</if>
             <if test="buildingId != null">building_id = #{buildingId},</if>
+            <if test="type != null">type = #{type},</if>
             <if test="status != null and status != ''">status = #{status},</if>
             <if test="remark != null and remark != ''">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>

@@ -496,7 +496,7 @@
                 
                 var options = '<option value="">请选择病害类型</option>';
                 $.each(filteredDiseaseTypes, function (i, item) {
-                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                    options += '<option value="' + item.id + '">' + item.code + '#' + item.name + '</option>';
                 });
                 $("#diseaseTypeId").html(options);
             } else {
@@ -508,7 +508,7 @@
         // 病害类型自定义输入显示隐藏
         $('#diseaseTypeId').on('change', function () {
             var selectedText = $(this).find('option:selected').text().trim();
-            if (selectedText === "其他" || selectedText === "其它") {
+            if (selectedText === "0.0.0.0-3#其他（最大标度3）" || selectedText === "0.0.0.0-4#其他（最大标度4）" || selectedText === "0.0.0.0-5#其他（最大标度5）") {
                 $('#customDiseaseType').show().attr('required', true).val(disease.type);
             } else {
                 $('#customDiseaseType').hide().removeAttr('required').val('');
@@ -759,7 +759,7 @@
                 });
                 // options += '<option value="other">其他</option>';
 
-                $("#position").html(options).trigger('change');
+                $("#position").html(options);
                 // 编辑模式选中
                 if (disease && disease.position) {
                     // 检查position是否在下拉选项中
@@ -775,7 +775,11 @@
 
                     // 如果在选项中找到，直接选中；否则选择"其他"并显示自定义输入框
                     if (positionFound) {
-                        $("#position").val(positionValue).trigger('change');
+                        $("#position").val(positionValue);
+                        // 延迟触发change事件，确保病害详情区域已渲染
+                        setTimeout(function() {
+                            $("#position").trigger('change');
+                        }, 200);
                     } else {
                         // 添加"其他"选项（如果不存在）
                         if ($("#position option:contains('其他')").length === 0 &&
@@ -785,14 +789,24 @@
 
                         // 选中"其他"选项
                         if ($("#position option:contains('其他')").length > 0) {
-                            $("#position").val($("#position option:contains('其他')").val()).trigger('change');
+                            $("#position").val($("#position option:contains('其他')").val());
                         } else if ($("#position option:contains('其它')").length > 0) {
-                            $("#position").val($("#position option:contains('其它')").val()).trigger('change');
+                            $("#position").val($("#position option:contains('其它')").val());
                         }
 
                         // 显示并设置自定义输入框的值
                         $("#customPosition").show().attr('required', true).val(disease.position);
+                        
+                        // 延迟触发change事件，确保病害详情区域已渲染
+                        setTimeout(function() {
+                            $("#position").trigger('change');
+                        }, 200);
                     }
+                } else {
+                    // 如果没有预设位置，也需要延迟触发change事件以确保参考面下拉框正确初始化
+                    setTimeout(function() {
+                        $("#position").trigger('change');
+                    }, 200);
                 }
             }
         });
@@ -1083,37 +1097,8 @@
                     if (isCustomPosition) {
                         detailDiv.find(`input[name="diseaseDetails[${i}].reference1Location"]`).val(detail.reference1Location || "");
                         detailDiv.find(`input[name="diseaseDetails[${i}].reference2Location"]`).val(detail.reference2Location || "");
-                    } else {
-                        // 处理参考面1位置
-                        var ref1Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference1Location"]`);
-                        var ref1Value = detail.reference1Location || "";
-                        var ref1Options = ref1Select.find('option').map(function () {
-                            return $(this).val();
-                        }).get();
-
-                        if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
-                            // 值不在选项中，选择"其他"并显示自定义输入框
-                            ref1Select.val("其他").trigger('change');
-                            detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationCustom"]`).val(ref1Value).show();
-                        } else {
-                            ref1Select.val(ref1Value);
-                        }
-
-                        // 处理参考面2位置
-                        var ref2Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference2Location"]`);
-                        var ref2Value = detail.reference2Location || "";
-                        var ref2Options = ref2Select.find('option').map(function () {
-                            return $(this).val();
-                        }).get();
-
-                        if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
-                            // 值不在选项中，选择"其他"并显示自定义输入框
-                            ref2Select.val("其他").trigger('change');
-                            detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationCustom"]`).val(ref2Value).show();
-                        } else {
-                            ref2Select.val(ref2Value);
-                        }
                     }
+                    // 注意：参考面位置的设置将在fillReferenceDropdowns后进行
                     detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
                     detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationEnd"]`).val(detail.reference1LocationEnd || "");
                     detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationStart"]`).val(detail.reference2LocationStart || "");
@@ -1149,6 +1134,61 @@
                 }
 
                 detailsContainer.append(detailDiv);
+            }
+            
+            // 在多病害详情DOM创建完成后，立即填充参考面下拉框选项
+            var selectedPositionId = $("#position").val();
+            if (selectedPositionId && positionObjects) {
+                var selectedPosition = positionObjects.find(function (item) {
+                    return item.id == selectedPositionId;
+                });
+                
+                if (selectedPosition && selectedPosition.props) {
+                    var parsedProps = parseProps(selectedPosition.props);
+                    fillReferenceDropdowns(parsedProps, quantity, threshold);
+                }
+            }
+            
+            // 现在重新设置所有病害详情的值，确保下拉框选项已经正确填充
+            if (diseaseDetails) {
+                for (var i = 0; i < quantity; i++) {
+                    if (diseaseDetails[i]) {
+                        var detail = diseaseDetails[i];
+                        var detailDiv = detailsContainer.find('.col-sm-12').eq(i);
+                        
+                        if (!isCustomPosition) {
+                            // 处理参考面1位置 - 重新设置值
+                            var ref1Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference1Location"]`);
+                            var ref1Value = detail.reference1Location || "";
+                            var ref1Options = ref1Select.find('option').map(function () {
+                                return $(this).val();
+                            }).get();
+
+                            if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
+                                // 值不在选项中，选择"其他"并显示自定义输入框
+                                ref1Select.val("其他").trigger('change');
+                                detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationCustom"]`).val(ref1Value).show();
+                            } else if (ref1Value === "" || ref1Options.indexOf(ref1Value) !== -1) {
+                                ref1Select.val(ref1Value);
+                            }
+
+                            // 处理参考面2位置 - 重新设置值
+                            var ref2Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference2Location"]`);
+                            var ref2Value = detail.reference2Location || "";
+                            var ref2Options = ref2Select.find('option').map(function () {
+                                return $(this).val();
+                            }).get();
+
+                            if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
+                                // 值不在选项中，选择"其他"并显示自定义输入框
+                                ref2Select.val("其他").trigger('change');
+                                detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationCustom"]`).val(ref2Value).show();
+                            } else if (ref2Value === "" || ref2Options.indexOf(ref2Value) !== -1) {
+                                ref2Select.val(ref2Value);
+                            }
+                        }
+                    }
+                }
             }
         } else if (quantity >= threshold) {
             // 收集需要显示的字段，只显示有范围的字段
@@ -1351,40 +1391,10 @@
                     detailDiv.find(`select[name="diseaseDetails[0].crackType"]`).val(detail.crackType || "纵向");
                 }
 
-                // 设置参考面位置
+                // 设置参考面位置（注意：参考面位置的最终赋值将在fillReferenceDropdowns调用后进行）
                 if (isCustomPosition) {
                     detailDiv.find(`input[name="diseaseDetails[0].reference1Location"]`).val(detail.reference1Location || "");
                     detailDiv.find(`input[name="diseaseDetails[0].reference2Location"]`).val(detail.reference2Location || "");
-                } else {
-                    // 处理参考面1位置
-                    var ref1Select = detailDiv.find(`select[name="diseaseDetails[0].reference1Location"]`);
-                    var ref1Value = detail.reference1Location || "";
-                    var ref1Options = ref1Select.find('option').map(function () {
-                        return $(this).val();
-                    }).get();
-
-                    if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
-                        // 值不在选项中，选择"其他"并显示自定义输入框
-                        ref1Select.val("其他").trigger('change');
-                        detailDiv.find(`input[name="diseaseDetails[0].reference1LocationCustom"]`).val(ref1Value).show();
-                    } else {
-                        ref1Select.val(ref1Value);
-                    }
-
-                    // 处理参考面2位置
-                    var ref2Select = detailDiv.find(`select[name="diseaseDetails[0].reference2Location"]`);
-                    var ref2Value = detail.reference2Location || "";
-                    var ref2Options = ref2Select.find('option').map(function () {
-                        return $(this).val();
-                    }).get();
-
-                    if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
-                        // 值不在选项中，选择"其他"并显示自定义输入框
-                        ref2Select.val("其他").trigger('change');
-                        detailDiv.find(`input[name="diseaseDetails[0].reference2LocationCustom"]`).val(ref2Value).show();
-                    } else {
-                        ref2Select.val(ref2Value);
-                    }
                 }
 
                 detailDiv.find(`input[name="diseaseDetails[0].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
@@ -1427,6 +1437,48 @@
                 if (showPercentage) {
                     detailDiv.find(`input[name="diseaseDetails[0].numeratorRatioRange"]`).val(detail.numeratorRatioRange || "");
                     detailDiv.find(`input[name="diseaseDetails[0].denominatorRatioRange"]`).val(detail.denominatorRatioRange || "");
+                }
+            }
+        }
+        
+        // 在病害详情渲染完成后，填充参考面下拉框选项，并在填充后根据已有数据回显
+        var selectedPositionId = $("#position").val();
+        if (selectedPositionId && positionObjects) {
+            var selectedPosition = positionObjects.find(function (item) {
+                return item.id == selectedPositionId;
+            });
+            
+            if (selectedPosition && selectedPosition.props) {
+                var parsedProps = parseProps(selectedPosition.props);
+                fillReferenceDropdowns(parsedProps, quantity, threshold);
+                
+                // 对单病害详情（批量模式）进行参考面值回显
+                if (quantity >= threshold) {
+                    var detail = (diseaseDetails && diseaseDetails[0]) ? diseaseDetails[0] : null;
+                    if (detail && !isCustomPosition) {
+                        var ref1Select = $("#reference1Location");
+                        var ref2Select = $("#reference2Location");
+                        if (ref1Select.length) {
+                            var ref1Options = ref1Select.find('option').map(function () { return $(this).val(); }).get();
+                            var ref1Value = detail.reference1Location || "";
+                            if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
+                                ref1Select.val("其他").trigger('change');
+                                $("#reference1LocationCustom").val(ref1Value).show();
+                            } else if (ref1Value === "" || ref1Options.indexOf(ref1Value) !== -1) {
+                                ref1Select.val(ref1Value);
+                            }
+                        }
+                        if (ref2Select.length) {
+                            var ref2Options = ref2Select.find('option').map(function () { return $(this).val(); }).get();
+                            var ref2Value = detail.reference2Location || "";
+                            if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
+                                ref2Select.val("其他").trigger('change');
+                                $("#reference2LocationCustom").val(ref2Value).show();
+                            } else if (ref2Value === "" || ref2Options.indexOf(ref2Value) !== -1) {
+                                ref2Select.val(ref2Value);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1604,6 +1656,184 @@
             });
         }
         return parsedProps;
+    }
+    
+    // 填充参考面下拉框选项
+    function fillReferenceDropdowns(parsedProps, quantity, threshold) {
+        // 获取当前选中的病害类型
+        var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+        var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+            return item.id == selectedDiseaseTypeId;
+        }) : null;
+        
+        // 获取threshold值，默认为10
+        var thresholdValue = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+
+        if (quantity >= thresholdValue) {
+            var ref1Select = $("#reference1Location");
+            var ref2Select = $("#reference2Location");
+
+            if (ref1Select.length && ref2Select.length) {
+                // 保存当前的实际值（包括自定义输入框的值）
+                var currentRef1Value = ref1Select.val();
+                var currentRef2Value = ref2Select.val();
+                var currentRef1CustomValue = $("#reference1LocationCustom").val();
+                var currentRef2CustomValue = $("#reference2LocationCustom").val();
+                
+                // 如果当前选择的是"其他"，使用自定义输入框的值作为实际值
+                if (currentRef1Value === "其他" && currentRef1CustomValue) {
+                    currentRef1Value = currentRef1CustomValue;
+                }
+                if (currentRef2Value === "其他" && currentRef2CustomValue) {
+                    currentRef2Value = currentRef2CustomValue;
+                }
+                
+                ref1Select.empty();
+                ref2Select.empty();
+
+                // 添加基础选项
+                ref1Select.append($('<option></option>').val("").text("请选择"));
+                ref2Select.append($('<option></option>').val("").text("请选择"));
+
+                // 构建选项值数组，用于判断值是否在选项中
+                var ref1Options = [];
+                var ref2Options = [];
+
+                if (parsedProps['ref1']) {
+                    parsedProps['ref1'].forEach(function (item) {
+                        ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                        ref1Options.push(item.id);
+                    });
+                }
+
+                // 添加"其他"选项
+                ref1Select.append($('<option></option>').val("其他").text("其他"));
+
+                if (parsedProps['ref2']) {
+                    parsedProps['ref2'].forEach(function (item) {
+                        ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                        ref2Options.push(item.id);
+                    });
+                }
+
+                // 添加"其他"选项
+                ref2Select.append($('<option></option>').val("其他").text("其他"));
+                
+                // 智能恢复选中值
+                if (currentRef1Value && currentRef1Value !== "") {
+                    if (ref1Options.indexOf(currentRef1Value) !== -1) {
+                        // 值在下拉框选项中，直接选中
+                        ref1Select.val(currentRef1Value);
+                    } else {
+                        // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                        ref1Select.val("其他").trigger('change');
+                        $("#reference1LocationCustom").val(currentRef1Value).show();
+                    }
+                }
+                
+                if (currentRef2Value && currentRef2Value !== "") {
+                    if (ref2Options.indexOf(currentRef2Value) !== -1) {
+                        // 值在下拉框选项中，直接选中
+                        ref2Select.val(currentRef2Value);
+                    } else {
+                        // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                        ref2Select.val("其他").trigger('change');
+                        $("#reference2LocationCustom").val(currentRef2Value).show();
+                    }
+                }
+            }
+        } else {
+            // 遍历每一个病害的下拉框
+            for (var i = 0; i < quantity; i++) {
+                // 1. 处理 reference1Location
+                var ref1Select = $("#reference1Location_" + i);
+                if (ref1Select.length) { // 确保元素存在
+                    // 保存当前的实际值（包括自定义输入框的值）
+                    var currentRef1Value = ref1Select.val();
+                    var currentRef1CustomValue = $("#reference1LocationCustom_" + i).val();
+                    
+                    // 如果当前选择的是"其他"，使用自定义输入框的值作为实际值
+                    if (currentRef1Value === "其他" && currentRef1CustomValue) {
+                        currentRef1Value = currentRef1CustomValue;
+                    }
+                    
+                    ref1Select.empty();
+                    // 添加基础选项
+                    ref1Select.append($('<option></option>').val("").text("请选择"));
+
+                    // 构建选项值数组
+                    var ref1Options = [];
+
+                    if (parsedProps['ref1'] && parsedProps['ref1'].length > 0) {
+                        parsedProps['ref1'].forEach(function (item) {
+                            ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                            ref1Options.push(item.id);
+                        });
+                    } else {
+                        ref1Select.append($('<option></option>').val("").text("无可用选项"));
+                    }
+
+                    // 添加"其他"选项
+                    ref1Select.append($('<option></option>').val("其他").text("其他"));
+                    
+                    // 智能恢复选中值
+                    if (currentRef1Value && currentRef1Value !== "") {
+                        if (ref1Options.indexOf(currentRef1Value) !== -1) {
+                            // 值在下拉框选项中，直接选中
+                            ref1Select.val(currentRef1Value);
+                        } else {
+                            // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                            ref1Select.val("其他").trigger('change');
+                            $("#reference1LocationCustom_" + i).val(currentRef1Value).show();
+                        }
+                    }
+                }
+
+                // 2. 处理 reference2Location
+                var ref2Select = $("#reference2Location_" + i);
+                if (ref2Select.length) { // 确保元素存在
+                    // 保存当前的实际值（包括自定义输入框的值）
+                    var currentRef2Value = ref2Select.val();
+                    var currentRef2CustomValue = $("#reference2LocationCustom_" + i).val();
+                    
+                    // 如果当前选择的是"其他"，使用自定义输入框的值作为实际值
+                    if (currentRef2Value === "其他" && currentRef2CustomValue) {
+                        currentRef2Value = currentRef2CustomValue;
+                    }
+                    
+                    ref2Select.empty();
+                    // 添加基础选项
+                    ref2Select.append($('<option></option>').val("").text("请选择"));
+
+                    // 构建选项值数组
+                    var ref2Options = [];
+
+                    if (parsedProps['ref2'] && parsedProps['ref2'].length > 0) {
+                        parsedProps['ref2'].forEach(function (item) {
+                            ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                            ref2Options.push(item.id);
+                        });
+                    } else {
+                        ref2Select.append($('<option></option>').val("").text("无可用选项"));
+                    }
+
+                    // 添加"其他"选项
+                    ref2Select.append($('<option></option>').val("其他").text("其他"));
+                    
+                    // 智能恢复选中值
+                    if (currentRef2Value && currentRef2Value !== "") {
+                        if (ref2Options.indexOf(currentRef2Value) !== -1) {
+                            // 值在下拉框选项中，直接选中
+                            ref2Select.val(currentRef2Value);
+                        } else {
+                            // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                            ref2Select.val("其他").trigger('change');
+                            $("#reference2LocationCustom_" + i).val(currentRef2Value).show();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // 处理参考面位置下拉框变化的通用函数
@@ -2043,6 +2273,9 @@
                 var parsedProps = parseProps(selectedPosition.props);
                 var quantity = $("#quantityInput").val();
                 
+                // 使用新的填充函数
+                fillReferenceDropdowns(parsedProps, quantity);
+                
                 // 获取当前选中的病害类型
                 var selectedDiseaseTypeId = $("#diseaseTypeId").val();
                 var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
@@ -2052,99 +2285,12 @@
                 // 获取threshold值，默认为10
                 var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
 
-                if (quantity >= threshold) {
-                    var ref1Select = $("#reference1Location");
-                    var ref2Select = $("#reference2Location");
-
-                    ref1Select.empty();
-                    ref2Select.empty();
-
-                    // 添加基础选项
-                    ref1Select.append($('<option></option>').val("").text("请选择"));
-                    ref2Select.append($('<option></option>').val("").text("请选择"));
-
-                    if (parsedProps['ref1']) {
-                        parsedProps['ref1'].forEach(function (item) {
-                            ref1Select.append($('<option></option>').val(item.id).text(item.name));
-                        });
-                    }
-
-                    // 添加"其他"选项
-                    ref1Select.append($('<option></option>').val("其他").text("其他"));
-
-                    if (parsedProps['ref2']) {
-                        parsedProps['ref2'].forEach(function (item) {
-                            ref2Select.append($('<option></option>').val(item.id).text(item.name));
-                        });
-                    }
-
-                    // 添加"其他"选项
-                    ref2Select.append($('<option></option>').val("其他").text("其他"));
-
-                    try {
-                        if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
-                            ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
-                        }
-                        if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
-                            ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
-                        }
-                    } catch (e) {
-                        console.log(e);
-                    }
-                } else {
-                    // 遍历每一个病害的下拉框
-                    for (var i = 0; i < quantity; i++) {
-                        // 1. 处理 reference1Location
-                        var ref1Select = $(`#reference1Location_${i}`);
-                        if (ref1Select.length) { // 确保元素存在
-                            ref1Select.empty();
-                            // 添加基础选项
-                            ref1Select.append($('<option></option>').val("").text("请选择"));
-
-                            if (parsedProps['ref1'] && parsedProps['ref1'].length > 0) {
-                                parsedProps['ref1'].forEach(function (item) {
-                                    ref1Select.append($('<option></option>').val(item.id).text(item.name));
-                                });
-                                // 默认选中第一个选项（确保 parsedProps['ref1'][0] 存在）
-                                if (parsedProps['ref1'][0]) {
-                                    ref1Select.val(parsedProps['ref1'][0].id);
-                                }
-                            } else {
-                                ref1Select.append($('<option></option>').val("").text("无可用选项"));
-                            }
-
-                            // 添加"其他"选项
-                            ref1Select.append($('<option></option>').val("其他").text("其他"));
-                        }
-
-                        // 2. 处理 reference2Location
-                        var ref2Select = $(`#reference2Location_${i}`);
-                        if (ref2Select.length) { // 确保元素存在
-                            ref2Select.empty();
-                            // 添加基础选项
-                            ref2Select.append($('<option></option>').val("").text("请选择"));
-
-                            if (parsedProps['ref2'] && parsedProps['ref2'].length > 0) {
-                                parsedProps['ref2'].forEach(function (item) {
-                                    ref2Select.append($('<option></option>').val(item.id).text(item.name));
-                                });
-                                // 默认选中第一个选项（确保 parsedProps['ref2'][0] 存在）
-                                if (parsedProps['ref2'][0]) {
-                                    ref2Select.val(parsedProps['ref2'][0].id);
-                                }
-                            } else {
-                                ref2Select.append($('<option></option>').val("").text("无可用选项"));
-                            }
-
-                            // 添加"其他"选项
-                            ref2Select.append($('<option></option>').val("其他").text("其他"));
-                        }
-                    }
-
-                    // 触发change事件
-                    for (var i = 0; i < quantity; i++) {
-                        var ref1Select = $(`#reference1Location_${i}`);
-                        var ref2Select = $(`#reference2Location_${i}`);
+                // 只在新增模式下设置默认选中值，编辑模式下保持原有回显值
+                if (!diseaseId) {
+                    if (quantity >= threshold) {
+                        var ref1Select = $("#reference1Location");
+                        var ref2Select = $("#reference2Location");
+                        
                         try {
                             if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
                                 ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
@@ -2154,6 +2300,22 @@
                             }
                         } catch (e) {
                             console.log(e);
+                        }
+                    } else {
+                        // 设置默认选中值
+                        for (var i = 0; i < quantity; i++) {
+                            var ref1Select = $(`#reference1Location_${i}`);
+                            var ref2Select = $(`#reference2Location_${i}`);
+                            try {
+                                if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
+                                    ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
+                                }
+                                if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
+                                    ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
+                                }
+                            } catch (e) {
+                                console.log(e);
+                            }
                         }
                     }
                 }

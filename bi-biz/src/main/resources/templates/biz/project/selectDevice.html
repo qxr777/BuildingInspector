@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('设备选择列表')"/>
+</head>
+<body class="gray-bg">
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <input type="hidden" id="projectId" name="projectId" th:value="${projectId}"/>
+                    <input type="hidden" id="isSelected" name="isSelected"/>
+                    <ul>
+                        <li>
+                            <label>设备名称：</label>
+                            <input type="text" name="name"/>
+                        </li>
+                        <li>
+                            <label>设备型号：</label>
+                            <input type="text" name="model"/>
+                        </li>
+                        <li>
+                            <label>设备用途：</label>
+                            <input type="text" name="purpose"/>
+                        </li>
+                        <li>
+                            <label>所属部门：</label>
+                            <input type="text" name="dept.deptName"/>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
+                                    class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
+                                    class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <div class="btn-group-sm" id="toolbar" role="group">
+            <!-- 添加筛选下拉框 -->
+            <select id="selectStatus" class="form-control" style="width: 150px; display: inline-block; margin-right: 8px;">
+                <option value="">全部设备</option>
+                <option value="1">已选设备</option>
+                <option value="0">未选设备</option>
+            </select>
+            <a class="btn btn-success multiple" onclick="addSelectedDevices()" shiro:hasPermission="biz:project:edit">
+                <i class="fa fa-plus"></i> 批量添加
+            </a>
+            <a class="btn btn-danger multiple" onclick="removeSelectedDevices()" shiro:hasPermission="biz:project:edit">
+                <i class="fa fa-minus"></i> 批量取消
+            </a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="bootstrap-table"></table>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer"/>
+<script th:inline="javascript">
+    var prefix = ctx + "biz/device";
+    var projectId = [[${projectId}]];
+
+    $(function () {
+        var options = {
+            url: ctx + "biz/device/listVO",
+            modalName: "设备",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'id',
+                    title: '设备ID',
+                    visible: false
+                },
+                {
+                    field: 'name',
+                    title: '名称'
+                },
+                {
+                    field: 'model',
+                    title: '型号'
+                },
+                {
+                    field: 'purpose',
+                    title: '用途'
+                },
+                {
+                    field: 'dept.deptName',
+                    title: '所属部门'
+                },
+                {
+                    field: 'isSelected',
+                    title: '操作',
+                    align: 'center',
+                    formatter: function (value, row, index) {
+                        var actions = [];
+                        if (value) {
+                            actions.push('<a class="btn btn-danger btn-xs" href="javascript:void(0)" onclick="cancelDevice(\'' + row.id + '\')"><i class="fa fa-remove"></i>取消</a> ');
+                        } else {
+                            actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="addDevice(\'' + row.id + '\')"><i class="fa fa-plus"></i>添加</a> ');
+                        }
+                        return actions.join('');
+                    }
+                }]
+        };
+        $.table.init(options);
+
+        // 添加选择框变化事件
+        $("#selectStatus").change(function () {
+            var selectStatus = $("#selectStatus").val();
+
+            var selectValue = selectStatus === "1" ? true : false;
+            if (selectStatus === "") {
+                selectValue = "";
+            }
+
+            $("#isSelected").val(selectValue);
+
+            $.table.search();
+        });
+    });
+
+    /* 添加单个设备 */
+    function addDevice(deviceId) {
+        $.ajax({
+            url: prefix + "/addProjectDevice",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "deviceId": deviceId
+            },
+            success: function (result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("添加成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 取消单个设备 */
+    function cancelDevice(deviceId) {
+        $.ajax({
+            url: prefix + "/cancelProjectDevice",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "deviceId": deviceId
+            },
+            success: function (result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("取消成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 批量添加设备 */
+    function addSelectedDevices() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length === 0) {
+            $.modal.alertWarning("请至少选择一个设备");
+            return;
+        }
+        $.ajax({
+            url: prefix + "/batchAddProjectDevice",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "deviceIds": rows.join(",")
+            },
+            success: function (result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("批量添加成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+
+    /* 批量取消设备 */
+    function removeSelectedDevices() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length === 0) {
+            $.modal.alertWarning("请至少选择一个设备");
+            return;
+        }
+        $.ajax({
+            url: prefix + "/batchCancelProjectDevice",
+            type: "post",
+            data: {
+                "projectId": projectId,
+                "deviceIds": rows.join(",")
+            },
+            success: function (result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess("批量取消成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

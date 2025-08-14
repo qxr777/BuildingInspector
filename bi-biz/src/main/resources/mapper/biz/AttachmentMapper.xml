@@ -104,6 +104,7 @@
     <delete id="deleteById" parameterType="Long">
         delete from bi_attachment where id = #{id}
     </delete>
+
     <delete id="deleteByIds" parameterType="String">
         delete from bi_attachment where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
