@@ -85,6 +85,12 @@ public class BiObject extends TreeEntity {
     private BigDecimal weight;
 
     /**
+     * 权重
+     */
+    @Excel(name = "标准权重")
+    private BigDecimal standardWeight;
+
+    /**
      * 视频流来源
      */
     @Excel(name = "视频流来源")
@@ -121,6 +127,14 @@ public class BiObject extends TreeEntity {
      */
     @Excel(name = "构件数量")
     private int count;
+
+    public BigDecimal getStandardWeight() {
+        return standardWeight;
+    }
+
+    public void setStandardWeight(BigDecimal standardWeight) {
+        this.standardWeight = standardWeight;
+    }
 
     public List<String> getInformation() {
         return information;
