@@ -97,7 +97,7 @@ public class BiEvaluationController extends BaseController {
             String formattedEvaluationTime = "";
             if (evaluation.getUpdateTime() != null) {
                 java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
-                formattedEvaluationTime = sdf.format(evaluation.getCreateTime());
+                formattedEvaluationTime = sdf.format(evaluation.getUpdateTime());
             }
             mmap.put("formattedEvaluationTime", formattedEvaluationTime);
 
