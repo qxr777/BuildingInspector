@@ -9,11 +9,7 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.enums.BusinessType;
 import edu.whut.cs.bi.biz.domain.BiObject;
@@ -166,9 +162,14 @@ public class BiObjectController extends BaseController {
      * 选择对象树
      */
     @GetMapping(value = {"/selectObjectTree/{id}", "/selectObjectTree/"})
-    public String selectObjectTree(@PathVariable(value = "id", required = false) Long id, ModelMap mmap) {
+    public String selectObjectTree(@PathVariable(value = "id", required = false) Long id,
+                                   @RequestParam(value = "rootObjectId", required = false) Long rootObjectId,
+                                   ModelMap mmap) {
         if (StringUtils.isNotNull(id)) {
             mmap.put("biObject", biObjectService.selectBiObjectById(id));
+        }
+        if (rootObjectId != null) {
+            mmap.put("rootObjectId", rootObjectId);
         }
         return prefix + "/tree";
     }
