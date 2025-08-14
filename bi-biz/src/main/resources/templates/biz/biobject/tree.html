@@ -30,6 +30,11 @@
     <script th:inline="javascript">
         $(function() {
             var url = ctx + "biz/biobject/treeData";
+            // 获取rootObjectId参数
+            var rootObjectId = [[${rootObjectId}]];
+            if (rootObjectId) {
+                url = url + "?rootObjectId=" + rootObjectId;
+            }
             var options = {
                 url: url,
                 expandLevel: 2,

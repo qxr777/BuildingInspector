@@ -67,10 +67,16 @@
             updateUrl: prefix + "/edit/{id}",
             removeUrl: prefix + "/remove/{id}",
             modalName: "对象",
+            expandAll: false,  // 不展开所有节点
+            expandFirst: true, // 展开第一层
             ajaxParams: {
                 rootObjectId: rootObjectId
             },
             onLoadSuccess: function(data) {
+                // 展开第二层和第三层
+                expandToLevel(3);
+
+                // 原有的popover初始化代码
                 setTimeout(function() {
                     $('[data-toggle="popover"]').each(function() {
                         $(this).popover({
@@ -104,13 +110,13 @@
                     }
                 },
                 {
-                    field: 'standardWeight',
-                    title: '权重标准值',
+                    field: 'weight',
+                    title: '权重',
                     align: 'left'
                 },
                 {
-                    field: 'weight',
-                    title: '权重修正值',
+                    field: 'standardWeight',
+                    title: '标准权重',
                     align: 'left'
                 },
                 {
@@ -175,6 +181,51 @@
         } else {
             // 没有子节点，直接调用框架的删除方法
             $.operate.remove(id);
+        }
+    }
+
+    // 展开指定层级的节点
+    function expandToLevel(maxLevel) {
+        try {
+            // 第一层已经通过expandFirst参数展开了
+            // 这里我们需要展开第二层和第三层
+
+            // 获取所有第一层节点
+            var firstLevelRows = $('tbody tr[pid="row_root"]');
+
+            // 遍历第一层节点，展开其子节点（第二层）
+            firstLevelRows.each(function() {
+                var rowId = $(this).attr('id');
+                var expander = $(this).find('.treetable-expander');
+
+                // 如果有折叠图标，则触发点击展开
+                if (expander.hasClass('glyphicon-chevron-right')) {
+                    expander.click();
+                }
+
+                // 如果需要展开第三层，则继续处理
+                if (maxLevel >= 3) {
+                    // 等待第二层展开后再处理
+                    setTimeout(function() {
+                        // 获取第二层节点
+                        var secondLevelRows = $('tbody tr[pid="' + rowId + '"]');
+
+                        // 遍历第二层节点，展开其子节点（第三层）
+                        secondLevelRows.each(function() {
+                            var expander = $(this).find('.treetable-expander');
+
+                            // 如果有折叠图标，则触发点击展开
+                            if (expander.hasClass('glyphicon-chevron-right')) {
+                                expander.click();
+                            }
+                        });
+                    }, 100);
+                }
+            });
+
+            console.log("已展开至第" + maxLevel + "层");
+        } catch (e) {
+            console.error("展开节点时出错:", e);
         }
     }
 </script>

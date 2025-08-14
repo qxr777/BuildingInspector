@@ -142,7 +142,11 @@
 <body class="white-bg">
 <div class="wrapper wrapper-content animated fadeInRight ibox-content">
     <div class="evaluation-result">
-        <h3>评定结果</h3>
+        <h3>
+            <span th:text="${buildingName}"></span>
+            评定结果
+            <span th:if="${formattedEvaluationTime != ''}" th:text="'@' + ${formattedEvaluationTime}"></span>
+        </h3>
         <div class="row">
             <div class="col-sm-12">
                 <div class="form-group">

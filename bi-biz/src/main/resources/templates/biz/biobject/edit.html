@@ -107,7 +107,22 @@
 
     function selectBiObjectTree() {
         var treeId = $("#treeId").val();
-        var url = prefix + "/selectObjectTree/" + (treeId > 0 ? treeId : "");
+        // 获取ancestors字段，并提取第二个值作为rootObjectId
+        var ancestors = "[[${biObject.ancestors}]]";
+        console.log("Ancestors value:", ancestors);
+        var rootObjectId = "";
+        if (ancestors) {
+            var ancestorArray = ancestors.split(",");
+            console.log("Ancestor array:", ancestorArray);
+            if (ancestorArray.length > 1) {
+                rootObjectId = ancestorArray[1]; // 获取第二个值（索引为1）
+                console.log("Root object ID from ancestors:", rootObjectId);
+            }else {
+                // 如果ancestorArray长度为1，使用当前对象的ID
+                rootObjectId = treeId;
+            }
+        }
+        var url = prefix + "/selectObjectTree/" + (treeId > 0 ? treeId : "") + "?rootObjectId=" + rootObjectId;
         var options = {
             title: '选择上级部件',
             width: "380",

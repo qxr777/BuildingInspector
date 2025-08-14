@@ -84,11 +84,22 @@ public class BiEvaluationController extends BaseController {
      */
     @RequiresPermissions("biz:evaluation:detail")
     @GetMapping("/detail/{taskId}")
-    public String detail(@PathVariable("taskId") Long taskId, ModelMap mmap) {
+    public String detail(@PathVariable("taskId") Long taskId, @RequestParam(value = "buildingName", required = false) String buildingName, ModelMap mmap) {
         // 获取评定结果
         BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(taskId);
         if (evaluation != null) {
             mmap.put("evaluation", evaluation);
+
+            // 使用前端传递的buildingName
+            mmap.put("buildingName", buildingName != null ? buildingName : "");
+
+            // 格式化评定时间
+            String formattedEvaluationTime = "";
+            if (evaluation.getUpdateTime() != null) {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+                formattedEvaluationTime = sdf.format(evaluation.getCreateTime());
+            }
+            mmap.put("formattedEvaluationTime", formattedEvaluationTime);
 
             // 获取各部分的Condition列表
             List<Condition> conditions = conditionService.selectConditionsByBiEvaluationId(evaluation.getId());
