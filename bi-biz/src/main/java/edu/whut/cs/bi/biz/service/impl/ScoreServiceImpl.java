@@ -19,9 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 /**
  * 构件得分Service业务层处理
@@ -108,13 +106,55 @@ public class ScoreServiceImpl implements IScoreService {
     private Score calculateComponentScore(Component component, List<Disease> diseases, Long conditionId) {
         // 初始化得分为100
         BigDecimal finalScore = new BigDecimal("100");
-        // 按照病害记录的创建时间排序，确保按照发现顺序处理
-        diseases.sort((a, b) -> a.getCreateTime().compareTo(b.getCreateTime()));
+
+        // 1. 按照病害类型分组，每组只保留扣分最大的一条记录
+        Map<Long, Disease> uniqueDiseaseByType = new HashMap<>();
+        for (Disease disease : diseases) {
+            Long diseaseTypeId = disease.getDiseaseTypeId();
+            Integer maxScale = disease.getDiseaseType().getMaxScale();
+            Integer currentLevel = disease.getLevel();
+
+            // 获取扣分值
+            BigDecimal deduction = getDeductionValue(maxScale, currentLevel);
+
+            // 如果该类型已存在，比较扣分值，保留扣分最大的
+            if (uniqueDiseaseByType.containsKey(diseaseTypeId)) {
+                Disease existingDisease = uniqueDiseaseByType.get(diseaseTypeId);
+                Integer existingMaxScale = existingDisease.getDiseaseType().getMaxScale();
+                Integer existingLevel = existingDisease.getLevel();
+                BigDecimal existingDeduction = getDeductionValue(existingMaxScale, existingLevel);
+
+                // 只有当新病害扣分更大时才替换
+                if (deduction.compareTo(existingDeduction) > 0) {
+                    uniqueDiseaseByType.put(diseaseTypeId, disease);
+                }
+            } else {
+                // 该类型首次出现，直接添加
+                uniqueDiseaseByType.put(diseaseTypeId, disease);
+            }
+        }
+
+        // 2. 将筛选后的病害转为列表
+        List<Disease> uniqueDiseases = new ArrayList<>(uniqueDiseaseByType.values());
+
+        // 3. 按照扣分值从大到小排序
+        uniqueDiseases.sort((a, b) -> {
+            Integer aMaxScale = a.getDiseaseType().getMaxScale();
+            Integer aLevel = a.getLevel();
+            Integer bMaxScale = b.getDiseaseType().getMaxScale();
+            Integer bLevel = b.getLevel();
+
+            BigDecimal aDeduction = getDeductionValue(aMaxScale, aLevel);
+            BigDecimal bDeduction = getDeductionValue(bMaxScale, bLevel);
+
+            // 降序排序，扣分大的排前面
+            return bDeduction.compareTo(aDeduction);
+        });
 
         // 计算扣分
         BigDecimal totalDeduction = BigDecimal.ZERO;
-        for (int i = 0; i < diseases.size(); i++) {
-            Disease disease = diseases.get(i);
+        for (int i = 0; i < uniqueDiseases.size(); i++) {
+            Disease disease = uniqueDiseases.get(i);
             // 获取病害类型的最大等级和当前等级
             Integer maxScale = disease.getDiseaseType().getMaxScale();
             Integer currentLevel = disease.getLevel();

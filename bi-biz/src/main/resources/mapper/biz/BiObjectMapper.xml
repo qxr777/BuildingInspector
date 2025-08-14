@@ -19,6 +19,7 @@
         <result property="area"      column="area"       />
         <result property="adminDept" column="admin_dept" />
         <result property="weight"    column="weight"     />
+        <result property="standardWeight" column="standard_weight" />
         <result property="videoFeed" column="video_feed" />
         <result property="props"     column="props"      />
         <result property="createBy"  column="create_by"  />
@@ -41,10 +42,11 @@
     </resultMap>
 
     <sql id="selectBiObjectVo">
-        select id, name, parent_id, ancestors, order_num, status, del_flag, longitude, latitude,
-               altitude, position, area, admin_dept, weight, video_feed, props, create_by, create_time, update_by,
-               update_time, remark, template_object_id,count
-        from bi_object
+        select o.id, o.name, o.parent_id, o.ancestors, o.order_num, o.status, o.del_flag, o.longitude, o.latitude,
+               o.altitude, o.position, o.area, o.admin_dept, o.weight, o.video_feed, o.props, o.create_by, o.create_time, o.update_by,
+               o.update_time, o.remark, o.template_object_id, o.count, tobj.weight as standard_weight
+        from bi_object o
+                 left join bi_template_object tobj on o.template_object_id = tobj.id
     </sql>
 
     <select id="selectBiObjectList" parameterType="BiObject" resultMap="BiObjectResult">
@@ -55,9 +57,11 @@
         c.ancestors as child_ancestors,
         c.order_num as child_order_num,
         c.status as child_status,
-        c.del_flag as child_del_flag
+        c.del_flag as child_del_flag,
+        tobj.weight as standard_weight
         FROM bi_object t
         LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+        LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         <where>
             <if test="name != null and name != ''">
                 AND t.name like concat('%', #{name}, '%')
@@ -82,16 +86,18 @@
                c.ancestors as child_ancestors,
                c.order_num as child_order_num,
                c.status as child_status,
-               c.del_flag as child_del_flag
+               c.del_flag as child_del_flag,
+               tobj.weight as standard_weight
         FROM bi_object t
                  LEFT JOIN bi_object p ON p.id = t.parent_id
                  LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+                 LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         WHERE t.id = #{id} AND t.del_flag = '0'
     </select>
 
     <select id="selectChildrenByParentId" parameterType="Long" resultMap="BiObjectResult">
         <include refid="selectBiObjectVo"/>
-        where parent_id = #{parentId} AND del_flag = '0' order by parent_id, order_num
+        where o.parent_id = #{parentId} AND o.del_flag = '0' order by o.parent_id, o.order_num
     </select>
 
     <select id="selectChildrenById" parameterType="Long" resultMap="BiObjectResult">
@@ -102,9 +108,11 @@
                c.ancestors as child_ancestors,
                c.order_num as child_order_num,
                c.status as child_status,
-               c.del_flag as child_del_flag
+               c.del_flag as child_del_flag,
+               tobj.weight as standard_weight
         FROM bi_object t
                  LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+                 LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         WHERE FIND_IN_SET(#{id}, t.ancestors) AND t.del_flag = '0'
         ORDER BY t.parent_id, t.order_num
     </select>
@@ -116,8 +124,10 @@
         t.longitude, t.latitude, t.altitude, t.position, t.area, t.admin_dept,
         t.weight, t.video_feed, t.props, t.create_by, t.create_time, t.update_by,
         t.update_time, t.remark, t.template_object_id, t.count,
+        tobj.weight as standard_weight,
         1 AS level
         FROM bi_object t
+        LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         WHERE t.id = #{id}
         AND t.del_flag = '0'
         AND (t.status != '1' OR t.status IS NULL)
@@ -129,8 +139,10 @@
         c.longitude, c.latitude, c.altitude, c.position, c.area, c.admin_dept,
         c.weight, c.video_feed, c.props, c.create_by, c.create_time, c.update_by,
         c.update_time, c.remark, c.template_object_id, c.count,
+        tobj.weight as standard_weight,
         p.level + 1
         FROM bi_object c
+        LEFT JOIN bi_template_object tobj ON c.template_object_id = tobj.id
         JOIN filtered_tree p ON c.parent_id = p.id
         WHERE c.del_flag = '0'
         AND (c.status != '1' OR c.status IS NULL)
@@ -266,11 +278,19 @@
     </delete>
 
     <select id="selectBridges" resultMap="BiObjectResult">
-        select * from bi_object where parent_id = 0 and del_flag = '0' order by parent_id, order_num
+        select o.*, t.weight as standard_weight
+        from bi_object o
+                 LEFT JOIN bi_template_object t ON o.template_object_id = t.id
+        where o.parent_id = 0 and o.del_flag = '0'
+        order by o.parent_id, o.order_num
     </select>
 
     <select id="selectComponentsByBridgeId" parameterType="Long" resultMap="BiObjectResult">
-        select * from bi_object where FIND_IN_SET(#{bridgeId}, ancestors) and del_flag = '0' order by parent_id, order_num
+        select o.*, t.weight as standard_weight
+        from bi_object o
+                 LEFT JOIN bi_template_object t ON o.template_object_id = t.id
+        where FIND_IN_SET(#{bridgeId}, o.ancestors) and o.del_flag = '0'
+        order by o.parent_id, o.order_num
     </select>
 
     <update id="logicDeleteByRootObjectId">
@@ -299,17 +319,19 @@
     <select id="selectLeafNodes" parameterType="Long" resultMap="BiObjectResult">
         WITH RECURSIVE tree AS (
             -- 初始查询，获取根节点
-            SELECT id, parent_id, name, weight, order_num, status, create_by, create_time,
-                   update_by, update_time, remark, del_flag, props
-            FROM bi_object
-            WHERE id = #{rootId}
+            SELECT o.id, o.parent_id, o.name, o.weight, o.order_num, o.status, o.create_by, o.create_time,
+                   o.update_by, o.update_time, o.remark, o.del_flag, o.props, t.weight as standard_weight
+            FROM bi_object o
+                     LEFT JOIN bi_template_object t ON o.template_object_id = t.id
+            WHERE o.id = #{rootId}
 
             UNION ALL
 
             -- 递归查询子节点
             SELECT c.id, c.parent_id, c.name, c.weight, c.order_num, c.status, c.create_by,
-                   c.create_time, c.update_by, c.update_time, c.remark, c.del_flag, c.props
+                   c.create_time, c.update_by, c.update_time, c.remark, c.del_flag, c.props, t.weight as standard_weight
             FROM bi_object c
+                     LEFT JOIN bi_template_object t ON c.template_object_id = t.id
                      INNER JOIN tree p ON c.parent_id = p.id
             WHERE c.del_flag = '0'
         )
@@ -327,9 +349,10 @@
     </select>
 
     <select id="selectDirectParentById" parameterType="Long" resultMap="BiObjectResult">
-        select p.*
+        select p.*, t.weight as standard_weight
         from bi_object c
                  join bi_object p on c.parent_id = p.id
+                 LEFT JOIN bi_template_object t ON p.template_object_id = t.id
         where c.id = #{id}
           and p.del_flag = '0'
     </select>
@@ -373,9 +396,11 @@
         c.ancestors as child_ancestors,
         c.order_num as child_order_num,
         c.status as child_status,
-        c.del_flag as child_del_flag
+        c.del_flag as child_del_flag,
+        tobj.weight as standard_weight
         FROM bi_object t
         LEFT JOIN bi_object c ON FIND_IN_SET(t.id, c.ancestors) AND c.del_flag = '0'
+        LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         WHERE t.id IN
         <foreach collection="rootObjectIds" item="id" open="(" separator="," close=")">
             #{id}
@@ -391,8 +416,10 @@
         t.longitude, t.latitude, t.altitude, t.position, t.area, t.admin_dept,
         t.weight, t.video_feed, t.props, t.create_by, t.create_time, t.update_by,
         t.update_time, t.remark, t.template_object_id, t.count,
+        tobj.weight as standard_weight,
         1 AS level
         FROM bi_object t
+        LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         WHERE t.id = #{id}
         AND t.del_flag = '0'
         AND (t.status != '1' OR t.status IS NULL)
@@ -404,8 +431,10 @@
         c.longitude, c.latitude, c.altitude, c.position, c.area, c.admin_dept,
         c.weight, c.video_feed, c.props, c.create_by, c.create_time, c.update_by,
         c.update_time, c.remark, c.template_object_id, c.count,
+        tobj.weight as standard_weight,
         p.level + 1
         FROM bi_object c
+        LEFT JOIN bi_template_object tobj ON c.template_object_id = tobj.id
         JOIN filtered_tree p ON c.parent_id = p.id
         WHERE c.del_flag = '0'
         AND (c.status != '1' OR c.status IS NULL)
@@ -464,9 +493,11 @@
                c.ancestors as child_ancestors,
                c.order_num as child_order_num,
                c.status as child_status,
-               c.del_flag as child_del_flag
+               c.del_flag as child_del_flag,
+               tobj.weight as standard_weight
         FROM bi_object t
                  LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+                 LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         WHERE t.id = #{rootId} AND t.del_flag = '0'
 
         UNION
@@ -479,9 +510,11 @@
                c.ancestors as child_ancestors,
                c.order_num as child_order_num,
                c.status as child_status,
-               c.del_flag as child_del_flag
+               c.del_flag as child_del_flag,
+               tobj.weight as standard_weight
         FROM bi_object t
                  LEFT JOIN bi_object c ON c.parent_id = t.id AND c.del_flag = '0'
+                 LEFT JOIN bi_template_object tobj ON t.template_object_id = tobj.id
         WHERE FIND_IN_SET(#{rootId}, t.ancestors) AND t.del_flag = '0'
         ORDER BY parent_id, order_num
     </select>
