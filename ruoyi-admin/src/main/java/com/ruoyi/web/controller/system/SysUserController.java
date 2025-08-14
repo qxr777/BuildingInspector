@@ -1,18 +1,20 @@
 package com.ruoyi.web.controller.system;
 
+import java.security.cert.Certificate;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.ruoyi.system.domain.UserCertificate;
+import com.ruoyi.system.domain.UserTitle;
+import com.ruoyi.system.mapper.UserCertificateMapper;
+import com.ruoyi.system.mapper.UserTitleMapper;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
@@ -34,6 +36,8 @@ import com.ruoyi.system.service.ISysDeptService;
 import com.ruoyi.system.service.ISysPostService;
 import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
+
+import javax.annotation.Resource;
 
 /**
  * 用户信息
@@ -352,4 +356,185 @@ public class SysUserController extends BaseController
         mmap.put("dept", deptService.selectDeptById(deptId));
         return prefix + "/deptTree";
     }
+
+    /**
+     * 用户证书
+     *
+     * @param userId
+     * @param mmap
+     * @return
+     */
+    @RequiresPermissions("system:user:view")
+    @GetMapping("/certificate/{userId}")
+    public String certificate(@PathVariable("userId") Long userId, ModelMap mmap)
+    {
+        userService.checkUserDataScope(userId);
+        mmap.put("user", userService.selectUserById(userId));
+        mmap.put("userId", userId);
+
+        return prefix + "/certificate";
+    }
+
+    /**
+     * 新增用户证书
+     */
+    @RequiresPermissions("system:user:add")
+    @GetMapping("/certificate/add")
+    public String addCertificate(@RequestParam("userId") Long userId, ModelMap mmap)
+    {
+        UserCertificate userCertificate = new UserCertificate();
+        userCertificate.setUserId(userId);
+        mmap.put("userCertificate", userCertificate);
+        return prefix + "/certificate-add";
+    }
+
+    @Resource
+    private UserCertificateMapper  userCertificateMapper;
+
+    /**
+     * 保存用户证书
+     */
+    @RequiresPermissions("system:user:add")
+    @PostMapping("/certificate/save")
+    @ResponseBody
+    public AjaxResult SaveCertificate(@Validated UserCertificate certificate)
+    {
+        UserCertificate userCertificate = new UserCertificate();
+        userCertificate.setSerialNumber(certificate.getSerialNumber());
+        List<UserCertificate> userCertificates = userCertificateMapper.selectUserCertificateList(userCertificate);
+        if (userCertificates != null && !userCertificates.isEmpty()) {
+            return error("保存证书失败，证书编号已存在");
+        }
+
+        if (certificate.getId() != null) {
+            certificate.setUpdateBy(ShiroUtils.getLoginName());
+            certificate.setUpdateTime(DateUtils.getNowDate());
+            return  AjaxResult.success(userCertificateMapper.updateUserCertificate(certificate));
+        } else {
+            certificate.setCreateBy(ShiroUtils.getLoginName());
+            return AjaxResult.success(userCertificateMapper.insertUserCertificate(certificate));
+        }
+    }
+
+    /**
+     * 修改用户证书
+     */
+    @RequiresPermissions("system:user:edit")
+    @GetMapping("/certificate/edit/{id}")
+    public String editCertificate(@PathVariable("id") Long id, ModelMap mmap)
+    {
+        UserCertificate userCertificate = userCertificateMapper.selectUserCertificateById(id);
+        mmap.put("userCertificate", userCertificate);
+        return prefix + "/certificate-add";
+    }
+
+    @RequiresPermissions("system:user:list")
+    @PostMapping("/certificate/list")
+    @ResponseBody
+    public TableDataInfo certificateList(UserCertificate userCertificate)
+    {
+        startPage();
+        List<UserCertificate> userCertificates = userCertificateMapper.selectUserCertificateList(userCertificate);
+        return getDataTable(userCertificates);
+    }
+
+    @RequiresPermissions("system:user:remove")
+    @PostMapping("/certificate/remove")
+    @ResponseBody
+    public AjaxResult removeCertificate(String ids)
+    {
+        Long[] idArray = Convert.toLongArray(ids);
+        return toAjax(userCertificateMapper.deleteUserCertificateByIds(idArray));
+    }
+
+
+    /**
+     * 用户职称
+     *
+     * @param userId
+     * @param mmap
+     * @return
+     */
+    @RequiresPermissions("system:user:view")
+    @GetMapping("/title/{userId}")
+    public String title(@PathVariable("userId") Long userId, ModelMap mmap)
+    {
+        userService.checkUserDataScope(userId);
+        mmap.put("user", userService.selectUserById(userId));
+
+        return prefix + "/title";
+    }
+
+    /**
+     * 新增用户
+     */
+    @RequiresPermissions("system:user:add")
+    @GetMapping("/title/add")
+    public String addTitle(@RequestParam("userId") Long userId, ModelMap mmap)
+    {
+        UserTitle userTitle = new UserTitle();
+        userTitle.setUserId(userId);
+        mmap.put("userTitle", userTitle);
+        return prefix + "/title-add";
+    }
+
+    @Resource
+    private UserTitleMapper userTitleMapper;
+
+    /**
+     * 保存用户证书
+     */
+    @RequiresPermissions("system:user:add")
+    @PostMapping("/title/save")
+    @ResponseBody
+    public AjaxResult saveTitle(@Validated UserTitle title)
+    {
+        UserTitle userTitle = new UserTitle();
+        userTitle.setSerialNumber(title.getSerialNumber());
+        List<UserTitle> userTitleList = userTitleMapper.selectUserTitleList(userTitle);
+        if (userTitleList != null && !userTitleList.isEmpty()) {
+            return error("保存职称失败，职称编号已存在");
+        }
+
+        if (title.getId() != null) {
+            title.setUpdateBy(ShiroUtils.getLoginName());
+            title.setUpdateTime(DateUtils.getNowDate());
+            return  AjaxResult.success(userTitleMapper.updateUserTitle(title));
+        } else {
+            title.setCreateBy(ShiroUtils.getLoginName());
+            return AjaxResult.success(userTitleMapper.insertUserTitle(title));
+        }
+    }
+
+    /**
+     * 修改用户证书
+     */
+    @RequiresPermissions("system:user:edit")
+    @GetMapping("/title/edit/{id}")
+    public String editTitle(@PathVariable("id") Long id, ModelMap mmap)
+    {
+        UserTitle userTitle = userTitleMapper.selectUserTitleById(id);
+        mmap.put("userTitle", userTitle);
+        return prefix + "/title-add";
+    }
+
+    @RequiresPermissions("system:user:list")
+    @PostMapping("/title/list")
+    @ResponseBody
+    public TableDataInfo titleList(UserTitle userTitle)
+    {
+        startPage();
+        List<UserTitle> userTitleList = userTitleMapper.selectUserTitleList(userTitle);
+        return getDataTable(userTitleList);
+    }
+
+    @RequiresPermissions("system:user:remove")
+    @PostMapping("/title/remove")
+    @ResponseBody
+    public AjaxResult removeTitle(String ids)
+    {
+        Long[] idArray = Convert.toLongArray(ids);
+        return toAjax(userTitleMapper.deleteUserTitleByIds(idArray));
+    }
+
 }
