@@ -2,6 +2,7 @@ package edu.whut.cs.bi.api.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
@@ -324,6 +325,7 @@ public class ApiServiceImpl implements ApiService {
                     if(!tasks.isEmpty()) {
                         Task task = tasks.get(0);
                         task.setType(1);
+                        task.setUpdateBy(ShiroUtils.getLoginName());
                         taskMapper.updateTask(task);
                     }
                 }
