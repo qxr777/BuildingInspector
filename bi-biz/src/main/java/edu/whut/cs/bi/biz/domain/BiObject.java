@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.TreeEntity;
+import io.swagger.models.auth.In;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.hibernate.validator.constraints.Length;
@@ -126,7 +127,7 @@ public class BiObject extends TreeEntity {
      * 构件数量
      */
     @Excel(name = "构件数量")
-    private int count;
+    private Integer count;
 
     public BigDecimal getStandardWeight() {
         return standardWeight;
@@ -176,11 +177,11 @@ public class BiObject extends TreeEntity {
         this.comments = comments;
     }
 
-    public int getCount() {
+    public Integer getCount() {
         return count;
     }
 
-    public void setCount(int count) {
+    public void setCount(Integer count) {
         this.count = count;
     }
 

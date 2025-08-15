@@ -67,7 +67,7 @@ public class BiObjectController extends BaseController {
         // 查询根节点及其所有子节点
         BiObject rootNode = biObjectService.selectBiObjectById(rootObjectId);
         if (rootNode != null) {
-            List<BiObject> list = biObjectService.selectBiObjectAndChildren(rootObjectId);
+            List<BiObject> list = biObjectService.selectBiObjectAndChildrenRemoveLeaf(rootObjectId);
             // 如果有查询条件，进行过滤
             if (StringUtils.isNotEmpty(biObject.getName()) || StringUtils.isNotEmpty(biObject.getStatus())) {
                 list = list.stream().filter(obj -> {
@@ -199,5 +199,19 @@ public class BiObjectController extends BaseController {
     public List<BiObject> selectPositionList(Long parentId) {
         List<BiObject> biObjects = biObjectService.selectLeafNodes(parentId);
         return biObjects;
+    }
+
+    /**
+     * 一键修正权重
+     */
+    @RequiresPermissions("biz:object:edit")
+    @Log(title = "对象管理", businessType = BusinessType.UPDATE)
+    @PostMapping("/correctWeights")
+    @ResponseBody
+    public AjaxResult correctWeights(Long rootObjectId) {
+        if (rootObjectId == null) {
+            return AjaxResult.error("未找到根节点");
+        }
+        return toAjax(biObjectService.correctAllWeights(rootObjectId));
     }
 }

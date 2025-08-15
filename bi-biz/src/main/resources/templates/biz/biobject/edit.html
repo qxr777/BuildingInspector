@@ -8,28 +8,17 @@
     <form class="form-horizontal m" id="form-biobject-edit" th:object="${biObject}">
         <input id="id" name="id" th:field="*{id}" type="hidden">
         <input id="treeId" name="parentId" type="hidden" th:field="*{parentId}" />
-        <div class="form-group">
-            <label class="col-sm-3 control-label">上级部件：</label>
-            <div class="col-sm-8">
-                <div class="input-group">
-                    <input class="form-control" type="text" onclick="selectBiObjectTree()" id="treeName" readonly="true" th:value="${biObject.parentName}">
-                    <span class="input-group-addon"><i class="fa fa-search"></i></span>
-                </div>
-            </div>
-        </div>
+        <input id="ancestors" name="ancestors" type="hidden" th:field="*{ancestors}" />
+        <input id="originalCount" name="originalCount" type="hidden" th:value="${biObject.count}" />
+        <!-- 部件名称字段设置为只读 -->
         <div class="form-group">
             <label class="col-sm-3 control-label is-required">部件名称：</label>
             <div class="col-sm-8">
-                <input class="form-control" type="text" name="name" id="name" th:field="*{name}" required>
+                <input class="form-control" type="text" name="name" id="name" th:field="*{name}" required readonly>
             </div>
         </div>
-        <div class="form-group">
-            <label class="col-sm-3 control-label">显示顺序：</label>
-            <div class="col-sm-8">
-                <input class="form-control" type="number" name="orderNum" th:field="*{orderNum}">
-            </div>
-        </div>
-        <div class="form-group">
+        <!-- 只有根节点才显示状态 -->
+        <div class="form-group" th:if="${biObject.parentId == 0}">
             <label class="col-sm-3 control-label">状态：</label>
             <div class="col-sm-8">
                 <div class="radio-box">
@@ -38,25 +27,15 @@
                 <div class="radio-box">
                     <input type="radio" name="status" value="1" th:field="*{status}"> 停用
                 </div>
-                <div class="radio-box" th:if="${biObject.parentId == 0}">
+                <div class="radio-box">
                     <input type="radio" name="status" value="3" th:field="*{status}"> 结构信息已锁定
                 </div>
             </div>
         </div>
-        <div class="col-xs-12">
-            <div class="form-group">
-                <label class="col-sm-3 control-label">权重：</label>
-                <div class="col-sm-8">
-                    <input name="weight" th:field="*{weight}" class="form-control" type="number" step="0.0001" id="weight" min="0">
-                </div>
-            </div>
-        </div>
-        <div class="col-xs-12" id="countDiv" style="display: none;">
-            <div class="form-group">
-                <label class="col-sm-3 control-label">构件数量：</label>
-                <div class="col-sm-8">
-                    <input name="count" th:field="*{count}" class="form-control" type="number" min="0">
-                </div>
+        <div class="form-group" id="countDiv">
+            <label class="col-sm-3 control-label">构件数量：</label>
+            <div class="col-sm-8">
+                <input name="count" th:field="*{count}" class="form-control" type="number" min="0" id="count">
             </div>
         </div>
         <div class="form-group">
@@ -68,7 +47,7 @@
         <div class="form-group">
             <label class="col-sm-3 control-label">备注：</label>
             <div class="col-sm-8">
-                <input name="remark" th:field="*{weight}" class="form-control" type="text" >
+                <input name="remark" th:field="*{remark}" class="form-control" type="text" >
             </div>
         </div>
     </form>
@@ -81,68 +60,27 @@
         focusCleanup: true
     });
 
-    // 监听权重输入框变化
-    $("#weight").on('input', function() {
-        var weight = parseFloat($(this).val());
-        if (weight > 0) {
-            $("#countDiv").show();
-        } else {
-            $("#countDiv").hide();
-        }
-    });
-
-    // 页面加载时检查权重值
     $(document).ready(function() {
-        var weight = parseFloat($("#weight").val());
-        if (weight > 0) {
-            $("#countDiv").show();
+        // 获取ancestors字段
+        var ancestors = $("#ancestors").val();
+        var countInput = $("#count");
+
+        // 判断是否是第4层部件（ancestors中有4个元素，如"0,1,2,3"）
+        var isFourthLevel = false;
+        if (ancestors) {
+            var ancestorArray = ancestors.split(",");
+            isFourthLevel = ancestorArray.length === 4;
+        }
+
+        // 如果不是第4层部件，则设置构件数量为只读
+        if (!isFourthLevel) {
+            countInput.attr("readonly", "readonly");
         }
     });
 
     function submitHandler() {
         if ($.validate.form()) {
             $.operate.save(prefix + "/edit", $('#form-biobject-edit').serialize());
-        }
-    }
-
-    function selectBiObjectTree() {
-        var treeId = $("#treeId").val();
-        // 获取ancestors字段，并提取第二个值作为rootObjectId
-        var ancestors = "[[${biObject.ancestors}]]";
-        console.log("Ancestors value:", ancestors);
-        var rootObjectId = "";
-        if (ancestors) {
-            var ancestorArray = ancestors.split(",");
-            console.log("Ancestor array:", ancestorArray);
-            if (ancestorArray.length > 1) {
-                rootObjectId = ancestorArray[1]; // 获取第二个值（索引为1）
-                console.log("Root object ID from ancestors:", rootObjectId);
-            }else {
-                // 如果ancestorArray长度为1，使用当前对象的ID
-                rootObjectId = treeId;
-            }
-        }
-        var url = prefix + "/selectObjectTree/" + (treeId > 0 ? treeId : "") + "?rootObjectId=" + rootObjectId;
-        var options = {
-            title: '选择上级部件',
-            width: "380",
-            url: url,
-            callBack: doSubmit
-        };
-        $.modal.openOptions(options);
-    }
-
-    function doSubmit(index, layero) {
-        var body = layero.find('iframe').contents().find('body'); // 修正获取body的方式
-        var treeId = body.find('#treeId').val();
-        var treeName = body.find('#treeName').val();
-
-        if (treeId && treeName) {
-            $("#treeId").val(treeId);
-            $("#treeName").val(treeName);
-            $.modal.close(index);  // 使用框架自带的关闭方法
-        } else {
-            console.log("未选择有效节点");
         }
     }
 </script>

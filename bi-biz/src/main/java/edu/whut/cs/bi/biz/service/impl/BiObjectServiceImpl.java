@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -15,7 +16,6 @@ import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
-import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.bean.BeanUtils;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.service.AttachmentService;
@@ -107,72 +107,98 @@ public class BiObjectServiceImpl implements IBiObjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int updateBiObject(BiObject biObject) {
-        biObject.setUpdateTime(DateUtils.getNowDate());
-        BiObject newParentObject = biObjectMapper.selectBiObjectById(biObject.getParentId());
         BiObject oldBiObject = biObjectMapper.selectBiObjectById(biObject.getId());
-        if (StringUtils.isNotNull(newParentObject) && StringUtils.isNotNull(oldBiObject)) {
-            // 这里要判断一下其是否存在祖先节点, 否则存储到数据库中的值会出现 null,1 这样情况
-            String newAncestors = (newParentObject.getAncestors() != null ? newParentObject.getAncestors() : "") + "," + newParentObject.getId();
-            String oldAncestors = oldBiObject.getAncestors();
-            if (!newAncestors.equals(oldAncestors)) {
-                biObject.setAncestors(newAncestors);
-                updateObjectChildren(biObject.getId(), newAncestors, oldAncestors);
+        biObject.setUpdateTime(DateUtils.getNowDate());
+        biObject.setUpdateBy(ShiroUtils.getLoginName());
+        // 处理构件数量变更传播
+        if (oldBiObject != null && !biObject.getCount().equals(oldBiObject.getCount())) {
+            // 计算构件数量变化量
+            if (oldBiObject.getCount() == null) {
+                oldBiObject.setCount(0);
             }
-        }
+            int deltaCount = biObject.getCount() - oldBiObject.getCount();
 
-        // 检查是否将状态改为停用，如果是，则重新分配权重
-        if ("1".equals(biObject.getStatus()) && oldBiObject != null && !"1".equals(oldBiObject.getStatus()) && oldBiObject.getWeight() != null) {
-            // 保存原始权重用于重新分配
-            BigDecimal originalWeight = oldBiObject.getWeight();
+            // 如果有变化且不是根节点，则向上传播变更
+            if (deltaCount != 0 && oldBiObject.getParentId() != 0L) {
+                // 获取祖先节点列表（不包括根节点0）
+                String ancestors = oldBiObject.getAncestors();
+                if (ancestors != null && !ancestors.isEmpty()) {
+                    String[] ancestorIds = ancestors.split(",");
+                    List<Long> ancestorIdList = IntStream.range(0, ancestorIds.length)
+                            .skip(2)
+                            .mapToObj(i -> ancestorIds[i])
+                            .map(id -> {
+                                try {
+                                    return Long.parseLong(id);
+                                } catch (NumberFormatException e) {
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
 
-            // 将当前节点权重设为0
-            biObject.setWeight(BigDecimal.ZERO);
-
-            // 获取同级部件列表（相同parentId的部件）
-            BiObject query = new BiObject();
-            query.setParentId(oldBiObject.getParentId());
-            List<BiObject> siblings = biObjectMapper.selectBiObjectList(query);
-
-            // 如果有同级部件且被停用部件有权重，则重新分配权重
-            if (siblings != null && siblings.size() > 1) {
-                BigDecimal totalRemainingWeight = BigDecimal.ZERO;
-                List<BiObject> siblingToUpdate = new ArrayList<>();
-
-                // 单次遍历计算总权重并收集需要更新的兄弟节点
-                for (BiObject sibling : siblings) {
-                    // 排除当前节点和已停用的节点
-                    if (!sibling.getId().equals(biObject.getId()) &&
-                            !"1".equals(sibling.getStatus()) &&
-                            sibling.getWeight() != null) {
-                        totalRemainingWeight = totalRemainingWeight.add(sibling.getWeight());
-                        siblingToUpdate.add(sibling);
-                    }
-                }
-
-                // 如果剩余权重大于0，则重新分配权重
-                if (totalRemainingWeight.compareTo(BigDecimal.ZERO) > 0) {
-                    // 准备批量更新的对象
-                    for (BiObject sibling : siblingToUpdate) {
-                        // 计算新权重：原权重 + (停用节点权重 * 原权重/剩余总权重)
-                        BigDecimal newWeight = sibling.getWeight().add(
-                                originalWeight.multiply(sibling.getWeight())
-                                        .divide(totalRemainingWeight, 4, RoundingMode.HALF_UP)
-                        );
-
-                        sibling.setWeight(newWeight);
-                        sibling.setUpdateTime(DateUtils.getNowDate());
-                        sibling.setUpdateBy(ShiroUtils.getLoginName());
-                    }
-
-                    // 批量更新所有兄弟节点的权重
-                    if (!siblingToUpdate.isEmpty()) {
-                        biObjectMapper.updateBiObjects(siblingToUpdate);
+                    // 如果有祖先节点，则批量更新它们的构件数量
+                    if (!ancestorIdList.isEmpty()) {
+                        biObjectMapper.updateAncestorsCount(ancestorIdList, deltaCount, ShiroUtils.getLoginName());
                     }
                 }
             }
         }
-
         return biObjectMapper.updateBiObject(biObject);
+    }
+
+    /**
+     * 重新分配权重
+     *
+     * @param parentId             父节点ID
+     * @param weightToRedistribute 需要重新分配的权重
+     * @param excludeObjectId      排除的对象ID
+     * @return 更新的记录数
+     */
+    private int redistributeWeight(Long parentId, BigDecimal weightToRedistribute, Long excludeObjectId) {
+        // 获取同级部件列表（相同parentId的部件）
+        BiObject query = new BiObject();
+        query.setParentId(parentId);
+        List<BiObject> siblings = biObjectMapper.selectBiObjectList(query);
+
+        // 如果有同级部件且被停用部件有权重，则重新分配权重
+        if (siblings != null && siblings.size() > 1) {
+            BigDecimal totalRemainingWeight = BigDecimal.ZERO;
+            List<BiObject> siblingToUpdate = new ArrayList<>();
+
+            // 单次遍历计算总权重并收集需要更新的兄弟节点
+            for (BiObject sibling : siblings) {
+                // 排除当前节点和已停用的节点
+                if (!sibling.getId().equals(excludeObjectId) &&
+                        !"1".equals(sibling.getStatus()) &&
+                        sibling.getWeight() != null) {
+                    totalRemainingWeight = totalRemainingWeight.add(sibling.getWeight());
+                    siblingToUpdate.add(sibling);
+                }
+            }
+
+            // 如果剩余权重大于0，则重新分配权重
+            if (totalRemainingWeight.compareTo(BigDecimal.ZERO) > 0) {
+                // 准备批量更新的对象
+                for (BiObject sibling : siblingToUpdate) {
+                    // 计算新权重：原权重 + (停用节点权重 * 原权重/剩余总权重)
+                    BigDecimal newWeight = sibling.getWeight().add(
+                            weightToRedistribute.multiply(sibling.getWeight())
+                                    .divide(totalRemainingWeight, 4, RoundingMode.HALF_UP)
+                    );
+
+                    sibling.setWeight(newWeight);
+                    sibling.setUpdateTime(DateUtils.getNowDate());
+                    sibling.setUpdateBy(ShiroUtils.getLoginName());
+                }
+
+                // 批量更新所有兄弟节点的权重
+                if (!siblingToUpdate.isEmpty()) {
+                    return biObjectMapper.updateBiObjects(siblingToUpdate);
+                }
+            }
+        }
+        return 0;
     }
 
     /**
@@ -225,35 +251,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
         // 3. 如果有同级部件且被删除部件有权重，则重新分配权重
         if (siblings != null && siblings.size() > 1 && biObject.getWeight() != null) {
-            BigDecimal deletedWeight = biObject.getWeight();
-            BigDecimal totalRemainingWeight = BigDecimal.ZERO;
-            List<BiObject> siblingToUpdate = new ArrayList<>();
-
-            // 单次遍历计算总权重并收集需要更新的兄弟节点
-            for (BiObject sibling : siblings) {
-                if (!sibling.getId().equals(id) && sibling.getWeight() != null) {
-                    totalRemainingWeight = totalRemainingWeight.add(sibling.getWeight());
-                    siblingToUpdate.add(sibling);
-                }
-            }
-
-            // 如果剩余权重大于0，则重新分配权重
-            if (totalRemainingWeight.compareTo(BigDecimal.ZERO) > 0) {
-                // 准备批量更新的对象
-                for (BiObject sibling : siblingToUpdate) {
-                    // 计算新权重：原权重 + (删除权重 * 原权重/剩余总权重)
-                    BigDecimal newWeight = sibling.getWeight().add(deletedWeight.multiply(sibling.getWeight()).divide(totalRemainingWeight, 4, RoundingMode.HALF_UP));
-
-                    sibling.setWeight(newWeight);
-                    sibling.setUpdateTime(DateUtils.getNowDate());
-                    sibling.setUpdateBy(ShiroUtils.getLoginName());
-                }
-
-                // 批量更新所有兄弟节点的权重
-                if (!siblingToUpdate.isEmpty()) {
-                    biObjectMapper.updateBiObjects(siblingToUpdate);
-                }
-            }
+            redistributeWeight(biObject.getParentId(), biObject.getWeight(), id);
         }
 
         // 4. 删除目标部件
@@ -638,5 +636,65 @@ public class BiObjectServiceImpl implements IBiObjectService {
             ztrees.add(ztree);
         }
         return ztrees;
+    }
+
+    /**
+     * 一键修正权重
+     *
+     * @param rootObjectId 根对象ID
+     * @return 更新的记录数
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int correctAllWeights(Long rootObjectId) {
+        int updateCount = 0;
+
+        // 1. 获取所有部件
+        List<BiObject> allObjects = selectBiObjectAndChildrenRemoveLeaf(rootObjectId);
+        if (allObjects == null || allObjects.isEmpty()) {
+            return 0;
+        }
+
+        // 2. 初始化所有部件的权重为其标准权重值
+        for (BiObject obj : allObjects) {
+            // 使用对象自己的standardWeight，如果为空则使用默认值1.0
+            if (obj.getStandardWeight() == null) {
+                obj.setWeight(BigDecimal.ZERO);
+            } else {
+                obj.setWeight(obj.getStandardWeight());
+            }
+            //  如果一开始是停用但是构件数量不为0则启用
+            if (obj.getCount() != null && obj.getCount() > 0 && "1".equals(obj.getStatus())) {
+                obj.setStatus("0");
+            }
+            obj.setUpdateTime(DateUtils.getNowDate());
+            obj.setUpdateBy(ShiroUtils.getLoginName());
+        }
+        updateCount += biObjectMapper.updateBiObjects(allObjects);
+
+        // 3. 获取所有第3层部件
+        List<BiObject> thirdLevelObjects = allObjects.stream()
+                .filter(obj -> {
+                    String[] ancestors = obj.getAncestors().split(",");
+                    return ancestors.length == 3; // 第3层部件的祖先数量为3（0,1,2）
+                })
+                .collect(Collectors.toList());
+
+        // 4. 处理第3层部件
+        for (BiObject obj : thirdLevelObjects) {
+            // 对构件数量为0的部件，将权重分配给同级节点并设置为停用
+            if (obj.getCount() != null && obj.getCount() == 0) {
+                // 将部件状态设置为停用
+                obj.setStatus("1");
+                BigDecimal weightToRedistribute = obj.getWeight();
+                obj.setWeight(BigDecimal.ZERO);
+                biObjectMapper.updateBiObject(obj);
+
+                // 重新分配权重
+                redistributeWeight(obj.getParentId(), weightToRedistribute, obj.getId());
+            }
+        }
+
+        return updateCount;
     }
 }

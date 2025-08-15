@@ -171,4 +171,12 @@ public interface IBiObjectService {
      * @return
      */
     List<Ztree> selectBiObjectThreeLevelTree(Long rootObjectId);
+
+    /**
+     * 一键修正权重
+     *
+     * @param rootObjectId 根对象ID
+     * @return 更新的记录数
+     */
+    int correctAllWeights(Long rootObjectId);
 }
