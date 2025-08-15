@@ -111,7 +111,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
         biObject.setUpdateTime(DateUtils.getNowDate());
         biObject.setUpdateBy(ShiroUtils.getLoginName());
         // 处理构件数量变更传播
-        if (oldBiObject != null && !biObject.getCount().equals(oldBiObject.getCount())) {
+        if (!"其他".equals(biObject.getName()) && oldBiObject != null && !biObject.getCount().equals(oldBiObject.getCount())) {
             // 计算构件数量变化量
             if (oldBiObject.getCount() == null) {
                 oldBiObject.setCount(0);
@@ -682,16 +682,26 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
         // 4. 处理第3层部件
         for (BiObject obj : thirdLevelObjects) {
-            // 对构件数量为0的部件，将权重分配给同级节点并设置为停用
-            if (obj.getCount() != null && obj.getCount() == 0) {
+            // 对构件数量为0或者为null的部件，将权重分配给同级节点并设置为停用
+            if ((obj.getCount() == null || obj.getCount() == 0) && obj.getStandardWeight() != null) {
+                // 重新查询该部件的最新信息，确保获取最新的权重值
+                BiObject latestObj = biObjectMapper.selectBiObjectById(obj.getId());
+                if (latestObj == null) {
+                    continue; // 如果部件不存在，跳过处理
+                }
+
+                // 使用最新的权重值进行重分配
+                BigDecimal weightToRedistribute = latestObj.getWeight() != null ? latestObj.getWeight() : BigDecimal.ZERO;
+
                 // 将部件状态设置为停用
-                obj.setStatus("1");
-                BigDecimal weightToRedistribute = obj.getWeight();
-                obj.setWeight(BigDecimal.ZERO);
-                biObjectMapper.updateBiObject(obj);
+                latestObj.setStatus("1");
+                latestObj.setWeight(BigDecimal.ZERO);
+                latestObj.setUpdateTime(DateUtils.getNowDate());
+                latestObj.setUpdateBy(ShiroUtils.getLoginName());
+                biObjectMapper.updateBiObject(latestObj);
 
                 // 重新分配权重
-                redistributeWeight(obj.getParentId(), weightToRedistribute, obj.getId());
+                redistributeWeight(latestObj.getParentId(), weightToRedistribute, latestObj.getId());
             }
         }
 

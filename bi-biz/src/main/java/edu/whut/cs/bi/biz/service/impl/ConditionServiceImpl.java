@@ -54,9 +54,10 @@ public class ConditionServiceImpl implements IConditionService {
     }
 
     @Override
-    public Condition selectConditionByBiObjectId(Long biObjectId) {
+    public Condition selectConditionByBiObjectId(Long biObjectId,Long biEvaluationId) {
         Condition condition = new Condition();
         condition.setBiObjectId(biObjectId);
+        condition.setBiEvaluationId(biEvaluationId);
         List<Condition> conditions = selectConditionList(condition);
         return conditions.isEmpty() ? null : conditions.get(0);
     }
@@ -98,7 +99,7 @@ public class ConditionServiceImpl implements IConditionService {
         }
 
         // 1. 获取或创建部件的Condition记录
-        Condition condition = selectConditionByBiObjectId(biObject.getId());
+        Condition condition = selectConditionByBiObjectId(biObject.getId(),biEvaluationId);
         if (condition == null) {
             condition = new Condition();
             condition.setBiObjectId(biObject.getId());

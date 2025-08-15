@@ -34,7 +34,7 @@ public interface IConditionService {
     public List<Condition> selectConditionsByBiEvaluationId(Long biEvaluationId);
 
 
-    Condition selectConditionByBiObjectId(Long biObjectId);
+    Condition selectConditionByBiObjectId(Long biObjectId, Long biEvaluationId);
 
     /**
      * 新增部件评定
@@ -75,5 +75,5 @@ public interface IConditionService {
      * @param biEvaluationId 桥幅评定ID
      * @return 部件评定
      */
-    public Condition calculateCondition(BiObject biObject, Long biEvaluationId,Long projectId);
+    public Condition calculateCondition(BiObject biObject, Long biEvaluationId, Long projectId);
 }
