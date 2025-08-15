@@ -113,36 +113,27 @@
     </select>
 
     <select id="selectChildrenByIdRemoveLeaf" parameterType="Long" resultMap="BiObjectResult">
-        WITH RECURSIVE filtered_tree AS (
-        <!-- 查询根节点 -->
-        SELECT t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
-        t.longitude, t.latitude, t.altitude, t.position, t.area, t.admin_dept,
-        t.weight, t.video_feed, t.props, t.create_by, t.create_time, t.update_by,
-        t.update_time, t.remark, t.template_object_id, t.count,
-        1 AS level
-        FROM bi_object t
-        WHERE t.id = #{id}
-        AND t.del_flag = '0'
-        AND (t.status != '1' OR t.status IS NULL)
+        WITH RECURSIVE id_tree AS (
+            SELECT t.id, t.parent_id, 1 AS level
+            FROM bi_object t
+            WHERE t.id = #{id}
+              AND t.del_flag = '0'
 
-        UNION ALL
+            UNION ALL
 
-        <!-- 递归查询子节点，并计算层级 -->
-        SELECT c.id, c.name, c.parent_id, c.ancestors, c.order_num, c.status, c.del_flag,
-        c.longitude, c.latitude, c.altitude, c.position, c.area, c.admin_dept,
-        c.weight, c.video_feed, c.props, c.create_by, c.create_time, c.update_by,
-        c.update_time, c.remark, c.template_object_id, c.count,
-        p.level + 1
-        FROM bi_object c
-        JOIN filtered_tree p ON c.parent_id = p.id
-        WHERE c.del_flag = '0'
-        AND (c.status != '1' OR c.status IS NULL)
-        AND p.level &lt; 4
+            SELECT c.id, c.parent_id, p.level + 1
+            FROM bi_object c
+                     JOIN id_tree p ON c.parent_id = p.id
+            WHERE c.del_flag = '0'
+              AND p.level &lt; 4
         )
-        SELECT DISTINCT t.*
-        FROM filtered_tree t
-        ORDER BY t.parent_id, t.order_num
+        SELECT o.*, tobj.weight AS standard_weight
+        FROM bi_object o
+                 LEFT JOIN bi_template_object tobj ON o.template_object_id = tobj.id
+                 JOIN id_tree t ON o.id = t.id
+        ORDER BY o.parent_id, o.order_num
     </select>
+
 
 
     <insert id="insertBiObject" parameterType="BiObject" useGeneratedKeys="true" keyProperty="id">
@@ -245,8 +236,13 @@
             </foreach>
 
             `count` =
-            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END">
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END,">
                 WHEN #{item.id} THEN #{item.count}
+            </foreach>
+
+            `status` =
+            <foreach collection="objects" item="item" separator=" " open="CASE id " close="END">
+                WHEN #{item.id} THEN #{item.status}
             </foreach>
         </set>
         where id in
@@ -254,6 +250,7 @@
             #{item.id}
         </foreach>
     </update>
+
 
 
 
@@ -489,4 +486,15 @@
         ORDER BY parent_id, order_num
     </select>
 
+    <!-- 批量更新祖先节点的构件数量 -->
+    <update id="updateAncestorsCount">
+        update bi_object
+        set count = count + #{deltaCount},
+        update_time = sysdate(),
+        update_by = #{updateBy}
+        where id in
+        <foreach collection="ancestorIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
 </mapper>

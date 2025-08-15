@@ -31,11 +31,8 @@
         </div>
 
         <div class="btn-group-sm" id="toolbar" role="group">
-            <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:object:add">
-                <i class="fa fa-plus"></i> 新增
-            </a>
-            <a class="btn btn-primary" onclick="$.operate.edit()" shiro:hasPermission="biz:object:edit">
-                <i class="fa fa-edit"></i> 修改
+            <a class="btn btn-success" onclick="correctWeights()" shiro:hasPermission="biz:object:edit">
+                <i class="fa fa-wrench"></i> 一键修正权重
             </a>
             <a class="btn btn-info" id="expandAllBtn">
                 <i class="fa fa-exchange"></i> 展开/折叠
@@ -139,24 +136,23 @@
                     field: 'updateBy',
                     title: '更新用户名',
                     align: 'left'
-                },
-                {
-                    title: '操作',
-                    align: 'center',
-                    formatter: function(value, row, index) {
-                        var actions = [];
-                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-                        actions.push('<a class="btn btn-info btn-xs ' + addFlag + '" href="javascript:void(0)" onclick="$.operate.add(\'' + row.id + '\')"><i class="fa fa-plus"></i>新增</a> ');
-                        // 创建更多操作菜单
-                        var more = [];
-                        // more.push('<a class="btn btn-default btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="deleteObject(\'' + row.id + '\', ' + (row.children && row.children.length > 0) + ')"><i class="fa fa-remove"></i>删除</a> ');
-                        if(more.length > 0) {
-                            actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
-                        }
-                        return actions.join('');
-                    }
-                }]
+                }
+            ]
         };
+
+        // 如果用户有编辑权限，添加操作列
+        if (editFlag !== 'hidden') {
+            options.columns.push({
+                title: '操作',
+                align: 'center',
+                formatter: function(value, row, index) {
+                    var actions = [];
+                    actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                    return actions.join('');
+                }
+            });
+        }
+
         $.treeTable.init(options);
     });
 
@@ -227,6 +223,38 @@
         } catch (e) {
             console.error("展开节点时出错:", e);
         }
+    }
+
+    // 一键修正权重
+    function correctWeights() {
+        $.modal.confirm("确认要执行一键修正权重操作吗？", function() {
+            // 显示加载状态
+            var index = $.modal.loading("正在修正权重，请稍候...");
+
+            $.ajax({
+                type: "post",
+                url: prefix + "/correctWeights",
+                data: {
+                    "rootObjectId": rootObjectId
+                },
+                success: function(result) {
+                    // 关闭加载状态
+                    $.modal.closeLoading(index);
+
+                    if (result.code == 0) {
+                        $.modal.alertSuccess("权重修正成功");
+                        $.treeTable.refresh();
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                },
+                error: function() {
+                    // 发生错误时也关闭加载状态
+                    $.modal.closeLoading(index);
+                    $.modal.alertError("操作失败，请稍后重试");
+                }
+            });
+        });
     }
 </script>
 </body>

@@ -184,4 +184,15 @@ public interface BiObjectMapper {
      * @return BiObject列表
      */
     public List<BiObject> selectBiObjectsByIds(List<Long> ids);
+
+
+    /**
+     * 批量更新祖先节点的构件数量
+     *
+     * @param ancestorIds 祖先节点ID列表
+     * @param deltaCount 构件数量变化量
+     * @param updateBy 更新人
+     * @return 更新的记录数
+     */
+    int updateAncestorsCount(@Param("ancestorIds") List<Long> ancestorIds, @Param("deltaCount") int deltaCount, @Param("updateBy") String updateBy);
 }
