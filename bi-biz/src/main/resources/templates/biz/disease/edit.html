@@ -260,19 +260,6 @@
                         <div class="btn-group" data-toggle="buttons">
                             <label
                                     class="btn btn-default"
-                                    th:classappend="${disease.participateAssess == '0'} ? 'active'"
-                            >
-                                <input
-                                        type="radio"
-                                        name="participateAssess"
-                                        value="0"
-                                        required
-                                        th:checked="${disease.participateAssess == '0'}"
-                                />
-                                是
-                            </label>
-                            <label
-                                    class="btn btn-default"
                                     th:classappend="${disease.participateAssess == '1'} ? 'active'"
                             >
                                 <input
@@ -281,6 +268,19 @@
                                         value="1"
                                         required
                                         th:checked="${disease.participateAssess == '1'}"
+                                />
+                                是
+                            </label>
+                            <label
+                                    class="btn btn-default"
+                                    th:classappend="${disease.participateAssess == '0'} ? 'active'"
+                            >
+                                <input
+                                        type="radio"
+                                        name="participateAssess"
+                                        value="0"
+                                        required
+                                        th:checked="${disease.participateAssess == '0'}"
                                 />
                                 否
                             </label>
