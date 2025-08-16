@@ -16,6 +16,7 @@
     <form class="form-horizontal m" id="form-disease-add">
         <input name="projectId" type="hidden" id="projectId" th:value="${task.projectId}"/>
         <input name="buildingId" type="hidden" id="buildingId" th:value="${task.buildingId}"/>
+        <input name="taskId" type="hidden" id="taskId" th:value="${task.id}"/>
 
         <h4 class="form-header h4">基本信息</h4>
         <!-- 病害基本信息 -->
@@ -191,10 +192,10 @@
                     <div class="col-sm-7">
                         <div class="btn-group" data-toggle="buttons">
                             <label class="btn btn-default active">
-                                <input type="radio" name="participateAssess" value="0" required checked> 是
+                                <input type="radio" name="participateAssess" value="1" required checked> 是
                             </label>
                             <label class="btn btn-default">
-                                <input type="radio" name="participateAssess" value="1" required> 否
+                                <input type="radio" name="participateAssess" value="0" required> 否
                             </label>
                         </div>
                     </div>

@@ -35,6 +35,7 @@
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
+        <result property="taskId" column="task_id"/>
 
         <!-- diseaseType object -->
         <association property="diseaseType" javaType="DiseaseType">
@@ -61,7 +62,7 @@
             d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
             d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
             d.attachment_count,
-            d.create_by, d.create_time, d.update_by, d.update_time, bp.year as bp_year,
+            d.create_by, d.create_time, d.update_by, d.update_time, d.task_id, bp.year as bp_year,
             dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status,
             dt.select_column as dt_select_column, dt.threshold as dt_threshold, dt.group_name as dt_group_name
         from bi_disease d
@@ -79,6 +80,7 @@
             <if test="diseaseTypeId != null"> and d.disease_type_id = #{diseaseTypeId}</if>
             <if test="level != null and level > 0"> and d.level = #{level}</if>
             <if test="projectId != null"> and d.project_id = #{projectId}</if>
+            <if test="taskId != null"> and d.task_id = #{taskId}</if>
             <if test="biObjectId != null"> and d.bi_object_id = #{biObjectId}</if>
             <if test="componentId != null"> and d.component_id = #{componentId}</if>
             <if test="participateAssess != null"> and d.participate_assess = #{participateAssess}</if>
@@ -121,6 +123,7 @@
             <if test="biObjectId != null">bi_object_id,</if>
             <if test="biObjectName != null and biObjectName != ''">bi_object_name,</if>
             <if test="buildingId != null">building_id,</if>
+            <if test="taskId != null">task_id,</if>
             <if test="componentId != null">component_id,</if>
             <if test="commitType != null">commit_type,</if>
             <if test="localId != null">local_id,</if>
@@ -152,6 +155,7 @@
             <if test="biObjectId != null">#{biObjectId},</if>
             <if test="biObjectName != null and biObjectName != ''">#{biObjectName},</if>
             <if test="buildingId != null">#{buildingId},</if>
+            <if test="taskId != null">#{taskId},</if>
             <if test="componentId != null">#{componentId},</if>
             <if test="commitType != null">#{commitType},</if>
             <if test="localId != null">#{localId},</if>
@@ -173,7 +177,7 @@
         INSERT INTO bi_disease (
         position, position_number, type, disease_type_id, description, nature, level, quantity, units,
         participate_assess, deduct_points, project_id, bi_object_id, bi_object_name,
-        building_id, component_id, commit_type, local_id, remark, cause,
+        building_id, task_id, component_id, commit_type, local_id, remark, cause,
         repair_recommendation, crack_type, development_trend, detection_method,
         attachment_count, create_by, create_time, update_by, update_time
         ) VALUES
@@ -183,7 +187,7 @@
             #{disease.description}, #{disease.nature}, #{disease.level},
             #{disease.quantity}, #{disease.units}, #{disease.participateAssess}, #{disease.deductPoints},
             #{disease.projectId}, #{disease.biObjectId}, #{disease.biObjectName},
-            #{disease.buildingId}, #{disease.componentId}, #{disease.commitType},
+            #{disease.buildingId}, #{disease.taskId}, #{disease.componentId}, #{disease.commitType},
             #{disease.localId}, #{disease.remark}, #{disease.cause},
             #{disease.repairRecommendation}, #{disease.crackType}, #{disease.developmentTrend},
             #{disease.detectionMethod}, #{disease.attachmentCount}, #{disease.createBy},
@@ -210,6 +214,7 @@
             <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
             <if test="biObjectName != null">bi_object_name = #{biObjectName},</if>
             <if test="buildingId != null">building_id = #{buildingId},</if>
+            <if test="taskId != null">task_id = #{taskId},</if>
             <if test="componentId != null">component_id = #{componentId},</if>
             <if test="commitType != null">commit_type = #{commitType},</if>
             <if test="localId != null">local_id = #{localId},</if>
