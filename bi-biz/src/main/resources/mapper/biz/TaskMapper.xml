@@ -87,6 +87,12 @@
             <if test="task.selectDeptId != null">
                 and (p.dept_id = #{task.selectDeptId} OR p.owner_dept_id = #{task.selectDeptId})
             </if>
+            <if test="task.updateStartDate != null">
+                and t.update_time &gt;= #{task.updateStartDate}
+            </if>
+            <if test="task.updateEndDate != null">
+                and t.update_time &lt;= #{task.updateEndDate}
+            </if>
             <!-- 建筑表条件 -->
             <if test="task.building != null">
                 <if test="task.building.name != null and task.building.name != ''">
@@ -119,6 +125,7 @@
                 </if>
             </if>
         </where>
+        ORDER BY t.update_time DESC
     </select>
 
     <select id="selectTaskById" parameterType="Long" resultMap="TaskResult">

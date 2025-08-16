@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.util.List;
+import java.util.Date;
 
 /**
  * @author QiXin
@@ -43,4 +44,7 @@ public class Task extends BaseEntity {
 
     /** 1 已提交  0 未提交 */
     private Integer type;
+
+    private Date updateStartDate;
+    private Date updateEndDate;
 }

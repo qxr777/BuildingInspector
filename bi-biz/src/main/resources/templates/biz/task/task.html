@@ -50,10 +50,10 @@
                             </select>
                         </li>
                         <li class="select-time">
-                            <label>项目日期： </label>
-                            <input type="text" class="time-input" id="startTime" placeholder="开始日期" name="project.startDate"/>
+                            <label>更新日期： </label>
+                            <input type="text" class="time-input" id="startTime" placeholder="开始日期" name="updateStartDate"/>
                             <span>-</span>
-                            <input type="text" class="time-input" id="endTime" placeholder="结束日期" name="project.endDate"/>
+                            <input type="text" class="time-input" id="endTime" placeholder="结束日期" name="updateEndDate"/>
                         </li>
                         <li>
                             <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
@@ -154,10 +154,10 @@
                     }
                 },
                 {
-                    field: 'createTime',
-                    title: '创建时间',
+                    field: 'updateTime',
+                    title: '更新时间',
                     formatter: function(value) {
-                        return value ? $.common.dateFormat(value) : '-';
+                        return value ? $.common.dateFormat(value, 'yyyy-MM-dd HH:mm:ss') : '-';
                     }
                 },
                 {
