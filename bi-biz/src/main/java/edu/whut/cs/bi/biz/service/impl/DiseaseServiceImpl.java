@@ -500,7 +500,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         if (old.getDiseaseTypeId().equals(disease.getDiseaseTypeId())) {
             DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
             if (!diseaseType.getName().equals("其他")) {
-                disease.setType(diseaseType.getName());
+                disease.setType(diseaseType.getCode() + "#" +diseaseType.getName());
             }
         }
 
@@ -509,7 +509,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         // 更新部件信息
         Component component = componentService.selectComponentById(disease.getComponentId());
         if (disease.getBiObjectName() != null || !disease.getBiObjectName().equals("")) {
-            component.setName(disease.getBiObjectName() + "#" + disease.getComponent().getCode());
+            component.setName(disease.getComponent().getCode() + "#" + disease.getBiObjectName());
         }
         component.setCode(disease.getComponent().getCode());
         component.setUpdateTime(DateUtils.getNowDate());
