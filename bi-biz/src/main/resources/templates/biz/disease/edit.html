@@ -193,23 +193,7 @@
         </div>
         <h4 class="form-header h4">病害定性数据</h4>
         <div class="row mb-4" style="margin-top: 20px">
-            <div class="col-sm-4">
-                <div class="form-group" style="margin-top: 20px">
-                    <label class="col-sm-5 control-label is-required"
-                    >病害描述(性质、范围、程度等）：</label
-                    >
-                    <div class="col-sm-7">
-                        <input
-                                class="form-control"
-                                name="description"
-                                id="description"
-                                required
-                                placeholder="请输入病害描述"
-                                th:field="*{description}"
-                        />
-                    </div>
-                </div>
-            </div>
+
             <div class="col-sm-3">
                 <div class="form-group" style="margin-top: 20px">
                     <label class="col-sm-5 control-label is-required"
@@ -234,9 +218,7 @@
             </div>
             <div class="col-sm-3">
                 <div class="form-group" style="margin-top: 20px">
-                    <label class="col-sm-5 control-label is-required"
-                    >病害性质：</label
-                    >
+                    <label class="col-sm-5 control-label is-required">病害性质：</label>
                     <div class="col-sm-7">
                         <select
                                 class="form-control no-select2"
@@ -253,9 +235,7 @@
             </div>
             <div class="col-sm-2" th:if="${biObject.name != '其他'}">
                 <div class="form-group" style="margin-top: 20px">
-                    <label class="col-sm-5 control-label is-required"
-                    >参与评定：</label
-                    >
+                    <label class="col-sm-5 control-label is-required">参与评定：</label>
                     <div class="col-sm-7">
                         <div class="btn-group" data-toggle="buttons">
                             <label
@@ -292,9 +272,7 @@
         <div class="row mb-4" style="margin-top: 20px">
             <div class="col-sm-4" th:if="${biObject.name != '其他'}">
                 <div class="form-group" style="margin-top: 20px">
-                    <label class="col-sm-5 control-label is-required"
-                    >评定标度：</label
-                    >
+                    <label class="col-sm-5 control-label is-required">评定标度：</label>
                     <div class="col-sm-7">
                         <div class="btn-group" id="levelGroup" data-toggle="buttons">
                             <!-- 选项将通过JavaScript动态生成 -->
@@ -306,28 +284,35 @@
                 <div class="form-group" style="margin-bottom: 20px">
                     <div class="row">
                         <div class="col-sm-6">
-                            <label class="control-label">最大标度：</label>
-                            <input
-                                    name="maxScale"
-                                    class="form-control"
-                                    type="text"
-                                    id="maxScale"
-                                    th:field="*{diseaseType.maxScale}"
-                                    readonly
-                            />
+                            <label class="col-sm-5 control-label is-required">最大标度：</label>
+                            <div class="col-sm-7">
+                              <input name="maxScale" class="form-control" type="text" id="maxScale" th:field="*{diseaseType.maxScale}" readonly/>
+                            </div>
                         </div>
                         <div class="col-sm-6">
-                            <label class="control-label">构件扣分：</label>
-                            <input
-                                    name="deductPoints"
-                                    class="form-control"
-                                    type="text"
-                                    id="deductPoints"
-                                    th:field="*{deductPoints}"
-                                    readonly
-                            />
+                            <label class="col-sm-5 control-label is-required">构件扣分：</label>
+                            <div class="col-sm-7">
+                                <input name="deductPoints" class="form-control" type="text" id="deductPoints" th:field="*{deductPoints}" readonly/>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="control-label is-required">病害描述(性质、范围、程度等）：</label>
+                    <textarea
+                            name="description"
+                            id="description"
+                            required
+                            placeholder="请输入病害描述"
+                            maxlength="500"
+                            class="form-control"
+                            rows="3"
+                            th:field="*{description}"
+                    ></textarea>
                 </div>
             </div>
         </div>
