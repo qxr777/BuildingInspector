@@ -50,7 +50,10 @@ public class BuildingController extends BaseController {
 
     @RequiresPermissions("biz:building:view")
     @GetMapping()
-    public String building() {
+    public String building(@RequestParam(value = "name", required = false) String name, ModelMap mmap) {
+        if (name != null) {
+            mmap.put("name", name);
+        }
         return prefix + "/building";
     }
 

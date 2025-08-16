@@ -123,7 +123,10 @@
                 },
                 {
                     field: 'building.name',
-                    title: '桥梁名称'
+                    title: '桥梁名称',
+                    formatter: function(value, row, index) {
+                        return '<a href="javascript:void(0)" onclick="openBuildingList(\'' + value + '\')">' + value + '</a>';
+                    }
                 },
                 {
                     field: 'building.area',
@@ -217,6 +220,13 @@
             }
         });
     }
+
+    function openBuildingList(buildingName) {
+        // 通过URL参数传递桥梁名称
+        var url = ctx + "biz/building?name=" + encodeURIComponent(buildingName);
+        $.modal.openTab("桥梁建筑管理", url);
+    }
+
 </script>
 </body>
 </html>

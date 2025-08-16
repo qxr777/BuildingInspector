@@ -159,6 +159,14 @@
         };
         $.table.init(options);
 
+        // 检查是否有传递的名称参数，如果有则自动填入搜索框并执行搜索
+        var urlParams = new URLSearchParams(window.location.search);
+        var buildingName = urlParams.get('name');
+        if (buildingName) {
+            $('#formId input[name="name"]').val(buildingName);
+            $.table.search();
+        }
+
         // 重写删除方法，处理多选删除
         table.set('operateDelete', function(obj) {
             var ids = $.common.isEmpty(table.options.uniqueId) ? $.table.selectFirstColumns() : $.table.selectColumns(table.options.uniqueId);
