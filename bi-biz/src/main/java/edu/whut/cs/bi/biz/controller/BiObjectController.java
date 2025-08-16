@@ -205,7 +205,7 @@ public class BiObjectController extends BaseController {
      * 一键修正权重
      */
     @RequiresPermissions("biz:object:edit")
-    @Log(title = "对象管理", businessType = BusinessType.UPDATE)
+    @Log(title = "修正权重", businessType = BusinessType.UPDATE)
     @PostMapping("/correctWeights")
     @ResponseBody
     public AjaxResult correctWeights(Long rootObjectId) {
