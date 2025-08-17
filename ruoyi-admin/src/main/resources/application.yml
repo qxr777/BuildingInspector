@@ -148,8 +148,8 @@ swagger:
   enabled: true
 
 minio:
-#    endpoint: http://biminio:9000          #使用容器名称，走Docker内网
-    endpoint: http://59.110.81.142:9000  #最新的 公网地址
+    endpoint: http://biminio:9000          #使用容器名称，走Docker内网
+#    endpoint: http://59.110.81.142:9000  #最新的 公网地址
 #    endpoint: http://localhost:9000      # 本地地址，在容器内不可用
   #  access-key: admin
   #  secret-key: admin123      密码 和 milvus默认配置 冲突,更改后 对原有操作无影响

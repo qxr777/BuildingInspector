@@ -10,6 +10,7 @@ import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.DiseaseServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.TaskServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,9 @@ import javax.annotation.Resource;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -29,6 +32,7 @@ import java.util.zip.ZipInputStream;
  * @Date:2025/7/11 08:54
  * @Description:
  **/
+@Slf4j
 @Service
 public class ApiServiceImpl implements ApiService {
     @Resource
@@ -333,6 +337,24 @@ public class ApiServiceImpl implements ApiService {
 
             return AjaxResult.success("桥梁数据上传成功");
         } catch (Exception e) {
+            try {
+                // 确保目录存在
+                Path errorZipDir = Paths.get("logs", "sys-error-zips");
+                Files.createDirectories(errorZipDir);
+
+                // 构造文件名：时间戳 + 原始文件名
+                String timeSuffix = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+                String safeFileName = (file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.zip");
+                Path errorZipPath = errorZipDir.resolve(timeSuffix + "_" + safeFileName);
+
+                // 保存原始压缩包
+                Files.copy(file.getInputStream(), errorZipPath, StandardCopyOption.REPLACE_EXISTING);
+
+                // 记录日志
+                log.error("处理上传文件失败，压缩包已保存到: {}", errorZipPath, e);
+            } catch (IOException ioEx) {
+                log.error("保存异常压缩包失败", ioEx);
+            }
             return AjaxResult.error("处理上传文件失败：" + e.getMessage());
         } finally {
             // 清理临时文件
