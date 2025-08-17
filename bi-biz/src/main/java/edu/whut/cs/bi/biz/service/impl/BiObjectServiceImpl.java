@@ -565,7 +565,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
      */
     private void collectNodesToUpdate(BiObject biObject, List<BiObject> nodesToUpdate, List<BiObject> photos) {
         // 只有数量的才会添加当前节点
-        if (biObject.getCount() != 0) {
+        if (biObject.getCount() != null && biObject.getCount() != 0) {
             nodesToUpdate.add(biObject);
         }
         // 照片添加当前节点
