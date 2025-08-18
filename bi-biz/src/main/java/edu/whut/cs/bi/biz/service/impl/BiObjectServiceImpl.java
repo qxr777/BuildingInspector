@@ -111,7 +111,8 @@ public class BiObjectServiceImpl implements IBiObjectService {
         biObject.setUpdateTime(DateUtils.getNowDate());
         biObject.setUpdateBy(ShiroUtils.getLoginName());
         // 处理构件数量变更传播
-        if (!"其他".equals(biObject.getName()) && oldBiObject != null && !biObject.getCount().equals(oldBiObject.getCount())) {
+        if (!"其他".equals(biObject.getName()) && oldBiObject != null && biObject.getCount() != null &&
+                !biObject.getCount().equals(oldBiObject.getCount())) {
             // 计算构件数量变化量
             if (oldBiObject.getCount() == null) {
                 oldBiObject.setCount(0);

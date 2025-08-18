@@ -6,33 +6,36 @@
 <body class="gray-bg">
 <div class="container-div">
     <div class="row">
-        <div class="col-sm-12 search-collapse">
-            <form id="formId">
-                <div class="select-list">
-                    <ul>
-                        <li>
-                            <label>名称：</label>
-                            <input type="text" name="name"/>
-                        </li>
-                        <li>
-                            <label>状态：</label>
-                            <select name="status" th:with="type=${@dict.getType('bi_object_status')}">
-                                <option value="">所有</option>
-                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
-                            </select>
-                        </li>
-                        <li>
-                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.treeTable.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
-                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
-                        </li>
-                    </ul>
-                </div>
-            </form>
-        </div>
+<!--        <div class="col-sm-12 search-collapse">-->
+<!--            <form id="formId">-->
+<!--                <div class="select-list">-->
+<!--                    <ul>-->
+<!--                        <li>-->
+<!--                            <label>名称：</label>-->
+<!--                            <input type="text" name="name"/>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <label>状态：</label>-->
+<!--                            <select name="status" th:with="type=${@dict.getType('bi_object_status')}">-->
+<!--                                <option value="">所有</option>-->
+<!--                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>-->
+<!--                            </select>-->
+<!--                        </li>-->
+<!--                        <li>-->
+<!--                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.treeTable.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>-->
+<!--                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>-->
+<!--                        </li>-->
+<!--                    </ul>-->
+<!--                </div>-->
+<!--            </form>-->
+<!--        </div>-->
 
         <div class="btn-group-sm" id="toolbar" role="group">
             <a class="btn btn-success" onclick="correctWeights()" shiro:hasPermission="biz:object:edit">
                 <i class="fa fa-wrench"></i> 一键修正权重
+            </a>
+            <a class="btn btn-primary" id="lockBtn" onclick="toggleLock()" shiro:hasPermission="biz:object:edit">
+                <i id="lockIcon" class="fa fa-lock"></i> <span id="lockText">锁定</span>
             </a>
             <a class="btn btn-info" id="expandAllBtn">
                 <i class="fa fa-exchange"></i> 展开/折叠
@@ -83,6 +86,9 @@
                         });
                     });
                 }, 500);
+
+                // 初始化锁定按钮状态
+                updateLockButtonStatus();
             },
             columns: [{
                 field: 'selectItem',
@@ -250,6 +256,65 @@
                 },
                 error: function() {
                     // 发生错误时也关闭加载状态
+                    $.modal.closeLoading(index);
+                    $.modal.alertError("操作失败，请稍后重试");
+                }
+            });
+        });
+    }
+
+    // 更新锁定按钮状态
+    function updateLockButtonStatus() {
+        $.ajax({
+            type: "get",
+            url: prefix + "/getStatus/" + rootObjectId,
+            success: function(result) {
+                if (result.code == 0) {
+                    var status = result.data;
+                    var isLocked = status === "3";
+                    var lockText = isLocked ? '解锁' : '锁定';
+                    var lockIconClass = isLocked ? 'fa-unlock' : 'fa-lock';
+                    $('#lockText').text(lockText);
+                    $('#lockIcon').attr('class', 'fa ' + lockIconClass);
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            },
+            error: function() {
+                $.modal.alertError("获取对象状态失败");
+            }
+        });
+    }
+
+    // 锁定/解锁对象
+    function toggleLock() {
+        var lockText = $('#lockText').text();
+        var isCurrentlyLocked = lockText === '解锁'; // 如果按钮显示"解锁"，说明当前是锁定状态
+        var actionText = isCurrentlyLocked ? "解锁" : "锁定";
+        var newStatus = isCurrentlyLocked ? "0" : "3"; // 如果当前锁定，则改为1；否则改为3
+
+        $.modal.confirm("确认要" + actionText + "结构信息吗？", function() {
+            var index = $.modal.loading("正在" + actionText + "中，请稍候...");
+
+            $.ajax({
+                type: "post",
+                url: prefix + "/edit",
+                data: {
+                    "id": rootObjectId,
+                    "status": newStatus
+                },
+                success: function(result) {
+                    $.modal.closeLoading(index);
+                    if (result.code == 0) {
+                        $.modal.alertSuccess("操作成功");
+                        updateLockButtonStatus();
+                        // 刷新表格，显示最新状态
+                        $.treeTable.refresh();
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                },
+                error: function() {
                     $.modal.closeLoading(index);
                     $.modal.alertError("操作失败，请稍后重试");
                 }

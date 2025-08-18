@@ -214,4 +214,22 @@ public class BiObjectController extends BaseController {
         }
         return toAjax(biObjectService.correctAllWeights(rootObjectId));
     }
+
+    /**
+     * 获取对象状态
+     */
+    @GetMapping("/getStatus/{id}")
+    @ResponseBody
+    public AjaxResult getStatus(@PathVariable("id") Long id) {
+        if (id == null) {
+            return AjaxResult.error("参数不能为空");
+        }
+
+        BiObject biObject = biObjectService.selectBiObjectById(id);
+        if (biObject == null) {
+            return AjaxResult.error("未找到指定对象");
+        }
+
+        return AjaxResult.success("获取成功", biObject.getStatus());
+    }
 }

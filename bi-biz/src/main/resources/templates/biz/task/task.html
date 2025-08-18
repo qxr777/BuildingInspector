@@ -191,22 +191,44 @@
     }
 
     function doEvaluate(taskId, rootObjectId, buildingName) {
-        $.modal.loading("正在计算评定结果，请稍候...");
+        // 先检查根节点对象的状态
         $.ajax({
             type: "GET",
-            url: evaluationPrefix + "/calculate/" + taskId + "/" + rootObjectId,
+            url: ctx + "biz/biobject/getStatus/" + rootObjectId,
             success: function(result) {
-                $.modal.closeLoading();
                 if (result.code == 0) {
-                    var url = evaluationPrefix + "/detail/" + taskId + "?buildingName=" + encodeURIComponent(buildingName);
-                    $.modal.openTab("技术状况评定", url);
+                    var status = result.data;
+                    if (status == "3") {
+                        // 状态为3，继续原来的评定流程
+                        $.modal.loading("正在计算评定结果，请稍候...");
+                        $.ajax({
+                            type: "GET",
+                            url: evaluationPrefix + "/calculate/" + taskId + "/" + rootObjectId,
+                            success: function(result) {
+                                $.modal.closeLoading();
+                                if (result.code == 0) {
+                                    var url = evaluationPrefix + "/detail/" + taskId + "?buildingName=" + encodeURIComponent(buildingName);
+                                    $.modal.openTab("技术状况评定", url);
+                                } else {
+                                    $.modal.alertError(result.msg);
+                                }
+                            },
+                            error: function() {
+                                $.modal.closeLoading();
+                                $.modal.alertError("系统错误");
+                            }
+                        });
+                    } else {
+                        // 状态不是3，跳转到object.html页面
+                        var url = ctx + "biz/biobject?rootObjectId=" + rootObjectId;
+                        $.modal.openTab("部件维护", url);
+                    }
                 } else {
-                    $.modal.alertError(result.msg);
+                    $.modal.alertError(result.msg || "获取对象状态失败");
                 }
             },
             error: function() {
-                $.modal.closeLoading();
-                $.modal.alertError("系统错误");
+                $.modal.alertError("获取对象状态失败");
             }
         });
     }
