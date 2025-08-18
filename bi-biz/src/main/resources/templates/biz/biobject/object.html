@@ -31,11 +31,11 @@
         </div>
 
         <div class="btn-group-sm" id="toolbar" role="group">
-            <a class="btn btn-success" onclick="correctWeights()" shiro:hasPermission="biz:object:edit">
-                <i class="fa fa-wrench"></i> 一键修正权重
-            </a>
             <a class="btn btn-primary" id="lockBtn" onclick="toggleLock()" shiro:hasPermission="biz:object:edit">
                 <i id="lockIcon" class="fa fa-lock"></i> <span id="lockText">锁定</span>
+            </a>
+            <a class="btn btn-success" id="correctWeightsBtn" onclick="correctWeights()" shiro:hasPermission="biz:object:edit">
+                <i class="fa fa-wrench"></i> 一键修正权重
             </a>
             <a class="btn btn-info" id="expandAllBtn">
                 <i class="fa fa-exchange"></i> 展开/折叠
@@ -283,6 +283,8 @@
             success: function(result) {
                 if (result.code == 0) {
                     rootObjectStatus = result.data;
+                    // 立即更新按钮状态
+                    updateLockButtonStatus();
                 }
             }
         });
@@ -296,6 +298,15 @@
         var lockIconClass = isLocked ? 'fa-unlock' : 'fa-lock';
         $('#lockText').text(lockText);
         $('#lockIcon').attr('class', 'fa ' + lockIconClass);
+
+        // 根据锁定状态更新一键修正权重按钮
+        if (isLocked) {
+            // 锁定状态，禁用一键修正权重按钮
+            $('#correctWeightsBtn').addClass('disabled').attr('onclick', '');
+        } else {
+            // 非锁定状态，启用一键修正权重按钮
+            $('#correctWeightsBtn').removeClass('disabled').attr('onclick', 'correctWeights()');
+        }
     }
 
     // 锁定/解锁对象
@@ -303,7 +314,7 @@
         var lockText = $('#lockText').text();
         var isCurrentlyLocked = lockText === '解锁'; // 如果按钮显示"解锁"，说明当前是锁定状态
         var actionText = isCurrentlyLocked ? "解锁" : "锁定";
-        var newStatus = isCurrentlyLocked ? "0" : "3"; // 如果当前锁定，则改为0；否则改为3
+        var newStatus = isCurrentlyLocked ? "0" : "3"; // 如果当前锁定，则改为1；否则改为3
 
         $.modal.confirm("确认要" + actionText + "结构信息吗？", function() {
             var index = $.modal.loading("正在" + actionText + "中，请稍候...");
