@@ -81,6 +81,7 @@ public class ScoreServiceImpl implements IScoreService {
                 queryDisease.setComponentId(component.getId());
                 queryDisease.setParticipateAssess("1");
                 queryDisease.setProjectId(projectId);
+                queryDisease.setBiObjectId(component.getBiObjectId());
                 List<Disease> diseases = diseaseMapper.selectDiseaseList(queryDisease);;
                 // 只处理有病害记录的构件
                 if (diseases != null && !diseases.isEmpty()) {
