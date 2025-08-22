@@ -162,7 +162,7 @@ public class ConditionServiceImpl implements IConditionService {
         }
 
         // 如果构件中有得分低于60分的，部件得分取最低分
-        if (lowestScore.compareTo(new BigDecimal("60")) < 0 || componentsCount == 1) {
+        if (lowestScore.compareTo(new BigDecimal("40")) < 0 || componentsCount == 1) {
             condition.setScore(lowestScore);
         } else {
             int fullScore = 100 * (componentsCount - scores.size());

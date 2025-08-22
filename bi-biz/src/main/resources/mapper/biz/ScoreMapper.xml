@@ -104,4 +104,17 @@
             #{id}
         </foreach>
     </delete>
+
+    <delete id="deleteScoreByConditionId" parameterType="Long">
+        delete from bi_score where condition_id = #{conditionId}
+    </delete>
+
+    <insert id="batchInsertScores" parameterType="java.util.List">
+        insert into bi_score (score, component_id, condition_id, create_by, create_time, update_by, update_time, remark)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.score}, #{item.componentId}, #{item.conditionId}, #{item.createBy}, #{item.createTime},
+            #{item.updateBy}, #{item.updateTime}, #{item.remark})
+        </foreach>
+    </insert>
 </mapper>

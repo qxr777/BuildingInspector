@@ -74,6 +74,7 @@ public class ScoreServiceImpl implements IScoreService {
     public List<Score> calculateScore(List<Component> components, Long conditionId,Long projectId) {
         List<Score> allScores = new ArrayList<>();
         if (components != null && !components.isEmpty()) {
+            deleteScoreByConditionId(conditionId);
             List<Score> componentScores = new ArrayList<>();
             for (Component component : components) {
                 // 获取构件的病害记录
@@ -87,7 +88,6 @@ public class ScoreServiceImpl implements IScoreService {
                 if (diseases != null && !diseases.isEmpty()) {
                     Score score = calculateComponentScore(component, diseases, conditionId);
                     if (score != null) {
-                        updateScore(score);
                         componentScores.add(score);
                     }
                 }
@@ -95,6 +95,7 @@ public class ScoreServiceImpl implements IScoreService {
 
             // 如果有构件得分，添加到总列表中
             if (!componentScores.isEmpty()) {
+                batchInsertScores(componentScores);
                 allScores.addAll(componentScores);
             }
         }
@@ -112,11 +113,11 @@ public class ScoreServiceImpl implements IScoreService {
         Map<String, Disease> uniqueDiseaseByType = new HashMap<>();
         for (Disease disease : diseases) {
             String code = disease.getDiseaseType().getCode();
-            int idx = code.lastIndexOf("-");
-            if (idx == -1) {
+            String[] parts = code.split("[.-]");
+            if (parts.length < 4) {
                 throw new RuntimeException("计算失败：部件 " + disease.getComponent().getName() + "病害类型无编号");
             }
-            String result = code.substring(0, code.lastIndexOf("-"));
+            String result = String.join("-", Arrays.copyOfRange(parts, 0, 4));
             Integer maxScale = disease.getDiseaseType().getMaxScale();
             Integer currentLevel = disease.getLevel();
 
@@ -286,4 +287,43 @@ public class ScoreServiceImpl implements IScoreService {
 
         return new BigDecimal(deduction);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteScoreByConditionId(Long conditionId) {
+        if (conditionId == null) {
+            return 0;
+        }
+        return scoreMapper.deleteScoreByConditionId(conditionId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int batchInsertScores(List<Score> scores) {
+        if (scores == null || scores.isEmpty()) {
+            return 0;
+        }
+
+        // 设置创建人和创建时间
+        String createBy = ShiroUtils.getLoginName();
+        Date now = new Date();
+
+        for (Score score : scores) {
+            if (score.getCreateBy() == null) {
+                score.setCreateBy(createBy);
+            }
+            if (score.getCreateTime() == null) {
+                score.setCreateTime(now);
+            }
+            if (score.getUpdateBy() == null) {
+                score.setUpdateBy(createBy);
+            }
+            if (score.getUpdateTime() == null) {
+                score.setUpdateTime(now);
+            }
+        }
+
+        return scoreMapper.batchInsertScores(scores);
+    }
+
 }

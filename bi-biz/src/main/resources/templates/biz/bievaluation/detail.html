@@ -336,15 +336,25 @@
     <div class="sidebar-close" onclick="closeSidebar()">×</div>
     <div class="sidebar-title" id="componentTitle"></div>
     <div id="scoreTable"></div>
+    <div id="scorePagination" class="text-center" style="margin-top: 15px;"></div>
 </div>
 
 <th:block th:include="include :: footer" />
 <script th:inline="javascript">
+    var currentPage = 1;
+    var pageSize = 10;
+    var totalScores = [];
+    var totalPages = 0;
+    var currentConditionId = null;
+    var currentComponentName = null;
+
     $(function() {
         $('.show-scores').on('click', function() {
             var id = $(this).data('id');
             var name = $(this).data('name');
-            showComponentScores(id, name);
+            currentConditionId = id;
+            currentComponentName = name;
+            showComponentScores(id, name, 1);
         });
 
         // 点击遮罩层关闭侧边栏
@@ -353,9 +363,10 @@
         });
     });
 
-    function showComponentScores(conditionId, componentName) {
+    function showComponentScores(conditionId, componentName, page) {
         var prefix = ctx + "biz/bievaluation";
         $("#componentTitle").text(componentName + "构件得分(仅显示扣分项)");
+        currentPage = page || 1;
 
         // 显示遮罩层和侧边栏
         $("#overlay").addClass("active");
@@ -368,27 +379,95 @@
                 conditionId: conditionId
             },
             success: function(result) {
-                var scores = result.rows;
-                var html = '<table class="score-table">' +
-                    '<thead><tr><th>构件编号</th><th>得分</th></tr></thead>' +
-                    '<tbody>';
+                totalScores = result.rows;
+                totalPages = Math.ceil(totalScores.length / pageSize);
 
-                for (var i = 0; i < scores.length; i++) {
-                    html += '<tr>' +
-                        '<td>' + scores[i].component.code + '</td>' +
-                        '<td>' + scores[i].score + '</td>' +
-                        '</tr>';
-                }
-
-                html += '</tbody></table>';
-                $("#scoreTable").html(html);
+                renderScoreTable(currentPage);
+                renderPagination();
             }
         });
+    }
+
+    function renderScoreTable(page) {
+        currentPage = page;
+        var start = (page - 1) * pageSize;
+        var end = Math.min(start + pageSize, totalScores.length);
+        var displayScores = totalScores.slice(start, end);
+
+        var html = '<table class="score-table">' +
+            '<thead><tr><th>构件编号</th><th>得分</th></tr></thead>' +
+            '<tbody>';
+
+        for (var i = 0; i < displayScores.length; i++) {
+            html += '<tr>' +
+                '<td>' + displayScores[i].component.code + '</td>' +
+                '<td>' + displayScores[i].score + '</td>' +
+                '</tr>';
+        }
+
+        html += '</tbody></table>';
+
+        if (totalScores.length === 0) {
+            html = '<div class="text-center">无数据</div>';
+        }
+
+        $("#scoreTable").html(html);
+
+        // 更新分页控件
+        renderPagination();
+    }
+
+    function renderPagination() {
+        var paginationHtml = '';
+
+        // 只有当总页数大于1时才显示分页
+        if (totalPages > 1) {
+            paginationHtml = '<ul class="pagination">';
+
+            // 上一页按钮
+            if (currentPage > 1) {
+                paginationHtml += '<li><a href="javascript:void(0)" onclick="renderScoreTable(' + (currentPage - 1) + ')">&laquo;</a></li>';
+            } else {
+                paginationHtml += '<li class="disabled"><a href="javascript:void(0)">&laquo;</a></li>';
+            }
+
+            // 页码按钮
+            var startPage = Math.max(1, currentPage - 2);
+            var endPage = Math.min(totalPages, startPage + 4);
+
+            // 调整startPage确保显示5个页码
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+
+            for (var i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    paginationHtml += '<li class="active"><a href="javascript:void(0)">' + i + '</a></li>';
+                } else {
+                    paginationHtml += '<li><a href="javascript:void(0)" onclick="renderScoreTable(' + i + ')">' + i + '</a></li>';
+                }
+            }
+
+            // 下一页按钮
+            if (currentPage < totalPages) {
+                paginationHtml += '<li><a href="javascript:void(0)" onclick="renderScoreTable(' + (currentPage + 1) + ')">&raquo;</a></li>';
+            } else {
+                paginationHtml += '<li class="disabled"><a href="javascript:void(0)">&raquo;</a></li>';
+            }
+
+            paginationHtml += '</ul>';
+        }
+
+        $("#scorePagination").html(paginationHtml);
     }
 
     function closeSidebar() {
         $("#overlay").removeClass("active");
         $("#scoreSidebar").removeClass("active");
+        // 重置分页状态
+        currentPage = 1;
+        totalScores = [];
+        totalPages = 0;
     }
 </script>
 </body>

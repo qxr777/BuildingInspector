@@ -73,4 +73,20 @@ public interface IScoreService {
      * @return 构件得分
      */
     public List<Score> calculateScore(List<Component> components, Long conditionId,Long projectId);
+
+    /**
+     * 根据条件ID删除所有关联的构件得分
+     *
+     * @param conditionId 条件ID
+     * @return 结果
+     */
+    public int deleteScoreByConditionId(Long conditionId);
+
+    /**
+     * 批量新增构件得分
+     *
+     * @param scores 构件得分列表
+     * @return 结果
+     */
+    public int batchInsertScores(List<Score> scores);
 }
