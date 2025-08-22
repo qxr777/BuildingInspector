@@ -142,8 +142,8 @@ public class ConditionServiceImpl implements IConditionService {
         if (count == null || count <= 0) {
             throw new RuntimeException("计算失败：部件 " + biObject.getName() + " 构件数量为0");
         }
-
         int componentsCount = count;
+        condition.setComponentsCount(componentsCount);
 
         // 4. 计算部件得分
         BigDecimal totalScore = BigDecimal.ZERO;
