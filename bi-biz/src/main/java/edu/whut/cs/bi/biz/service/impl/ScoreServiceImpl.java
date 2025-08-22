@@ -109,9 +109,14 @@ public class ScoreServiceImpl implements IScoreService {
         BigDecimal finalScore = new BigDecimal("100");
 
         // 1. 按照病害类型分组，每组只保留扣分最大的一条记录
-        Map<Long, Disease> uniqueDiseaseByType = new HashMap<>();
+        Map<String, Disease> uniqueDiseaseByType = new HashMap<>();
         for (Disease disease : diseases) {
-            Long diseaseTypeId = disease.getDiseaseTypeId();
+            String code = disease.getDiseaseType().getCode();
+            int idx = code.lastIndexOf("-");
+            if (idx == -1) {
+                throw new RuntimeException("计算失败：部件 " + disease.getComponent().getName() + "病害类型无编号");
+            }
+            String result = code.substring(0, code.lastIndexOf("-"));
             Integer maxScale = disease.getDiseaseType().getMaxScale();
             Integer currentLevel = disease.getLevel();
 
@@ -119,19 +124,19 @@ public class ScoreServiceImpl implements IScoreService {
             BigDecimal deduction = getDeductionValue(maxScale, currentLevel);
 
             // 如果该类型已存在，比较扣分值，保留扣分最大的
-            if (uniqueDiseaseByType.containsKey(diseaseTypeId)) {
-                Disease existingDisease = uniqueDiseaseByType.get(diseaseTypeId);
+            if (uniqueDiseaseByType.containsKey(result)) {
+                Disease existingDisease = uniqueDiseaseByType.get(result);
                 Integer existingMaxScale = existingDisease.getDiseaseType().getMaxScale();
                 Integer existingLevel = existingDisease.getLevel();
                 BigDecimal existingDeduction = getDeductionValue(existingMaxScale, existingLevel);
 
                 // 只有当新病害扣分更大时才替换
                 if (deduction.compareTo(existingDeduction) > 0) {
-                    uniqueDiseaseByType.put(diseaseTypeId, disease);
+                    uniqueDiseaseByType.put(result, disease);
                 }
             } else {
                 // 该类型首次出现，直接添加
-                uniqueDiseaseByType.put(diseaseTypeId, disease);
+                uniqueDiseaseByType.put(result, disease);
             }
         }
 

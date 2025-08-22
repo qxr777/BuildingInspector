@@ -1523,12 +1523,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             // 建立构件名称与ID的映射关系
             for (Component component : components) {
                 BiObject biObject = component.getBiObject();
-                String root = "";
-                if (biObject != null && StringUtils.isNotEmpty(biObject.getAncestors())) {
-                    String[] split = biObject.getAncestors().split(",");
-                    root = split[1];
-                }
-                componentMap.put(component.getName() + root, component.getId());
+                componentMap.put(component.getName() + biObject.getId(), component.getId());
             }
         }
 
@@ -1593,7 +1588,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 Component component = disease.getComponent();
                 component.setCreateBy(ShiroUtils.getLoginName());
                 component.setUpdateBy(ShiroUtils.getLoginName());
-                String root = component.getBiObject().getAncestors().split(",")[1];
+                Long root = component.getBiObject().getId();
 
                 // 判断是否需要新增构件
                 if (disease.getComponent() != null && disease.getComponent().getName() != null && disease.getComponentId() == null && !componentMap.containsKey(component.getName() + root)) {
