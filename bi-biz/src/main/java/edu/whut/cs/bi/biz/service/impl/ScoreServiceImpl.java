@@ -113,11 +113,20 @@ public class ScoreServiceImpl implements IScoreService {
         Map<String, Disease> uniqueDiseaseByType = new HashMap<>();
         for (Disease disease : diseases) {
             String code = disease.getDiseaseType().getCode();
-            String[] parts = code.split("[.-]");
-            if (parts.length < 4) {
-                throw new RuntimeException("计算失败：部件 " + disease.getComponent().getName() + "病害类型无编号");
+            String result;
+            if (code == null || code.isEmpty()) {
+                result = "";
+            } else {
+                String[] parts = code.split("[.-]");
+                if (parts.length == 0) {
+                    result = code;
+                } else if (parts.length < 4) {
+                    result = String.join("-", Arrays.copyOfRange(parts, 0, parts.length));;
+                } else {
+                    result = String.join("-", Arrays.copyOfRange(parts, 0, 4));
+                }
             }
-            String result = String.join("-", Arrays.copyOfRange(parts, 0, 4));
+
             Integer maxScale = disease.getDiseaseType().getMaxScale();
             Integer currentLevel = disease.getLevel();
 
