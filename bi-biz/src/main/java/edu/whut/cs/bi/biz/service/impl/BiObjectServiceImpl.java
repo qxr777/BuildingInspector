@@ -28,6 +28,11 @@ import edu.whut.cs.bi.biz.service.IBiObjectService;
 import com.ruoyi.common.core.text.Convert;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import edu.whut.cs.bi.biz.domain.Component;
+import edu.whut.cs.bi.biz.mapper.ComponentMapper;
+import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
@@ -37,6 +42,7 @@ import org.springframework.web.multipart.MultipartFile;
  * @date 2025-03-27
  */
 @Service
+@Slf4j
 public class BiObjectServiceImpl implements IBiObjectService {
     @Autowired
     private BiObjectMapper biObjectMapper;
@@ -52,6 +58,12 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
     @Autowired
     private FileMapServiceImpl fileMapServiceImpl;
+
+    @Autowired
+    private ComponentMapper componentMapper;
+
+    @Autowired
+    private DiseaseMapper diseaseMapper;
 
     /**
      * 查询对象
@@ -708,4 +720,381 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
         return updateCount;
     }
+
+    /**
+     * 重新分配"其他"节点的构件到正确的节点
+     *
+     * @param rootObjectId 根对象ID
+     * @return 更新的构件数量
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int reassignComponentsFromOthers(Long rootObjectId) {
+        log.info("开始重新分配构件，根节点ID: {}", rootObjectId);
+        int updatedCount = 0;
+
+        // 1. 获取所有非叶子节点
+        List<BiObject> allNodes = biObjectMapper.selectChildrenByIdRemoveLeaf(rootObjectId);
+        if (allNodes == null || allNodes.isEmpty()) {
+            log.info("未找到任何节点，根节点ID: {}", rootObjectId);
+            return 0;
+        }
+        log.info("获取到 {} 个非叶子节点", allNodes.size());
+
+        // 2. 筛选出第三层和第四层节点
+        List<BiObject> thirdLevelNodes = allNodes.stream()
+                .filter(node -> {
+                    String[] ancestors = node.getAncestors().split(",");
+                    return ancestors.length == 3; // 第三层节点的祖先数量为3（0,x,x）
+                })
+                .toList();
+
+        List<BiObject> fourthLevelNodes = allNodes.stream()
+                .filter(node -> {
+                    String[] ancestors = node.getAncestors().split(",");
+                    return ancestors.length == 4; // 第四层节点的祖先数量为4（0,x,x,x）
+                })
+                .toList();
+
+        log.info("获取到 {} 个第三层节点, {} 个第四层节点", thirdLevelNodes.size(), fourthLevelNodes.size());
+
+        if (fourthLevelNodes.isEmpty()) {
+            log.info("未找到任何第四层节点，无法进行重新分配");
+            return 0;
+        }
+
+        // 3. 处理第四层的"其他"节点
+        int fourthLevelUpdated = reassignComponentsFromFourthLevelOthers(fourthLevelNodes);
+        log.info("从第四层'其他'节点重新分配了 {} 个构件", fourthLevelUpdated);
+        updatedCount += fourthLevelUpdated;
+
+        // 4. 处理第三层的所有节点
+        int thirdLevelUpdated = reassignComponentsFromThirdLevel(thirdLevelNodes, fourthLevelNodes);
+        log.info("从第三层节点重新分配到第四层的构件数: {}", thirdLevelUpdated);
+        updatedCount += thirdLevelUpdated;
+
+        log.info("重新分配构件完成，共更新 {} 个构件", updatedCount);
+        return updatedCount;
+    }
+
+    /**
+     * 重新分配第四层"其他"节点的构件到正确的节点
+     *
+     * @param fourthLevelNodes 第四层节点列表
+     * @return 更新的构件数量
+     */
+    private int reassignComponentsFromFourthLevelOthers(List<BiObject> fourthLevelNodes) {
+        log.info("开始处理第四层'其他'节点的构件");
+        int updatedCount = 0;
+
+        // 1. 找出名称为"其他"的节点
+        List<BiObject> otherNodes = fourthLevelNodes.stream()
+                .filter(node -> "其他".equals(node.getName()))
+                .toList();
+
+        if (otherNodes.isEmpty()) {
+            log.info("未找到任何名称为'其他'的第四层节点");
+            return 0;
+        }
+        log.info("获取到 {} 个名称为'其他'的第四层节点", otherNodes.size());
+
+        // 2. 获取所有"其他"节点的ID列表
+        List<Long> otherNodeIds = otherNodes.stream()
+                .map(BiObject::getId)
+                .toList();
+
+        // 3. 查询这些"其他"节点关联的Component
+        List<Component> componentsToReassign = new ArrayList<>();
+        for (Long nodeId : otherNodeIds) {
+            List<Component> components = componentMapper.selectComponentsByBiObjectId(nodeId);
+            if (components != null && !components.isEmpty()) {
+                componentsToReassign.addAll(components);
+            }
+        }
+
+        if (componentsToReassign.isEmpty()) {
+            log.info("未找到任何需要从第四层'其他'节点重新分配的构件");
+            return 0;
+        }
+        log.info("获取到 {} 个需要从第四层'其他'节点重新分配的构件", componentsToReassign.size());
+
+        // 4. 为每个Component找到正确的BiObject并更新，同时更新关联的Disease
+        updatedCount += reassignComponents(componentsToReassign, fourthLevelNodes, "第四层'其他'节点");
+
+        return updatedCount;
+    }
+
+    /**
+     * 重新分配第三层节点的构件到第四层正确的节点
+     *
+     * @param thirdLevelNodes 第三层节点列表
+     * @param fourthLevelNodes 第四层节点列表
+     * @return 更新的构件数量
+     */
+    private int reassignComponentsFromThirdLevel(List<BiObject> thirdLevelNodes, List<BiObject> fourthLevelNodes) {
+        log.info("开始处理第三层节点的构件");
+        int updatedCount = 0;
+
+        if (thirdLevelNodes.isEmpty()) {
+            log.info("未找到任何第三层节点");
+            return 0;
+        }
+
+        // 1. 获取所有第三层节点的ID列表
+        List<Long> thirdLevelNodeIds = thirdLevelNodes.stream()
+                .map(BiObject::getId)
+                .toList();
+
+        // 2. 查询这些第三层节点关联的Component
+        List<Component> componentsToReassign = new ArrayList<>();
+        for (Long nodeId : thirdLevelNodeIds) {
+            List<Component> components = componentMapper.selectComponentsByBiObjectId(nodeId);
+            if (components != null && !components.isEmpty()) {
+                componentsToReassign.addAll(components);
+            }
+        }
+
+        if (componentsToReassign.isEmpty()) {
+            log.info("未找到任何需要从第三层节点重新分配的构件");
+            return 0;
+        }
+        log.info("获取到 {} 个需要从第三层节点重新分配的构件", componentsToReassign.size());
+
+        // 3. 为每个Component找到正确的BiObject并更新，同时更新关联的Disease
+        updatedCount += reassignComponents(componentsToReassign, fourthLevelNodes, "第三层节点");
+
+        return updatedCount;
+    }
+
+    /**
+     * 重新分配构件到正确的节点
+     *
+     * @param componentsToReassign 需要重新分配的构件列表
+     * @param targetNodes 目标节点列表
+     * @param sourceDescription 源节点描述（用于日志）
+     * @return 更新的构件数量
+     */
+    private int reassignComponents(List<Component> componentsToReassign, List<BiObject> targetNodes, String sourceDescription) {
+        int updatedCount = 0;
+        int skippedCount = 0;
+        int diseaseUpdatedCount = 0;
+
+        for (Component component : componentsToReassign) {
+            String componentName = component.getName();
+            if (componentName == null || componentName.isEmpty()) {
+                log.info("跳过构件ID: {}，原因: 构件名称为空", component.getId());
+                skippedCount++;
+                continue;
+            }
+
+            // 提取关键部分
+            String keyPart = extractKeyPart(componentName);
+            if (keyPart == null || keyPart.isEmpty()) {
+                log.info("跳过构件ID: {}，名称: {}，原因: 无法提取关键部分", component.getId(), componentName);
+                skippedCount++;
+                continue;
+            }
+
+            // 在目标节点中查找匹配的BiObject
+            BiObject targetBiObject = findMatchingBiObject(targetNodes, keyPart);
+            if (targetBiObject != null && !targetBiObject.getId().equals(component.getBiObjectId())) {
+                log.info("构件ID: {}，名称: {}，找到匹配的BiObject ID: {}, 名称: {}",
+                        component.getId(), componentName, targetBiObject.getId(), targetBiObject.getName());
+
+                // 检查目标BiObject下是否已经存在同名的Component
+                boolean hasDuplicateComponent = checkDuplicateComponentName(targetBiObject.getId(), componentName);
+
+                // 如果存在同名Component，则跳过当前Component的重新分配
+                if (hasDuplicateComponent) {
+                    log.info("跳过构件ID: {}，名称: {}，原因: 目标BiObject ID: {} 下已存在同名构件",
+                            component.getId(), componentName, targetBiObject.getId());
+
+                    // 虽然不更新Component，但仍需更新关联的Disease的biObjectId和componentId
+                    Long oldBiObjectId = component.getBiObjectId();
+
+                    // 查询目标BiObject下的同名Component
+                    Component targetComponent = findTargetComponent(targetBiObject.getId(), componentName);
+                    if (targetComponent == null) {
+                        log.info("无法找到目标BiObject下的同名Component，跳过更新Disease");
+                        skippedCount++;
+                        continue;
+                    }
+
+                    // 查询与该Component关联的所有Disease
+                    Disease diseaseQuery = new Disease();
+                    diseaseQuery.setComponentId(component.getId());
+                    List<Disease> relatedDiseases = diseaseMapper.selectDiseaseList(diseaseQuery);
+
+                    // 更新Disease的BiObjectId和ComponentId
+                    if (relatedDiseases != null && !relatedDiseases.isEmpty()) {
+                        log.info("构件ID: {} 存在同名构件，更新其关联的 {} 个病害记录的BiObjectId和ComponentId",
+                                component.getId(), relatedDiseases.size());
+                        int updatedDiseases = 0;
+
+                        for (Disease disease : relatedDiseases) {
+                            // 只更新那些BiObjectId与旧值匹配的记录
+                            if (disease.getBiObjectId() != null) {
+                                disease.setBiObjectId(targetBiObject.getId());
+                                // 更新ComponentId为目标BiObject下同名Component的ID
+                                disease.setComponentId(targetComponent.getId());
+                                disease.setUpdateTime(DateUtils.getNowDate());
+                                disease.setUpdateBy(ShiroUtils.getLoginName());
+                                diseaseMapper.updateDisease(disease);
+                                updatedDiseases++;
+                                diseaseUpdatedCount++;
+                            }
+                        }
+
+                        log.info("已更新 {} 个病害记录的BiObjectId到目标BiObject ID: {}，ComponentId到目标Component ID: {}",
+                                updatedDiseases, targetBiObject.getId(), targetComponent.getId());
+                    }
+
+                    skippedCount++;
+                    continue;
+                }
+
+                // 记录旧的BiObjectId
+                Long oldBiObjectId = component.getBiObjectId();
+
+                // 处理name，如果有括号则去除括号及其内容
+                if (componentName.contains("(")) {
+                    String cleanedName = componentName.substring(0, componentName.indexOf("(")).trim();
+                    component.setName(cleanedName);
+                }
+                // 更新Component的BiObjectId
+                component.setBiObjectId(targetBiObject.getId());
+                component.setUpdateTime(DateUtils.getNowDate());
+                component.setUpdateBy(ShiroUtils.getLoginName());
+                componentMapper.updateComponent(component);
+                updatedCount++;
+                log.info("已更新构件ID: {}，名称: {}，从BiObject ID: {} 到 BiObject ID: {}",
+                        component.getId(), componentName, oldBiObjectId, targetBiObject.getId());
+
+                // 查询与该Component关联的所有Disease
+                Disease diseaseQuery = new Disease();
+                diseaseQuery.setComponentId(component.getId());
+                List<Disease> relatedDiseases = diseaseMapper.selectDiseaseList(diseaseQuery);
+
+                // 更新Disease的BiObjectId
+                if (relatedDiseases != null && !relatedDiseases.isEmpty()) {
+                    log.info("构件ID: {} 关联了 {} 个病害记录", component.getId(), relatedDiseases.size());
+                    int updatedDiseases = 0;
+
+                    for (Disease disease : relatedDiseases) {
+                        // 只更新那些BiObjectId与旧值匹配的记录
+                        if (disease.getBiObjectId() != null && disease.getBiObjectId().equals(oldBiObjectId)) {
+                            disease.setBiObjectId(targetBiObject.getId());
+                            disease.setUpdateTime(DateUtils.getNowDate());
+                            disease.setUpdateBy(ShiroUtils.getLoginName());
+                            diseaseMapper.updateDisease(disease);
+                            updatedDiseases++;
+                            diseaseUpdatedCount++;
+                        }
+                    }
+
+                    log.info("已更新 {} 个病害记录的BiObjectId", updatedDiseases);
+                } else {
+                    log.info("构件ID: {} 没有关联的病害记录", component.getId());
+                }
+            } else {
+                if (targetBiObject == null) {
+                    log.info("跳过构件ID: {}，名称: {}，原因: 未找到匹配的BiObject", component.getId(), componentName);
+                } else {
+                    log.info("跳过构件ID: {}，名称: {}，原因: 已关联到正确的BiObject ID: {}",
+                            component.getId(), componentName, component.getBiObjectId());
+                }
+                skippedCount++;
+            }
+        }
+
+        log.info("从{}重新分配构件完成: 更新 {} 个构件, 跳过 {} 个构件, 更新 {} 个病害记录",
+                sourceDescription, updatedCount, skippedCount, diseaseUpdatedCount);
+        return updatedCount;
+    }
+
+    /**
+     * 从Component名称中提取关键部分
+     *
+     * @param componentName Component名称
+     * @return 提取的关键部分
+     */
+    private String extractKeyPart(String componentName) {
+        // 如果有#，则提取#后面的内容
+        if (componentName.contains("#")) {
+            String afterHash = componentName.substring(componentName.indexOf("#") + 1);
+
+            // 如果有括号，则只取括号前的部分
+            if (afterHash.contains("(")) {
+                return afterHash.substring(0, afterHash.indexOf("(")).trim();
+            }
+
+            return afterHash.trim();
+        }
+
+        // 提取字符串中的中文部分
+        StringBuilder chineseChars = new StringBuilder();
+        for (char c : componentName.toCharArray()) {
+            // 判断字符是否是中文（Unicode范围：\u4e00-\u9fa5）
+            if (Character.UnicodeBlock.of(c) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS) {
+                chineseChars.append(c);
+            }
+        }
+
+        String result = chineseChars.toString().trim();
+
+        // 如果没有提取到中文，则返回原字符串
+        return result.isEmpty() ? componentName.trim() : result;
+    }
+
+    /**
+     * 在节点列表中查找名称匹配关键部分的BiObject
+     *
+     * @param nodes    节点列表
+     * @param keyPart  关键部分
+     * @return 匹配的BiObject，如果没有找到则返回null
+     */
+    private BiObject findMatchingBiObject(List<BiObject> nodes, String keyPart) {
+        return nodes.stream()
+                .filter(node -> node.getName() != null && node.getName().contains(keyPart))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * 检查指定BiObject下是否已存在同名的Component
+     *
+     * @param biObjectId    BiObject ID
+     * @param componentName 要检查的Component名称
+     * @return 如果存在同名Component则返回true，否则返回false
+     */
+    private boolean checkDuplicateComponentName(Long biObjectId, String componentName) {
+        // 如果有括号，则只取括号前的部分
+        if (componentName.contains("(")) {
+            componentName =  componentName.substring(0, componentName.indexOf("(")).trim();
+        }
+        Component query = new Component();
+        query.setBiObjectId(biObjectId);
+        query.setName(componentName);
+
+        List<Component> existingComponents = componentMapper.selectComponentList(query);
+        return existingComponents != null && !existingComponents.isEmpty();
+    }
+
+    /**
+     * 查找目标BiObject下的同名Component
+     *
+     * @param biObjectId    BiObject ID
+     * @param componentName Component名称
+     * @return 匹配的Component，如果没有找到则返回null
+     */
+    private Component findTargetComponent(Long biObjectId, String componentName) {
+        Component query = new Component();
+        query.setBiObjectId(biObjectId);
+        query.setName(componentName);
+
+        List<Component> components = componentMapper.selectComponentList(query);
+        return components != null && !components.isEmpty() ? components.get(0) : null;
+    }
 }
+
+

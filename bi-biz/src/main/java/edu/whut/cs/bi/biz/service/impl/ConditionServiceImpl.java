@@ -120,19 +120,19 @@ public class ConditionServiceImpl implements IConditionService {
         if (components.size() > 0) {
             scores = scoreService.calculateScore(components, condition.getId(), projectId);
         }
-        if (scores == null || scores.isEmpty()) {
+        if (scores == null || scores.isEmpty() || biObject.getWeight()==null|| biObject.getWeight().compareTo(BigDecimal.ZERO) == 0) {
             // 如果没有构件得分记录，说明没有病害记录，返回满分
             condition.setScore(new BigDecimal("100"));
             condition.setLevel(1);
             // 如果权重为0 则评分直接为0 等级为0
-            if (biObject.getWeight() == null || biObject.getWeight().equals(new BigDecimal("0"))) {
+            if (biObject.getWeight() == null || biObject.getWeight().compareTo(BigDecimal.ZERO) == 0) {
                 condition.setScore(new BigDecimal("0"));
                 condition.setLevel(0);
             }
-
             condition.setComponentsCount(biObject.getCount());
             condition.setUpdateBy(ShiroUtils.getLoginName());
             condition.setUpdateTime(new Date());
+            condition.setComponentsCount(biObject.getCount()==null?0:biObject.getCount());
             updateCondition(condition);
             return condition;
         }
@@ -142,7 +142,6 @@ public class ConditionServiceImpl implements IConditionService {
         if (count == null || count <= 0) {
             throw new RuntimeException("计算失败：部件 " + biObject.getName() + " 构件数量为0");
         }
-
         int componentsCount = count;
         condition.setComponentsCount(componentsCount);
 
@@ -163,7 +162,7 @@ public class ConditionServiceImpl implements IConditionService {
         }
 
         // 如果构件中有得分低于60分的，部件得分取最低分
-        if (lowestScore.compareTo(new BigDecimal("60")) < 0 || componentsCount == 1) {
+        if (lowestScore.compareTo(new BigDecimal("40")) < 0 || componentsCount == 1) {
             condition.setScore(lowestScore);
         } else {
             int fullScore = 100 * (componentsCount - scores.size());

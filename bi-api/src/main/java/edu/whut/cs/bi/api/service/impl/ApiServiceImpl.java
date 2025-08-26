@@ -2,6 +2,7 @@ package edu.whut.cs.bi.api.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.biz.controller.FileMapController;
@@ -68,7 +69,7 @@ public class ApiServiceImpl implements ApiService {
 
         // 检查文件是否为ZIP格式
         if (!file.getOriginalFilename().endsWith(".zip")) {
-            return AjaxResult.error("请上传ZIP格式的文件");
+            throw  new ServiceException("请上传ZIP格式的文件");
         }
 
         Path tempDir = null;
@@ -110,12 +111,12 @@ public class ApiServiceImpl implements ApiService {
 
             // 验证buildingId是否有效
             if (buildingId == null) {
-                return AjaxResult.error("压缩包结构无效：未找到有效的buildingId目录");
+                throw  new ServiceException("压缩包结构无效：未找到有效的buildingId目录");
             }
 
             Building building = buildingService.selectBuildingById(buildingId);
             if (building == null) {
-                return AjaxResult.error("未找到ID为 " + buildingId + " 的建筑物");
+                throw  new ServiceException("未找到ID为 " + buildingId + " 的建筑物");
             }
 
             // 处理桥梁结构数据
@@ -126,7 +127,7 @@ public class ApiServiceImpl implements ApiService {
 
                 // 确保rootObject的ID与数据库中的一致
                 if (!rootObject.getId().equals(building.getRootObjectId())) {
-                    return AjaxResult.error("building与桥梁数据不对应");
+                    throw  new ServiceException("building与桥梁数据不对应");
                 }
                 biObjectService.updateBiObjectTreeRecursively(rootObject, extractedFiles);
             }
@@ -157,12 +158,12 @@ public class ApiServiceImpl implements ApiService {
                         diseases = JSONObject.parseArray(diseaseJson, Disease.class);
                     }
                 } catch (Exception e) {
-                    return AjaxResult.error("病害数据JSON格式错误: " + e.getMessage());
+                    throw  new ServiceException("病害数据JSON格式错误: " + e.getMessage());
                 }
 
                 for (Disease disease : diseases) {
                     if (!disease.getBuildingId().equals(building.getId())) {
-                        return AjaxResult.error("building与病害数据不对应");
+                        throw  new ServiceException("building与病害数据不对应");
                     }
                 }
                 // 批量保存病害数据

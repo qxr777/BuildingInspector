@@ -151,7 +151,6 @@ public class BiEvaluationController extends BaseController {
     @GetMapping("/score/list")
     @ResponseBody
     public TableDataInfo scoreList(@RequestParam("conditionId") Long conditionId) {
-        startPage();
         Score score = new Score();
         score.setConditionId(conditionId);
         List<Score> list = scoreService.selectScoreList(score);

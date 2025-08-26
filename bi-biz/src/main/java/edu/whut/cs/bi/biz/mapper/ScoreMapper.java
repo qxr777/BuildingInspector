@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Score;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -65,4 +66,20 @@ public interface ScoreMapper {
      * @return 结果
      */
     public int deleteScoreByIds(String[] ids);
+
+    /**
+     * 根据条件ID删除所有关联的构件得分
+     *
+     * @param conditionId 条件ID
+     * @return 结果
+     */
+    public int deleteScoreByConditionId(Long conditionId);
+
+    /**
+     * 批量插入构件得分
+     *
+     * @param scores 构件得分列表
+     * @return 结果
+     */
+    public int batchInsertScores(@Param("list") List<Score> scores);
 }

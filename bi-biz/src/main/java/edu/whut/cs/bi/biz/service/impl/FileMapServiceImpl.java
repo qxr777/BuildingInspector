@@ -243,6 +243,7 @@ public class FileMapServiceImpl implements IFileMapService {
 
             return fileMap;
         } catch (Exception e) {
+            log.error("上传到MinIO失败: {}", originalFilename, e);
             throw new RuntimeException("文件上传失败", e);
         } finally {
             // 确保输入流关闭

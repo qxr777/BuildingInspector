@@ -179,4 +179,12 @@ public interface IBiObjectService {
      * @return 更新的记录数
      */
     int correctAllWeights(Long rootObjectId);
+
+    /**
+     * 批量更新对象及其子节点的组件信息
+     *
+     * @param rootObjectId 根对象ID
+     * @return 更新的记录数
+     */
+    int reassignComponentsFromOthers(Long rootObjectId);
 }
