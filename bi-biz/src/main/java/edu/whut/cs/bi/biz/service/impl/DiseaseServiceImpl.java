@@ -448,7 +448,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         if (disease.getType() == null || disease.getType().equals("")) {
             Long diseaseTypeId = disease.getDiseaseTypeId();
             DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(diseaseTypeId);
-            disease.setType(diseaseType.getName());
+            disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
         }
 
         // 新增部件

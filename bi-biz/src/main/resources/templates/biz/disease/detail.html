@@ -1,400 +1,2172 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <th:block th:include="include :: header('病害信息详情')"/>
+    <th:block th:include="include :: header('病害详情信息')"/>
     <th:block th:include="include :: select2-css"/>
-    <style>
-        .detail-view.form-control {
-            background-color: #f8f9fa;
-            border: none;
-            box-shadow: none;
-            cursor: default;
-        }
-        .detail-view.form-group {
-            margin-bottom: 15px;
-        }
-        .detail-view.form-header {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        .detail-view.select2-container--disabled.select2-selection {
-            background-color: #f8f9fa;
-            cursor: default;
-        }
-    </style>
 </head>
-<body class="detail-view">
+<body>
 <div class="main-content">
-    <div class="form-horizontal m">
-        <!-- 增加隐藏字段，与edit.html保持一致，虽然在详情页面可能不做实际提交用 -->
-        <input type="hidden" th:value="${disease.id}"/>
-        <input type="hidden" th:value="${disease.projectId}"/>
-        <input type="hidden" th:value="${disease.buildingId}"/>
-        <input type="hidden" th:value="${disease.componentId}"/>
-
+    <form
+            class="form-horizontal m"
+            id="form-disease-edit"
+            th:object="${disease}"
+    >
         <h4 class="form-header h4">基本信息</h4>
         <!-- 病害基本信息 -->
         <div class="row mb-4">
-            <div class="col-sm-2">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-4 control-label is-required">构件名称:</label>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required"
+                    >构件名称：</label
+                    >
                     <div class="col-sm-8">
-                        <input class="form-control" type="text" th:value="${biObject.name}" readonly>
+                        <input
+                                class="form-control"
+                                type="text"
+                                th:if="${biObject.name == '其他'}"
+                                name="biObjectName"
+                                th:value="*{biObjectName}"
+                                required
+                                readonly
+                        />
+                        <input
+                                class="form-control"
+                                type="text"
+                                th:if="${biObject.name != '其他'}"
+                                name="biObjectName"
+                                th:value="*{biObjectName}"
+                                readonly
+                                required
+                        />
+                        <input
+                                type="hidden"
+                                name="biObjectId"
+                                th:value="${biObject.id}"
+                                readonly
+                        />
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label">构件编码：</label>
+
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required">病害分组：</label>
                     <div class="col-sm-8">
-                        <input class="form-control" type="text" th:value="${disease.component.code}" readonly>
+                        <select class="form-control select2" name="diseaseGroupName" id="diseaseGroupName"
+                                required disabled>
+                            <option value="">请选择病害分组</option>
+                        </select>
                     </div>
                 </div>
             </div>
             <div class="col-sm-4">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label is-required">病害类型:</label>
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label">位置序号：</label>
                     <div class="col-sm-8">
-                        <input class="form-control" type="text" th:value="${disease.diseaseType.name}" readonly>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-3">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label class="col-sm-3 control-label">病害位置：</label>
-                    <div class="col-sm-8">
-                        <input class="form-control" type="text" th:value="${disease.position}" readonly>
+                        <input
+                                class="form-control"
+                                type="text"
+                                name="positionNumber"
+                                th:field="*{positionNumber}"
+                                id="positionNumber"
+                                placeholder="第x号"
+                                readonly
+                        />
                     </div>
                 </div>
             </div>
         </div>
+        <div class="row mb-4">
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label">构件编码：</label>
+                    <div class="col-sm-8">
+                        <input
+                                name="cosmponent.code"
+                                class="form-control"
+                                type="text"
+                                th:field="*{component.code}"
+                                placeholder="请输入构件编码"
+                                readonly
+                        />
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required"
+                    >病害类型：</label
+                    >
+                    <div class="col-sm-8">
+                        <select
+                                class="form-control select2"
+                                name="diseaseTypeId"
+                                id="diseaseTypeId"
+                                required
+                                th:field="*{diseaseTypeId}"
+                                readonly
+                                disabled
+                        >
+                            <option value="">请选择病害类型</option>
+                        </select>
+                        <input
+                                type="text"
+                                class="form-control"
+                                id="customDiseaseType"
+                                name="type"
+                                th:field="*{type}"
+                                placeholder="请输入自定义病害类型"
+                                style="display: none"
+                                readonly
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label">病害位置：</label>
+                    <div class="col-sm-8">
+                        <select
+                                class="form-control select2"
+                                name="position"
+                                id="position"
+                                placeholder="请选择病害位置"
+                                required
+                                disabled
+                        >
+                            <option value="">请选择病害位置</option>
+                        </select>
+                        <input
+                                type="text"
+                                class="form-control"
+                                id="customPosition"
+                                name="customPosition"
+                                th:value="${customPosition}"
+                                placeholder="请输入自定义病害位置"
+                                style="display: none"
+                                readonly
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <h4 class="form-header h4">病害定量数据</h4>
         <div class="row mb-4">
-            <div class="col-sm-6">
+            <div class="col-sm-3">
+            </div>
+            <div class="col-sm-3">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label class="col-sm-4 control-label is-required">缺损数量:</label>
                     <div class="col-sm-8">
-                        <div class="input-group" style="width: 200px;">
-                            <input class="form-control" type="text" th:value="${disease.quantity}" readonly>
-                            <div class="input-group-addon">
-                                <select class="form-control" th:value="${disease.units}" disabled style="border: none; background: transparent; width: 60px;">
-                                    <option value="条" th:selected="${disease.units == '条'}">条</option>
-                                    <option value="处" th:selected="${disease.units == '处'}">处</option>
-                                </select>
-                            </div>
-                        </div>
+                        <input name="quantity"
+                               id="quantityInput"
+                               class="form-control"
+                               type="number"
+                               min="1"
+                               step="1"
+                               required
+                               th:field="*{quantity}"
+                               oninput="validateQuantity(this)"
+                               onblur="formatQuantity(this)"
+                               style="width: 120px;"
+                               readonly>
+                        <div id="quantityError" class="invalid-feedback" style="display: none; color: red;"></div>
                     </div>
                 </div>
+            </div>
+            <div class="col-sm-1">
+            </div>
+            <div class="col-sm-3">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="col-sm-3 control-label is-required">单位:</label>
+                    <div class="col-sm-9">
+                        <select name="units" class="form-control" th:field="*{units}" style="width: 80px;" disabled>
+                            <option value="条">条</option>
+                            <option value="处">处</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-3">
             </div>
         </div>
         <div class="row mb-4">
             <div class="col-sm-12">
                 <div class="form-group" id="diseaseDetails">
-                    <!-- 病害详情数据显示区域 -->
-                    <th:block th:if="${disease.diseaseDetails != null and !disease.diseaseDetails.isEmpty()}">
-                        <th:block th:each="detail, stat : ${disease.diseaseDetails}">
-                            <div class="col-sm-12">
-                                <div class="form-group">
-                                    <label class="col-sm-1 control-label">缺损-[[${stat.index}]]:</label>
-                                    <div class="col-sm-11">
-                                        <div class="row">
-                                            <div class="form-group">
-                                                <label class="col-sm-3 control-label">裂缝特征：</label>
-                                                <div class="col-sm-8">
-                                                    <input class="form-control" type="text" th:value="${detail.crackType}" readonly>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row" style="margin-bottom: 20px;">
-                                            <label class="col-sm-2 control-label">距参考面1位置：</label>
-                                            <div class="col-sm-3">
-                                                <label class="col-sm-2 control-label">距</label>
-                                                <div class="col-sm-10">
-                                                    <input class="form-control" type="text" th:value="${detail.reference1Location}" readonly>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <input class="form-control" type="text" th:value="${detail.reference1LocationStart}" readonly placeholder="起始位置">
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <input class="form-control" type="text" th:value="${detail.reference1LocationEnd}" readonly placeholder="终点位置">
-                                            </div>
-                                        </div>
-                                        <div class="row" style="margin-bottom: 20px;">
-                                            <label class="col-sm-2 control-label">距参考面2位置：</label>
-                                            <div class="col-sm-3">
-                                                <label class="col-sm-2 control-label">距</label>
-                                                <div class="col-sm-10">
-                                                    <input class="form-control" type="text" th:value="${detail.reference2Location}" readonly>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <input class="form-control" type="text" th:value="${detail.reference2LocationStart}" readonly placeholder="起始位置">
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <input class="form-control" type="text" th:value="${detail.reference2LocationEnd}" readonly placeholder="终点位置">
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">长度:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.length}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">宽度:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.width}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">高度/深度:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.heightDepth}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">缝宽:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.crackWidth}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">面积:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.area}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">体积:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.volume}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">角度:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.angle}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-4 control-label">百分比:</label>
-                                                    <div class="col-sm-8">
-                                                        <input class="form-control" type="text" th:value="${detail.percentage}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row" style="margin-bottom: 20px;">
-                                            <div class="col-sm-3">
-                                            </div>
-                                            <div class="col-sm-6">
-                                                <div class="form-group" style="margin-bottom: 20px;">
-                                                    <label class="col-sm-2 control-label">发展趋势:</label>
-                                                    <div class="col-sm-10">
-                                                        <input class="form-control" type="text" th:value="${detail.developmentTrend}" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-3">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </th:block>
-                    </th:block>
+                    <!-- 病害详情数据填写区域 -->
                 </div>
             </div>
         </div>
         <h4 class="form-header h4">病害定性数据</h4>
-        <div class="row mb-4" style="margin-top: 20px;">
+        <div class="row mb-4" style="margin-top: 20px">
+
             <div class="col-sm-4">
-                <div class="form-group" style="margin-top: 20px;">
-                    <label class="col-sm-5 control-label is-required">病害描述(性质、范围、程度等）：</label>
-                    <div class="col-sm-7">
-                        <input class="form-control" type="text" th:value="${disease.description}" readonly>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-2" th:if="${biObject.name != '其他'}">
-                <div class="form-group" style="margin-top: 20px;">
-                    <label class="control-label is-required">参与评定：</label>
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-4 control-label is-required"
+                    >发展趋势：</label
+                    >
                     <div class="col-sm-8">
-                        <input class="form-control" type="text" th:value="${disease.participateAssess == '0'? '是' : '否'}" readonly>
+                        <select
+                                class="form-control no-select2"
+                                name="developmentTrend"
+                                id="developmentTrend"
+                                required
+                                th:field="*{developmentTrend}"
+                                disabled
+                        >
+                            <option value="新增">新增</option>
+                            <option value="稳定">稳定</option>
+                            <option value="发展">发展</option>
+                            <option value="已维修">已维修</option>
+                            <option value="未找到">未找到</option>
+                        </select>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3" th:if="${biObject.name != '其他'}">
-                <div class="form-group" style="margin-top: 20px;">
-                    <label class="control-label is-required">评定标度：</label>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-4 control-label is-required">病害性质：</label>
                     <div class="col-sm-8">
-                        <input class="form-control" type="text" th:value="${disease.level}" readonly>
+                        <select
+                                class="form-control no-select2"
+                                name="nature"
+                                id="nature"
+                                required
+                                th:field="*{nature}"
+                                disabled
+                        >
+                            <option value="非结构病害">非结构病害</option>
+                            <option value="结构病害">结构病害</option>
+                        </select>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-3">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <div class="row">
-                        <div class="col-sm-6">
-                            <label class="control-label">最大标度：</label>
-                            <input class="form-control" type="text" th:value="${disease.diseaseType.maxScale}" readonly>
+            <div class="col-sm-4" th:if="${biObject.name != '其他'}">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-4 control-label is-required">参与评定：</label>
+                    <div class="col-sm-8">
+                        <div class="btn-group" data-toggle="buttons">
+                            <label
+                                    class="btn btn-default"
+                                    th:classappend="${disease.participateAssess == '1'} ? 'active'"
+                            >
+                                是
+                            </label>
+                            <label
+                                    class="btn btn-default"
+                                    th:classappend="${disease.participateAssess == '0'} ? 'active'"
+                            >
+                                否
+                            </label>
                         </div>
-                        <div class="col-sm-6">
-                            <label class="control-label">构件扣分：</label>
-                            <input class="form-control" type="text" th:value="${disease.deductPoints}" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-sm-4" th:if="${biObject.name != '其他'}">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label is-required">评定标度：</label>
+                    <div class="col-sm-8">
+                        <div class="btn-group" id="levelGroup" data-toggle="buttons">
+                            <!-- 选项将通过JavaScript动态生成 -->
                         </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required">最大标度：</label>
+                    <div class="col-sm-8">
+                        <input name="maxScale" class="form-control" type="text" id="maxScale"
+                               th:field="*{diseaseType.maxScale}" readonly/>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required">构件扣分：</label>
+                    <div class="col-sm-8">
+                        <input name="deductPoints" class="form-control" type="text" id="deductPoints"
+                               th:field="*{deductPoints}" readonly/>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="col-sm-1 control-label is-required">描述：</label>
+                    <div class="col-sm-11">
+                        <textarea name="description"
+                                  id="description"
+                                  required
+                                  placeholder="请输入病害描述"
+                                  maxlength="500"
+                                  class="form-control"
+                                  rows="3"
+                                  th:field="*{description}"
+                                  readonly
+                        ></textarea>
                     </div>
                 </div>
             </div>
         </div>
         <h4 class="form-header h4">其它信息</h4>
-        <div class="row">
+        <div class="row mb-4">
             <div class="col-sm-12">
                 <div class="form-group">
-                    <label class="control-label">备注：</label>
-                    <textarea class="form-control" rows="3" readonly th:text="${disease.remark}"></textarea>
+                    <label class="col-sm-1 control-label">成因：</label>
+                    <div class="col-sm-11" style="display: flex; align-items: flex-start">
+                        <textarea
+                                id="causeAnalysisBox"
+                                name="cause"
+                                style="
+                            flex: 1;
+                            min-height: 120px;
+                            border: 1px solid #ddd;
+                            background: #fafbfc;
+                            padding: 10px;
+                            border-radius: 4px;
+                            overflow-x: auto;
+                            resize: vertical;
+                          "
+                                class="form-control"
+                                rows="5"
+                                readonly
+                        ></textarea>
+                    </div>
                 </div>
             </div>
         </div>
+        <div class="row mb-4">
+            <div class="col-sm-12">
+                <div class="form-group">
+                    <label class="col-sm-1 control-label">备注：</label>
+                    <div class="col-sm-11">
+                        <textarea
+                                name="remark"
+                                maxlength="500"
+                                class="form-control"
+                                rows="3"
+                                th:field="*{remark}"
+                                readonly
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 文件上传和预览区域 -->
         <div class="row">
             <div class="col-sm-12">
                 <div class="form-group">
                     <div>
-                        <!-- 展示已上传图片 -->
-                        <div id="imagePreview" class="mt-2 row">
-                            <th:block th:each="image : ${disease.images}">
-                                <div class="col-sm-2 mb-2">
-                                    <div class="thumbnail">
-                                        <div class="preview-image">
-                                            <a href="javascript:void(0);" class="preview-image">
-                                                <img th:src="@{${image.url}}" class="img-thumbnail" 
-                                                     style="height:150px;width:150px;object-fit:cover;"
-                                                     th:title="${image.fileName}" th:alt="${image.fileName}">
-                                            </a>
-                                        </div>
-                                        <input type="hidden" th:name="'attachments[' + ${image.id} + '].id'" th:value="${image.id}">
-                                        <input type="hidden" th:name="'attachments[' + ${image.id} + '].fileName'" th:value="${image.fileName}">
-                                        <input type="hidden" th:name="'attachments[' + ${image.id} + '].url'" th:value="${image.url}">
-                                        <input type="hidden" th:name="'attachments[' + ${image.id} + '].isImage'" th:value="${image.isImage}">
-                                    </div>
-                                </div>
-                            </th:block>
+                        <input
+                                type="file"
+                                name="attachmentFiles"
+                                id="diseaseFiles"
+                                class="d-none"
+                                multiple
+                                accept="*/*"
+                                style="display: none"
+                        />
+                        <div id="filePreview" class="mt-2 row">
+                            <!-- 这里是文件预览区域,会显示已上传的文件和新上传的文件 -->
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="row">
-            <div class="col-sm-offset-5 col-sm-10" style="margin-top: 20px;">
-                <button type="button" class="btn btn-sm btn-danger" onclick="closeItem()">
-                    <i class="fa fa-reply-all"></i> 返 回
+            <div class="col-sm-offset-5 col-sm-10" style="margin-top: 20px">
+                <button
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        onclick="submitHandler()"
+                >
+                    <i class="fa fa-check"></i>保 存
+                </button
+                >&nbsp;
+                <button
+                        type="button"
+                        class="btn btn-sm btn-danger"
+                        onclick="closeItem()"
+                >
+                    <i class="fa fa-reply-all"></i>关 闭
                 </button>
             </div>
         </div>
-    </div>
+    </form>
 </div>
 <th:block th:include="include :: footer"/>
 <th:block th:include="include :: select2-js"/>
-
+<!-- bootstrap-select -->
+<script th:src="@{/js/bootstrap-select.min.js}"></script>
+<!--<script th:src="@{/js/marked.min.js}"></script>-->
+<script th:src="@{/js/i18n/defaults-zh_CN.min.js}"></script>
 <script th:inline="javascript">
+    var prefix = ctx + "biz/disease"
+    var disease = [[${disease}]];
+    var biObject = [[${biObject}]];
+    var customPosition = [[${customPosition}]];
+    var diseaseTypes;
+    var positionObjects;
+
     // 全局变量，存储所有图片的url、文件名和当前索引
     var previewImageList = [];
     var previewImageIndex = 0;
 
-    $(function() {
+    $(function () {
+        // 初始化select2，排除带有no-select2类的元素
+        $('select.select2').select2({
+            placeholder: "请选择",
+            allowClear: true
+        });
+
+        // 确保发展趋势和病害性质下拉框正确初始化，不需要销毁select2实例
+        // 因为我们已经在HTML中添加了no-select2类来排除它们
+
+        // 重新绑定值，确保选项显示正确
+        if (disease && disease.developmentTrend) {
+            $("#developmentTrend").val(disease.developmentTrend);
+        } else {
+            $("#developmentTrend").val("稳定"); // 设置默认值
+        }
+
+        if (disease && disease.nature) {
+            $("#nature").val(disease.nature);
+        } else {
+            $("#nature").val("非结构病害"); // 设置默认值
+        }
+
+        // 初始化病害类型下拉框
+        loadDiseaseTypes();
+        // 初始化病害位置下拉框
+        loadPositions();
+        // 初始化评定标度
+        updateLevelGroup();
+        // 加载已上传的附件
+        loadExistingAttachments();
+        // 病害详情区初始化在loadDiseaseTypes的回调中进行，确保病害类型数据已加载
+
+        if (disease.cause) {
+            $("#causeAnalysisBox").html(disease.cause);
+        }
+
+        // 监听病害分组选择变化
+        $("#diseaseGroupName").change(function () {
+            var selectedGroupName = $(this).val();
+            if (selectedGroupName) {
+                // 根据选择的分组过滤病害类型
+                var filteredDiseaseTypes = diseaseTypes.filter(function (item) {
+                    return item.groupName === selectedGroupName;
+                });
+
+                var options = '<option value="">请选择病害类型</option>';
+                $.each(filteredDiseaseTypes, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.code + '#' + item.name + '</option>';
+                });
+                $("#diseaseTypeId").html(options);
+            } else {
+                // 如果没有选择分组，清空病害类型
+                $("#diseaseTypeId").html('<option value="">请先选择病害分组</option>');
+            }
+        });
+
+        // 病害类型自定义输入显示隐藏
+        $('#diseaseTypeId').on('change', function () {
+            var selectedText = $(this).find('option:selected').text().trim();
+            if (selectedText === "0.0.0.0-3#其他（最大标度3）" || selectedText === "0.0.0.0-4#其他（最大标度4）" || selectedText === "0.0.0.0-5#其他（最大标度5）") {
+                $('#customDiseaseType').show().attr('required', true).val(disease.type);
+            } else {
+                $('#customDiseaseType').hide().removeAttr('required').val('');
+                var selectedId = $(this).val();
+                if (selectedId) {
+                    updateLevelGroup(selectedId);
+                    var selectedType = diseaseTypes.find(function (item) {
+                        return item.id == selectedId;
+                    });
+                    $('#maxScale').val(selectedType ? selectedType.maxScale : '');
+                } else {
+                    updateLevelGroup();
+                }
+            }
+
+            // 当病害类型改变时，根据选中类型更新病害详情显示字段
+            var quantity = $("#quantityInput").val();
+            updateDiseaseDetails(quantity);
+        });
+
+        // 病害位置自定义输入显示隐藏
+        $('#position').on('change', function () {
+            var selectedText = $(this).find('option:selected').text().trim();
+            if (selectedText === "其他" || selectedText === "其它") {
+                $('#customPosition').show().attr('required', true).val(customPosition);
+            } else {
+                $('#customPosition').hide().removeAttr('required').val('');
+            }
+        });
+
+        // 数量变化时渲染病害详情区
+        $('#quantityInput').on('change', function () {
+            var quantity = $(this).val();
+            updateDiseaseDetails(quantity);
+
+            $("#position").val("").trigger("change");
+            $("#customPosition").val("").hide().removeAttr('required');
+        });
+
+        // 表单验证
+        $("#form-disease-edit").validate({
+            rules: {
+                componentId: "required",
+                diseaseGroupName: "required",
+                diseaseTypeId: "required",
+                level: "required"
+            },
+            submitHandler: function (form) {
+                // 处理自定义参考面位置
+                var quantity = $("#quantityInput").val();
+
+                // 获取当前选中的病害类型
+                var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+                var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                    return item.id == selectedDiseaseTypeId;
+                }) : null;
+
+                // 获取threshold值，默认为10
+                var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+
+                // 处理单个病害的情况
+                if (quantity >= threshold) {
+                    if ($("#reference1Location").val() === "其他") {
+                        var customValue = $("#reference1LocationCustom").val();
+                        if (customValue) {
+                            $("#reference1Location").val(customValue);
+                        }
+                    }
+                    if ($("#reference2Location").val() === "其他") {
+                        var customValue = $("#reference2LocationCustom").val();
+                        if (customValue) {
+                            $("#reference2Location").val(customValue);
+                        }
+                    }
+                } else {
+                    // 处理多个病害的情况
+                    for (var i = 0; i < quantity; i++) {
+                        var ref1Select = $("#reference1Location_" + i);
+                        var ref2Select = $("#reference2Location_" + i);
+
+                        if (ref1Select.length && ref1Select.val() === "其他") {
+                            var customValue = $("#reference1LocationCustom_" + i).val();
+                            if (customValue) {
+                                ref1Select.val(customValue);
+                            }
+                        }
+
+                        if (ref2Select.length && ref2Select.val() === "其他") {
+                            var customValue = $("#reference2LocationCustom_" + i).val();
+                            if (customValue) {
+                                ref2Select.val(customValue);
+                            }
+                        }
+                    }
+                }
+
+                // 继续提交表单
+                return true;
+            },
+            focusCleanup: true
+        });
+
+        // 添加文件预览和下载功能
+        $(document).on('click', '.preview-file', function () {
+            var url = $(this).closest('.thumbnail').find('input[name$=".url"]').val();
+            var fileName = $(this).closest('.thumbnail').find('input[name$=".fileName"]').val();
+            downloadFile(url, fileName);
+        });
+
         // 绑定图片点击事件为预览，并收集所有图片
-        $(document).on('click', '.preview-image img', function() {
+        $(document).on('click', '.preview-image img', function () {
             previewImageList = [];
             // 收集所有图片的src和文件名
             var $allImages = $('.preview-image img');
-            $allImages.each(function(idx, img) {
+            $allImages.each(function (idx, img) {
                 var $img = $(img);
                 var src = $img.attr('src');
                 // 文件名可以从img的title、alt或父级隐藏input中取
                 var fileName = $img.attr('title') || $img.attr('alt') || $img.closest('.thumbnail').find('input[name$=".fileName"]').val() || '';
                 previewImageList.push({src: src, fileName: fileName});
             });
-            
+
             // 当前点击的图片索引
             var currentSrc = $(this).attr('src');
             previewImageIndex = -1;
-            
+
             // 查找当前图片的索引
-            for(var i = 0; i < previewImageList.length; i++) {
-                if(previewImageList[i].src === currentSrc) {
+            for (var i = 0; i < previewImageList.length; i++) {
+                if (previewImageList[i].src === currentSrc) {
                     previewImageIndex = i;
                     break;
                 }
             }
-            
+
             // 如果没找到，默认为第一张
-            if(previewImageIndex === -1) {
+            if (previewImageIndex === -1) {
                 previewImageIndex = 0;
             }
-            
+
             // 显示并打开模态框
             showPreviewImage();
             $('#imagePreviewModal').modal('show');
-            
+
             // 调试信息
             console.log('收集到 ' + previewImageList.length + ' 张图片，当前索引: ' + previewImageIndex);
         });
+
+        $("#refreshCauseBtn").on("click", function () {
+            var data = {
+                objectId: biObject.id,
+                parentObject: biObject.parentName || "",
+                object: biObject.name || "",
+                type: $("#diseaseTypeId option:selected").text().trim(),
+                description: $("#description").val(),
+                position: $("#position option:selected").text().trim(),
+                // area: disease.diseaseDetails[0].area,
+                level: $("input[name='level']:checked").val(),
+                componentCode: $("input[name='component.code']").val(),
+                componentName: $("input[name='biObjectName']").val(),
+                // trend: $("select[name='diseaseDetails[0].developmentTrend']").val()
+            };
+            // 显示正在生成提示
+            $("#causeAnalysisBox").val('正在生成...')
+            $.ajax({
+                url: ctx + "biz/disease/causeAnalysis", // 后端接口
+                type: "post",
+                contentType: "application/json",
+                data: JSON.stringify(data),
+                success: function (res) {
+                    if (res.code === 0) {
+                        // $("#causeAnalysisBox").html(marked.parse(res.msg)); md 文档格式显示
+                        $("#causeAnalysisBox").val(res.msg);
+                    } else {
+                        $("#causeAnalysisBox").val('未获取到成因分析');
+                    }
+                },
+                error: function () {
+                    $("#causeAnalysisBox").val('请求失败');
+                }
+            });
+        });
     });
 
-    // 显示当前图片并控制按钮显示
-    function showPreviewImage() {
-        if (previewImageList.length === 0) return;
-        
-        console.log('显示图片索引: ' + previewImageIndex + '，总数: ' + previewImageList.length);
-        
-        // 确保索引在有效范围内
-        if (previewImageIndex < 0) previewImageIndex = 0;
-        if (previewImageIndex >= previewImageList.length) previewImageIndex = previewImageList.length - 1;
-        
-        var item = previewImageList[previewImageIndex];
-        
-        // 设置图片源
-        $('#previewImage').attr('src', item.src);
-        
-        // 设置下载链接
-        var fileName = item.fileName || 'image.jpg';
-        $('#downloadImageLink').attr('href', item.src).attr('download', fileName);
-        
-        // 设置底部信息
-        $('#previewFileName').text(item.fileName || '');
-        $('#previewIndex').text((previewImageIndex+1) + ' of ' + previewImageList.length);
-        
-        // 控制左右按钮的启用/禁用状态，但始终保持显示
-        if (previewImageIndex <= 0) {
-            $('#prevImage').prop('disabled', true).css('opacity', '0.3');
-        } else {
-            $('#prevImage').prop('disabled', false).css('opacity', '1');
+    // 加载病害类型
+    function loadDiseaseTypes() {
+        $.ajax({
+            url: ctx + "biz/diseaseType/selectList",
+            type: "POST",
+            data: {
+                biObjectId: biObject.id
+            },
+            success: function (result) {
+                diseaseTypes = result;
+
+                // 提取所有唯一的groupName
+                var groupNames = [];
+                $.each(result, function (i, item) {
+                    if (item.groupName && groupNames.indexOf(item.groupName) === -1) {
+                        groupNames.push(item.groupName);
+                    }
+                });
+
+                // 填充病害分组下拉框
+                var groupOptions = '<option value="">请选择病害分组</option>';
+                $.each(groupNames, function (i, groupName) {
+                    groupOptions += '<option value="' + groupName + '">' + groupName + '</option>';
+                });
+                $("#diseaseGroupName").html(groupOptions);
+
+                // 编辑模式时，如果有选中的病害类型，需要先选中对应的分组
+                if (disease && disease.diseaseTypeId) {
+                    var selectedDiseaseType = result.find(function(item) {
+                        return item.id == disease.diseaseTypeId;
+                    });
+                    if (selectedDiseaseType && selectedDiseaseType.groupName) {
+                        $("#diseaseGroupName").val(selectedDiseaseType.groupName).trigger('change');
+
+                        // 延迟设置病害类型选择，确保分组选择事件已处理
+                        setTimeout(function() {
+                            $("#diseaseTypeId").val(disease.diseaseTypeId).trigger('change');
+
+                            // 在设置选中值后，根据已选病害类型初始化病害详情区域
+                            var quantity = $("#quantityInput").val() || 1;
+                            updateDiseaseDetails(quantity);
+                        }, 100);
+                    }
+                } else {
+                    // 如果没有选中病害类型，使用默认显示
+                    updateDiseaseDetails($("#quantityInput").val() || 1);
+                }
+            }
+        });
+    }
+
+    // 加载病害位置
+    function loadPositions() {
+        $.ajax({
+            url: ctx + "biz/biobject/selectPositionList",
+            type: "POST",
+            data: {
+                parentId: biObject.id
+            },
+            success: function (result) {
+                positionObjects = result;
+                var options = '<option value="">请选择病害位置</option>';
+                $.each(result, function (i, item) {
+                    options += '<option value="' + item.id + '">' + item.name + '</option>';
+                });
+                // options += '<option value="other">其他</option>';
+
+                $("#position").html(options);
+                // 编辑模式选中
+                if (disease && disease.position) {
+                    // 检查position是否在下拉选项中
+                    var positionFound = false;
+                    var positionValue = null;
+                    $("#position option").each(function () {
+                        if ($(this).text() === disease.position) {
+                            positionFound = true;
+                            positionValue = $(this).val();
+                            return false; // 跳出循环
+                        }
+                    });
+
+                    // 如果在选项中找到，直接选中；否则选择"其他"并显示自定义输入框
+                    if (positionFound) {
+                        $("#position").val(positionValue);
+                        // 延迟触发change事件，确保病害详情区域已渲染
+                        setTimeout(function() {
+                            $("#position").trigger('change');
+                        }, 200);
+                    } else {
+                        // 添加"其他"选项（如果不存在）
+                        if ($("#position option:contains('其他')").length === 0 &&
+                            $("#position option:contains('其它')").length === 0) {
+                            $("#position").append('<option value="其他">其他</option>');
+                        }
+
+                        // 选中"其他"选项
+                        if ($("#position option:contains('其他')").length > 0) {
+                            $("#position").val($("#position option:contains('其他')").val());
+                        } else if ($("#position option:contains('其它')").length > 0) {
+                            $("#position").val($("#position option:contains('其它')").val());
+                        }
+
+                        // 显示并设置自定义输入框的值
+                        $("#customPosition").show().attr('required', true).val(disease.position);
+
+                        // 延迟触发change事件，确保病害详情区域已渲染
+                        setTimeout(function() {
+                            $("#position").trigger('change');
+                        }, 200);
+                    }
+                } else {
+                    // 如果没有预设位置，也需要延迟触发change事件以确保参考面下拉框正确初始化
+                    setTimeout(function() {
+                        $("#position").trigger('change');
+                    }, 200);
+                }
+            }
+        });
+    }
+
+    // 渲染病害详情区
+    function updateDiseaseDetails(quantity) {
+        var detailsContainer = $("#diseaseDetails");
+        detailsContainer.empty();
+        var isCustomPosition = (biObject.name === "其他" || biObject.name === "其它");
+        quantity = parseInt(quantity) || 1;
+
+        // 获取当前选中的病害类型
+        var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+        var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+            return item.id == selectedDiseaseTypeId;
+        }) : null;
+
+        // 获取threshold值，默认为10
+        var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+
+        // 解析selectColumn字段决定显示哪些病害详情字段
+        var showCrackType = true; // 默认全部显示
+        var showLength = true;
+        var showCrackWidth = true;
+        var showHeightDepth = true;
+        var showArea = true;
+        var showDeformation = true;
+        var showAngle = true;
+        var showPercentage = true;
+
+        if (selectedDiseaseType && selectedDiseaseType.selectColumn !== undefined) {
+            var selectColumn = parseInt(selectedDiseaseType.selectColumn || 0);
+            // 根据二进制位判断是否显示对应字段
+            showCrackType = (selectColumn & 1) === 1; // 裂缝特征 - 1
+            showLength = (selectColumn & 2) === 2; // 长度 - 2
+            showCrackWidth = (selectColumn & 4) === 4; // 缝宽 - 4
+            showHeightDepth = (selectColumn & 8) === 8; // 高度/深度 - 8
+            showArea = (selectColumn & 16) === 16; // 面积 - 16
+            showDeformation = (selectColumn & 32) === 32; // 变形/位移 - 32
+            showAngle = (selectColumn & 64) === 64; // 角度 - 64
+            showPercentage = (selectColumn & 128) === 128; // 比例 - 128
         }
-        
-        if (previewImageIndex >= previewImageList.length - 1) {
-            $('#nextImage').prop('disabled', true).css('opacity', '0.3');
+
+        // 获取diseaseDetails数据，但不在模板字符串中直接使用
+        var diseaseDetails = disease.diseaseDetails || [];
+
+        // 根据selectColumn判断是否显示裂缝特征
+        if (showCrackType) {
+            var crackTypeHtml = `
+                <div class="col-sm-12">
+                    <div class="col-sm-4">
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="form-group">
+                            <label class="col-sm-4 control-label">裂缝特征：</label>
+                            <div class="col-sm-8">
+                                <select class="form-control" name="crackType" id="crackType" disabled>
+                                    <option value="纵向">纵向</option>
+                                    <option value="横向">横向</option>
+                                    <option value="竖向">竖向</option>
+                                    <option value="斜向">斜向</option>
+                                    <option value="L型">L型</option>
+                                    <option value="U型">U型</option>
+                                    <option value="网状">网状</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>`;
+            detailsContainer.append(crackTypeHtml);
+        }
+
+        if (quantity < threshold) {
+            for (var i = 0; i < quantity; i++) {
+                // 收集需要显示的字段
+                var fieldsToShow = [];
+
+                if (showLength) {
+                    fieldsToShow.push({
+                        label: "长度",
+                        name: `diseaseDetails[${i}].length1`,
+                        step: "0.01",
+                        placeholder: "长度",
+                        value: diseaseDetails[i]?.length1 || ""
+                    });
+                }
+
+                if (showHeightDepth) {
+                    fieldsToShow.push({
+                        label: "高度/深度",
+                        name: `diseaseDetails[${i}].heightDepth`,
+                        step: "0.01",
+                        placeholder: "高度/深度",
+                        value: diseaseDetails[i]?.heightDepth || ""
+                    });
+                }
+
+                if (showCrackWidth) {
+                    fieldsToShow.push({
+                        label: "缝宽",
+                        name: `diseaseDetails[${i}].crackWidth`,
+                        step: "0.0001",
+                        placeholder: "缝宽",
+                        value: diseaseDetails[i]?.crackWidth || ""
+                    });
+                }
+
+                if (showArea) {
+                    fieldsToShow.push({
+                        type: "area",
+                        label: "面积",
+                        nameLength: `diseaseDetails[${i}].areaLength`,
+                        nameWidth: `diseaseDetails[${i}].areaWidth`,
+                        nameIdentifier: `diseaseDetails[${i}].areaIdentifier`,
+                        valueLength: diseaseDetails[i]?.areaLength || "",
+                        valueWidth: diseaseDetails[i]?.areaWidth || "",
+                        valueIdentifier: diseaseDetails[i]?.areaIdentifier || "0"
+                    });
+                }
+
+                if (showDeformation) {
+                    fieldsToShow.push({
+                        label: "变形/位移",
+                        name: `diseaseDetails[${i}].deformation`,
+                        step: "0.01",
+                        placeholder: "变形/位移",
+                        value: diseaseDetails[i]?.deformation || ""
+                    });
+                }
+
+                if (showAngle) {
+                    fieldsToShow.push({
+                        label: "角度",
+                        name: `diseaseDetails[${i}].angle`,
+                        step: "1",
+                        placeholder: "角度",
+                        value: diseaseDetails[i]?.angle || ""
+                    });
+                }
+
+                if (showPercentage) {
+                    fieldsToShow.push({
+                        type: "ratio",
+                        label: "比例",
+                        nameNumerator: `diseaseDetails[${i}].numeratorRatio`,
+                        nameDenominator: `diseaseDetails[${i}].denominatorRatio`,
+                        valueNumerator: diseaseDetails[i]?.numeratorRatio || "",
+                        valueDenominator: diseaseDetails[i]?.denominatorRatio || ""
+                    });
+                }
+
+                // 创建DOM元素而不是使用模板字符串，这样可以正确处理Thymeleaf属性
+                var detailDiv = $(`
+                      <div class="col-sm-12">
+                          <div class="form-group">
+                              <label class="col-sm-1 control-label">缺损-${i}:</label>
+                              <div class="col-sm-11">`);
+
+                detailDiv.append(`
+                                  <div class="row" style="margin-bottom: 20px;">
+                                      <label class="col-sm-2 control-label">距参考面1位置：</label>
+                                      <div class="col-sm-3">
+                                          <label class="col-sm-2 control-label">距</label>
+                                          <div class="col-sm-10">
+                                              ${isCustomPosition
+                    ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference1Location" placeholder="请输入参考面1位置">`
+                    : `<select class="form-control" name="diseaseDetails[${i}].reference1Location" id="reference1Location_${i}" onchange="handleRefChange(this, 'reference1LocationCustom_${i}')" disabled>
+                                                          <option value="">请选择</option>
+                                                          <option value="其他">其他</option>
+                                                  </select>
+                                                  <input type="text" class="form-control" name="diseaseDetails[${i}].reference1LocationCustom" id="reference1LocationCustom_${i}" placeholder="请输入自定义参考面1位置" style="display:none; margin-top:5px;" readonly>`
+                }
+                                          </div>
+                                      </div>
+                                      <div class="col-sm-3">
+                                          <input name="diseaseDetails[${i}].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置" readonly>
+                                      </div>
+                                      <div class="col-sm-3">
+                                          <input name="diseaseDetails[${i}].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置" readonly>
+                                      </div>
+                                  </div>
+                                  <div class="row" style="margin-bottom: 20px;">
+                                      <label class="col-sm-2 control-label">距参考面2位置：</label>
+                                      <div class="col-sm-3">
+                                          <label class="col-sm-2 control-label">距</label>
+                                          <div class="col-sm-10">
+                                              ${isCustomPosition
+                    ? `<input type="text" class="form-control" name="diseaseDetails[${i}].reference2Location" placeholder="请输入参考面2位置">`
+                    : `<select class="form-control" name="diseaseDetails[${i}].reference2Location" id="reference2Location_${i}" onchange="handleRefChange(this, 'reference2LocationCustom_${i}')" disabled>
+                                                          <option value="">请选择</option>
+                                                          <option value="其他">其他</option>
+                                                  </select>
+                                                  <input type="text" class="form-control" name="diseaseDetails[${i}].reference2LocationCustom" id="reference2LocationCustom_${i}" placeholder="请输入自定义参考面2位置" style="display:none; margin-top:5px;" readonly>`
+                }
+                                          </div>
+                                      </div>
+                                      <div class="col-sm-3">
+                                          <input name="diseaseDetails[${i}].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置" readonly>
+                                      </div>
+                                      <div class="col-sm-3">
+                                          <input name="diseaseDetails[${i}].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置" readonly>
+                                      </div>
+                                  </div>`);
+
+                // 按每行最多3个字段进行排列
+                const fieldsPerRow = 3;
+                const rows = Math.ceil(fieldsToShow.length / fieldsPerRow);
+
+                for (let row = 0; row < rows; row++) {
+                    var rowDiv = $('<div class="row"></div>');
+
+                    const startIdx = row * fieldsPerRow;
+                    const endIdx = Math.min(startIdx + fieldsPerRow, fieldsToShow.length);
+                    const fieldsInRow = endIdx - startIdx;
+
+                    // 计算列宽和偏移量，确保字段居中
+                    let colWidth;
+                    let offset = 0;
+
+                    if (fieldsInRow === 1) {
+                        colWidth = 4; // 单个字段使用8列宽度
+                        offset = 4;   // 左边空出2列，确保居中
+                    } else if (fieldsInRow === 2) {
+                        colWidth = 4; // 2个字段各用5列宽度
+                        offset = 0;   // 左边空出1列，确保居中
+                    } else if (fieldsInRow === 3) {
+                        colWidth = 4; // 3个字段各用4列宽度
+                        offset = 0;   // 不需要偏移
+                    }
+
+                    // 添加左侧偏移，确保居中
+                    if (offset > 0) {
+                        rowDiv.append(`<div class="col-sm-${offset}"></div>`);
+                    }
+
+                    for (let j = startIdx; j < endIdx; j++) {
+                        const field = fieldsToShow[j];
+
+                        if (field.type === "area") {
+                            rowDiv.append(`
+                                  <div class="col-sm-${colWidth}">
+                                      <div class="form-group" style="margin-bottom: 20px;">
+                                          <label class="col-sm-3 control-label">${field.label}:</label>
+                                          <div class="col-sm-9" style="display: flex; align-items: center; gap: 4px;">
+                                              <select name="${field.nameIdentifier}" class="form-control" style="width: 80px; flex-shrink: 0;" value="${field.valueIdentifier}" disabled>
+                                                  <option value="0">普通</option>
+                                                  <option value="1">平均</option>
+                                                  <option value="2">总计</option>
+                                              </select>
+                                              <input name="${field.nameLength}" class="form-control" type="number" step="0.01" placeholder="长" value="${field.valueLength}" readonly>
+                                              <span style="margin: 0 4px;">✖</span>
+                                              <input name="${field.nameWidth}" class="form-control" type="number" step="0.01" placeholder="宽" value="${field.valueWidth}" readonly>
+                                          </div>
+                                      </div>
+                                  </div>`);
+                        } else if (field.type === "ratio") {
+                            rowDiv.append(`
+                                  <div class="col-sm-${colWidth}">
+                                      <div class="form-group" style="margin-bottom: 20px;">
+                                          <label class="col-sm-3 control-label">${field.label}:</label>
+                                          <div class="col-sm-9" style="display: flex; align-items: center; gap: 4px;">
+                                              <input name="${field.nameNumerator}" class="form-control" type="number" step="0.01" placeholder="分子" value="${field.valueNumerator}" readonly>
+                                              <span style="margin: 0 4px;">/</span>
+                                              <input name="${field.nameDenominator}" class="form-control" type="number" step="0.01" placeholder="分母" value="${field.valueDenominator}" readonly>
+                                          </div>
+                                      </div>
+                                  </div>`);
+                        } else {
+                            rowDiv.append(`
+                                  <div class="col-sm-${colWidth}">
+                                      <div class="form-group" style="margin-bottom: 20px;">
+                                          <label class="col-sm-3 control-label">${field.label}:</label>
+                                          <div class="col-sm-9">
+                                              <input name="${field.name}" class="form-control" type="number" step="${field.step}" placeholder="${field.placeholder}" value="${field.value}" readonly>
+                                          </div>
+                                      </div>
+                                  </div>`);
+                        }
+                    }
+
+                    // 添加右侧偏移，确保对称（单个字段的情况）
+                    if (offset > 0 && fieldsInRow === 1) {
+                        rowDiv.append(`<div class="col-sm-${offset}"></div>`);
+                    }
+
+                    detailDiv.append(rowDiv);
+                }
+
+                if (showCrackType) {
+                    detailDiv.find(`select[name="diseaseDetails[${i}].crackType"]`).val(disease.crackType || "纵向");
+                }
+
+                // 如果有对应的diseaseDetails数据，设置表单值
+                if (diseaseDetails && diseaseDetails[i]) {
+                    var detail = diseaseDetails[i];
+
+                    if (isCustomPosition) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].reference1Location"]`).val(detail.reference1Location || "");
+                        detailDiv.find(`input[name="diseaseDetails[${i}].reference2Location"]`).val(detail.reference2Location || "");
+                    }
+                    // 注意：参考面位置的设置将在fillReferenceDropdowns后进行
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationEnd"]`).val(detail.reference1LocationEnd || "");
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationStart"]`).val(detail.reference2LocationStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationEnd"]`).val(detail.reference2LocationEnd || "");
+                    detailDiv.find(`select[name="diseaseDetails[${i}].developmentTrend"]`).val(detail.developmentTrend || "稳定");
+
+                    // 设置其他字段值（长度、宽度等）
+                    if (showLength) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].length1"]`).val(detail.length1 || "");
+                    }
+                    detailDiv.find(`input[name="diseaseDetails[${i}].width"]`).val(detail.width || "");
+                    if (showHeightDepth) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].heightDepth"]`).val(detail.heightDepth || "");
+                    }
+                    if (showCrackWidth) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].crackWidth"]`).val(detail.crackWidth || "");
+                    }
+                    if (showArea) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].areaLength"]`).val(detail.areaLength || "");
+                        detailDiv.find(`input[name="diseaseDetails[${i}].areaWidth"]`).val(detail.areaWidth || "");
+                        detailDiv.find(`select[name="diseaseDetails[${i}].areaIdentifier"]`).val(detail.areaIdentifier || "0");
+                    }
+                    if (showDeformation) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].deformation"]`).val(detail.deformation || "");
+                    }
+                    if (showAngle) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].angle"]`).val(detail.angle || "");
+                    }
+                    if (showPercentage) {
+                        detailDiv.find(`input[name="diseaseDetails[${i}].numeratorRatio"]`).val(detail.numeratorRatio || "");
+                        detailDiv.find(`input[name="diseaseDetails[${i}].denominatorRatio"]`).val(detail.denominatorRatio || "");
+                    }
+                }
+
+                detailsContainer.append(detailDiv);
+            }
+
+            // 在多病害详情DOM创建完成后，立即填充参考面下拉框选项
+            var selectedPositionId = $("#position").val();
+            if (selectedPositionId && positionObjects) {
+                var selectedPosition = positionObjects.find(function (item) {
+                    return item.id == selectedPositionId;
+                });
+
+                if (selectedPosition && selectedPosition.props) {
+                    var parsedProps = parseProps(selectedPosition.props);
+                    fillReferenceDropdowns(parsedProps, quantity, threshold);
+                }
+            }
+
+            // 现在重新设置所有病害详情的值，确保下拉框选项已经正确填充
+            if (diseaseDetails) {
+                for (var i = 0; i < quantity; i++) {
+                    if (diseaseDetails[i]) {
+                        var detail = diseaseDetails[i];
+                        var detailDiv = detailsContainer.find('.col-sm-12').eq(i);
+
+                        if (!isCustomPosition) {
+                            // 处理参考面1位置 - 重新设置值
+                            var ref1Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference1Location"]`);
+                            var ref1Value = detail.reference1Location || "";
+                            var ref1Options = ref1Select.find('option').map(function () {
+                                return $(this).val();
+                            }).get();
+
+                            if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
+                                // 值不在选项中，选择"其他"并显示自定义输入框
+                                ref1Select.val("其他").trigger('change');
+                                detailDiv.find(`input[name="diseaseDetails[${i}].reference1LocationCustom"]`).val(ref1Value).show();
+                            } else if (ref1Value === "" || ref1Options.indexOf(ref1Value) !== -1) {
+                                ref1Select.val(ref1Value);
+                            }
+
+                            // 处理参考面2位置 - 重新设置值
+                            var ref2Select = detailDiv.find(`select[name="diseaseDetails[${i}].reference2Location"]`);
+                            var ref2Value = detail.reference2Location || "";
+                            var ref2Options = ref2Select.find('option').map(function () {
+                                return $(this).val();
+                            }).get();
+
+                            if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
+                                // 值不在选项中，选择"其他"并显示自定义输入框
+                                ref2Select.val("其他").trigger('change');
+                                detailDiv.find(`input[name="diseaseDetails[${i}].reference2LocationCustom"]`).val(ref2Value).show();
+                            } else if (ref2Value === "" || ref2Options.indexOf(ref2Value) !== -1) {
+                                ref2Select.val(ref2Value);
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (quantity >= threshold) {
+            // 收集需要显示的字段，只显示有范围的字段
+            var fieldsToShow = [];
+
+            if (showLength) {
+                fieldsToShow.push({
+                    label: "长度范围",
+                    nameStart: "diseaseDetails[0].lengthRangeStart",
+                    nameEnd: "diseaseDetails[0].lengthRangeEnd",
+                    valueStart: diseaseDetails[0]?.lengthRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.lengthRangeEnd || ""
+                });
+            }
+
+            if (showCrackWidth) {
+                fieldsToShow.push({
+                    label: "缝宽范围",
+                    nameStart: "diseaseDetails[0].crackWidthRangeStart",
+                    nameEnd: "diseaseDetails[0].crackWidthRangeEnd",
+                    step: "0.0001",
+                    valueStart: diseaseDetails[0]?.crackWidthRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.crackWidthRangeEnd || ""
+                });
+            }
+
+            if (showHeightDepth) {
+                fieldsToShow.push({
+                    label: "高度/深度范围",
+                    nameStart: "diseaseDetails[0].heightDepthRangeStart",
+                    nameEnd: "diseaseDetails[0].heightDepthRangeEnd",
+                    valueStart: diseaseDetails[0]?.heightDepthRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.heightDepthRangeEnd || ""
+                });
+            }
+
+            if (showDeformation) {
+                fieldsToShow.push({
+                    label: "变形/位移范围",
+                    nameStart: "diseaseDetails[0].deformationRangeStart",
+                    nameEnd: "diseaseDetails[0].deformationRangeEnd",
+                    valueStart: diseaseDetails[0]?.deformationRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.deformationRangeEnd || ""
+                });
+            }
+
+            if (showAngle) {
+                fieldsToShow.push({
+                    label: "角度范围",
+                    nameStart: "diseaseDetails[0].angleRangeStart",
+                    nameEnd: "diseaseDetails[0].angleRangeEnd",
+                    valueStart: diseaseDetails[0]?.angleRangeStart || "",
+                    valueEnd: diseaseDetails[0]?.angleRangeEnd || ""
+                });
+            }
+
+            if (showArea) {
+                fieldsToShow.push({
+                    type: "area",
+                    label: "面积范围",
+                    nameLength: "diseaseDetails[0].areaLengthRange",
+                    nameWidth: "diseaseDetails[0].areaWidthRange",
+                    nameIdentifier: "diseaseDetails[0].areaIdentifier",
+                    valueLength: diseaseDetails[0]?.areaLengthRange || "",
+                    valueWidth: diseaseDetails[0]?.areaWidthRange || "",
+                    valueIdentifier: diseaseDetails[0]?.areaIdentifier || "0"
+                });
+            }
+
+            if (showPercentage) {
+                fieldsToShow.push({
+                    type: "ratio",
+                    label: "比例范围",
+                    nameNumerator: "diseaseDetails[0].numeratorRatioRange",
+                    nameDenominator: "diseaseDetails[0].denominatorRatioRange",
+                    valueNumerator: diseaseDetails[0]?.numeratorRatioRange || "",
+                    valueDenominator: diseaseDetails[0]?.denominatorRatioRange || ""
+                });
+            }
+
+            var detailDiv = $(`
+                  <div class="col-sm-12">
+                      <div class="form-group">`);
+
+            detailDiv.append(`
+                              <div class="row" style="margin-bottom: 20px;">
+                                  <label class="col-sm-2 control-label">距参考面1位置：</label>
+                                  <div class="col-sm-3">
+                                      <label class="col-sm-2 control-label">距</label>
+                                      <div class="col-sm-10">
+                                              ${isCustomPosition
+                ? `<input type="text" class="form-control" name="diseaseDetails[0].reference1Location" placeholder="请输入参考面1位置">`
+                : `<select class="form-control" name="diseaseDetails[0].reference1Location" id="reference1Location" onchange="handleRefChange(this, 'reference1LocationCustom')" disabled>
+                                                       <option value="">请选择</option>
+                                                       <option value="其他">其他</option>
+                                                      </select>
+                                                      <input type="text" class="form-control" name="diseaseDetails[0].reference1LocationCustom" id="reference1LocationCustom" placeholder="请输入自定义参考面1位置" style="display:none; margin-top:5px;" readonly>`
+            }
+                                      </div>
+                                  </div>
+                                  <div class="col-sm-3">
+                                      <input name="diseaseDetails[0].reference1LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置" readonly>
+                                  </div>
+                                  <div class="col-sm-3">
+                                      <input name="diseaseDetails[0].reference1LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置" readonly>
+                                  </div>
+                              </div>
+                              <div class="row" style="margin-bottom: 20px;">
+                                  <label class="col-sm-2 control-label">距参考面2位置：</label>
+                                  <div class="col-sm-3">
+                                      <label class="col-sm-2 control-label">距</label>
+                                      <div class="col-sm-10">
+                                              ${isCustomPosition
+                ? `<input type="text" class="form-control" name="diseaseDetails[0].reference2Location" placeholder="请输入参考面2位置">`
+                : `<select class="form-control" name="diseaseDetails[0].reference2Location" id="reference2Location" onchange="handleRefChange(this, 'reference2LocationCustom')" disabled>
+                                                          <option value="">请选择</option>
+                                                          <option value="其他">其他</option>
+                                                  </select>
+                                                  <input type="text" class="form-control" name="diseaseDetails[0].reference2LocationCustom" id="reference2LocationCustom" placeholder="请输入自定义参考面2位置" style="display:none; margin-top:5px;" readonly>`
+            }
+                                      </div>
+                                  </div>
+                                  <div class="col-sm-3">
+                                      <input name="diseaseDetails[0].reference2LocationStart" class="form-control" type="number" step="0.01" placeholder="起始位置" readonly>
+                                  </div>
+                                  <div class="col-sm-3">
+                                      <input name="diseaseDetails[0].reference2LocationEnd" class="form-control" type="number" step="0.01" placeholder="终点位置" readonly>
+                                  </div>
+                              </div>`);
+
+            // 显示所有需要显示的字段
+            fieldsToShow.forEach(function (field) {
+                if (field.type === "area") {
+                    detailDiv.append(`
+                              <div class="row" style="margin-bottom: 20px;">
+                                  <label class="col-sm-2 control-label">${field.label}：</label>
+                                  <div class="col-sm-8" style="display: flex; align-items: center; gap: 4px;">
+                                      <select name="${field.nameIdentifier}" class="form-control" style="width: 80px; flex-shrink: 0;" value="${field.valueIdentifier}" disabled>
+                                          <option value="0">普通</option>
+                                          <option value="1">平均</option>
+                                          <option value="2">总计</option>
+                                      </select>
+                                      <input name="${field.nameLength}" class="form-control" type="number" step="0.01" placeholder="长" value="${field.valueLength}" readonly>
+                                      <span style="margin: 0 4px;">✖</span>
+                                      <input name="${field.nameWidth}" class="form-control" type="number" step="0.01" placeholder="宽" value="${field.valueWidth}" readonly>
+                                  </div>
+                              </div>`);
+                } else if (field.type === "ratio") {
+                    detailDiv.append(`
+                              <div class="row" style="margin-bottom: 20px;">
+                                  <label class="col-sm-2 control-label">${field.label}：</label>
+                                  <div class="col-sm-8" style="display: flex; align-items: center; gap: 4px;">
+                                      <input name="${field.nameNumerator}" class="form-control" type="number" step="0.01" placeholder="分子" value="${field.valueNumerator}" readonly>
+
+                                      <span style="margin: 0 4px;">/</span>
+                                      <input name="${field.nameDenominator}" class="form-control" type="number" step="0.01" placeholder="分母" value="${field.valueDenominator}" readonly>
+
+                                  </div>
+                              </div>`);
+                } else {
+                    const step = field.step || "0.01";
+                    detailDiv.append(`
+                              <div class="row" style="margin-bottom: 20px;">
+                                  <label class="col-sm-2 control-label">${field.label}：</label>
+                                  <div class="col-sm-4">
+                                      <input name="${field.nameStart}" class="form-control" type="number" step="${step}" placeholder="请填写" value="${field.valueStart}" readonly>
+                                  </div>
+                                  <div class="col-sm-4">
+                                      <input name="${field.nameEnd}" class="form-control" type="number" step="${step}" placeholder="请填写" value="${field.valueEnd}" readonly>
+                                  </div>
+                              </div>`);
+                }
+            });
+
+            detailsContainer.append(detailDiv);
+
+            // 设置裂缝特征
+            if (showCrackType) {
+                detailDiv.find(`select[name="diseaseDetails[0].crackType"]`).val(disease.crackType || "纵向");
+            }
+
+            // 如果有对应的diseaseDetails数据，设置批量模式下的表单值
+            if (diseaseDetails && diseaseDetails[0]) {
+                var detail = diseaseDetails[0];
+
+                // 设置参考面位置（注意：参考面位置的最终赋值将在fillReferenceDropdowns调用后进行）
+                if (isCustomPosition) {
+                    detailDiv.find(`input[name="diseaseDetails[0].reference1Location"]`).val(detail.reference1Location || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].reference2Location"]`).val(detail.reference2Location || "");
+                }
+
+                detailDiv.find(`input[name="diseaseDetails[0].reference1LocationStart"]`).val(detail.reference1LocationStart || "");
+                detailDiv.find(`input[name="diseaseDetails[0].reference1LocationEnd"]`).val(detail.reference1LocationEnd || "");
+                detailDiv.find(`input[name="diseaseDetails[0].reference2LocationStart"]`).val(detail.reference2LocationStart || "");
+                detailDiv.find(`input[name="diseaseDetails[0].reference2LocationEnd"]`).val(detail.reference2LocationEnd || "");
+
+                // 设置范围字段值
+                if (showLength) {
+                    detailDiv.find(`input[name="diseaseDetails[0].lengthRangeStart"]`).val(detail.lengthRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].lengthRangeEnd"]`).val(detail.lengthRangeEnd || "");
+                }
+
+                if (showCrackWidth) {
+                    detailDiv.find(`input[name="diseaseDetails[0].crackWidthRangeStart"]`).val(detail.crackWidthRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].crackWidthRangeEnd"]`).val(detail.crackWidthRangeEnd || "");
+                }
+
+                if (showHeightDepth) {
+                    detailDiv.find(`input[name="diseaseDetails[0].heightDepthRangeStart"]`).val(detail.heightDepthRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].heightDepthRangeEnd"]`).val(detail.heightDepthRangeEnd || "");
+                }
+
+                if (showDeformation) {
+                    detailDiv.find(`input[name="diseaseDetails[0].deformationRangeStart"]`).val(detail.deformationRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].deformationRangeEnd"]`).val(detail.deformationRangeEnd || "");
+                }
+
+                if (showAngle) {
+                    detailDiv.find(`input[name="diseaseDetails[0].angleRangeStart"]`).val(detail.angleRangeStart || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].angleRangeEnd"]`).val(detail.angleRangeEnd || "");
+                }
+
+                if (showArea) {
+                    detailDiv.find(`input[name="diseaseDetails[0].areaLengthRange"]`).val(detail.areaLengthRange || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].areaWidthRange"]`).val(detail.areaWidthRange || "");
+                    detailDiv.find(`select[name="diseaseDetails[0].areaIdentifier"]`).val(detail.areaIdentifier || "0");
+                }
+
+                if (showPercentage) {
+                    detailDiv.find(`input[name="diseaseDetails[0].numeratorRatioRange"]`).val(detail.numeratorRatioRange || "");
+                    detailDiv.find(`input[name="diseaseDetails[0].denominatorRatioRange"]`).val(detail.denominatorRatioRange || "");
+                }
+            }
+        }
+
+        // 在病害详情渲染完成后，填充参考面下拉框选项，并在填充后根据已有数据回显
+        var selectedPositionId = $("#position").val();
+        if (selectedPositionId && positionObjects) {
+            var selectedPosition = positionObjects.find(function (item) {
+                return item.id == selectedPositionId;
+            });
+
+            if (selectedPosition && selectedPosition.props) {
+                var parsedProps = parseProps(selectedPosition.props);
+                fillReferenceDropdowns(parsedProps, quantity, threshold);
+
+                // 对单病害详情（批量模式）进行参考面值回显
+                if (quantity >= threshold) {
+                    var detail = (diseaseDetails && diseaseDetails[0]) ? diseaseDetails[0] : null;
+                    if (detail && !isCustomPosition) {
+                        var ref1Select = $("#reference1Location");
+                        var ref2Select = $("#reference2Location");
+                        if (ref1Select.length) {
+                            var ref1Options = ref1Select.find('option').map(function () { return $(this).val(); }).get();
+                            var ref1Value = detail.reference1Location || "";
+                            if (ref1Value && ref1Options.indexOf(ref1Value) === -1 && ref1Value !== "其他") {
+                                ref1Select.val("其他").trigger('change');
+                                $("#reference1LocationCustom").val(ref1Value).show();
+                            } else if (ref1Value === "" || ref1Options.indexOf(ref1Value) !== -1) {
+                                ref1Select.val(ref1Value);
+                            }
+                        }
+                        if (ref2Select.length) {
+                            var ref2Options = ref2Select.find('option').map(function () { return $(this).val(); }).get();
+                            var ref2Value = detail.reference2Location || "";
+                            if (ref2Value && ref2Options.indexOf(ref2Value) === -1 && ref2Value !== "其他") {
+                                ref2Select.val("其他").trigger('change');
+                                $("#reference2LocationCustom").val(ref2Value).show();
+                            } else if (ref2Value === "" || ref2Options.indexOf(ref2Value) !== -1) {
+                                ref2Select.val(ref2Value);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 计算构件扣分
+    function computeDeductPoints(maxScale, scale) {
+        switch (parseInt(maxScale)) {
+            case 3:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 20;
+                    case 3:
+                        return 35;
+                    default:
+                        throw new Error("当 max_scale 为 3 时，scale 只能为 1、2 或 3");
+                }
+            case 4:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 25;
+                    case 3:
+                        return 40;
+                    case 4:
+                        return 50;
+                    default:
+                        throw new Error("当 max_scale 为 4 时，scale 只能为 1、2、3 或 4");
+                }
+            case 5:
+                switch (parseInt(scale)) {
+                    case 1:
+                        return 0;
+                    case 2:
+                        return 35;
+                    case 3:
+                        return 45;
+                    case 4:
+                        return 60;
+                    case 5:
+                        return 100;
+                    default:
+                        throw new Error("当 max_scale 为 5 时，scale 只能为 1、2、3、4 或 5");
+                }
+            default:
+                throw new Error("max_scale 只能为 3、4 或 5");
+        }
+    }
+
+    // 数量输入验证
+    function validateQuantity(input) {
+        const value = input.value;
+        const errorElement = document.getElementById('quantityError');
+
+        // 验证非空
+        if (!value) {
+            errorElement.textContent = '数量不能为空';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        // 验证是否为整数
+        if (!/^\d+$/.test(value)) {
+            errorElement.textContent = '请输入整数';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        // 验证范围
+        const num = parseInt(value);
+        if (num < 1 || num > 9999) {
+            errorElement.textContent = '请输入1-9999之间的数值';
+            errorElement.style.display = 'block';
+            return false;
+        }
+
+        errorElement.style.display = 'none';
+        return true;
+    }
+
+    // 格式化数量（失去焦点时处理）
+    function formatQuantity(input) {
+        if (!input.value) {
+            input.value = 1;
         } else {
-            $('#nextImage').prop('disabled', false).css('opacity', '1');
+            input.value = Math.max(1, Math.min(9999, parseInt(input.value) || 1));
+        }
+        validateQuantity(input);
+    }
+
+    // 表单提交时最终验证
+    function validateForm() {
+        return validateQuantity(document.getElementById('quantityInput'));
+    }
+
+    // 初始化等级选择按钮组
+    function initLevelGroup(maxScale) {
+        var levelGroup = $("#levelGroup");
+        levelGroup.empty();
+
+        for (var i = 1; i <= maxScale; i++) {
+            var label = $('<label class="btn btn-default">' +
+                 i + '</label>');
+
+            if (disease && disease.level && i == disease.level) {
+                label.addClass('active');
+            }
+            levelGroup.append(label);
+        }
+
+
+
+        // 监听评定标度选择变化，自动选择对应的描述
+        levelGroup.find('input[type="radio"]').off('change').on('change', function () {
+            var selectedScale = $(this).val();
+            var $description = $("#description");
+            var $option = $description.find('option[value="' + selectedScale + '"]');
+            if ($option.length) {
+                $description.val(selectedScale).trigger('change');
+            }
+
+            // 计算并显示构件扣分
+            var maxScale = $("#maxScale").val();
+            if (maxScale && selectedScale) {
+                try {
+                    var deductPoints = computeDeductPoints(maxScale, selectedScale);
+                    $("#deductPoints").val(deductPoints);
+                } catch (e) {
+                    console.error(e);
+                    $("#deductPoints").val('');
+                }
+            }
+        });
+    }
+
+    // 更新等级选择按钮组
+    function updateLevelGroup(diseaseTypeId) {
+        if (!diseaseTypeId) {
+            initLevelGroup(5); // 默认最大值为5
+            return;
+        }
+
+        var selectedDiseaseType = diseaseTypes.find(function (item) {
+            return item.id == diseaseTypeId;
+        });
+
+        if (selectedDiseaseType && selectedDiseaseType.maxScale) {
+            initLevelGroup(selectedDiseaseType.maxScale);
+        } else {
+            initLevelGroup(5); // 如果没有找到对应的maxScale，使用默认值5
+        }
+    }
+
+    // 解析字符串以获取下拉框的选项
+    function parseProps(props) {
+        var parsedProps = {};
+        if (!props) return parsedProps;
+
+        var pairs = props.split('&&');
+        for (var i = 0; i < pairs.length; i++) {
+            var pair = pairs[i].split(':=');
+            if (pair.length < 2) continue;
+
+            var key = pair[0];
+            var values = pair[1].split('、');
+            parsedProps[key] = values.map(function (value) {
+                return {id: value, name: value};
+            });
+        }
+        return parsedProps;
+    }
+
+    // 填充参考面下拉框选项
+    function fillReferenceDropdowns(parsedProps, quantity, threshold) {
+        // 获取当前选中的病害类型
+        var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+        var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+            return item.id == selectedDiseaseTypeId;
+        }) : null;
+
+        // 获取threshold值，默认为10
+        var thresholdValue = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+
+        if (quantity >= thresholdValue) {
+            var ref1Select = $("#reference1Location");
+            var ref2Select = $("#reference2Location");
+
+            if (ref1Select.length && ref2Select.length) {
+                // 保存当前的实际值（包括自定义输入框的值）
+                var currentRef1Value = ref1Select.val();
+                var currentRef2Value = ref2Select.val();
+                var currentRef1CustomValue = $("#reference1LocationCustom").val();
+                var currentRef2CustomValue = $("#reference2LocationCustom").val();
+
+                // 如果当前选择的是"其他"，使用自定义输入框的值作为实际值
+                if (currentRef1Value === "其他" && currentRef1CustomValue) {
+                    currentRef1Value = currentRef1CustomValue;
+                }
+                if (currentRef2Value === "其他" && currentRef2CustomValue) {
+                    currentRef2Value = currentRef2CustomValue;
+                }
+
+                ref1Select.empty();
+                ref2Select.empty();
+
+                // 添加基础选项
+                ref1Select.append($('<option></option>').val("").text("请选择"));
+                ref2Select.append($('<option></option>').val("").text("请选择"));
+
+                // 构建选项值数组，用于判断值是否在选项中
+                var ref1Options = [];
+                var ref2Options = [];
+
+                if (parsedProps['ref1']) {
+                    parsedProps['ref1'].forEach(function (item) {
+                        ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                        ref1Options.push(item.id);
+                    });
+                }
+
+                // 添加"其他"选项
+                ref1Select.append($('<option></option>').val("其他").text("其他"));
+
+                if (parsedProps['ref2']) {
+                    parsedProps['ref2'].forEach(function (item) {
+                        ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                        ref2Options.push(item.id);
+                    });
+                }
+
+                // 添加"其他"选项
+                ref2Select.append($('<option></option>').val("其他").text("其他"));
+
+                // 智能恢复选中值
+                if (currentRef1Value && currentRef1Value !== "") {
+                    if (ref1Options.indexOf(currentRef1Value) !== -1) {
+                        // 值在下拉框选项中，直接选中
+                        ref1Select.val(currentRef1Value);
+                    } else {
+                        // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                        ref1Select.val("其他").trigger('change');
+                        $("#reference1LocationCustom").val(currentRef1Value).show();
+                    }
+                }
+
+                if (currentRef2Value && currentRef2Value !== "") {
+                    if (ref2Options.indexOf(currentRef2Value) !== -1) {
+                        // 值在下拉框选项中，直接选中
+                        ref2Select.val(currentRef2Value);
+                    } else {
+                        // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                        ref2Select.val("其他").trigger('change');
+                        $("#reference2LocationCustom").val(currentRef2Value).show();
+                    }
+                }
+            }
+        } else {
+            // 遍历每一个病害的下拉框
+            for (var i = 0; i < quantity; i++) {
+                // 1. 处理 reference1Location
+                var ref1Select = $("#reference1Location_" + i);
+                if (ref1Select.length) { // 确保元素存在
+                    // 保存当前的实际值（包括自定义输入框的值）
+                    var currentRef1Value = ref1Select.val();
+                    var currentRef1CustomValue = $("#reference1LocationCustom_" + i).val();
+
+                    // 如果当前选择的是"其他"，使用自定义输入框的值作为实际值
+                    if (currentRef1Value === "其他" && currentRef1CustomValue) {
+                        currentRef1Value = currentRef1CustomValue;
+                    }
+
+                    ref1Select.empty();
+                    // 添加基础选项
+                    ref1Select.append($('<option></option>').val("").text("请选择"));
+
+                    // 构建选项值数组
+                    var ref1Options = [];
+
+                    if (parsedProps['ref1'] && parsedProps['ref1'].length > 0) {
+                        parsedProps['ref1'].forEach(function (item) {
+                            ref1Select.append($('<option></option>').val(item.id).text(item.name));
+                            ref1Options.push(item.id);
+                        });
+                    } else {
+                        ref1Select.append($('<option></option>').val("").text("无可用选项"));
+                    }
+
+                    // 添加"其他"选项
+                    ref1Select.append($('<option></option>').val("其他").text("其他"));
+
+                    // 智能恢复选中值
+                    if (currentRef1Value && currentRef1Value !== "") {
+                        if (ref1Options.indexOf(currentRef1Value) !== -1) {
+                            // 值在下拉框选项中，直接选中
+                            ref1Select.val(currentRef1Value);
+                        } else {
+                            // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                            ref1Select.val("其他").trigger('change');
+                            $("#reference1LocationCustom_" + i).val(currentRef1Value).show();
+                        }
+                    }
+                }
+
+                // 2. 处理 reference2Location
+                var ref2Select = $("#reference2Location_" + i);
+                if (ref2Select.length) { // 确保元素存在
+                    // 保存当前的实际值（包括自定义输入框的值）
+                    var currentRef2Value = ref2Select.val();
+                    var currentRef2CustomValue = $("#reference2LocationCustom_" + i).val();
+
+                    // 如果当前选择的是"其他"，使用自定义输入框的值作为实际值
+                    if (currentRef2Value === "其他" && currentRef2CustomValue) {
+                        currentRef2Value = currentRef2CustomValue;
+                    }
+
+                    ref2Select.empty();
+                    // 添加基础选项
+                    ref2Select.append($('<option></option>').val("").text("请选择"));
+
+                    // 构建选项值数组
+                    var ref2Options = [];
+
+                    if (parsedProps['ref2'] && parsedProps['ref2'].length > 0) {
+                        parsedProps['ref2'].forEach(function (item) {
+                            ref2Select.append($('<option></option>').val(item.id).text(item.name));
+                            ref2Options.push(item.id);
+                        });
+                    } else {
+                        ref2Select.append($('<option></option>').val("").text("无可用选项"));
+                    }
+
+                    // 添加"其他"选项
+                    ref2Select.append($('<option></option>').val("其他").text("其他"));
+
+                    // 智能恢复选中值
+                    if (currentRef2Value && currentRef2Value !== "") {
+                        if (ref2Options.indexOf(currentRef2Value) !== -1) {
+                            // 值在下拉框选项中，直接选中
+                            ref2Select.val(currentRef2Value);
+                        } else {
+                            // 值不在下拉框选项中，选择"其他"并设置自定义输入框
+                            ref2Select.val("其他").trigger('change');
+                            $("#reference2LocationCustom_" + i).val(currentRef2Value).show();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 处理参考面位置下拉框变化的通用函数
+    function handleRefChange(select, customInputId) {
+        var customInput = $(select).siblings('#' + customInputId);
+        if ($(select).val() === '其他') {
+            customInput.show();
+            customInput.attr('required', 'required');
+        } else {
+            customInput.hide();
+            customInput.removeAttr('required');
+            customInput.val('');
+        }
+    }
+
+    // 文件选择预览处理
+    $("#diseaseFiles").change(function () {
+        var previewContainer = $("#filePreview");
+        var files = this.files;
+
+        if (files && files.length > 0) {
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var isImage = file.type.startsWith('image/');
+
+                var col = $('<div class="col-sm-2 mb-2"></div>');
+                var thumbnail = $('<div class="thumbnail" data-file-index="' + i + '"></div>');
+
+                if (isImage) {
+                    // 如果是图片，创建图片预览
+                    var reader = new FileReader();
+                    reader.onload = (function (file, thumbnail) {
+                        return function (e) {
+                            thumbnail.append(
+                                '<div class="preview-image">' +
+                                '<a href="javascript:void(0);" class="preview-image">' +
+                                '<img src="' + e.target.result + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;">' +
+                                '</a>' +
+                                '</div>'
+                            );
+                        };
+                    })(file, thumbnail);
+                    reader.readAsDataURL(file);
+                } else {
+                    // 如果是其他类型的文件，显示文件图标
+                    thumbnail.append(
+                        '<div class="text-center" style="padding: 20px;">' +
+                        '<i class="fa fa-file fa-3x mb-2"></i>' +
+                        '<p class="mb-0" style="word-break: break-all;">' + file.name + '</p>' +
+                        '</div>'
+                    );
+                }
+
+                // 添加删除按钮和隐藏的文件信息
+                thumbnail.append(
+                    '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;" onclick="removeFilePreview(this)">' +
+                    '<i class="fa fa-trash"></i></button>' +
+                    '<input type="hidden" class="file-data" name="fileData" value="' + encodeURIComponent(JSON.stringify({
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        lastModified: file.lastModified
+                    })) + '">'
+                );
+
+                col.append(thumbnail);
+                previewContainer.append(col);
+            }
+        }
+
+        // 保存文件到全局变量
+        saveFilesToGlobal();
+    });
+
+    // 全局变量存储所有文件
+    var globalFiles = [];
+
+    // 保存文件到全局变量
+    function saveFilesToGlobal() {
+        var fileInput = document.getElementById('diseaseFiles');
+        if (fileInput.files) {
+            for (var i = 0; i < fileInput.files.length; i++) {
+                globalFiles.push(fileInput.files[i]);
+            }
+        }
+        // 清空input，以便可以重复选择同一文件
+        fileInput.value = '';
+    }
+
+    // 移除文件预览
+    window.removeFilePreview = function (btn) {
+        var $thumbnail = $(btn).closest('.thumbnail');
+        var fileData = JSON.parse(decodeURIComponent($thumbnail.find('.file-data').val()));
+
+        // 从全局文件数组中移除对应文件
+        globalFiles = globalFiles.filter(function (file) {
+            return !(file.name === fileData.name &&
+                file.size === fileData.size &&
+                file.lastModified === fileData.lastModified);
+        });
+
+        $(btn).closest('.col-sm-2').remove();
+    };
+
+    // 移除已存在的文件
+    window.removeExistingFile = function (btn) {
+        var $container = $(btn).closest('.col-sm-2');
+        var fileId = $(btn).data('id');
+        if (fileId) {
+            $.modal.confirm("确定要删除该文件吗？", function () {
+                $.ajax({
+                    url: prefix + "/attachment/delete/" + fileId,
+                    type: 'DELETE',
+                    success: function (response) {
+                        if (response.code === 0) {
+                            $.modal.msgSuccess("删除成功");
+                            $container.remove();
+                        } else {
+                            $.modal.alertError(response.msg);
+                        }
+                    },
+                    error: function () {
+                        $.modal.alertError("删除失败，请稍后重试");
+                    }
+                });
+            });
+        }
+    };
+
+    // 修改表单提交处理
+    function submitHandler() {
+        if ($.validate.form() && validateForm()) {
+            var formData = new FormData($("#form-disease-edit")[0]);
+
+            // 处理自定义病害类型
+            var diseaseTypeText = $("#diseaseTypeId option:selected").text().trim();
+            if (diseaseTypeText === "其他" || diseaseTypeText === "其它") {
+                formData.append("customDiseaseType", $("#customDiseaseType").val());
+            }
+
+            // 处理自定义病害位置
+            var positionText = $("#position option:selected").text().trim();
+            if (positionText === "其他" || positionText === "其它") {
+                formData.set("position", $("#customPosition").val());
+            } else {
+                formData.set("position", positionText);
+            }
+
+            // 确保deductPoints是整数
+            var deductPoints = $("#deductPoints").val();
+            formData.set("deductPoints", deductPoints ? parseInt(deductPoints) : 0);
+
+            // 确保每个diseaseDetail都有diseaseId
+            var diseaseId = $("input[name='id']").val();
+            if (diseaseId) {
+                // 查找所有diseaseDetail表单字段
+                var detailElements = $("[name^='diseaseDetails[']");
+                var detailsMap = {};
+
+                // 按索引组织数据
+                detailElements.each(function () {
+                    var name = $(this).attr('name');
+                    var matches = name.match(/diseaseDetails\[(\d+)\]\.(.+)/);
+                    if (matches && matches.length === 3) {
+                        var index = matches[1];
+                        var field = matches[2];
+
+                        if (!detailsMap[index]) {
+                            detailsMap[index] = {};
+                        }
+
+                        var value = $(this).val();
+                        detailsMap[index][field] = value;
+
+                        // 为每个detail添加diseaseId
+                        detailsMap[index]['diseaseId'] = diseaseId;
+                    }
+                });
+
+                // 注意：参考面位置值已经在FormData收集后直接处理了，这里不需要重复处理
+
+                // 清除原有的diseaseDetails数据
+                detailElements.each(function () {
+                    formData.delete($(this).attr('name'));
+                });
+
+                // 重新添加带有diseaseId的数据
+                for (var index in detailsMap) {
+                    var detail = detailsMap[index];
+                    for (var field in detail) {
+                        formData.append(`diseaseDetails[${index}].${field}`, detail[field]);
+                    }
+                }
+
+            }
+
+            // 添加所有预览区域的文件到FormData
+            globalFiles.forEach(function (file, index) {
+                formData.append('files', file);
+            });
+
+            // 添加已有附件的ID列表
+            var existingAttachmentIds = [];
+            $('input[name^="attachments["][name$=".id"]').each(function () {
+                var id = $(this).val();
+                if (id && !existingAttachmentIds.includes(id)) {
+                    existingAttachmentIds.push(id);
+                }
+            });
+
+            // 将附件ID数组转换为逗号分隔的字符串
+            if (existingAttachmentIds.length > 0) {
+                formData.append('existingAttachmentIds', existingAttachmentIds.join(','));
+            }
+
+            var quantity = $("#quantityInput").val();
+
+            // 获取当前选中的病害类型
+            var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+            var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                return item.id == selectedDiseaseTypeId;
+            }) : null;
+
+            // 获取threshold值，默认为10
+            var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+
+            // 直接处理参考面位置值
+            if (quantity >= threshold) {
+                // 单病害情况
+                var ref1Select = $("#reference1Location");
+                var ref2Select = $("#reference2Location");
+
+                var ref1Value = ref1Select.val();
+                var ref2Value = ref2Select.val();
+
+                // 如果选择了"其他"，使用自定义输入框的值
+                if (ref1Value === "其他") {
+                    ref1Value = $("#reference1LocationCustom").val();
+                }
+                if (ref2Value === "其他") {
+                    ref2Value = $("#reference2LocationCustom").val();
+                }
+
+                // 直接设置到FormData中
+                if (ref1Value && ref1Value !== "") {
+                    formData.set("diseaseDetails[0].reference1Location", ref1Value);
+                    console.log("直接设置单病害参考面1位置值:", ref1Value);
+                }
+                if (ref2Value && ref2Value !== "") {
+                    formData.set("diseaseDetails[0].reference2Location", ref2Value);
+                    console.log("直接设置单病害参考面2位置值:", ref2Value);
+                }
+            } else {
+                // 多病害情况
+                for (var i = 0; i < quantity; i++) {
+                    // 先清除当前索引的旧值
+                    formData.delete("diseaseDetails[" + i + "].reference1Location");
+                    formData.delete("diseaseDetails[" + i + "].reference2Location");
+
+                    var ref1Select = $("#reference1Location_" + i);
+                    var ref2Select = $("#reference2Location_" + i);
+
+                    var ref1Value = ref1Select.val();
+                    var ref2Value = ref2Select.val();
+
+                    // 如果选择了"其他"，使用自定义输入框的值
+                    if (ref1Value === "其他") {
+                        ref1Value = $("#reference1LocationCustom_" + i).val();
+                    }
+                    if (ref2Value === "其他") {
+                        ref2Value = $("#reference2LocationCustom_" + i).val();
+                    }
+
+                    // 设置新值到FormData中
+                    if (ref1Value && ref1Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference1Location", ref1Value);
+                    }
+                    if (ref2Value && ref2Value !== "") {
+                        formData.set("diseaseDetails[" + i + "].reference2Location", ref2Value);
+                    }
+                }
+            }
+
+            $.modal.loading("正在提交数据，请稍候...");
+            $.ajax({
+                url: prefix + "/edit",
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function (response) {
+                    $.modal.closeLoading();
+                    if (response.code === 0) {
+                        $.modal.msgSuccess("保存成功");
+                        localStorage.setItem("refreshDiseaseTable", Date.now()); // 设置一个刷新标志（附带时间避免缓存）
+                        $.modal.closeTab();
+                        parent.$.table.refresh();
+                    } else {
+                        $.modal.alertError(response.msg);
+                    }
+                },
+                error: function () {
+                    $.modal.closeLoading();
+                    $.modal.alertError("保存失败，请稍后再试");
+                }
+            });
+        }
+    }
+
+    // 获取已上传的附件列表
+    function loadExistingAttachments() {
+        var diseaseId = $("input[name='id']").val();
+        if (diseaseId) {
+            $.ajax({
+                url: prefix + "/attachments/" + diseaseId,
+                type: 'GET',
+                success: function (response) {
+                    if (response.code === 0 && response.data) {
+                        var previewContainer = $("#filePreview");
+                        // 清空现有预览
+                        previewContainer.empty();
+
+                        // 显示已有附件
+                        var index = 0;
+                        response.data.forEach(function (attachment) {
+                            var col = $('<div class="col-sm-2 mb-2"></div>');
+                            var thumbnail = $('<div class="thumbnail"></div>');
+
+                            if (attachment.isImage) {
+                                // 图片预览，点击可下载
+                                thumbnail.append(
+                                    '<div class="preview-image">' +
+                                    '<a href="javascript:void(0);" class="preview-image">' +
+                                    '<img src="' + attachment.url + '" class="img-thumbnail" style="height:150px;width:150px;object-fit:cover;cursor:pointer;" ' +
+                                    'title="' + attachment.fileName + '">' +
+                                    '</a>' +
+                                    '</div>'
+                                );
+                            } else {
+                                // 文件图标，点击可下载
+                                thumbnail.append(
+                                    '<a href="javascript:void(0);" onclick="downloadFile(\'' + attachment.url + '\', \'' + attachment.fileName + '\')" ' +
+                                    'style="text-decoration:none;color:inherit;" title="点击下载：' + attachment.fileName + '">' +
+                                    '<div class="preview-file text-center" style="cursor:pointer;">' +
+                                    '<i class="fa fa-file fa-3x" style="margin: 20px;"></i>' +
+                                    '<p style="word-break: break-all;">' + attachment.fileName + '</p>' +
+                                    '</div>' +
+                                    '</a>'
+                                );
+                            }
+
+                            // 添加删除按钮
+                            thumbnail.append(
+                                '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"' +
+                                'data-id="' + attachment.id + '" onclick="removeExistingFile(this)">' +
+                                '<i class="fa fa-trash"></i></button>'
+                            );
+
+                            // 添加隐藏字段保存附件信息
+                            thumbnail.append(
+                                '<input type="hidden" name="attachments[' + index + '].id" value="' + attachment.id + '">' +
+                                '<input type="hidden" name="attachments[' + index + '].fileName" value="' + attachment.fileName + '">' +
+                                '<input type="hidden" name="attachments[' + index + '].url" value="' + attachment.url + '">' +
+                                '<input type="hidden" name="attachments[' + index + '].isImage" value="' + attachment.isImage + '">'
+                            );
+
+                            col.append(thumbnail);
+                            previewContainer.append(col);
+                            index++;
+                        });
+                    }
+                }
+            });
         }
     }
 
@@ -404,13 +2176,13 @@
         var xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
         xhr.responseType = 'blob';
-        
-        xhr.onload = function() {
+
+        xhr.onload = function () {
             if (xhr.status === 200) {
                 // 创建blob链接
-                var blob = new Blob([xhr.response], { type: xhr.getResponseHeader('Content-Type') });
+                var blob = new Blob([xhr.response], {type: xhr.getResponseHeader('Content-Type')});
                 var link = document.createElement('a');
-                
+
                 // 添加fileName参数到URL
                 var downloadUrl = url;
                 if (url.indexOf('?') === -1) {
@@ -418,29 +2190,138 @@
                 } else {
                     downloadUrl += '&fileName=' + encodeURIComponent(fileName);
                 }
-                
+
                 // 设置下载链接和文件名
                 link.href = window.URL.createObjectURL(blob);
                 link.download = fileName;
-                
+
                 // 触发下载
                 document.body.appendChild(link);
                 link.click();
-                
+
                 // 清理
                 document.body.removeChild(link);
                 window.URL.revokeObjectURL(link.href);
             }
         };
-        
+
         // 发送请求
         xhr.send();
     }
 
+    // 添加辅助函数：将DataURI转换为Blob
+    function dataURItoBlob(dataURI) {
+        var byteString = atob(dataURI.split(',')[1]);
+        var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+        var ab = new ArrayBuffer(byteString.length);
+        var ia = new Uint8Array(ab);
+        for (var i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], {type: mimeString});
+    }
+
+    // 监听位置选择变化，填充参考面下拉框
+    $("#position").on('change', function () {
+        var selectedId = $(this).val();
+        if (selectedId) {
+            var selectedPosition = positionObjects.find(function (item) {
+                return item.id == selectedId;
+            });
+
+            if (selectedPosition && selectedPosition.props) {
+                var parsedProps = parseProps(selectedPosition.props);
+                var quantity = $("#quantityInput").val();
+
+                // 使用新的填充函数
+                fillReferenceDropdowns(parsedProps, quantity);
+
+                // 获取当前选中的病害类型
+                var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+                var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                    return item.id == selectedDiseaseTypeId;
+                }) : null;
+
+                // 获取threshold值，默认为10
+                var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+
+                // 只在新增模式下设置默认选中值，编辑模式下保持原有回显值
+                if (!diseaseId) {
+                    if (quantity >= threshold) {
+                        var ref1Select = $("#reference1Location");
+                        var ref2Select = $("#reference2Location");
+
+                        try {
+                            if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
+                                ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
+                            }
+                            if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
+                                ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
+                            }
+                        } catch (e) {
+                            console.log(e);
+                        }
+                    } else {
+                        // 设置默认选中值
+                        for (var i = 0; i < quantity; i++) {
+                            var ref1Select = $(`#reference1Location_${i}`);
+                            var ref2Select = $(`#reference2Location_${i}`);
+                            try {
+                                if (parsedProps['ref1'] && parsedProps['ref1'][0]) {
+                                    ref1Select.val(parsedProps['ref1'][0].id).trigger('change'); // 默认选中第一个选项
+                                }
+                                if (parsedProps['ref2'] && parsedProps['ref2'][0]) {
+                                    ref2Select.val(parsedProps['ref2'][0].id).trigger('change'); // 默认选中第一个选项
+                                }
+                            } catch (e) {
+                                console.log(e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 显示当前图片并控制按钮显示
+    function showPreviewImage() {
+        if (previewImageList.length === 0) return;
+
+        // 确保索引在有效范围内
+        if (previewImageIndex < 0) previewImageIndex = 0;
+        if (previewImageIndex >= previewImageList.length) previewImageIndex = previewImageList.length - 1;
+
+        var item = previewImageList[previewImageIndex];
+
+        // 设置图片源
+        $('#previewImage').attr('src', item.src);
+
+        // 设置下载链接
+        var fileName = item.fileName || 'image.jpg';
+        $('#downloadImageLink').attr('href', item.src).attr('download', fileName);
+
+        // 设置底部信息
+        $('#previewFileName').text(item.fileName || '');
+        $('#previewIndex').text((previewImageIndex + 1) + ' of ' + previewImageList.length);
+
+        // 控制左右按钮的启用/禁用状态，但始终保持显示
+        if (previewImageIndex <= 0) {
+            $('#prevImage').prop('disabled', true).css('opacity', '0.3');
+        } else {
+            $('#prevImage').prop('disabled', false).css('opacity', '1');
+        }
+
+        if (previewImageIndex >= previewImageList.length - 1) {
+            $('#nextImage').prop('disabled', true).css('opacity', '0.3');
+        } else {
+            $('#nextImage').prop('disabled', false).css('opacity', '1');
+        }
+    }
+
     // 确保在文档加载后执行
-    $(document).ready(function() {
+    $(document).ready(function () {
         // 左右按钮点击事件
-        $('#prevImage').on('click', function(e) {
+        $('#prevImage').on('click', function (e) {
             e.stopPropagation();
             if (previewImageIndex > 0) {
                 previewImageIndex--;
@@ -448,8 +2329,8 @@
                 console.log('向左切换，当前索引: ' + previewImageIndex);
             }
         });
-        
-        $('#nextImage').on('click', function(e) {
+
+        $('#nextImage').on('click', function (e) {
             e.stopPropagation();
             if (previewImageIndex < previewImageList.length - 1) {
                 previewImageIndex++;
@@ -457,26 +2338,26 @@
                 console.log('向右切换，当前索引: ' + previewImageIndex);
             }
         });
-        
+
         // 下载按钮点击事件
-        $('#downloadButton').on('click', function() {
+        $('#downloadButton').on('click', function () {
             var item = previewImageList[previewImageIndex];
-            if(item && item.src) {
+            if (item && item.src) {
                 downloadFile(item.src, item.fileName || 'image.jpg');
             }
         });
-        
+
         // 点击图片下载处理
-        $('#downloadImageLink').on('click', function(e) {
+        $('#downloadImageLink').on('click', function (e) {
             var item = previewImageList[previewImageIndex];
-            if(item && item.src) {
+            if (item && item.src) {
                 e.preventDefault(); // 防止默认行为
                 downloadFile(item.src, item.fileName || 'image.jpg');
             }
         });
-        
+
         // 键盘左右键控制
-        $(document).on('keydown', function(e) {
+        $(document).on('keydown', function (e) {
             if ($('#imagePreviewModal').hasClass('show')) {
                 if (e.keyCode === 37) { // 左箭头
                     $('#prevImage').click();
@@ -487,7 +2368,7 @@
                 }
             }
         });
-        
+
         // 关闭弹窗时清空
         $('#imagePreviewModal').on('hidden.bs.modal', function () {
             previewImageList = [];
@@ -498,57 +2379,177 @@
         });
     });
 </script>
-
 <!-- 图片预览模态框 -->
-<div class="modal fade" id="imagePreviewModal" tabindex="-1" role="dialog" aria-labelledby="imagePreviewLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document" style="width: 100%; max-width: 100%; height: 100vh; margin: 0; padding: 0;">
-    <div class="modal-content" style="height: 100%; background-color: transparent; border: none; box-shadow: none;">
-      <!-- 关闭按钮 - 独立放在右上角 -->
-      <button type="button" class="close" data-dismiss="modal" aria-label="关闭" 
-        style="position: absolute; top: 20px; right: 25px; color: #fff; opacity: 1; font-size: 28px; z-index: 1050;">
-        <span aria-hidden="true">&times;</span>
-      </button>
-      
-      <div class="modal-body" style="padding: 0; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; background-color: transparent;">
-        <!-- 左侧箭头 -->
-        <div style="position: absolute; top: 50%; transform: translateY(-50%); left: 30px; z-index: 1030;">
-          <button id="prevImage" type="button" 
-            style="background: rgba(0,0,0,0.3); border: none; width: 50px; height: 50px; border-radius: 50%; color: #fff; font-size: 24px; cursor: pointer; outline: none;">
-            &larr;
-          </button>
-        </div>
-        
-        <!-- 中央图片区域 -->
-        <div style="max-width: 70%; max-height: 80%; text-align: center;">
-          <a id="downloadImageLink" href="#" download style="display: inline-block; position: relative;">
-            <img id="previewImage" src="" alt="图片预览" style="max-width: 100%; max-height: 80vh; object-fit: contain; background-color: transparent;">
-          </a>
-        </div>
-        
-        <!-- 右侧箭头 -->
-        <div style="position: absolute; top: 50%; transform: translateY(-50%); right: 30px; z-index: 1030;">
-          <button id="nextImage" type="button"
-            style="background: rgba(0,0,0,0.3); border: none; width: 50px; height: 50px; border-radius: 50%; color: #fff; font-size: 24px; cursor: pointer; outline: none;">
-            &rarr;
-          </button>
-        </div>
-        
-        <!-- 底部文件信息 -->
-        <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: #fff; padding: 15px 20px; z-index: 1020;">
-          <div class="text-left" style="float: left;">
-            <span id="previewFileName"></span>
-            <button id="downloadButton" class="btn btn-sm btn-primary" style="margin-left: 15px; padding: 3px 10px;">
-              <i class="fa fa-download"></i> 点击下载原图
+<div
+        class="modal fade"
+        id="imagePreviewModal"
+        tabindex="-1"
+        role="dialog"
+        aria-labelledby="imagePreviewLabel"
+        aria-hidden="true"
+>
+    <div
+            class="modal-dialog"
+            role="document"
+            style="
+          width: 100%;
+          max-width: 100%;
+          height: 100vh;
+          margin: 0;
+          padding: 0;
+        "
+    >
+        <div
+                class="modal-content"
+                style="
+            height: 100%;
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+          "
+        >
+            <!-- 关闭按钮 - 独立放在右上角 -->
+            <button
+                    type="button"
+                    class="close"
+                    data-dismiss="modal"
+                    aria-label="关闭"
+                    style="
+              position: absolute;
+              top: 20px;
+              right: 25px;
+              color: #fff;
+              opacity: 1;
+              font-size: 28px;
+              z-index: 1050;
+            "
+            >
+                <span aria-hidden="true">&times;</span>
             </button>
-          </div>
-          <div class="text-right" style="float: right;">
-            <span id="previewIndex"></span>
-          </div>
-          <div style="clear: both;"></div>
+
+            <div
+                    class="modal-body"
+                    style="
+              padding: 0;
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              position: relative;
+              background-color: transparent;
+            "
+            >
+                <!-- 左侧箭头 -->
+                <div
+                        style="
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                left: 30px;
+                z-index: 1030;
+              "
+                >
+                    <button
+                            id="prevImage"
+                            type="button"
+                            style="
+                  background: rgba(0, 0, 0, 0.3);
+                  border: none;
+                  width: 50px;
+                  height: 50px;
+                  border-radius: 50%;
+                  color: #fff;
+                  font-size: 24px;
+                  cursor: pointer;
+                  outline: none;
+                "
+                    >
+                        &larr;
+                    </button>
+                </div>
+
+                <!-- 中央图片区域 -->
+                <div style="max-width: 70%; max-height: 80%; text-align: center">
+                    <a
+                            id="downloadImageLink"
+                            href="#"
+                            download
+                            style="display: inline-block; position: relative"
+                    >
+                        <img
+                                id="previewImage"
+                                src=""
+                                alt="图片预览"
+                                style="
+                    max-width: 100%;
+                    max-height: 80vh;
+                    object-fit: contain;
+                    background-color: transparent;
+                  "
+                        />
+                    </a>
+                </div>
+
+                <!-- 右侧箭头 -->
+                <div
+                        style="
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                right: 30px;
+                z-index: 1030;
+              "
+                >
+                    <button
+                            id="nextImage"
+                            type="button"
+                            style="
+                  background: rgba(0, 0, 0, 0.3);
+                  border: none;
+                  width: 50px;
+                  height: 50px;
+                  border-radius: 50%;
+                  color: #fff;
+                  font-size: 24px;
+                  cursor: pointer;
+                  outline: none;
+                "
+                    >
+                        &rarr;
+                    </button>
+                </div>
+
+                <!-- 底部文件信息 -->
+                <div
+                        style="
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: rgba(0, 0, 0, 0.5);
+                color: #fff;
+                padding: 15px 20px;
+                z-index: 1020;
+              "
+                >
+                    <div class="text-left" style="float: left">
+                        <span id="previewFileName"></span>
+                        <button
+                                id="downloadButton"
+                                class="btn btn-sm btn-primary"
+                                style="margin-left: 15px; padding: 3px 10px"
+                        >
+                            <i class="fa fa-download"></i> 点击下载原图
+                        </button>
+                    </div>
+                    <div class="text-right" style="float: right">
+                        <span id="previewIndex"></span>
+                    </div>
+                    <div style="clear: both"></div>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-  </div>
 </div>
 </body>
 </html>
