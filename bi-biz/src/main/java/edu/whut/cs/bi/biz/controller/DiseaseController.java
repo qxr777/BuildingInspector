@@ -16,8 +16,14 @@ import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
+import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +34,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,8 +51,7 @@ import java.util.stream.Collectors;
  */
 @Controller
 @RequestMapping("/biz/disease")
-public class DiseaseController extends BaseController
-{
+public class DiseaseController extends BaseController {
     private String prefix = "biz/disease";
 
     @Resource
@@ -73,11 +83,12 @@ public class DiseaseController extends BaseController
 
     @Resource
     private ReadFileService readFileService;
+    @Autowired
+    private BuildingMapper buildingMapper;
 
     @RequiresPermissions("biz:disease:view")
     @GetMapping()
-    public String disease()
-    {
+    public String disease() {
         return prefix + "/disease";
     }
 
@@ -87,8 +98,7 @@ public class DiseaseController extends BaseController
     @RequiresPermissions("biz:disease:list")
     @PostMapping("/list")
     @ResponseBody
-    public TableDataInfo list(Disease disease)
-    {
+    public TableDataInfo list(Disease disease) {
         List<Disease> properties = diseaseService.selectDiseaseList(disease);
         return getDataTable(properties);
     }
@@ -99,20 +109,99 @@ public class DiseaseController extends BaseController
     @RequiresPermissions("biz:disease:export")
     @Log(title = "病害", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    @ResponseBody
-    public AjaxResult export(Disease disease)
-    {
-        List<Disease> list = diseaseService.selectDiseaseList(disease);
-        ExcelUtil<Disease> util = new ExcelUtil<Disease>(Disease.class);
-        return util.exportExcel(list, "病害数据");
+    public void export(Disease disease, HttpServletResponse response) throws IOException {
+        List<Disease> list = diseaseService.selectDiseaseListForTask(disease);
+        // 2. 创建Excel工作簿
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("病害数据");
+
+        // 3. 创建表头
+        Row headerRow = sheet.createRow(0);
+        String[] headers = {"构件编号", "缺损类型", "缺损位置", "病害描述", "标度", "长度(m)", "宽度(m)", "缝宽(mm)", "高度/深度(m)", "面积(㎡)", "照片名称", "备注", "病害数量"};
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+        }
+
+        // 4. 填充数据
+        for (int i = 0; i < list.size(); i++) {
+            Disease item = list.get(i);
+            Row row = sheet.createRow(i + 1);
+            DiseaseDetail detail = null;
+            if (!item.getDiseaseDetails().isEmpty()) {
+                detail = item.getDiseaseDetails().get(0);
+            }
+
+            // 构件编号
+            row.createCell(0).setCellValue(item.getComponent().getCode());
+            // 病害类型
+            row.createCell(1).setCellValue(item.getType());
+            // 位置
+            row.createCell(2).setCellValue(item.getPosition());
+            // 病害描述
+            row.createCell(3).setCellValue(item.getDescription());
+            // 标度
+            row.createCell(4).setCellValue(item.getLevel());
+            //备注
+            if (item.getRemark() != null) {
+                row.createCell(11).setCellValue(item.getRemark());
+            }
+            // 病害数量
+            row.createCell(12).setCellValue(item.getQuantity());
+            if (detail == null) {
+                continue;
+            }
+            //长度
+            if (detail.getLength1() != null) {
+                row.createCell(5).setCellValue(detail.getLength1().toPlainString());
+            }
+            //宽度
+            if (detail.getWidth() != null) {
+                row.createCell(6).setCellValue(detail.getWidth().toPlainString());
+            }
+            //缝宽
+            if (detail.getCrackWidth() != null) {
+                row.createCell(7).setCellValue(detail.getCrackWidth().toPlainString());
+            }
+            //高度深度
+            if (detail.getHeightDepth() != null) {
+                row.createCell(8).setCellValue(detail.getHeightDepth().toPlainString());
+            }
+            //面积
+            if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
+                row.createCell(9).setCellValue(detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+            }
+            //照片名称 未找到
+        }
+
+        // 5. 调整列宽
+        for (int i = 0; i < headers.length; i++) {
+            // 先自动计算宽度
+            sheet.autoSizeColumn(i);
+            // 额外增加2个字符的宽度（避免内容紧贴边框）
+            int currentWidth = sheet.getColumnWidth(i);
+            sheet.setColumnWidth(i, currentWidth + 10 * 256); // 256是POI中一个字符的基准宽度
+        }
+
+        // 6. 设置响应头
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        String fileName = buildingMapper.selectBuildingById(disease.getBuildingId()).getName() + "病害清单.xlsx";
+        fileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        response.setHeader("Cache-Control", "no-store, no-cache");
+
+        // 7. 写入响应输出流
+        workbook.write(response.getOutputStream());
+        // 8. 关闭资源
+        workbook.close();
     }
+
 
     /**
      * 新增病害
      */
-    @GetMapping(value = { "/add/{taskId}/{biObjectId}" })
-    public String add(@PathVariable("taskId") Long taskId, @PathVariable("biObjectId") Long biObjectId, ModelMap mmap)
-    {
+    @GetMapping(value = {"/add/{taskId}/{biObjectId}"})
+    public String add(@PathVariable("taskId") Long taskId, @PathVariable("biObjectId") Long biObjectId, ModelMap mmap) {
         if (taskId != null) {
             mmap.put("task", taskService.selectTaskById(taskId));
         }
@@ -131,8 +220,7 @@ public class DiseaseController extends BaseController
     @PostMapping("/add")
     @ResponseBody
     @Transactional
-    public AjaxResult addSave(@Valid Disease disease,@RequestParam(value = "files", required = false) MultipartFile[] files)
-    {
+    public AjaxResult addSave(@Valid Disease disease, @RequestParam(value = "files", required = false) MultipartFile[] files) {
         disease.setCreateBy(ShiroUtils.getLoginName());
         if (files != null && files.length > 0) {
             disease.setAttachmentCount(files.length);
@@ -152,8 +240,7 @@ public class DiseaseController extends BaseController
      */
     @RequiresPermissions("biz:disease:edit")
     @GetMapping("/edit/{id}")
-    public String edit(@PathVariable("id") Long id, ModelMap mmap)
-    {
+    public String edit(@PathVariable("id") Long id, ModelMap mmap) {
         Disease disease = diseaseService.selectDiseaseById(id);
 
         BiObject biObject = disease.getBiObject();
@@ -204,7 +291,7 @@ public class DiseaseController extends BaseController
                     .collect(Collectors.joining(","));
             attachmentService.deleteAttachmentByIds(attachmentIds);
         }
-        diseaseService.handleDiseaseAttachment(files,disease.getId(),1);
+        diseaseService.handleDiseaseAttachment(files, disease.getId(), 1);
         if (files != null && files.length > 0) {
             disease.setAttachmentCount(files.length + existingIdSet.size());
         }
@@ -219,8 +306,7 @@ public class DiseaseController extends BaseController
     @Log(title = "病害", businessType = BusinessType.DELETE)
     @PostMapping("/remove")
     @ResponseBody
-    public AjaxResult remove(String ids)
-    {
+    public AjaxResult remove(String ids) {
         return toAjax(diseaseService.deleteDiseaseByIds(ids));
     }
 
@@ -229,8 +315,7 @@ public class DiseaseController extends BaseController
      */
     @RequiresPermissions("biz:disease:list")
     @GetMapping("/showDiseaseDetail/{id}")
-    public String showDiseaseDetail(@PathVariable("id") Long id, ModelMap mmap)
-    {
+    public String showDiseaseDetail(@PathVariable("id") Long id, ModelMap mmap) {
         Disease disease = diseaseService.selectDiseaseById(id);
         mmap.put("disease", disease);
         mmap.put("biObject", disease.getBiObject());
@@ -254,11 +339,9 @@ public class DiseaseController extends BaseController
     }
 
 
-
     @GetMapping("/attachments/{id}")
     @ResponseBody  // 添加此注解以返回JSON数据
-    public AjaxResult getAttachments(@PathVariable("id") Long id)
-    {
+    public AjaxResult getAttachments(@PathVariable("id") Long id) {
         try {
             // 获取病害对应的附件列表
             List<Map<String, Object>> result = getDiseaseImage(id);
@@ -276,11 +359,11 @@ public class DiseaseController extends BaseController
      * 供前端展示病害相关的图片和其他附件信息。
      *
      * @param id 病害的唯一标识
-     * 返回的List立面有个map，map.get(“url”)就是病害图片的url，要看一下map.get(”isImage“)是否为true
+     *           返回的List立面有个map，map.get(“url”)就是病害图片的url，要看一下map.get(”isImage“)是否为true
      */
     @NotNull
     public List<Map<String, Object>> getDiseaseImage(Long id) {
-        List<Attachment> attachments = attachmentService.getAttachmentList(id).stream().filter(e->e.getName().startsWith("disease")).toList();
+        List<Attachment> attachments = attachmentService.getAttachmentList(id).stream().filter(e -> e.getName().startsWith("disease")).toList();
 
         // 转换为前端需要的格式
         List<Map<String, Object>> result = new ArrayList<>();
@@ -289,9 +372,9 @@ public class DiseaseController extends BaseController
             map.put("id", attachment.getId());
             map.put("fileName", attachment.getName().split("_")[1]);
             FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
-            if(fileMap == null)continue;
+            if (fileMap == null) continue;
             String s = fileMap.getNewName();
-            map.put("url",minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s);
+            map.put("url", minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + s.substring(0, 2) + "/" + s);
             // 根据文件后缀判断是否为图片
             map.put("isImage", isImageFile(attachment.getName()));
             map.put("type", attachment.getType());
@@ -316,8 +399,7 @@ public class DiseaseController extends BaseController
     @DeleteMapping("/attachment/delete/{fileId}")
     @ResponseBody  // 添加此注解以返回JSON数据
     @Transactional
-    public AjaxResult deleteAttachment(@PathVariable("fileId") Long id)
-    {
+    public AjaxResult deleteAttachment(@PathVariable("fileId") Long id) {
         Attachment attachment = attachmentMapper.selectById(id);
 
         Disease disease = diseaseService.selectDiseaseById(attachment.getSubjectId());
@@ -333,8 +415,7 @@ public class DiseaseController extends BaseController
 
     @PostMapping("/causeAnalysis")
     @ResponseBody
-    public AjaxResult getCauseAnalysis(@RequestBody CauseQuery causeQuery)
-    {
+    public AjaxResult getCauseAnalysis(@RequestBody CauseQuery causeQuery) {
         // 获取根对象
         BiObject rootObject = biObjectService.selectBiObjectById(causeQuery.getObjectId());
         String[] split = rootObject.getAncestors().split(",");

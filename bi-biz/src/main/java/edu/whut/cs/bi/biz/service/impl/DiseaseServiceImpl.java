@@ -224,6 +224,58 @@ public class DiseaseServiceImpl implements IDiseaseService {
      * @return 病害
      */
     @Override
+    public List<Disease> selectDiseaseListForTask(Disease disease) {
+        List<Disease> diseases;
+        diseases = diseaseMapper.selectDiseaseList(disease);
+        diseases.forEach(ds -> {
+            Long componentId = ds.getComponentId();
+
+            if (componentId != null) {
+                Component component = componentService.selectComponentById(componentId);
+                BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
+
+                if (parent != null) {
+                    component.setParentObjectName(parent.getName());
+                    BiObject grandBiObject = biObjectMapper.selectBiObjectById(parent.getParentId());
+                    if (grandBiObject != null) {
+                        component.setGrandObjectName(grandBiObject.getName());
+                    }
+                }
+                ds.setComponent(component);
+            }
+
+            DiseaseDetail diseaseDetail = new DiseaseDetail();
+            diseaseDetail.setDiseaseId(ds.getId());
+            List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
+            ds.setDiseaseDetails(diseaseDetails);
+
+            List<String> images = new ArrayList<>();
+            List<String> ADImgs = new ArrayList<>();
+            List<Map<String, Object>> diseaseImage = diseaseController.getDiseaseImage(ds.getId());
+            if (CollUtil.isNotEmpty(diseaseImage)) {
+                diseaseImage.forEach(di -> {
+                    Integer type = (Integer) di.get("type");
+                    if (type.equals(7)) {
+                        ADImgs.add((String) di.get("url"));
+                    } else {
+                        images.add((String) di.get("url"));
+                    }
+                });
+
+                ds.setImages(images);
+                ds.setADImgs(ADImgs);
+            }
+        });
+        return diseases;
+    }
+
+    /**
+     * 查询病害列表
+     *
+     * @param disease 病害
+     * @return 病害
+     */
+    @Override
     public List<Disease> selectDiseaseListForApi(Disease disease) {
 
         List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
@@ -500,7 +552,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         if (old.getDiseaseTypeId().equals(disease.getDiseaseTypeId())) {
             DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
             if (!diseaseType.getName().equals("其他")) {
-                disease.setType(diseaseType.getCode() + "#" +diseaseType.getName());
+                disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
             }
         }
 

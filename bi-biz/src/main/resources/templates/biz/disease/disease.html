@@ -81,7 +81,7 @@
                    shiro:hasPermission="biz:disease:remove">
                     <i class="fa fa-remove"></i> 删除
                 </a>
-                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:disease:export">
+                <a class="btn btn-warning" onclick="exportDiseaseExcel()" shiro:hasPermission="biz:disease:export">
                     <i class="fa fa-download"></i> 导出
                 </a>
                 <a class="btn btn-warning" onclick="exportReport()" shiro:hasPermission="biz:disease:export">
@@ -101,8 +101,8 @@
     </div>
 </div>
 <th:block th:include="include :: footer"/>
-<th:block th:include="include :: layout-latest-js" />
-<th:block th:include="include :: ztree-js" />
+<th:block th:include="include :: layout-latest-js"/>
+<th:block th:include="include :: ztree-js"/>
 <script th:inline="javascript">
     var editFlag = [[${@permission.hasPermi('biz:disease:edit')}]];
     var removeFlag = [[${@permission.hasPermi('biz:disease:remove')}]];
@@ -147,63 +147,63 @@
                 {
                     field: 'component.name',
                     title: '构件名称',
-                    formatter: function(value, row) {
+                    formatter: function (value, row) {
                         return row.component ? row.component.name : '-';
                     }
                 },
                 {
                     field: 'component.code',
                     title: '构件编码',
-                    formatter: function(value, row) {
+                    formatter: function (value, row) {
                         return row.component ? row.component.code : '-';
                     }
                 },
                 {
                     field: 'type',
                     title: '病害类型',
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value || '-';
                     }
                 },
                 {
                     field: 'level',
                     title: '标度',
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value || '-';
                     }
                 },
                 {
                     field: 'position',
                     title: '缺损位置',
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value || '-';
                     }
                 },
                 {
                     field: 'nature',
                     title: '病害性质',
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value || '-';
                     }
                 },
                 {
                     field: 'description',
                     title: '病害描述',
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value ? (value.length > 20 ? value.substring(0, 20) + '...' : value) : '-';
                     }
                 },
                 {
                     field: 'quantity',
                     title: '病害数量',
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value || '-';
                     }
                 },
                 {
                     field: 'attachmentCount',
                     title: '附件数量',
-                    formatter: function(value) {
+                    formatter: function (value) {
                         return value || '0';
                     }
                 },
@@ -251,7 +251,7 @@
         $.ajax({
             url: ctx + "biz/biobject/isCanAddDisease/" + biObjectId,
             type: "get",
-            success: function(result) {
+            success: function (result) {
                 if (result !== true) {
                     $.modal.alertWarning("该部件不能添加病害，请选择具体部件");
                     return;
@@ -285,6 +285,7 @@
         $.tree.init(options);
 
     }
+
     function zOnClick(event, treeId, treeNode) {
         $("#biObjectId").val(treeNode.id);
 
@@ -307,7 +308,7 @@
     $('#btnRefresh').click(function () {
         queryPropertyTree();
     });
-    
+
     function importCBMSDisease() {
         var taskId = task.id;
         $.modal.open("导入CBMS历史病害", prefix + "/importCBMS?taskId=" + taskId, '800', '600');
@@ -316,6 +317,59 @@
     function importHistoryDisease() {
         var taskId = task.id;
         $.modal.open("导入历史病害", prefix + "/importHistory?taskId=" + taskId, '800', '600');
+    }
+
+    function exportDiseaseExcel() {
+        var projectId = task.projectId;
+        var buildingId = task.buildingId;
+        var taskId = task.id;
+
+        // 用jQuery.ajax代替fetch
+        $.ajax({
+            url: '/biz/disease/export',
+            type: 'POST',
+            data: {
+                projectId: projectId,
+                buildingId: buildingId,
+                taskId: taskId
+            },
+            xhrFields: {
+                responseType: 'blob' // 关键：指定响应类型为blob
+            },
+            success: function (blob, status, xhr) {
+                $.modal.closeLoading();
+                // 获取文件名（从响应头）
+                const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                let fileName = '病害数据.xlsx';
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="(.*?)"/);
+                    if (match && match[1]) {
+                        fileName = decodeURIComponent(match[1]);
+                    }
+                }
+                // 下载逻辑
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 1000);
+            },
+            error: function (xhr, status, error) {
+                $.modal.closeLoading();
+                // 读取错误响应内容
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const errorMsg = e.target.result || '导出失败，请稍后重试';
+                    $.modal.msgError(errorMsg);
+                };
+                reader.readAsText(xhr.response); // 读取错误响应的blob
+            }
+        });
     }
 
 
@@ -332,7 +386,7 @@
         $('body').append(iframe);
 
         // 监听iframe加载完成
-        iframe.on('load', function() {
+        iframe.on('load', function () {
             $.modal.closeLoading();
         });
 
@@ -340,7 +394,7 @@
         iframe.attr('src', url);
 
         // 兜底：10秒后自动关闭loading
-        setTimeout(function() {
+        setTimeout(function () {
             $.modal.closeLoading();
         }, 10000);
     }
