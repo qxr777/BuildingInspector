@@ -79,6 +79,7 @@
             <if test="type != null and type != ''"> and d.type = #{type}</if>
             <if test="diseaseTypeId != null"> and d.disease_type_id = #{diseaseTypeId}</if>
             <if test="level != null and level > 0"> and d.level = #{level}</if>
+            <if test="nature != null and nature != ''"> and d.nature = #{nature}</if>
             <if test="projectId != null"> and d.project_id = #{projectId}</if>
             <if test="taskId != null"> and d.task_id = #{taskId}</if>
             <if test="biObjectId != null"> and d.bi_object_id = #{biObjectId}</if>
