@@ -110,7 +110,7 @@ public class DiseaseController extends BaseController {
     @Log(title = "病害", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(Disease disease, HttpServletResponse response) throws IOException {
-        List<Disease> list = diseaseService.selectDiseaseList(disease);
+        List<Disease> list = diseaseService.selectDiseaseListForTask(disease);
         // 2. 创建Excel工作簿
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("病害数据");

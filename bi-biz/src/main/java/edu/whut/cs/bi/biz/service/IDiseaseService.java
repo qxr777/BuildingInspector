@@ -32,6 +32,13 @@ public interface IDiseaseService {
     List<Disease> selectDiseaseList(Disease disease);
 
     /**
+     * 查询 当前 task 的所有病害，并且不分页。
+     *
+     * @return
+     */
+    List<Disease> selectDiseaseListForTask(Disease disease);
+
+    /**
      * 查询病害列表
      *
      * @param disease 病害
@@ -95,7 +102,7 @@ public interface IDiseaseService {
      * @param id
      * @param type
      */
-    public void handleDiseaseAttachment(MultipartFile[] files,Long id,int type);
+    public void handleDiseaseAttachment(MultipartFile[] files, Long id, int type);
 
     /**
      * 获取病害原因分析
