@@ -14,6 +14,7 @@ import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.domain.vo.Disease2ReportSummaryAiVO;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
+import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.Convert2VO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -28,15 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
-import edu.whut.cs.bi.biz.service.IReportService;
-import edu.whut.cs.bi.biz.service.IReportDataService;
-import edu.whut.cs.bi.biz.service.IReportTemplateService;
-import edu.whut.cs.bi.biz.service.ITemplateVariableService;
-import edu.whut.cs.bi.biz.service.IFileMapService;
-import edu.whut.cs.bi.biz.service.IProjectService;
-import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
-import edu.whut.cs.bi.biz.service.IDiseaseService;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.ShiroUtils;
 import org.springframework.web.client.RestTemplate;
@@ -98,6 +91,9 @@ public class ReportServiceImpl implements IReportService {
 
     @Autowired
     private DiseaseController diseaseController;
+
+    @Autowired
+    private IComponentService componentService;
 
 
     @Value("${springAi_Rag.endpoint}")
@@ -995,13 +991,13 @@ public class ReportServiceImpl implements IReportService {
                     // 设置10.5字号
                     cellR.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(21)); // 10.5pt = 21 half-points
                     cellR.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(21)); // 复杂脚本的字号
-
+                    Component component = componentService.selectComponentById(d.getComponentId());
                     switch (i) {
                         case 0:
                             cellR.setText(String.valueOf(seqNum++));
                             break;
                         case 1:
-                            cellR.setText(d.getComponent() != null ? d.getComponent().getName() : "/");
+                            cellR.setText(component != null ? component.getName() : "/");
                             break;
                         case 2:
                             cellR.setText(d.getType() != null ? d.getType() : "/");
@@ -1275,6 +1271,7 @@ public class ReportServiceImpl implements IReportService {
                 XWPFParagraph imagePara = imageCell.getParagraphs().get(0);
                 XWPFRun imageRun = imagePara.createRun();
 
+                log.info("开始插入图片：{}",fileName);
                 try (InputStream imageStream = minioClient.getObject(
                         GetObjectArgs.builder()
                                 .bucket(minioConfig.getBucketName())
@@ -1293,6 +1290,7 @@ public class ReportServiceImpl implements IReportService {
                             imgWidth,
                             imgHeight
                     );
+                    log.info("插入图片结束：{}",fileName);
                 } catch (Exception e) {
                     log.error("插入病害图片失败", e);
                 }
@@ -1715,7 +1713,6 @@ public class ReportServiceImpl implements IReportService {
                                 clearParagraph(paragraph);
                                 XWPFRun run = paragraph.createRun();
                                 run.setText(placeholder);
-                                throw e;
                             }
                         }
                     }
