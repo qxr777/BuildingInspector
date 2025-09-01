@@ -48,6 +48,13 @@
             <artifactId>springfox-boot-starter</artifactId>
         </dependency>
 
+        <!-- OkHttp：用于通过URL下载图片 -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.11.0</version>
+        </dependency>
+
         <!-- 防止进入swagger页面报类型转换错误，排除3.0.0中的引用，手动增加1.6.2版本 -->
         <dependency>
             <groupId>io.swagger</groupId>
@@ -117,7 +124,6 @@
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
     </dependencies>
-
 
 
 </project>

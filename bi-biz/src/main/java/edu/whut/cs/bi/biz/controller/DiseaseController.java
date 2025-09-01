@@ -19,6 +19,9 @@ import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -36,12 +39,14 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * 病害Controller
@@ -86,6 +91,12 @@ public class DiseaseController extends BaseController {
     @Autowired
     private BuildingMapper buildingMapper;
 
+    // 初始化OkHttp客户端（设置超时，避免下载卡死）
+    private final OkHttpClient okHttpClient = new OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS) // 连接超时10秒
+            .readTimeout(15, TimeUnit.SECONDS)    // 读取超时15秒
+            .build();
+
     @RequiresPermissions("biz:disease:view")
     @GetMapping()
     public String disease() {
@@ -111,11 +122,19 @@ public class DiseaseController extends BaseController {
     @PostMapping("/export")
     public void export(Disease disease, HttpServletResponse response) throws IOException {
         List<Disease> list = diseaseService.selectDiseaseListForTask(disease);
-        // 2. 创建Excel工作簿
+        // -------------------------- 步骤1：生成Excel（关联001/002图片名） --------------------------
+        //  创建Excel工作簿
+
+        // 用于记录图片序号（全局连续：001、002、003...）
+        int photoSerialNum = 1;
+        // 存储“图片序号→图片URL”的映射（后续下载用）
+        List<String> allPhotoUrls = new ArrayList<>();
+        ByteArrayOutputStream excelBaos = new ByteArrayOutputStream();
+
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("病害数据");
 
-        // 3. 创建表头
+        //  创建表头
         Row headerRow = sheet.createRow(0);
         String[] headers = {"构件编号", "缺损类型", "缺损位置", "病害描述", "标度", "长度(m)", "宽度(m)", "缝宽(mm)", "高度/深度(m)", "面积(㎡)", "照片名称", "备注", "病害数量"};
         for (int i = 0; i < headers.length; i++) {
@@ -123,7 +142,7 @@ public class DiseaseController extends BaseController {
             cell.setCellValue(headers[i]);
         }
 
-        // 4. 填充数据
+        // 填充数据
         for (int i = 0; i < list.size(); i++) {
             Disease item = list.get(i);
             Row row = sheet.createRow(i + 1);
@@ -171,29 +190,140 @@ public class DiseaseController extends BaseController {
             if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
                 row.createCell(9).setCellValue(detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
             }
-            //照片名称 未找到
+            //处理照片名称
+            List<String> diseaseImages = item.getImages(); // 获取当前病害的图片URL列表
+            if (diseaseImages != null && !diseaseImages.isEmpty()) {
+                // 拼接当前病害的所有图片名称（如“001.jpg, 002.jpg”）
+                StringBuilder photoNames = new StringBuilder();
+                for (String imgUrl : diseaseImages) {
+                    // 跳过空URL
+                    if (imgUrl == null || imgUrl.trim().isEmpty()) continue;
+                    // 生成3位序号文件名（001.jpg、002.jpg...）
+                    String photoFileName = String.format("%03d.jpg", photoSerialNum);
+                    // 记录URL（后续下载用）
+                    allPhotoUrls.add(imgUrl);
+                    // 拼接图片名到Excel单元格（多个图片用逗号分隔）
+                    if (photoNames.length() > 0) photoNames.append(", ");
+                    photoNames.append(photoFileName);
+                    // 序号自增（下一张图用）
+                    photoSerialNum++;
+                }
+                // 将拼接的图片名写入Excel“照片名称”列（第10列，索引从0开始）
+                row.createCell(10).setCellValue(photoNames.toString());
+            }
         }
 
-        // 5. 调整列宽
+        // 调整列宽
         for (int i = 0; i < headers.length; i++) {
             // 先自动计算宽度
             sheet.autoSizeColumn(i);
-            // 额外增加2个字符的宽度（避免内容紧贴边框）
+            // 额外增加 10 个字符的宽度（避免内容紧贴边框）
             int currentWidth = sheet.getColumnWidth(i);
             sheet.setColumnWidth(i, currentWidth + 10 * 256); // 256是POI中一个字符的基准宽度
         }
+        workbook.write(excelBaos); // Excel写入字节流
+        // 关闭资源
+        workbook.close();
 
-        // 6. 设置响应头
-        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        String fileName = buildingMapper.selectBuildingById(disease.getBuildingId()).getName() + "病害清单.xlsx";
-        fileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8.name());
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+
+        // -------------------------- 步骤2：构建Zip（含Excel+照片文件夹） --------------------------
+
+        // 设置Zip响应头
+        response.setContentType("application/zip");
+        String buildingName = "未知建筑";
+        Building building = buildingMapper.selectBuildingById(disease.getBuildingId());
+        if (building != null && hasText(building.getName())) {
+            buildingName = building.getName();
+        }
+        String zipFileName = URLEncoder.encode(buildingName + "病害数据.zip", StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + zipFileName + "\"");
         response.setHeader("Cache-Control", "no-store, no-cache");
 
-        // 7. 写入响应输出流
-        workbook.write(response.getOutputStream());
-        // 8. 关闭资源
-        workbook.close();
+        // 初始化Zip输出流（直接写入响应，无中间文件）
+        try (ZipOutputStream zipOut = new ZipOutputStream(response.getOutputStream());
+             InputStream excelIs = new ByteArrayInputStream(excelBaos.toByteArray())) {
+
+            // 2.1 向Zip添加Excel文件（根目录）
+            ZipEntry excelEntry = new ZipEntry("病害清单.xlsx");
+            zipOut.putNextEntry(excelEntry);
+            byte[] buffer = new byte[1024 * 8]; // 8KB缓冲区
+            int len;
+            while ((len = excelIs.read(buffer)) != -1) {
+                zipOut.write(buffer, 0, len);
+            }
+            zipOut.closeEntry(); // 关闭Excel条目
+
+
+            // 2.2 向Zip添加照片文件夹及图片（001.jpg、002.jpg...）
+            // 遍历所有图片URL，下载并写入Zip
+            for (int i = 0; i < allPhotoUrls.size(); i++) {
+                String imgUrl = allPhotoUrls.get(i);
+                // 生成图片文件名（与Excel一致：001.jpg、002.jpg...）
+                String photoFileName = String.format("%03d.jpg", i + 1);
+                // Zip中路径：病害图片/001.jpg（放入单独文件夹）
+                String zipPhotoPath = "病害图片/" + photoFileName;
+                ZipEntry photoEntry = new ZipEntry(zipPhotoPath);
+                zipOut.putNextEntry(photoEntry);
+
+                // 核心：通过URL下载图片到Zip流
+                try (InputStream imgIs = downloadImageByUrl(imgUrl)) {
+                    if (imgIs == null) {
+                        // 图片下载失败，写入提示文本（避免Zip损坏）
+                        String errorMsg = "图片下载失败：" + imgUrl;
+                        zipOut.write(errorMsg.getBytes(StandardCharsets.UTF_8));
+                        System.err.println(errorMsg);
+                        zipOut.closeEntry();
+                        continue;
+                    }
+                    // 将图片流写入Zip
+                    while ((len = imgIs.read(buffer)) != -1) {
+                        zipOut.write(buffer, 0, len);
+                    }
+                } catch (Exception e) {
+                    // 捕获下载异常，避免整个导出失败
+                    String errorMsg = "图片处理异常：" + imgUrl + "，原因：" + e.getMessage();
+                    zipOut.write(errorMsg.getBytes(StandardCharsets.UTF_8));
+                    System.err.println(errorMsg);
+                }
+                zipOut.closeEntry(); // 关闭当前图片条目
+            }
+
+            zipOut.flush(); // 强制刷新，确保所有数据写入响应
+        }
+
+    }
+
+    // 原生逻辑：替代StringUtils.hasText(String str)
+    private boolean hasText(String str) {
+        return str != null && !str.trim().isEmpty();
+    }
+
+
+    /**
+     * 工具方法：通过URL下载图片，返回图片输入流
+     *
+     * @param imgUrl 图片URL（如http://xxx.com/photos/123.jpg）
+     * @return 图片输入流（null表示下载失败）
+     */
+    private InputStream downloadImageByUrl(String imgUrl) {
+        try {
+            // 构建HTTP请求
+            Request request = new Request.Builder()
+                    .url(imgUrl)
+                    .build();
+            // 发送请求获取响应
+            Response response = okHttpClient.newCall(request).execute();
+            // 检查响应是否成功（200状态码）
+            if (!response.isSuccessful()) {
+                System.err.println("图片URL响应失败：" + imgUrl + "，状态码：" + response.code());
+                return null;
+            }
+            // 返回图片输入流（无需关闭，外层try-with-resources会处理）
+            return response.body().byteStream();
+        } catch (Exception e) {
+            System.err.println("图片下载异常：" + imgUrl + "，原因：" + e.getMessage());
+            return null;
+        }
     }
 
 

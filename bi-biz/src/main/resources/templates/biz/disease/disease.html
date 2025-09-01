@@ -340,7 +340,7 @@
                 $.modal.closeLoading();
                 // 获取文件名（从响应头）
                 const contentDisposition = xhr.getResponseHeader('Content-Disposition');
-                let fileName = '病害数据.xlsx';
+                let fileName = '病害数据压缩包.zip';
                 if (contentDisposition) {
                     const match = contentDisposition.match(/filename="(.*?)"/);
                     if (match && match[1]) {
