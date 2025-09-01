@@ -778,7 +778,7 @@ public class ReportController extends BaseController {
                             .extraQueryParams(Collections.singletonMap("response-content-disposition", "attachment; filename=\"" + URLEncoder.encode(fileName, StandardCharsets.UTF_8) + "\""))
                             .build()
             );
-
+            url = url.replace("http://biminio:9000", minioConfig.getUrl());
             return AjaxResult.success("获取下载链接成功", url);
         } catch (Exception e) {
             logger.error("获取报告下载链接失败", e);
