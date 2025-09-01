@@ -7,15 +7,15 @@ import java.util.List;
 
 /**
  * 任务Mapper接口
- * 
+ *
  * @author chenwenqi
  * @date 2025-04-06
  */
-public interface TaskMapper 
+public interface TaskMapper
 {
     /**
      * 查询任务
-     * 
+     *
      * @param id 任务主键
      * @return 任务
      */
@@ -23,15 +23,15 @@ public interface TaskMapper
 
     /**
      * 查询任务列表
-     * 
+     *
      * @param task 任务
      * @return 任务集合
      */
     public List<Task> selectTaskList(@Param("task") Task task, @Param("currentUserId") Long currentUserId);
-    
+
     /**
      * 新增任务
-     * 
+     *
      * @param task 任务
      * @return 结果
      */
@@ -39,7 +39,7 @@ public interface TaskMapper
 
     /**
      * 修改任务
-     * 
+     *
      * @param task 任务
      * @return 结果
      */
@@ -47,7 +47,7 @@ public interface TaskMapper
 
     /**
      * 删除任务
-     * 
+     *
      * @param id 任务主键
      * @return 结果
      */
@@ -97,4 +97,9 @@ public interface TaskMapper
      * 根据项目id删除任务
      */
     int deleteTaskByProjectId(@Param("projectId") Long projectId);
+
+    /**
+     * 通过项目id查询完整任务列表
+     */
+    List<Task> selectFullTaskListByProjectId(Long id);
 }

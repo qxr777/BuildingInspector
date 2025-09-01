@@ -17,4 +17,8 @@ public class ReportData extends BaseEntity {
     private String value;
 
     private Long reportId;
+
+    private Integer type;
+
+    private Integer flag;
 }

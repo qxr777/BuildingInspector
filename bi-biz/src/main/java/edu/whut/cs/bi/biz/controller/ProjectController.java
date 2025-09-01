@@ -13,6 +13,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.dto.ProjectUserAssignment;
 import edu.whut.cs.bi.biz.service.IProjectService;
+import edu.whut.cs.bi.biz.service.impl.ProjectServiceImpl;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -33,6 +34,9 @@ public class ProjectController extends BaseController {
 
     @Autowired
     private IProjectService projectService;
+
+    @Autowired
+    private ProjectServiceImpl projectServiceImpl;
 
     @RequiresPermissions("biz:project:view")
     @GetMapping("/{select}")
@@ -225,4 +229,14 @@ public class ProjectController extends BaseController {
         return toAjax(projectService.saveProjectUserAssignments(assignment));
     }
 
+    /**
+     * 查询项目列表
+     */
+    @RequiresPermissions("biz:project:list")
+    @PostMapping("/projectList")
+    @ResponseBody
+    public List<Project> projectList() {
+        List<Project> list = projectServiceImpl.selectProjectListForReport(new Project());
+        return list;
+    }
 }

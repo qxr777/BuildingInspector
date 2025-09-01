@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('检测报告列表')" />
+</head>
+<body class="gray-bg">
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <ul>
+                        <li>
+                            <label>报告名称：</label>
+                            <input type="text" name="name"/>
+                        </li>
+                        <li>
+                            <label>状态：</label>
+                            <select name="status">
+                                <option value="">所有</option>
+                                <option value="0">未生成</option>
+                                <option value="1">已生成</option>
+                                <option value="2">生成中</option>
+                                <option value="3">生成失败</option>
+                            </select>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <div class="btn-group-sm" id="toolbar" role="group">
+            <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:report:add">
+                <i class="fa fa-plus"></i> 新增
+            </a>
+            <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="biz:report:edit">
+                <i class="fa fa-edit"></i> 修改
+            </a>
+            <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:report:remove">
+                <i class="fa fa-remove"></i> 删除
+            </a>
+            <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:report:export">
+                <i class="fa fa-download"></i> 导出
+            </a>
+        </div>
+        <div class="col-sm-12 select-table table-striped">
+            <table id="bootstrap-table"></table>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    var editFlag = [[${@permission.hasPermi('biz:report:edit')}]];
+    var removeFlag = [[${@permission.hasPermi('biz:report:remove')}]];
+    var fillFlag = [[${@permission.hasPermi('biz:report:edit')}]];
+    var generateFlag = [[${@permission.hasPermi('biz:report:edit')}]];
+    var downloadFlag = [[${@permission.hasPermi('biz:report:edit')}]];
+    var prefix = ctx + "biz/report";
+
+    $(function() {
+        var options = {
+            url: prefix + "/list",
+            createUrl: prefix + "/add",
+            updateUrl: prefix + "/edit/{id}",
+            removeUrl: prefix + "/remove",
+            exportUrl: prefix + "/export",
+            modalName: "检测报告",
+            columns: [{
+                checkbox: true
+            },
+                {
+                    field: 'id',
+                    title: '报告ID',
+                    visible: false
+                },
+                {
+                    field: 'name',
+                    title: '报告名称'
+                },
+                {
+                    field: 'status',
+                    title: '状态',
+                    formatter: statusFormatter
+                },
+                {
+                    field: 'reviewer',
+                    title: '审核人'
+                },
+                {
+                    field: 'approver',
+                    title: '批准人'
+                },
+                {
+                    field: 'createTime',
+                    title: '创建时间'
+                },
+                {
+                    field: 'updateTime',
+                    title: '更新时间'
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    formatter: operateFormatter
+                }]
+        };
+        $.table.init(options);
+    });
+
+    /* 跳转到报告数据填充页面 */
+    function fill(id) {
+        var url = prefix + '/fill/' + id;
+        $.modal.openTab("报告模板填充", url);
+    }
+
+    // 状态显示格式化
+    function statusFormatter(value, row, index) {
+        if (value == 0) {
+            return '<span class="badge badge-default">未生成</span>';
+        } else if (value == 1) {
+            return '<span class="badge badge-success">已生成</span>';
+        } else if (value == 2) {
+            return '<span class="badge badge-warning">生成中</span>';
+        } else if (value == 3) {
+            return '<span class="badge badge-danger">生成失败</span>';
+        }
+        return value;
+    }
+
+    // 操作按钮格式化
+    function operateFormatter(value, row, index) {
+        var actions = [];
+        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+        actions.push('<a class="btn btn-info btn-xs ' + fillFlag + '" href="javascript:void(0)" onclick="fill(\'' + row.id + '\')"><i class="fa fa-edit"></i>报告模板填充</a> ');
+        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
+
+        // 生成报告按钮始终显示，但根据状态决定是否禁用
+        if (row.status == 2) {
+            // 生成中状态，显示禁用的生成按钮
+            actions.push('<a class="btn btn-default btn-xs disabled"><i class="fa fa-spinner fa-spin"></i>生成中...</a> ');
+        } else {
+            // 其他状态，显示可点击的生成按钮
+            actions.push('<a class="btn btn-info btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="generateReport(\'' + row.id + '\')"><i class="fa fa-file-word-o"></i>生成报告</a> ');
+        }
+
+        // 只有在已生成状态下才显示下载按钮
+        if (row.status == 1) {
+            actions.push('<a class="btn btn-primary btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="downloadReport(\'' + row.id + '\')"><i class="fa fa-download"></i>下载报告</a> ');
+        }
+
+        return actions.join('');
+    }
+
+    // 生成报告
+    function generateReport(id) {
+        $.modal.confirm("确认要生成该报告吗？", function() {
+            $.operate.post(prefix + "/generate/" + id, function(result) {
+                if (result.code == 0) {
+                    $.modal.msgSuccess(result.msg);
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            });
+        });
+    }
+
+    // 下载报告
+    function downloadReport(id) {
+        $.ajax({
+            url: prefix + "/download/" + id,
+            type: "get",
+            dataType: "json",
+            success: function(result) {
+                if (result.code == 0) {
+                    // 使用window.open在新窗口打开下载链接
+                    window.open(result.data, '_blank');
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

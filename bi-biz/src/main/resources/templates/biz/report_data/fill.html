@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('报告数据填充')" />
+    <th:block th:include="include :: bootstrap-fileinput-css"/>
+    <style>
+        .nav-tabs-custom {
+            margin-bottom: 20px;
+            background: #fff;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            border-radius: 3px;
+        }
+        .nav-tabs-custom > .nav-tabs {
+            margin: 0;
+            border-bottom-color: #f4f4f4;
+        }
+        .nav-tabs-custom > .nav-tabs > li {
+            margin-right: 5px;
+        }
+        .nav-tabs-custom > .nav-tabs > li > a {
+            color: #444;
+            border-radius: 0;
+        }
+        .nav-tabs-custom > .nav-tabs > li.active > a {
+            border-left-color: #f4f4f4;
+            border-right-color: #f4f4f4;
+        }
+        .section-title {
+            color: #1890ff;
+            cursor: pointer;
+            margin-bottom: 15px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+        .section-content {
+            margin-left: 20px;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-left: 3px solid #f0f0f0;
+        }
+        .field-label {
+            color: #d9534f;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .image-upload-item {
+            margin-bottom: 10px;
+        }
+        .image-preview {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .image-item {
+            position: relative;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .image-actions {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            z-index: 10;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 3px;
+            padding: 2px;
+        }
+        .image-item img {
+            max-width: 200px;
+            max-height: 150px;
+            border: 1px solid #ddd;
+            padding: 3px;
+        }
+        .collapsible-section {
+            margin-bottom: 15px;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 15px;
+        }
+        .collapsible-section:last-child {
+            border-bottom: none;
+        }
+        .collapsible-section .section-title i {
+            margin-right: 5px;
+            transition: transform 0.3s;
+        }
+        .collapsible-section .section-title[aria-expanded="true"] i {
+            transform: rotate(0deg);
+        }
+        .collapsible-section .section-title[aria-expanded="false"] i {
+            transform: rotate(-90deg);
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .nav-tabs-custom .nav-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #ddd;
+        }
+        .nav-tabs-custom .nav-tabs > li {
+            margin-bottom: -1px;
+        }
+        .nav-tabs-custom .nav-tabs > li > a {
+            margin-right: 2px;
+            line-height: 1.42857143;
+            border: 1px solid transparent;
+            border-radius: 4px 4px 0 0;
+            padding: 10px 15px;
+        }
+        .nav-tabs-custom .nav-tabs > li.active > a {
+            color: #555;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-bottom-color: transparent;
+        }
+    </style>
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <h5>报告数据填充 - <span th:text="${report.name}"></span></h5>
+                </div>
+                <div class="ibox-content">
+                    <form class="form-horizontal m" id="form-report-data">
+                        <input type="hidden" name="reportId" th:value="${report.id}">
+
+                        <!-- 选项卡导航 -->
+                        <div class="nav-tabs-custom">
+                            <ul class="nav nav-tabs" id="reportTabs">
+                                <li class="active"><a href="#tab_0" data-toggle="tab">基本信息</a></li>
+                                <li><a href="#tab_1" data-toggle="tab">项目概括</a></li>
+                                <li><a href="#tab_2" data-toggle="tab">构件编号</a></li>
+                                <li><a href="#tab_3" data-toggle="tab">外观检测结果</a></li>
+                                <li><a href="#tab_4" data-toggle="tab">空间变位检测结果</a></li>
+                                <li><a href="#tab_5" data-toggle="tab">索力检测结果</a></li>
+                                <li><a href="#tab_6" data-toggle="tab">碳化深度及锈蚀电位状况</a></li>
+                                <li><a href="#tab_7" data-toggle="tab">重点关注病害及主要病害成因分析</a></li>
+                                <li><a href="#tab_8" data-toggle="tab">评定结果</a></li>
+                                <li><a href="#tab_9" data-toggle="tab">近两次评定结果对比分析</a></li>
+                                <li><a href="#tab_10" data-toggle="tab">结论与建议</a></li>
+                            </ul>
+                        </div>
+
+                        <!-- 选项卡内容 -->
+                        <div class="tab-content">
+                            <!-- 基本信息 -->
+                            <div class="tab-pane active" id="tab_0">
+                                <div class="panel-group" id="accordion_basic">
+                                    <!-- 基本信息面板 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_basic" href="#collapse_basic">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-down"></i> 基本信息
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_basic" class="panel-collapse collapse in">
+                                            <div class="panel-body">
+                                                <!-- 项目标段 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">项目标段:</label>
+                                                    <input type="text" class="form-control" name="dataValues[${cover-lots}]" data-original-key="${cover-lots}">
+                                                </div>
+
+                                                <!-- 报告标题 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">报告标题:</label>
+                                                    <input type="text" class="form-control" name="dataValues[${cover-bridge}]" data-original-key="${cover-bridge}">
+                                                </div>
+
+                                                <!-- 封面图片 -->
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">封面图片:</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="${cover-image}" multiple>
+                                                    <input type="hidden" name="dataKeys" value="${cover-image}">
+                                                    <input type="hidden" name="dataTypes" value="1">
+                                                    <input type="hidden" name="dataValues" class="image-value-holder" id="value-cover-image" data-original-key="${cover-image}">
+                                                    <div class="image-preview" id="preview-cover-image" data-original-key="${cover-image}"></div>
+                                                </div>
+
+                                                <!-- 委托单位 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">委托单位:</label>
+                                                    <input type="text" class="form-control" name="dataValues[${client-unit}]" data-original-key="${client-unit}">
+                                                </div>
+
+                                                <!-- 工程名称 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">工程名称:</label>
+                                                    <input type="text" class="form-control" name="dataValues[${engineering-name}]" data-original-key="${engineering-name}">
+                                                </div>
+
+                                                <!-- 检测类别 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">检测类别:</label>
+                                                    <input type="text" class="form-control" name="dataValues[${detection-category}]" data-original-key="${detection-category}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_0')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 项目概括 -->
+                            <div class="tab-pane" id="tab_1">
+                                <div class="panel-group" id="accordion">
+                                    <!-- 工程概况 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse1">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-down"></i> 工程概况
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse1" class="panel-collapse collapse in">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">工程概况:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-1-1-overviewOfProject}]" data-original-key="${chapter-1-1-overviewOfProject}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 桥梁概况 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse2">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 桥梁概况
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse2" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">桥梁概况:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-1-2-overviewOfBridge}]" data-original-key="${chapter-1-2-overviewOfBridge}" rows="5"></textarea>
+                                                </div>
+
+                                                <!-- 桥型布置图 -->
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">桥型布置图:</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="${chapter-1-2-bridgeLayoutPlan}" multiple>
+                                                    <input type="hidden" name="dataKeys" value="${chapter-1-2-bridgeLayoutPlan}">
+                                                    <input type="hidden" name="dataTypes" value="1">
+                                                    <input type="hidden" name="dataValues" class="image-value-holder" id="value-chapter-1-2-bridgeLayoutPlan" data-original-key="${chapter-1-2-bridgeLayoutPlan}">
+                                                    <div class="image-preview" id="preview-chapter-1-2-bridgeLayoutPlan" data-original-key="${chapter-1-2-bridgeLayoutPlan}"></div>
+                                                </div>
+
+                                                <!-- 横断面布置图 -->
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">横断面布置图:</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="${chapter-1-2-bridgeStandardCrossSection}" multiple>
+                                                    <input type="hidden" name="dataKeys" value="${chapter-1-2-bridgeStandardCrossSection}">
+                                                    <input type="hidden" name="dataTypes" value="1">
+                                                    <input type="hidden" name="dataValues" class="image-value-holder" id="value-chapter-1-2-bridgeStandardCrossSection" data-original-key="${chapter-1-2-bridgeStandardCrossSection}">
+                                                    <div class="image-preview" id="preview-chapter-1-2-bridgeStandardCrossSection" data-original-key="${chapter-1-2-bridgeStandardCrossSection}"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 技术要点 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse3">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 技术要点
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse3" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">技术要点:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-1-3-KeyDesignPoints}]" data-original-key="${chapter-1-3-KeyDesignPoints}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 技术标准 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse4">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 技术标准
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse4" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">技术标准:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-1-4-standard}]" data-original-key="${chapter-1-4-standard}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 历史检测情况 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse5">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 历史检测情况
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse5" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">历史检测情况:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-1-5-historicalInspectionStatus}]" data-original-key="${chapter-1-5-historicalInspectionStatus}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 历史维修情况 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion" href="#collapse6">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 历史维修情况
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse6" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">历史维修情况:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-1-6-historicalMaintenanceStatus}]" data-original-key="${chapter-1-6-historicalMaintenanceStatus}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_1')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 构件编号 -->
+                            <div class="tab-pane" id="tab_2">
+                                <div class="panel-group" id="accordion_component">
+                                    <!-- 构件编号面板 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_component" href="#collapse_component">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-down"></i> 构件编号
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_component" class="panel-collapse collapse in">
+                                            <div class="panel-body">
+                                                <!-- 构件编号 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">构件编号:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-2-componentCode}]" data-original-key="${chapter-2-componentCode}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_2')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 外观检测结果 -->
+                            <div class="tab-pane" id="tab_3">
+                                <div class="alert alert-info">
+                                    外观检测结果选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_3')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 其他选项卡内容 -->
+                            <div class="tab-pane" id="tab_4">
+                                <div class="alert alert-info">
+                                    空间变位检测结果选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_4')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_5">
+                                <div class="alert alert-info">
+                                    索力检测结果选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_5')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_6">
+                                <div class="alert alert-info">
+                                    碳化深度及锈蚀电位状况选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_6')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_7">
+                                <div class="alert alert-info">
+                                    重点关注病害及主要病害成因分析选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_7')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_8">
+                                <div class="alert alert-info">
+                                    评定结果选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_8')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_9">
+                                <div class="alert alert-info">
+                                    近两次评定结果对比分析选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_9')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_10">
+                                <div class="alert alert-info">
+                                    结论与建议选项卡的内容将根据需求添加
+                                </div>
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_10')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer" />
+<th:block th:include="include :: bootstrap-fileinput-js"/>
+<script th:inline="javascript">
+    var prefix = ctx + "biz/report_data";
+    var reportId = /*[[${report.id}]]*/ '';
+
+    $(function() {
+        // 初始化文件上传控件
+        initFileInputs();
+
+        // 加载报告数据
+        loadReportData();
+
+        // 监听选项卡切换事件
+        $('#reportTabs a').on('shown.bs.tab', function (e) {
+            var targetTab = $(e.target).attr("href");
+            console.log("切换到选项卡: " + targetTab);
+        });
+
+        // 监听折叠面板事件
+        $('.panel-heading').on('click', function() {
+            var $icon = $(this).find('.fa');
+            var $panelBody = $($(this).attr('href'));
+            var isExpanded = $panelBody.hasClass('in');
+
+            // 更新图标
+            if (isExpanded) {
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+            } else {
+                // 先将所有图标重置
+                $('.panel-heading').find('.fa').removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                // 设置当前图标
+                $icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+            }
+        });
+
+        // 初始化面板图标
+        $('.panel-collapse').each(function() {
+            var isExpanded = $(this).hasClass('in');
+            var $icon = $(this).siblings('.panel-heading').find('.fa');
+
+            if (isExpanded) {
+                $icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+            } else {
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+            }
+        });
+    });
+
+    // 初始化文件上传控件
+    function initFileInputs() {
+        $('input[type="file"]').each(function() {
+            var $this = $(this);
+            var key = $this.data('key');
+
+            $this.fileinput({
+                'theme': 'fa',
+                language: 'zh',
+                showUpload: false,
+                showCaption: false,
+                showRemove: true,
+                showPreview: true,
+                browseClass: "btn btn-primary",
+                fileType: "any",
+                previewFileIcon: "<i class='glyphicon glyphicon-king'></i>",
+                allowedFileExtensions: ['jpg', 'jpeg', 'png', 'gif'],
+                uploadExtraData: function() {
+                    return {
+                        key: key
+                    };
+                },
+                // 自定义文件名，确保文件名包含key
+                uploadUrl: '#',
+                fileActionSettings: {
+                    showUpload: false,
+                    showZoom: true,
+                    showDrag: false,
+                    showDownload: false,
+                    removeIcon: '<i class="fa fa-trash"></i>'
+                }
+            }).on('fileselect', function(event, numFiles, label) {
+                // 当选择文件时，修改文件名为key_index格式
+                var files = $(this)[0].files;
+                if (files && files.length > 0) {
+                    for (var i = 0; i < files.length; i++) {
+                        // 注意：这里不能直接修改File对象的name属性，但在提交时会处理
+                        console.log('Selected file: ' + files[i].name + ' for key: ' + key + '_' + i);
+                    }
+                }
+            });
+        });
+    }
+
+    // 加载报告数据
+    function loadReportData() {
+        $.ajax({
+            url: prefix + "/list",
+            type: "post",
+            data: {
+                "reportId": reportId
+            },
+            dataType: "json",
+            success: function(result) {
+                if (result.rows && result.rows.length > 0) {
+                    fillFormData(result.rows);
+                }
+            },
+            error: function() {
+                $.modal.alertError("加载数据失败");
+            }
+        });
+    }
+
+    // 填充表单数据
+    function fillFormData(dataList) {
+        // 遍历数据，填充到对应的表单字段
+        for (var i = 0; i < dataList.length; i++) {
+            var data = dataList[i];
+            var key = data.key;
+            var value = data.value;
+            var type = data.type;
+
+            if (type == 0) {
+                // 文本类型 - 使用data-original-key属性查找元素
+                $('textarea[data-original-key="' + key + '"]').val(value);
+                $('input[type="text"][data-original-key="' + key + '"]').val(value);
+            } else if (type == 1) {
+                // 图片类型 - 使用属性选择器查找元素
+                if (value) {
+                    // 使用data-original-key属性查找元素
+                    var $valueHolder = $('.image-value-holder[data-original-key="' + key + '"]');
+                    var $previewContainer = $('.image-preview[data-original-key="' + key + '"]');
+
+                    if ($valueHolder.length > 0) {
+                        // 设置隐藏字段的值，用于保存已有图片的URL
+                        $valueHolder.val(value);
+
+                        // 显示已上传的图片预览
+                        var imgHtml = '';
+
+                        // 处理可能的多图片（逗号分隔的URL）
+                        var imageUrls = value.split(',');
+                        var validUrls = [];
+
+                        // 先筛选有效URL
+                        for (var j = 0; j < imageUrls.length; j++) {
+                            var url = imageUrls[j].trim();
+                            if (url) {
+                                validUrls.push(url);
+                            }
+                        }
+
+                        // 如果没有有效URL，直接清空预览区域
+                        if (validUrls.length === 0) {
+                            $previewContainer.empty();
+                            return;
+                        }
+
+                        // 清空预览区域，添加加载指示器
+                        $previewContainer.html('<div class="text-center"><i class="fa fa-spinner fa-spin"></i> 正在加载图片...</div>');
+
+                        // 创建一个计数器和结果数组
+                        var loadCounter = {
+                            total: validUrls.length,
+                            loaded: 0,
+                            results: [],
+                            originalIds: [] // 存储原始ID
+                        };
+
+                        // 处理每个URL
+                        for (var j = 0; j < validUrls.length; j++) {
+                            processImageUrl(validUrls[j], j, loadCounter, $previewContainer);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 处理单个图片URL
+    function processImageUrl(url, index, counter, container) {
+        // 存储原始ID
+        counter.originalIds[index] = url;
+
+        // 如果是纯数字ID，通过后端获取实际URL
+        if (/^\d+$/.test(url)) {
+            $.ajax({
+                url: prefix + "/getFileUrl",
+                type: "post",
+                data: {
+                    "fileId": url
+                },
+                dataType: "json",
+                success: function(result) {
+                    if (result.code == 0) {
+                        counter.results[index] = result.data;
+                    } else {
+                        console.error("获取文件URL失败：" + result.msg);
+                        counter.results[index] = "#"; // 使用占位符
+                    }
+                    updateImagePreview(counter, container);
+                },
+                error: function() {
+                    console.error("获取文件URL失败");
+                    counter.results[index] = "#"; // 使用占位符
+                    updateImagePreview(counter, container);
+                }
+            });
+        } else {
+            // 直接使用URL
+            counter.results[index] = url;
+            updateImagePreview(counter, container);
+        }
+    }
+
+    // 更新图片预览
+    function updateImagePreview(counter, container) {
+        counter.loaded++;
+        console.log("已加载: " + counter.loaded + "/" + counter.total);
+
+        // 当所有图片URL都处理完毕时，更新预览区域
+        if (counter.loaded >= counter.total) {
+            var imgHtml = '';
+            for (var i = 0; i < counter.results.length; i++) {
+                if (counter.results[i]) {
+                    // 获取原始ID
+                    var originalId = counter.originalIds[i];
+
+                    imgHtml += '<div class="image-item" data-id="' + originalId + '">';
+                    imgHtml += '<div class="image-actions">';
+                    imgHtml += '<a href="javascript:void(0);" class="btn btn-xs btn-danger remove-image" title="删除"><i class="fa fa-trash"></i></a>';
+                    imgHtml += '</div>';
+                    imgHtml += '<a href="' + counter.results[i] + '" target="_blank"><img src="' + counter.results[i] + '" alt="预览图"></a>';
+                    imgHtml += '</div>';
+                }
+            }
+
+            if (imgHtml) {
+                container.html(imgHtml);
+
+                // 绑定删除按钮事件
+                container.find('.remove-image').on('click', function() {
+                    var imageItem = $(this).closest('.image-item');
+                    var imageId = imageItem.data('id');
+
+                    // 获取 data-original-key 属性值
+                    var originalKey = container.data('original-key');
+                    console.log("删除图片，ID:", imageId, "原始Key:", originalKey);
+
+                    // 使用 data-original-key 属性查找隐藏字段
+                    var $valueHolder = $('.image-value-holder[data-original-key="' + originalKey + '"]');
+                    var currentValue = $valueHolder.val();
+
+                    console.log("找到隐藏字段:", $valueHolder.length > 0, "当前值:", currentValue);
+
+                    if (currentValue) {
+                        // 拆分并清理 ID 列表
+                        var ids = currentValue.split(',').map(function(id) {
+                            return id.trim();
+                        }).filter(Boolean); // 去掉空字符串
+
+                        // 过滤掉要删除的 ID
+                        var newIds = ids.filter(function(id) {
+                            return Number(id) !== Number(imageId);
+                        });
+
+                        // 更新隐藏字段
+                        var newValue = newIds.join(',');
+                        $valueHolder.val(newValue);
+                        console.log("更新后的值:", newValue);
+                    }
+
+
+                    // 移除图片项
+                    imageItem.remove();
+
+                    // 如果没有图片了，显示提示
+                    if (container.find('.image-item').length === 0) {
+                        container.html('<div class="text-center">无图片</div>');
+                    }
+                });
+            } else {
+                container.html('<div class="text-center">无图片</div>');
+            }
+        }
+    }
+
+    // 保存选项卡数据
+    function saveTabData(tabId) {
+        // 创建FormData对象
+        var formData = new FormData();
+        formData.append("reportId", reportId);
+
+        // 获取当前选项卡下的所有表单字段
+        var tabPane = $('#' + tabId);
+
+        // 添加文本字段 - textarea
+        tabPane.find('textarea').each(function() {
+            var key = $(this).data('original-key');
+            var value = $(this).val();
+
+            // 添加到FormData
+            formData.append("dataKeys", key);
+            formData.append("dataValues", value);
+            formData.append("dataTypes", "0"); // 0表示文本类型
+        });
+
+        // 添加文本字段 - input[type="text"]
+        tabPane.find('input[type="text"]').each(function() {
+            var key = $(this).data('original-key');
+            var value = $(this).val();
+
+            // 添加到FormData
+            formData.append("dataKeys", key);
+            formData.append("dataValues", value);
+            formData.append("dataTypes", "0"); // 0表示文本类型
+        });
+
+        // 添加图片字段
+        tabPane.find('.image-preview').each(function() {
+            var originalKey = $(this).data('original-key');
+            if (originalKey) {
+                // 使用data-original-key属性查找隐藏字段
+                var $valueHolder = $('.image-value-holder[data-original-key="' + originalKey + '"]');
+
+                // 添加键和类型
+                formData.append("dataKeys", originalKey);
+                formData.append("dataTypes", "1"); // 1表示图片类型
+
+                // 如果有值，添加到dataValues
+                if ($valueHolder.length > 0) {
+                    var value = $valueHolder.val() || '';
+                    formData.append("dataValues", value);
+                    console.log("保存图片字段:", originalKey, "值:", value);
+                } else {
+                    formData.append("dataValues", "");
+                    console.log("未找到隐藏字段:", originalKey);
+                }
+
+                // 添加新选择的文件（如果有）
+                var fileInput = $(this).closest('.form-group').find('input[type="file"]');
+                var files = fileInput[0].files;
+                if (files && files.length > 0) {
+                    for (var i = 0; i < files.length; i++) {
+                        // 创建一个新的文件对象，文件名格式为：${key}_index.ext
+                        var originalName = files[i].name;
+                        var extension = originalName.substring(originalName.lastIndexOf('.'));
+                        var newFileName = originalKey + '_' + i + extension;
+
+                        // 由于不能直接修改File对象的name，我们使用自定义的文件名属性
+                        var renamedFile = new File([files[i]], newFileName, { type: files[i].type });
+                        formData.append("files", renamedFile);
+                        console.log("添加文件:", newFileName);
+                    }
+                }
+            }
+        });
+
+        // 打印所有formData内容
+        console.log("FormData内容:");
+        for (var pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+
+        // 发送AJAX请求
+        $.ajax({
+            url: prefix + "/save",
+            type: "post",
+            data: formData,
+            processData: false,
+            contentType: false,
+            beforeSend: function() {
+                $.modal.loading("正在保存数据，请稍候...");
+            },
+            success: function(result) {
+                $.modal.closeLoading();
+                if (result.code == 0) {
+                    $.modal.alertSuccess("保存成功");
+                    // 重新加载数据
+                    loadReportData();
+                    // 清空文件输入框
+                    tabPane.find('input[type="file"]').fileinput('clear');
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            },
+            error: function() {
+                $.modal.closeLoading();
+                $.modal.alertError("保存失败");
+            }
+        });
+    }
+</script>
+</body>
+</html> 

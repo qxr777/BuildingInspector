@@ -24,7 +24,16 @@ public class Report extends BaseEntity {
 
     private Long projectId;
 
-    private String buildingIds;
+    private String taskIds;
 
     private Integer flag;
+
+    /** 审核人姓名 */
+    private String reviewer;
+
+    /** 批准人姓名 */
+    private String approver;
+
+
+    private Long minioId;
 }
