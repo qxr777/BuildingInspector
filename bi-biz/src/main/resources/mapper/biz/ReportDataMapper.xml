@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ReportDataMapper">
+    
+    <resultMap type="edu.whut.cs.bi.biz.domain.ReportData" id="ReportDataResult">
+        <id     property="id"          column="id"          />
+        <result property="key"         column="key"         />
+        <result property="value"       column="value"       />
+        <result property="reportId"    column="report_id"   />
+        <result property="type"        column="type"        />
+        <result property="createBy"    column="create_by"   />
+        <result property="createTime"  column="create_time" />
+        <result property="updateBy"    column="update_by"   />
+        <result property="updateTime"  column="update_time" />
+        <result property="remark"      column="remark"      />
+        <result property="flag"        column="flag"        />
+    </resultMap>
+    
+    <sql id="selectReportDataVo">
+        select id, `key`, value, report_id, type, create_by, create_time, update_by, update_time, remark, flag
+        from bi_report_data
+    </sql>
+    
+    <select id="selectReportDataList" parameterType="edu.whut.cs.bi.biz.domain.ReportData" resultMap="ReportDataResult">
+        <include refid="selectReportDataVo"/>
+        <where>
+            flag = 0
+            <if test="key != null and key != ''">
+                AND `key` = #{key}
+            </if>
+            <if test="reportId != null">
+                AND report_id = #{reportId}
+            </if>
+            <if test="type != null">
+                AND type = #{type}
+            </if>
+        </where>
+    </select>
+    
+    <select id="selectReportDataById" parameterType="Long" resultMap="ReportDataResult">
+        <include refid="selectReportDataVo"/>
+        where id = #{id} and flag = 0
+    </select>
+    
+    <select id="selectReportDataByReportId" parameterType="Long" resultMap="ReportDataResult">
+        <include refid="selectReportDataVo"/>
+        where report_id = #{reportId} and flag = 0
+    </select>
+    
+    <insert id="insertReportData" parameterType="edu.whut.cs.bi.biz.domain.ReportData" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_report_data (
+            `key`,
+            value,
+            report_id,
+            type,
+            create_by,
+            create_time,
+            remark,
+            flag
+        ) values (
+            #{key},
+            #{value},
+            #{reportId},
+            #{type},
+            #{createBy},
+            sysdate(),
+            #{remark},
+            0
+        )
+    </insert>
+    
+    <insert id="batchInsertReportData" parameterType="java.util.List">
+        insert into bi_report_data (
+            `key`,
+            value,
+            report_id,
+            type,
+            create_by,
+            create_time,
+            flag
+        ) values 
+        <foreach collection="list" item="item" index="index" separator=",">
+            (
+            #{item.key},
+            #{item.value},
+            #{item.reportId},
+            #{item.type},
+            #{item.createBy},
+            sysdate(),
+            0
+            )
+        </foreach>
+    </insert>
+    
+    <update id="updateReportData" parameterType="edu.whut.cs.bi.biz.domain.ReportData">
+        update bi_report_data
+        <set>
+            <if test="key != null and key != ''">`key` = #{key},</if>
+            <if test="value != null">value = #{value},</if>
+            <if test="reportId != null">report_id = #{reportId},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where id = #{id} and flag = 0
+    </update>
+    
+    <update id="deleteReportDataById" parameterType="Long">
+        update bi_report_data set flag = 1 where id = #{id} and flag = 0
+    </update>
+    
+    <update id="deleteReportDataByIds" parameterType="String">
+        update bi_report_data set flag = 1 
+        where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and flag = 0
+    </update>
+    
+    <update id="deleteReportDataByReportId" parameterType="Long">
+        update bi_report_data set flag = 1 where report_id = #{reportId} and flag = 0
+    </update>
+    
+</mapper> 

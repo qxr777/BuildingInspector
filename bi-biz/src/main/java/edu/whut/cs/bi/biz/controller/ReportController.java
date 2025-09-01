@@ -1,254 +1,290 @@
 package edu.whut.cs.bi.biz.controller;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.stream.Collectors;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.ruoyi.common.annotation.Log;
-import com.ruoyi.common.core.controller.BaseController;
-import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.enums.BusinessType;
+import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
+import edu.whut.cs.bi.biz.service.impl.ReportServiceImpl;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioClient;
 import org.apache.poi.xwpf.usermodel.*;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
+import com.ruoyi.common.annotation.Log;
+import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.common.core.page.TableDataInfo;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioClient;
+import io.minio.http.Method;
 
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletResponse;
-import java.awt.image.BufferedImage;
-import java.awt.Color;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.math.BigInteger;
-import java.io.FileInputStream;
 
 /**
- * 报告导出 控制器
+ * 检测报告Controller
+ *
+ * @author wanzheng
  */
-@RestController
+@Controller
 @RequestMapping("/biz/report")
 public class ReportController extends BaseController {
+    private String prefix = "biz/report";
 
-  private int tableCounter = 1; // 添加表格计数器
-  // 新增一个Map存储病害与图片序号的映射关系
-  Map<Long, List<String>> diseaseImageRefs = new HashMap<>();  // key: 病害ID, value: 图片序号列表
 
-  @Autowired
-  private IPropertyService propertyService;
+    private int tableCounter = 1; // 添加表格计数器
+    // 新增一个Map存储病害与图片序号的映射关系
+    Map<Long, List<String>> diseaseImageRefs = new HashMap<>();  // key: 病害ID, value: 图片序号列表
 
-  @Autowired
-  IBuildingService buildingService;
+    @Autowired
+    private IReportService reportService;
 
-  @Autowired
-  IFileMapService iFileMapService;
+    @Autowired
+    private IReportTemplateService reportTemplateService;
 
-  @Autowired
-  DiseaseController diseaseController;
+    @Autowired
+    private IReportDataService reportDataService;
 
-  @Autowired
-  AttachmentService attachmentService;
+    @Autowired
+    private IPropertyService propertyService;
 
-  @Autowired
-  ITaskService taskService;
+    @Autowired
+    IBuildingService buildingService;
 
-  @Autowired
-  IDiseaseService diseaseService;
+    @Autowired
+    IFileMapService iFileMapService;
 
-  @Autowired
-  BuildingMapper buildingMapper;
+    @Autowired
+    DiseaseController diseaseController;
 
-  @Autowired
-  BiObjectMapper biObjectMapper;
+    @Autowired
+    AttachmentService attachmentService;
 
-  @Autowired
-  private IReportService reportService;
+    @Autowired
+    ITaskService taskService;
 
-  @GetMapping("/export/{id}")
-  public void exportTaskReport(@PathVariable("id") Long taskId, HttpServletResponse response) {
-    try {
-      // 1. 查询数据
-      Task task = taskService.selectTaskById(taskId);
-      Building building = buildingService.selectBuildingById(task.getBuildingId());
-      Disease disease = new Disease();
-      disease.setBuildingId(task.getBuildingId());
-      disease.setProjectId(task.getProjectId());
-      List<Disease> properties = diseaseService.selectDiseaseListForApi(disease);
-      List<BiObject> biObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
-      // System.out.println(building.getRootObjectId());
-      // biObjects.forEach(e -> {
-      // System.out.println(e.getId() + " " + e.getName());
-      // });
-      // 2. 找到树的根节点
-      BiObject root = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+    @Autowired
+    IDiseaseService diseaseService;
 
-      // 3. 创建Word文档
-      XWPFDocument doc = new XWPFDocument();
+    @Autowired
+    BuildingMapper buildingMapper;
 
-      Map<Long, List<Disease>> level3DiseaseMap = new LinkedHashMap<>();
-      collectDiseases(root, biObjects, properties, 1, level3DiseaseMap);
+    @Autowired
+    BiObjectMapper biObjectMapper;
 
-      // 4. 递归写入树结构和病害信息
-      writeBiObjectTreeToWord(doc, root, biObjects, level3DiseaseMap, "4.1", 1);
-      // 5. 导出Word
-      response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      response.setHeader("Content-Disposition", "attachment; filename=report.docx");
-      doc.write(response.getOutputStream());
-      doc.close();
-    } catch (Exception e) {
-      logger.error("导出Word文档失败：", e);
-      throw new RuntimeException("导出Word文档失败：" + e.getMessage());
-    }
-  }
+    @Autowired
+    private ReportServiceImpl reportServiceImpl;
 
-  private void collectDiseases(BiObject node,
-                               List<BiObject> allNodes,
-                               List<Disease> properties,
-                               int level,
-                               Map<Long, List<Disease>> map) {
+    @Autowired
+    private MinioConfig minioConfig;
+    @Autowired
+    private FileMapServiceImpl fileMapServiceImpl;
+    @Autowired
+    private MinioClient minioClient;
 
-    // 找到当前节点所属的 level3 祖先（如自身就是 level3 则返回自身）
-    BiObject level3 = findLevel3Ancestor(node, allNodes);
-
-    // 把当前节点的病害挂到 level3 名下
-    List<Disease> self = properties.stream()
-            .filter(d ->d.getBiObjectId() != null &&  node.getId().equals(d.getBiObjectId()))
-            .collect(Collectors.toList());
-    map.computeIfAbsent(level3.getId(), k -> new ArrayList<>()).addAll(self);
-
-    // 继续向下收集
-    List<BiObject> children = allNodes.stream()
-            .filter(o -> node.getId().equals(o.getParentId()))
-            .collect(Collectors.toList());
-    for (BiObject child : children) {
-      collectDiseases(child, allNodes, properties, level + 1, map);
-    }
-  }
-  private BiObject findLevel3Ancestor(BiObject node, List<BiObject> allNodes) {
-    BiObject cur = node;
-    int lv = getLevel(cur, allNodes);
-    while (lv > 3 && cur.getParentId() != null) {
-      BiObject finalCur = cur;
-      cur = allNodes.stream()
-              .filter(o -> o.getId().equals(finalCur.getParentId()))
-              .findFirst()
-              .orElse(null);
-      lv--;
-    }
-    return cur;
-  }
-
-  private int getLevel(BiObject node, List<BiObject> allNodes) {
-    int level = 2;
-    BiObject p = node;
-    while (p.getParentId() != null) {
-      BiObject finalP = p;
-      p = allNodes.stream()
-              .filter(o -> o.getId().equals(finalP.getParentId()))
-              .findFirst()
-              .orElse(null);
-      if (p != null) level++;
-      else break;
-    }
-    return level;
-  }
-
-  private void writeBiObjectTreeToWord(XWPFDocument doc, BiObject node, List<BiObject> allNodes,
-                                       Map<Long, List<Disease>> properties, String prefix, int level) throws JsonProcessingException {
-    if (level > 3) {
-      return; // 不再写标题，也不再递归写标题
-    }
-    // 写目录标题
-    XWPFParagraph p = doc.createParagraph();
-    // 设置为标题样式
-    if (level == 1) {
-      p.setStyle("Heading1");
-    } else if (level == 2) {
-      p.setStyle("Heading2");
-    } else if (level == 3) {
-      p.setStyle("Heading3");
-    } else {
-      p.setStyle("Heading4");
+    @RequiresPermissions("biz:report:view")
+    @GetMapping()
+    public String report() {
+        return prefix + "/report";
     }
 
-    // 设置大纲级别（模仿示例代码）
-    CTPPr ppr = p.getCTP().getPPr();
-    if (ppr == null)
-      ppr = p.getCTP().addNewPPr();
-    // Word 大纲级别从 0 开始，对应 Heading 1
-    if (level <= 9) { // Word 支持的大纲级别通常到 9
-      ppr.addNewOutlineLvl().setVal(BigInteger.valueOf(level - 1));
-    } else { // 超过 9 级，设置为正文级别
-      ppr.addNewOutlineLvl().setVal(BigInteger.valueOf(9));
-    }
+    @GetMapping("/export/{id}")
+    public void exportTaskReport(@PathVariable("id") Long taskId, HttpServletResponse response) {
+        try {
+            // 1. 查询数据
+            Task task = taskService.selectTaskById(taskId);
+            Building building = buildingService.selectBuildingById(task.getBuildingId());
+            Disease disease = new Disease();
+            disease.setBuildingId(task.getBuildingId());
+            disease.setProjectId(task.getProjectId());
+            List<Disease> properties = diseaseService.selectDiseaseListForApi(disease);
+            List<BiObject> biObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
+            // System.out.println(building.getRootObjectId());
+            // biObjects.forEach(e -> {
+            // System.out.println(e.getId() + " " + e.getName());
+            // });
+            // 2. 找到树的根节点
+            BiObject root = biObjectMapper.selectBiObjectById(building.getRootObjectId());
 
-    XWPFRun run = p.createRun();
-    run.setBold(true);
-    run.setColor("000000"); // 黑色
-    run.setFontSize(12 + Math.max(0, 4 - level)); // 层级越深字号越小
-    run.setText(prefix + " " + node.getName());
+            // 3. 创建Word文档
+            XWPFDocument doc = new XWPFDocument();
 
-    // 写病害信息
-    List<Disease> nodeDiseases = properties.getOrDefault(node.getId(), List.of());
-    String tableNumber = "4." + tableCounter;
-    // 提前收集所有病害的图片序号
-    diseaseImageRefs.clear();  // 清空上一节点的数据
-    int imageSeq = 1;
-    for (Disease d : nodeDiseases) {
-      List<String> imageNumbers = new ArrayList<>();
-      List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
-      if (images != null) {
-        for (Map<String, Object> img : images) {
-          if (Boolean.TRUE.equals(img.get("isImage"))) {
-            // 生成图片序号 "图4.1-1" 格式
-            imageNumbers.add("图" + tableNumber + "-" + imageSeq);
-            imageSeq++;
-          }
+            Map<Long, List<Disease>> level3DiseaseMap = new LinkedHashMap<>();
+            collectDiseases(root, biObjects, properties, 1, level3DiseaseMap);
+
+            // 4. 递归写入树结构和病害信息
+            writeBiObjectTreeToWord(doc, root, biObjects, level3DiseaseMap, "4.1", 1);
+            // 5. 导出Word
+            response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            response.setHeader("Content-Disposition", "attachment; filename=report.docx");
+            doc.write(response.getOutputStream());
+            doc.close();
+        } catch (Exception e) {
+            logger.error("导出Word文档失败：", e);
+            throw new RuntimeException("导出Word文档失败：" + e.getMessage());
         }
-      }
-      diseaseImageRefs.put(d.getId(), imageNumbers);
     }
 
+    private void collectDiseases(BiObject node,
+                                 List<BiObject> allNodes,
+                                 List<Disease> properties,
+                                 int level,
+                                 Map<Long, List<Disease>> map) {
 
-    // 如果存在病害信息，则生成介绍段落和表格
-    if (!nodeDiseases.isEmpty()) {
-      // 创建介绍段落
-      XWPFParagraph introPara = doc.createParagraph();
+        // 找到当前节点所属的 level3 祖先（如自身就是 level3 则返回自身）
+        BiObject level3 = findLevel3Ancestor(node, allNodes);
 
-      // Part 1: 加粗的开头部分
-      XWPFRun runBold = introPara.createRun();
-      runBold.setText("经检查，" + node.getName() + " 主要病害为:");
-      runBold.setBold(true);
-      runBold.setFontSize(12); // 设置字号与后面一致
+        // 把当前节点的病害挂到 level3 名下
+        List<Disease> self = properties.stream()
+                .filter(d -> d.getBiObjectId() != null && node.getId().equals(d.getBiObjectId()))
+                .collect(Collectors.toList());
+        map.computeIfAbsent(level3.getId(), k -> new ArrayList<>()).addAll(self);
 
-      // Part 2: 生成病害小结
-      String diseaseString = reportService.getDiseaseSummary(nodeDiseases);
-      // 按行分割字符串并创建多个段落
-      String[] lines = diseaseString.split("\\r?\\n"); // 支持Windows(\r\n)和Unix(\n)换行符
-
-      for (String line : lines) {
-        // 创建新的段落并设置首行缩进
-        XWPFParagraph diseasePara = doc.createParagraph();
-        CTPPr diseasePpr = diseasePara.getCTP().getPPr();
-        if (diseasePpr == null) {
-          diseasePpr = diseasePara.getCTP().addNewPPr();
+        // 继续向下收集
+        List<BiObject> children = allNodes.stream()
+                .filter(o -> node.getId().equals(o.getParentId()))
+                .collect(Collectors.toList());
+        for (BiObject child : children) {
+            collectDiseases(child, allNodes, properties, level + 1, map);
         }
-        CTInd ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
-        ind.setFirstLine(BigInteger.valueOf(480)); // 设置首行缩进为480（约2个字符）
+    }
 
-        XWPFRun runItem = diseasePara.createRun();
-        runItem.setText(line); // 写入单行内容
-        runItem.setFontSize(12); // 设置字号
-      }
+    private BiObject findLevel3Ancestor(BiObject node, List<BiObject> allNodes) {
+        BiObject cur = node;
+        int lv = getLevel(cur, allNodes);
+        while (lv > 3 && cur.getParentId() != null) {
+            BiObject finalCur = cur;
+            cur = allNodes.stream()
+                    .filter(o -> o.getId().equals(finalCur.getParentId()))
+                    .findFirst()
+                    .orElse(null);
+            lv--;
+        }
+        return cur;
+    }
+
+    private int getLevel(BiObject node, List<BiObject> allNodes) {
+        int level = 2;
+        BiObject p = node;
+        while (p.getParentId() != null) {
+            BiObject finalP = p;
+            p = allNodes.stream()
+                    .filter(o -> o.getId().equals(finalP.getParentId()))
+                    .findFirst()
+                    .orElse(null);
+            if (p != null) level++;
+            else break;
+        }
+        return level;
+    }
+
+    private void writeBiObjectTreeToWord(XWPFDocument doc, BiObject node, List<BiObject> allNodes,
+                                         Map<Long, List<Disease>> properties, String prefix, int level) throws JsonProcessingException {
+        if (level > 3) {
+            return; // 不再写标题，也不再递归写标题
+        }
+        // 写目录标题
+        XWPFParagraph p = doc.createParagraph();
+        // 设置为标题样式
+        if (level == 1) {
+            p.setStyle("Heading1");
+        } else if (level == 2) {
+            p.setStyle("Heading2");
+        } else if (level == 3) {
+            p.setStyle("Heading3");
+        } else {
+            p.setStyle("Heading4");
+        }
+
+        // 设置大纲级别（模仿示例代码）
+        CTPPr ppr = p.getCTP().getPPr();
+        if (ppr == null)
+            ppr = p.getCTP().addNewPPr();
+        // Word 大纲级别从 0 开始，对应 Heading 1
+        if (level <= 9) { // Word 支持的大纲级别通常到 9
+            ppr.addNewOutlineLvl().setVal(BigInteger.valueOf(level - 1));
+        } else { // 超过 9 级，设置为正文级别
+            ppr.addNewOutlineLvl().setVal(BigInteger.valueOf(9));
+        }
+
+        XWPFRun run = p.createRun();
+        run.setBold(true);
+        run.setColor("000000"); // 黑色
+        run.setFontSize(12 + Math.max(0, 4 - level)); // 层级越深字号越小
+        run.setText(prefix + " " + node.getName());
+
+        // 写病害信息
+        List<Disease> nodeDiseases = properties.getOrDefault(node.getId(), List.of());
+        String tableNumber = "4." + tableCounter;
+        // 提前收集所有病害的图片序号
+        diseaseImageRefs.clear();  // 清空上一节点的数据
+        int imageSeq = 1;
+        for (Disease d : nodeDiseases) {
+            List<String> imageNumbers = new ArrayList<>();
+            List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+            if (images != null) {
+                for (Map<String, Object> img : images) {
+                    if (Boolean.TRUE.equals(img.get("isImage"))) {
+                        // 生成图片序号 "图4.1-1" 格式
+                        imageNumbers.add("图" + tableNumber + "-" + imageSeq);
+                        imageSeq++;
+                    }
+                }
+            }
+            diseaseImageRefs.put(d.getId(), imageNumbers);
+        }
+
+
+        // 如果存在病害信息，则生成介绍段落和表格
+        if (!nodeDiseases.isEmpty()) {
+            // 创建介绍段落
+            XWPFParagraph introPara = doc.createParagraph();
+
+            // Part 1: 加粗的开头部分
+            XWPFRun runBold = introPara.createRun();
+            runBold.setText("经检查，" + node.getName() + " 主要病害为:");
+            runBold.setBold(true);
+            runBold.setFontSize(12); // 设置字号与后面一致
+
+            // Part 2: 生成病害小结
+            String diseaseString = reportService.getDiseaseSummary(nodeDiseases);
+            // 按行分割字符串并创建多个段落
+            String[] lines = diseaseString.split("\\r?\\n"); // 支持Windows(\r\n)和Unix(\n)换行符
+
+            for (String line : lines) {
+                // 创建新的段落并设置首行缩进
+                XWPFParagraph diseasePara = doc.createParagraph();
+                CTPPr diseasePpr = diseasePara.getCTP().getPPr();
+                if (diseasePpr == null) {
+                    diseasePpr = diseasePara.getCTP().addNewPPr();
+                }
+                CTInd ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
+                ind.setFirstLine(BigInteger.valueOf(480)); // 设置首行缩进为480（约2个字符）
+
+                XWPFRun runItem = diseasePara.createRun();
+                runItem.setText(line); // 写入单行内容
+                runItem.setFontSize(12); // 设置字号
+            }
 //      int summarySeqNum = 1;
 //      for (Disease d : nodeDiseases) {
 //        // 创建新的段落并设置首行缩进
@@ -269,525 +305,494 @@ public class ReportController extends BaseController {
 //        runItem.setFontSize(12); // 设置字号
 //      }
 
-      // Part 3: 表格引用部分
-      XWPFParagraph tableRefPara = doc.createParagraph();
+            // Part 3: 表格引用部分
+            XWPFParagraph tableRefPara = doc.createParagraph();
 
-      // 设置1.5倍行距
-      CTPPr ppr1 = tableRefPara.getCTP().getPPr();
-      if (ppr1 == null) {
-        ppr1 = tableRefPara.getCTP().addNewPPr();
-      }
-      CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
-      spacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距（240 * 1.5 = 360）
+            // 设置1.5倍行距
+            CTPPr ppr1 = tableRefPara.getCTP().getPPr();
+            if (ppr1 == null) {
+                ppr1 = tableRefPara.getCTP().addNewPPr();
+            }
+            CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
+            spacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距（240 * 1.5 = 360）
 
-      tableNumber = "4." + tableCounter++; // 生成表格编号
-      XWPFRun runTableRef = tableRefPara.createRun();
-      runTableRef.setText("具体检测结果见下表 " + tableNumber + ":");
-      runTableRef.setFontSize(12); // 设置字号
+            tableNumber = "4." + tableCounter++; // 生成表格编号
+            XWPFRun runTableRef = tableRefPara.createRun();
+            runTableRef.setText("具体检测结果见下表 " + tableNumber + ":");
+            runTableRef.setFontSize(12); // 设置字号
 
-      // 添加表格编号
-      XWPFParagraph tableNumPara = doc.createParagraph();
-      tableNumPara.setAlignment(ParagraphAlignment.CENTER); // 设置居中对齐
-      XWPFRun runTableNum = tableNumPara.createRun();
-      runTableNum.setText("表 " + tableNumber);
-      runTableNum.setFontSize(12);
-      runTableNum.setBold(true);
+            // 添加表格编号
+            XWPFParagraph tableNumPara = doc.createParagraph();
+            tableNumPara.setAlignment(ParagraphAlignment.CENTER); // 设置居中对齐
+            XWPFRun runTableNum = tableNumPara.createRun();
+            runTableNum.setText("表 " + tableNumber);
+            runTableNum.setFontSize(12);
+            runTableNum.setBold(true);
 
-      // --- 原有的表格创建代码开始 --- //
-      XWPFTable table = doc.createTable(1, 8); // 1 row (header), 8 columns
+            // --- 原有的表格创建代码开始 --- //
+            XWPFTable table = doc.createTable(1, 8); // 1 row (header), 8 columns
 
-      // 设置表格边框
-      CTTblPr tblPr = table.getCTTbl().getTblPr();
-      if (tblPr == null)
-        tblPr = table.getCTTbl().addNewTblPr();
-      CTTblBorders borders = tblPr.addNewTblBorders();
-      borders.addNewBottom().setVal(STBorder.SINGLE);
-      borders.addNewLeft().setVal(STBorder.SINGLE);
-      borders.addNewRight().setVal(STBorder.SINGLE);
-      borders.addNewTop().setVal(STBorder.SINGLE);
-      borders.addNewInsideH().setVal(STBorder.SINGLE);
-      borders.addNewInsideV().setVal(STBorder.SINGLE);
+            // 设置表格边框
+            CTTblPr tblPr = table.getCTTbl().getTblPr();
+            if (tblPr == null)
+                tblPr = table.getCTTbl().addNewTblPr();
+            CTTblBorders borders = tblPr.addNewTblBorders();
+            borders.addNewBottom().setVal(STBorder.SINGLE);
+            borders.addNewLeft().setVal(STBorder.SINGLE);
+            borders.addNewRight().setVal(STBorder.SINGLE);
+            borders.addNewTop().setVal(STBorder.SINGLE);
+            borders.addNewInsideH().setVal(STBorder.SINGLE);
+            borders.addNewInsideV().setVal(STBorder.SINGLE);
 
-      // 设置表格居中对齐
-      CTJc jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
-      jc.setVal(STJc.CENTER);
+            // 设置表格居中对齐
+            CTJc jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
+            jc.setVal(STJc.CENTER);
 
-      // 设置表头
-      XWPFTableRow headerRow = table.getRow(0);
+            // 设置表头
+            XWPFTableRow headerRow = table.getRow(0);
 
-      // 表头文本数组
-      String[] headers = { "序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片" };
+            // 表头文本数组
+            String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
 
-      // 设置表头样式（加粗 + 居中 + 不换行）
-      Double[] num = { 1.24, 2.75, 2.28, 1.29, 4.43, 2.0, 2.0, 1.51 };
+            // 设置表头样式（加粗 + 居中 + 不换行）
+            Double[] num = {1.24, 2.75, 2.28, 1.29, 4.43, 2.0, 2.0, 1.51};
 
-      CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
-      tblLayout.setType(STTblLayoutType.FIXED);
+            CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
+            tblLayout.setType(STTblLayoutType.FIXED);
 
-      // 3. 设置每列
-      for (int i = 0; i < headers.length; i++) {
-        XWPFTableCell cell = headerRow.getCell(i);
+            // 3. 设置每列
+            for (int i = 0; i < headers.length; i++) {
+                XWPFTableCell cell = headerRow.getCell(i);
 
-        // 清除内容（更安全的清除方式）
-        for (int j = cell.getParagraphs().size() - 1; j >= 0; j--) {
-          cell.removeParagraph(j);
+                // 清除内容（更安全的清除方式）
+                for (int j = cell.getParagraphs().size() - 1; j >= 0; j--) {
+                    cell.removeParagraph(j);
+                }
+
+                // 设置文本样式
+                XWPFParagraph paragraph = cell.addParagraph();
+                paragraph.setAlignment(ParagraphAlignment.CENTER);
+
+                XWPFRun run1 = paragraph.createRun();
+                run1.setText(headers[i]);
+                run1.setBold(true);
+                run1.setFontSize(11); // 五号字
+
+                // 设置列宽（关键修正）
+                CTTc cttc = cell.getCTTc();
+                CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
+
+                // 确保单元格宽度属性存在
+                CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+                tcW.setW(BigInteger.valueOf((int) Math.round(num[i] * 567)));
+                tcW.setType(STTblWidth.DXA);
+
+                // 防止内容换行（可选）
+                tcPr.addNewNoWrap();
+            }
+
+            // 填充数据行
+            int seqNum = 1;
+            for (Disease d : nodeDiseases) {
+                XWPFTableRow dataRow = table.createRow();
+
+                // 为数据行的每个单元格设置相同的宽度
+                for (int i = 0; i < headers.length; i++) {
+                    XWPFTableCell cell = dataRow.getCell(i);
+
+                    // 设置单元格宽度与表头一致
+                    CTTc cttc = cell.getCTTc();
+                    CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
+                    CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+                    tcW.setW(BigInteger.valueOf((int) Math.round(num[i] * 567)));
+                    tcW.setType(STTblWidth.DXA);
+                    // 设置单元格内容居中
+                    XWPFParagraph cellP = cell.getParagraphs().get(0);
+                    cellP.setAlignment(ParagraphAlignment.CENTER);
+
+                    // 设置文本内容
+                    XWPFRun cellR = cellP.createRun();
+                    cellR.setFontSize(11);
+
+                    switch (i) {
+                        case 0:
+                            cellR.setText(String.valueOf(seqNum++));
+                            break;
+                        case 1:
+                            cellR.setText(d.getComponent() != null ? d.getComponent().getName() : "/");
+                            break;
+                        case 2:
+                            cellR.setText(d.getType() != null ? d.getType() : "/");
+                            break;
+                        case 3:
+                            cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
+                            break;
+                        case 4:
+                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            break;
+                        case 5:
+                            cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+                            break;
+                        case 6:
+                            cellR.setText("/");
+                            break;
+                        case 7:
+                            // 获取该病害对应的所有图片序号
+                            List<String> refs = diseaseImageRefs.getOrDefault(d.getId(), new ArrayList<>());
+                            // 将序号列表转为字符串，如 "图4.1-1,图4.1-2"
+                            cellR.setText(String.join(",", refs));
+                            break;
+                    }
+                }
+            }
+            // 在表格下方插入病害图片（不用表格，每行两个图片+标题，图片和标题均用段落并排）
+            if (!nodeDiseases.isEmpty()) {
+                imageSeq = 1;
+                List<byte[]> imageDatas = new ArrayList<>();
+                List<String> imageTitles = new ArrayList<>();
+                for (Disease d : nodeDiseases) {
+                    List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+                    if (images != null) {
+                        for (Map<String, Object> img : images) {
+                            if (Boolean.TRUE.equals(img.get("isImage"))) {
+                                String url = (String) img.get("url");
+                                String newName = url.substring(url.lastIndexOf("/") + 1);
+                                byte[] imageData = iFileMapService.handleFileDownloadByNewName(newName);
+                                if (imageData != null && imageData.length > 0) {
+                                    imageDatas.add(imageData);
+                                    String componentName = d.getComponent().getName();
+                                    String imageDesc = componentName.substring(componentName.lastIndexOf("#") + 1) + d.getType();
+                                    imageTitles.add("图" + tableNumber + "-" + imageSeq + "  " + imageDesc);
+                                    imageSeq++;
+                                }
+                            }
+                        }
+                    }
+                }
+                int total = imageDatas.size();
+                for (int i = 0; i < total; i += 2) {
+                    // 一行插入两个图片
+                    XWPFParagraph imageRow = doc.createParagraph();
+                    imageRow.setAlignment(ParagraphAlignment.CENTER);
+                    for (int j = 0; j < 2; j++) {
+                        if (i + j < total) {
+                            XWPFRun imageRun = imageRow.createRun();
+                            try {
+                                BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(imageDatas.get(i + j)));
+                                int maxWidth = (int) (6 * 37.8); // 6cm
+                                int maxHeight = (int) (5 * 37.8); // 5cm
+                                int width = originalImage.getWidth();
+                                int height = originalImage.getHeight();
+                                double ratio = Math.min((double) maxWidth / width, (double) maxHeight / height);
+                                int newWidth = (int) (width * ratio);
+                                int newHeight = (int) (height * ratio);
+                                java.awt.Image scaled = originalImage.getScaledInstance(newWidth, newHeight,
+                                        java.awt.Image.SCALE_SMOOTH);
+                                BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+                                scaledImage.getGraphics().drawImage(scaled, 0, 0, null);
+                                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                ImageIO.write(scaledImage, "jpg", baos);
+                                byte[] scaledImageData = baos.toByteArray();
+                                imageRun.addPicture(
+                                        new ByteArrayInputStream(scaledImageData),
+                                        XWPFDocument.PICTURE_TYPE_JPEG,
+                                        "disease.jpg",
+                                        6 * 360000,
+                                        5 * 360000);
+                                imageRun.addTab(); // 图片之间加tab分隔
+                            } catch (Exception ex) {
+                                logger.error("插入病害图片失败", ex);
+                            }
+                        }
+                    }
+                    // 一行插入两个标题
+                    XWPFParagraph titleRow = doc.createParagraph();
+                    titleRow.setAlignment(ParagraphAlignment.CENTER);
+                    for (int j = 0; j < 2; j++) {
+                        if (i + j < total) {
+                            XWPFRun titleRun = titleRow.createRun();
+                            titleRun.setText(imageTitles.get(i + j));
+                            titleRun.setFontSize(10);
+                            // 标题间 加 tab
+                            titleRun.addTab();
+                            titleRun.addTab();
+                            titleRun.addTab();
+                        }
+                    }
+                }
+            }
         }
 
-        // 设置文本样式
-        XWPFParagraph paragraph = cell.addParagraph();
-        paragraph.setAlignment(ParagraphAlignment.CENTER);
+        // 递归写子节点
+        List<BiObject> children = allNodes.stream()
+                .filter(obj -> node.getId().equals(obj.getParentId()))
+                .sorted((a, b) -> a.getName().compareTo(b.getName()))
+                .collect(Collectors.toList());
+        int idx = 1;
+        for (BiObject child : children) {
+            writeBiObjectTreeToWord(doc, child, allNodes, properties, prefix + "." + idx, level + 1);
+            idx++;
+        }
+    }
 
-        XWPFRun run1 = paragraph.createRun();
-        run1.setText(headers[i]);
-        run1.setBold(true);
-        run1.setFontSize(11); // 五号字
-
-        // 设置列宽（关键修正）
-        CTTc cttc = cell.getCTTc();
-        CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
-
-        // 确保单元格宽度属性存在
-        CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
-        tcW.setW(BigInteger.valueOf((int) Math.round(num[i] * 567)));
-        tcW.setType(STTblWidth.DXA);
-
-        // 防止内容换行（可选）
-        tcPr.addNewNoWrap();
-      }
-
-      // 填充数据行
-      int seqNum = 1;
-      for (Disease d : nodeDiseases) {
-        XWPFTableRow dataRow = table.createRow();
-
-        // 为数据行的每个单元格设置相同的宽度
-        for (int i = 0; i < headers.length; i++) {
-          XWPFTableCell cell = dataRow.getCell(i);
-
-          // 设置单元格宽度与表头一致
-          CTTc cttc = cell.getCTTc();
-          CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
-          CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
-          tcW.setW(BigInteger.valueOf((int) Math.round(num[i] * 567)));
-          tcW.setType(STTblWidth.DXA);
-          // 设置单元格内容居中
-          XWPFParagraph cellP = cell.getParagraphs().get(0);
-          cellP.setAlignment(ParagraphAlignment.CENTER);
-
-          // 设置文本内容
-          XWPFRun cellR = cellP.createRun();
-          cellR.setFontSize(11);
-
-          switch (i) {
+    private String getHeaderText(int index) {
+        switch (index) {
             case 0:
-              cellR.setText(String.valueOf(seqNum++));
-              break;
+                return "序号";
             case 1:
-              cellR.setText(d.getComponent() != null ? d.getComponent().getName() : "/");
-              break;
+                return "缺损位置";
             case 2:
-              cellR.setText(d.getType() != null ? d.getType() : "/");
-              break;
+                return "缺损类型";
             case 3:
-              cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
-              break;
+                return "数量";
             case 4:
-              cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
-              break;
+                return "病害描述";
             case 5:
-              cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
-              break;
+                return "评定类别 (1~5)";
             case 6:
-              cellR.setText("/");
-              break;
+                return "发展趋势";
             case 7:
-              // 获取该病害对应的所有图片序号
-              List<String> refs = diseaseImageRefs.getOrDefault(d.getId(), new ArrayList<>());
-              // 将序号列表转为字符串，如 "图4.1-1,图4.1-2"
-              cellR.setText(String.join(",", refs));
-              break;
-          }
+                return "照片";
+            default:
+                return "";
         }
-      }
-      // 在表格下方插入病害图片（不用表格，每行两个图片+标题，图片和标题均用段落并排）
-      if (!nodeDiseases.isEmpty()) {
-        imageSeq = 1;
-        List<byte[]> imageDatas = new ArrayList<>();
-        List<String> imageTitles = new ArrayList<>();
-        for (Disease d : nodeDiseases) {
-          List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
-          if (images != null) {
-            for (Map<String, Object> img : images) {
-              if (Boolean.TRUE.equals(img.get("isImage"))) {
-                String url = (String) img.get("url");
-                String newName = url.substring(url.lastIndexOf("/") + 1);
-                byte[] imageData = iFileMapService.handleFileDownloadByNewName(newName);
-                if (imageData != null && imageData.length > 0) {
-                  imageDatas.add(imageData);
-                  String componentName = d.getComponent().getName();
-                  String imageDesc = componentName.substring(componentName.lastIndexOf("#")+1) +d.getType();
-                  imageTitles.add("图" + tableNumber + "-" + imageSeq + "  " + imageDesc);
-                  imageSeq++;
-                }
-              }
+    }
+
+    private Map<String, Object> buildTreeNode(Property current, List<Property> allProperties) {
+        Map<String, Object> node = Map.of(
+                "id", current.getId(),
+                "name", current.getName(),
+                "value", current.getValue());
+
+        List<Property> children = allProperties.stream()
+                .filter(p -> current.getId().equals(p.getParentId()))
+                .collect(Collectors.toList());
+
+        if (!children.isEmpty()) {
+            List<Map<String, Object>> childNodes = children.stream()
+                    .map(child -> buildTreeNode(child, allProperties))
+                    .collect(Collectors.toList());
+            return Map.of(
+                    "id", current.getId(),
+                    "name", current.getName(),
+                    "value", current.getValue(),
+                    "children", childNodes);
+        }
+
+        return node;
+    }
+
+    /**
+     * 查询检测报告列表
+     */
+    @RequiresPermissions("biz:report:list")
+    @PostMapping("/list")
+    @ResponseBody
+    public TableDataInfo list(Report report) {
+        startPage();
+        List<Report> list = reportService.selectReportList(report);
+        return getDataTable(list);
+    }
+
+    /**
+     * 导出检测报告列表
+     */
+    @RequiresPermissions("biz:report:export")
+    @Log(title = "检测报告", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Report report) {
+        List<Report> list = reportService.selectReportList(report);
+        ExcelUtil<Report> util = new ExcelUtil<Report>(Report.class);
+        return util.exportExcel(list, "检测报告数据");
+    }
+
+    /**
+     * 新增检测报告
+     */
+    @GetMapping("/add")
+    public String add(ModelMap mmap) {
+        // 获取状态正常的报告模板列表
+        ReportTemplate reportTemplate = new ReportTemplate();
+        reportTemplate.setIsActive(0); // 状态正常
+        List<ReportTemplate> templates = reportTemplateService.selectReportTemplateList(reportTemplate);
+        mmap.put("templates", templates);
+
+        return prefix + "/add";
+    }
+
+    /**
+     * 新增保存检测报告
+     */
+    @RequiresPermissions("biz:report:add")
+    @Log(title = "检测报告", businessType = BusinessType.INSERT)
+    @PostMapping("/add")
+    @ResponseBody
+    public AjaxResult addSave(Report report) {
+        return toAjax(reportService.insertReport(report));
+    }
+
+    /**
+     * 修改检测报告
+     */
+    @RequiresPermissions("biz:report:edit")
+    @GetMapping("/edit/{id}")
+    public String edit(@PathVariable("id") Long id, ModelMap mmap) {
+        Report report = reportService.selectReportById(id);
+        mmap.put("report", report);
+
+        // 获取状态正常的报告模板列表
+        ReportTemplate reportTemplate = new ReportTemplate();
+        reportTemplate.setIsActive(0); // 状态正常
+        List<ReportTemplate> templates = reportTemplateService.selectReportTemplateList(reportTemplate);
+        mmap.put("templates", templates);
+
+        return prefix + "/edit";
+    }
+
+    /**
+     * 修改保存检测报告
+     */
+    @RequiresPermissions("biz:report:edit")
+    @Log(title = "检测报告", businessType = BusinessType.UPDATE)
+    @PostMapping("/edit")
+    @ResponseBody
+    public AjaxResult editSave(Report report) {
+        return toAjax(reportService.updateReport(report));
+    }
+
+    /**
+     * 删除检测报告
+     */
+    @RequiresPermissions("biz:report:remove")
+    @Log(title = "检测报告", businessType = BusinessType.DELETE)
+    @PostMapping("/remove")
+    @ResponseBody
+    public AjaxResult remove(String ids) {
+        return toAjax(reportService.deleteReportByIds(ids));
+    }
+
+    /**
+     * 跳转到报告数据填充页面
+     */
+    @RequiresPermissions("biz:report:edit")
+    @GetMapping("/fill/{id}")
+    public String fill(@PathVariable("id") Long id, ModelMap mmap) {
+        Report report = reportService.selectReportById(id);
+        mmap.put("report", report);
+        return "biz/report_data/fill";
+    }
+
+    /**
+     * 生成报告
+     */
+    @RequiresPermissions("biz:report:edit")
+    @Log(title = "检测报告", businessType = BusinessType.UPDATE)
+    @PostMapping("/generate/{id}")
+    @ResponseBody
+    public AjaxResult generate(@PathVariable("id") Long id) {
+        try {
+            // 获取报告信息
+            Report report = reportService.selectReportById(id);
+            if (report == null) {
+                return AjaxResult.error("报告不存在");
             }
-          }
-        }
-        int total = imageDatas.size();
-        for (int i = 0; i < total; i += 2) {
-          // 一行插入两个图片
-          XWPFParagraph imageRow = doc.createParagraph();
-          imageRow.setAlignment(ParagraphAlignment.CENTER);
-          for (int j = 0; j < 2; j++) {
-            if (i + j < total) {
-              XWPFRun imageRun = imageRow.createRun();
-              try {
-                BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(imageDatas.get(i + j)));
-                int maxWidth = (int) (6 * 37.8); // 6cm
-                int maxHeight = (int) (5 * 37.8); // 5cm
-                int width = originalImage.getWidth();
-                int height = originalImage.getHeight();
-                double ratio = Math.min((double) maxWidth / width, (double) maxHeight / height);
-                int newWidth = (int) (width * ratio);
-                int newHeight = (int) (height * ratio);
-                java.awt.Image scaled = originalImage.getScaledInstance(newWidth, newHeight,
-                    java.awt.Image.SCALE_SMOOTH);
-                BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
-                scaledImage.getGraphics().drawImage(scaled, 0, 0, null);
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                ImageIO.write(scaledImage, "jpg", baos);
-                byte[] scaledImageData = baos.toByteArray();
-                imageRun.addPicture(
-                    new ByteArrayInputStream(scaledImageData),
-                    XWPFDocument.PICTURE_TYPE_JPEG,
-                    "disease.jpg",
-                    6 * 360000,
-                    5 * 360000);
-                imageRun.addTab(); // 图片之间加tab分隔
-              } catch (Exception ex) {
-                logger.error("插入病害图片失败", ex);
-              }
+
+            if (report.getStatus() == 2) {
+                return AjaxResult.error("报告正在生成中，请稍后再试");
             }
-          }
-          // 一行插入两个标题
-          XWPFParagraph titleRow = doc.createParagraph();
-          titleRow.setAlignment(ParagraphAlignment.CENTER);
-          for (int j = 0; j < 2; j++) {
-            if (i + j < total) {
-              XWPFRun titleRun = titleRow.createRun();
-              titleRun.setText(imageTitles.get(i + j));
-              titleRun.setFontSize(10);
-              // 标题间 加 tab
-              titleRun.addTab();
-              titleRun.addTab();
-              titleRun.addTab();
+
+            if (report.getMinioId() != null) {
+                fileMapServiceImpl.deleteFileMapById(report.getMinioId());
             }
-          }
-        }
-      }
-    }
-
-    // 递归写子节点
-    List<BiObject> children = allNodes.stream()
-        .filter(obj -> node.getId().equals(obj.getParentId()))
-        .sorted((a, b) -> a.getName().compareTo(b.getName()))
-        .collect(Collectors.toList());
-    int idx = 1;
-    for (BiObject child : children) {
-      writeBiObjectTreeToWord(doc, child, allNodes, properties, prefix + "." + idx, level + 1);
-      idx++;
-    }
-  }
-
-  private String getHeaderText(int index) {
-    switch (index) {
-      case 0:
-        return "序号";
-      case 1:
-        return "缺损位置";
-      case 2:
-        return "缺损类型";
-      case 3:
-        return "数量";
-      case 4:
-        return "病害描述";
-      case 5:
-        return "评定类别 (1~5)";
-      case 6:
-        return "发展趋势";
-      case 7:
-        return "照片";
-      default:
-        return "";
-    }
-  }
-
-  private Map<String, Object> buildTreeNode(Property current, List<Property> allProperties) {
-    Map<String, Object> node = Map.of(
-        "id", current.getId(),
-        "name", current.getName(),
-        "value", current.getValue());
-
-    List<Property> children = allProperties.stream()
-        .filter(p -> current.getId().equals(p.getParentId()))
-        .collect(Collectors.toList());
-
-    if (!children.isEmpty()) {
-      List<Map<String, Object>> childNodes = children.stream()
-          .map(child -> buildTreeNode(child, allProperties))
-          .collect(Collectors.toList());
-      return Map.of(
-          "id", current.getId(),
-          "name", current.getName(),
-          "value", current.getValue(),
-          "children", childNodes);
-    }
-
-    return node;
-  }
-
-  /**
-   * 根据建筑ID导出属性树信息到Word文档
-   */
-  @GetMapping("/exportPropertyWord/{bid}")
-  @Log(title = "导出属性Word", businessType = BusinessType.EXPORT)
-  public void exportPropertyWord(@PathVariable("bid") Long bid, HttpServletResponse response) throws IOException {
-    try {
-      // 1. 根据buildingId查找对应的根属性节点
-      Building building = buildingService.selectBuildingById(bid);
-      if (building == null) {
-        response.setStatus(404);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"code\":404,\"msg\":\"未找到对应的建筑信息\"}");
-        return;
-      }
-
-      Property property = propertyService.selectPropertyById(building.getRootPropertyId());
-      if (property == null) {
-        response.setStatus(404);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"code\":404,\"msg\":\"未找到对应的属性信息\"}");
-        return;
-      }
-
-      List<Property> properties = propertyService.selectPropertyList(property);
-
-      Resource resource = new ClassPathResource("word.biz/桥梁模板.docx");
-      XWPFDocument document = new XWPFDocument(resource.getInputStream());
-
-      // 读取模板文件
-      long t = 0L;
-      Property temp = null;
-      for (Property property1 : properties) {
-        if (property1.getName().equals("结构体系")) {
-          t = property1.getId();
-          temp = property1;
-        }
-      }
-      if (temp != null) {
-        temp.setValue("");
-        for (Property property1 : properties) {
-          if (property1.getParentId() != null && property1.getParentId() == t) {
-            temp.setValue(temp.getValue() + "\n" + property1.getName() + property1.getValue());
-          }
-        }
-      }
-      attachmentService.getAttachmentList(bid).stream().map(e -> {
-        FileMap fileMap = iFileMapService.selectFileMapById(e.getMinioId());
-        fileMap.setOldName(e.getName());
-        return fileMap;
-      })
-          .forEach(e -> {
-            byte[] file = iFileMapService.handleFileDownloadByNewName(e.getNewName());
-            for (XWPFTable table : document.getTables()) {
-              for (XWPFTableRow row : table.getRows()) {
-                for (XWPFTableCell cell : row.getTableCells()) {
-                  for (XWPFParagraph p : cell.getParagraphs()) {
-                    insertImage(p, file, e.getOldName());
-                  }
-                }
-              }
+            // 获取报告关联的任务ID
+            String taskIdsStr = report.getTaskIds();
+            if (taskIdsStr == null || taskIdsStr.isEmpty()) {
+                return AjaxResult.error("报告未关联任务");
             }
-          });
-      // 替换表格中的占位符
-      Map<String, Integer> mp = new HashMap<>();
-      for (XWPFTable table : document.getTables()) {
-        for (XWPFTableRow row : table.getRows()) {
-          for (XWPFTableCell cell : row.getTableCells()) {
-            for (XWPFParagraph p : cell.getParagraphs()) {
-              // 遍历所有属性进行替换
-              for (Property prop : properties) {
-                if (prop.getName().equals("检测类别") || prop.getName().equals("评定时间") || prop.getName().equals("评定结果")
-                    || prop.getName().equals("处治对策") || prop.getName().equals("下次检测时间")) {
-                  if (mp.get(prop.getName()) == null) {
-                    mp.put(prop.getName(), 1);
-                    prop.setName(prop.getName() + "1");
-                  } else {
-                    mp.put(prop.getName(), mp.get(prop.getName()) + 1);
-                    prop.setName(prop.getName() + mp.get(prop.getName()));
-                  }
-                }
-                replacePlaceholder(p, "${" + prop.getName() + "}", prop.getValue() != null ? prop.getValue() : "/");
-              }
+
+            // 只取第一个任务ID
+            Long taskId = Long.parseLong(taskIdsStr.split(",")[0]);
+            Task task = taskService.selectTaskById(taskId);
+            if (task == null) {
+                return AjaxResult.error("任务不存在");
             }
-          }
+
+            // 获取任务关联的建筑ID和项目ID
+            Long buildingId = task.getBuildingId();
+            Long projectId = task.getProjectId();
+
+            // 异步生成报告
+            reportServiceImpl.generateReportDocumentAsync(id, buildingId, projectId);
+
+            return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
+        } catch (Exception e) {
+            logger.error("生成报告失败", e);
+            return AjaxResult.error("生成报告失败：" + e.getMessage());
         }
-      }
-      // 再次遍历替换剩余的占位符
-      for (XWPFTable table : document.getTables()) {
-        for (XWPFTableRow row : table.getRows()) {
-          for (XWPFTableCell cell : row.getTableCells()) {
-            for (XWPFParagraph p : cell.getParagraphs()) {
-              replaceRemainingPlaceholders(p);
+    }
+
+    /**
+     * 下载报告
+     */
+    @RequiresPermissions("biz:report:edit")
+    @GetMapping("/download/{id}")
+    @ResponseBody
+    public AjaxResult download(@PathVariable("id") Long id) {
+        try {
+            // 获取报告信息
+            Report report = reportService.selectReportById(id);
+            if (report == null) {
+                return AjaxResult.error("报告不存在");
             }
-          }
+
+            // 检查报告状态
+            if (report.getStatus() != 1) {
+                return AjaxResult.error("报告未生成或生成失败，无法下载");
+            }
+
+            // 检查MinioID
+            if (report.getMinioId() == null) {
+                return AjaxResult.error("报告文件不存在");
+            }
+
+            // 获取文件信息
+            FileMap fileMap = iFileMapService.selectFileMapById(report.getMinioId());
+            if (fileMap == null) {
+                return AjaxResult.error("报告文件不存在");
+            }
+
+            // 生成自定义文件名（使用报告名称）
+            String fileName = report.getName() + ".docx";
+
+            // 构建对象路径
+            String objectPath = fileMap.getNewName().substring(0, 2) + "/" + fileMap.getNewName();
+
+            // 使用MinioClient的getPresignedObjectUrl方法生成带有自定义文件名的下载链接
+            String url = minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(minioConfig.getBucketName())
+                            .object(objectPath)
+                            .expiry(7 * 24 * 3600) // 7天有效期，单位秒
+                            .extraQueryParams(Collections.singletonMap("response-content-disposition", "attachment; filename=\"" + URLEncoder.encode(fileName, StandardCharsets.UTF_8) + "\""))
+                            .build()
+            );
+
+            return AjaxResult.success("获取下载链接成功", url);
+        } catch (Exception e) {
+            logger.error("获取报告下载链接失败", e);
+            return AjaxResult.error("获取报告下载链接失败：" + e.getMessage());
         }
-      }
-
-      // 将XWPFDocument转换为MultipartFile
-      String fileName = property.getName() + "文档信息" + ".docx";
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      document.write(baos);
-      byte[] documentBytes = baos.toByteArray();
-
-      MultipartFile multipartFile = new MockMultipartFile(
-          fileName,
-          fileName,
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          documentBytes);
-
-      // 保存文件
-      iFileMapService.handleFileUpload(multipartFile);
-
-      // 设置响应头
-      response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      fileName = property.getName() + "桥梁基本状况卡.docx";
-      response.setHeader("Content-Disposition", "attachment; filename=" +
-          new String(fileName.getBytes("UTF-8"), "ISO-8859-1"));
-
-      // 输出文档
-      document.write(response.getOutputStream());
-      document.close();
-    } catch (Exception e) {
-      logger.error("导出Word文档失败：", e);
-      throw new RuntimeException("导出Word文档失败：" + e.getMessage());
     }
-  }
 
-  // 替换单个占位符的方法
-  private void replacePlaceholder(XWPFParagraph p, String placeholder, String value) {
-    String text = p.getText();
-    if (text.contains(placeholder)) {
-      // 清除段落中的所有runs
-      for (int i = p.getRuns().size() - 1; i >= 0; i--) {
-        p.removeRun(i);
-      }
-
-      // 创建新的run并设置替换后的文本
-      XWPFRun newRun = p.createRun();
-      newRun.setText(text.replace(placeholder, value));
-
-      // 设置字体为宋体小五
-      newRun.setFontFamily("宋体");
-      newRun.setFontSize(9);
+    /**
+     * 根据建筑ID导出属性树信息到Word文档
+     */
+    @GetMapping("/exportPropertyWord/{bid}")
+    @Log(title = "导出属性Word", businessType = BusinessType.EXPORT)
+    public void exportPropertyWord(@PathVariable("bid") Long bid, HttpServletResponse response) throws IOException {
+        reportDataService.exportPropertyWord(bid, response);
     }
-  }
 
-  // 替换剩余占位符的方法
-  private void replaceRemainingPlaceholders(XWPFParagraph p) {
-    String text = p.getText();
-    if (text.contains("${")) {
-      // 清除段落中的所有runs
-      for (int i = p.getRuns().size() - 1; i >= 0; i--) {
-        p.removeRun(i);
-      }
-
-      // 创建新的run并设置替换后的文本
-      XWPFRun newRun = p.createRun();
-      // 使用正则表达式替换所有剩余的${xxx}格式的占位符
-      String replacedText = text.replaceAll("\\$\\{[^}]*\\}", "/");
-      newRun.setText(replacedText);
-
-      // 设置字体为宋体小五
-      newRun.setFontFamily("宋体");
-      newRun.setFontSize(9);
-    }
-  }
-
-  private void insertImage(XWPFParagraph p, byte[] imageData, String name) {
-    try {
-      // 解析图片名称
-      String[] parts = name.split("_");
-      if (parts.length < 2) {
-        return; // 名称格式不正确，直接返回
-      }
-
-      String prefix = parts[0]; // 0 或 1
-      String type = parts[1]; // front 或 side
-
-      String placeholder = "";
-
-      // 根据前缀和类型确定占位符
-      if ("front".equals(type)) {
-        if ("0".equals(prefix)) {
-          placeholder = "${桥梁正面照}";
-        } else if ("1".equals(prefix)) {
-          placeholder = "${桥梁正面照1}";
-        }
-      } else if ("side".equals(type)) {
-        if ("0".equals(prefix)) {
-          placeholder = "${桥梁立面照}";
-        } else if ("1".equals(prefix)) {
-          placeholder = "${桥梁立面照1}";
-        }
-      }
-
-      // 如果没有找到匹配的占位符，直接返回
-      if (placeholder.isEmpty()) {
-        return;
-      }
-
-      // 如果段落包含对应的图片占位符
-      String text = p.getText();
-      if (text.contains(placeholder)) {
-        // 清除段落中的所有runs
-        for (int i = p.getRuns().size() - 1; i >= 0; i--) {
-          p.removeRun(i);
-        }
-
-        // 读取原始图片
-        BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(imageData));
-
-        // 直接设置目标尺寸（像素）- 假设96dpi，1厘米约等于37.8像素
-        int targetWidth = (int) (4 * 37.8); // 4厘米
-        int targetHeight = (int) (3 * 37.8); // 3厘米
-
-        // 创建缩放后的图片，直接拉伸到目标尺寸
-        BufferedImage scaledImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
-        scaledImage.createGraphics().drawImage(
-            bufferedImage.getScaledInstance(targetWidth, targetHeight, java.awt.Image.SCALE_SMOOTH),
-            0, 0, null);
-
-        // 将缩放后的图片转换为字节数组
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(scaledImage, "jpg", baos);
-        byte[] scaledImageData = baos.toByteArray();
-
-        // 转换为EMU单位（1厘米 = 360000 EMU）
-        int widthEMU = 4 * 360000; // 4厘米
-        int heightEMU = 3 * 360000; // 3厘米
-
-        // 创建新的run并插入图片
-        XWPFRun run = p.createRun();
-        run.addPicture(
-            new ByteArrayInputStream(scaledImageData),
-            XWPFDocument.PICTURE_TYPE_JPEG,
-            "bridge.jpg",
-            widthEMU,
-            heightEMU);
-      }
-    } catch (Exception e) {
-      logger.error("插入图片失败", e);
-    }
-  }
 }

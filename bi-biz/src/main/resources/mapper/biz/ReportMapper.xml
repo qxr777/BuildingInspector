@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ReportMapper">
+
+    <resultMap type="edu.whut.cs.bi.biz.domain.Report" id="ReportResult">
+        <id     property="id"                column="id"                 />
+        <result property="name"              column="name"               />
+        <result property="status"            column="status"             />
+        <result property="reviewerId"        column="reviewer_id"        />
+        <result property="approverId"        column="approver_id"        />
+        <result property="reportTemplateId"  column="report_template_id" />
+        <result property="projectId"         column="project_id"         />
+        <result property="minioId"           column="minio_id"           />
+        <result property="taskIds"           column="task_ids"           />
+        <result property="createBy"          column="create_by"          />
+        <result property="createTime"        column="create_time"        />
+        <result property="updateBy"          column="update_by"          />
+        <result property="updateTime"        column="update_time"        />
+        <result property="remark"            column="remark"             />
+        <result property="flag"              column="flag"               />
+        <result property="reviewer"          column="reviewer"           />
+        <result property="approver"          column="approver"           />
+    </resultMap>
+
+    <sql id="selectReportVo">
+        select r.id, r.name, r.status, r.reviewer_id, r.approver_id, r.report_template_id, r.project_id, r.task_ids,
+               r.create_by, r.create_time, r.update_by, r.update_time, r.remark, r.flag,r.minio_id,
+               u1.login_name as reviewer, u2.login_name as approver
+        from bi_report r
+                 left join sys_user u1 on r.reviewer_id = u1.user_id
+                 left join sys_user u2 on r.approver_id = u2.user_id
+    </sql>
+
+    <select id="selectReportList" parameterType="edu.whut.cs.bi.biz.domain.Report" resultMap="ReportResult">
+        <include refid="selectReportVo"/>
+        <where>
+            r.flag = 0
+            <if test="name != null and name != ''">
+                AND r.name like concat('%', #{name}, '%')
+            </if>
+            <if test="status != null">
+                AND r.status = #{status}
+            </if>
+            <if test="reviewerId != null">
+                AND r.reviewer_id = #{reviewerId}
+            </if>
+            <if test="approverId != null">
+                AND r.approver_id = #{approverId}
+            </if>
+            <if test="reportTemplateId != null">
+                AND r.report_template_id = #{reportTemplateId}
+            </if>
+            <if test="projectId != null">
+                AND r.project_id = #{projectId}
+            </if>
+            <if test="taskIds != null and taskIds != ''">
+                AND r.task_ids = #{taskIds}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectReportById" parameterType="Long" resultMap="ReportResult">
+        <include refid="selectReportVo"/>
+        where r.id = #{id} and r.flag = 0
+    </select>
+
+    <insert id="insertReport" parameterType="edu.whut.cs.bi.biz.domain.Report" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_report (
+            name,
+            status,
+            reviewer_id,
+            approver_id,
+            report_template_id,
+            project_id,
+            minio_id,
+            task_ids,
+            create_by,
+            create_time,
+            remark,
+            flag
+        ) values (
+                     #{name},
+                     #{status},
+                     #{reviewerId},
+                     #{approverId},
+                     #{reportTemplateId},
+                     #{projectId},
+                     #{minioId},
+                     #{taskIds},
+                     #{createBy},
+                     sysdate(),
+                     #{remark},
+                     0
+                 )
+    </insert>
+
+    <update id="updateReport" parameterType="edu.whut.cs.bi.biz.domain.Report">
+        update bi_report
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="reviewerId != null">reviewer_id = #{reviewerId},</if>
+            <if test="approverId != null">approver_id = #{approverId},</if>
+            <if test="reportTemplateId != null">report_template_id = #{reportTemplateId},</if>
+            <if test="projectId != null">project_id = #{projectId},</if>
+            <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="taskIds != null">task_ids = #{taskIds},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where id = #{id} and flag = 0
+    </update>
+
+    <update id="deleteReportById" parameterType="Long">
+        update bi_report set flag = 1 where id = #{id} and flag = 0
+    </update>
+
+    <update id="deleteReportByIds" parameterType="String">
+        update bi_report set flag = 1
+        where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and flag = 0
+    </update>
+
+</mapper> 

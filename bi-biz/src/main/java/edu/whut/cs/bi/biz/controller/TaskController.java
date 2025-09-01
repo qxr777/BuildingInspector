@@ -11,8 +11,10 @@ import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.ProjectMapper;
+import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +35,8 @@ public class TaskController extends BaseController {
 
     @Resource
     private ITaskService taskService;
+    @Autowired
+    private TaskMapper taskMapper;
 
     @Resource
     private ProjectMapper projectMapper;
@@ -141,5 +145,16 @@ public class TaskController extends BaseController {
 
         mmap.put("task", task);
         return "biz/disease/disease";
+    }
+
+    /**
+     * 查询任务列表
+     */
+    @RequiresPermissions("biz:task:list")
+    @PostMapping("/listAll/{projectId}")
+    @ResponseBody
+    public List<Task> tasklist(@PathVariable("projectId") Long projectId) {
+        List<Task> list = taskMapper.selectFullTaskListByProjectId(projectId);
+        return list;
     }
 }

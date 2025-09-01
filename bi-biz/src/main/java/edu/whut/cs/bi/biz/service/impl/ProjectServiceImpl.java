@@ -448,4 +448,26 @@ public class ProjectServiceImpl implements IProjectService {
         return projects;
     }
 
+
+    public List<Project> selectProjectListForReport(Project project) {
+        Long currentUserId = ShiroUtils.getUserId();
+        List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
+        SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
+
+        // 检查用户是否有admin角色
+        boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
+
+        PageUtils.startPage();
+        List<Project> projects = null;
+        if (isAdmin) {
+            // 超级管理员, 所有数据都能看到
+            projects = projectMapper.selectProjectList(project, null, null);
+        } else {
+            //查询部门所有的项目
+            project.setSelectDeptId(sysUser.getDeptId());
+            projects = projectMapper.selectProjectList(project, null, null);
+        }
+
+        return projects;
+    }
 }

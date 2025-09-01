@@ -1,6 +1,5 @@
 package edu.whut.cs.bi.api.controller;
 
-import cn.hutool.core.collection.CollUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -8,7 +7,6 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
-import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
 import com.ruoyi.system.service.ISysUserService;
@@ -19,7 +17,6 @@ import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.config.MinioConfig;
-import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.Package;
@@ -31,19 +28,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static com.ruoyi.common.utils.ShiroUtils.getSysUser;
@@ -95,6 +85,9 @@ public class ApiController {
 
     @Autowired
     private UserPackageTask userPackageTask;
+
+    @Autowired
+    private IReportService reportService;
 
 
     /**
@@ -508,6 +501,30 @@ public class ApiController {
             toDiseaseTypeMapper.batchInsertBridgeTemplateDiseaseType(templateObjectId, diseaseTypeIds);
         });
 
+        return AjaxResult.success();
+    }
+
+    /**
+     * 修正桥梁数据
+     */
+    @PostMapping("/reassignComponentsFromOthers/{rootObjectId}")
+    public AjaxResult reassignComponentsFromOthers(
+                                             @PathVariable("rootObjectId") Long rootObjectId) {
+        return AjaxResult.success(biObjectService.reassignComponentsFromOthers(rootObjectId));
+    }
+
+    /**
+     * 批量修正桥梁数据
+     */
+    @PostMapping("/batchreassignComponentsFromOthers")
+    public AjaxResult batchreassignComponentsFromOthers() {
+        List<BiObject> biObjects = biObjectService.selectDirectChildrenByParentId(0L);
+        for (int i=0;i<biObjects.size();i++) {
+            BiObject biObject = biObjects.get(i);
+            log.info("开始处理第{}个，桥名{}", i,biObject.getName());
+            biObjectService.reassignComponentsFromOthers(biObject.getId());
+            log.info("处理结束第{}个，桥名{}", i,biObject.getName());
+        }
         return AjaxResult.success();
     }
 }
