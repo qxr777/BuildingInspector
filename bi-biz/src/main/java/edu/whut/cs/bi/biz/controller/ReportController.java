@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -18,8 +19,8 @@ import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.ReportServiceImpl;
-import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.MinioClient;
+import io.minio.*;
+import org.apache.commons.io.IOUtils;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
@@ -738,51 +739,47 @@ public class ReportController extends BaseController {
     @RequiresPermissions("biz:report:edit")
     @GetMapping("/download/{id}")
     @ResponseBody
-    public AjaxResult download(@PathVariable("id") Long id) {
+    public void download(@PathVariable String id, HttpServletResponse response) {
         try {
             // 获取报告信息
-            Report report = reportService.selectReportById(id);
+            Report report = reportService.selectReportById(Long.valueOf(id));
             if (report == null) {
-                return AjaxResult.error("报告不存在");
+                return;
             }
 
             // 检查报告状态
             if (report.getStatus() != 1) {
-                return AjaxResult.error("报告未生成或生成失败，无法下载");
+                return ;
             }
 
             // 检查MinioID
             if (report.getMinioId() == null) {
-                return AjaxResult.error("报告文件不存在");
+                return ;
             }
 
-            // 获取文件信息
-            FileMap fileMap = iFileMapService.selectFileMapById(report.getMinioId());
-            if (fileMap == null) {
-                return AjaxResult.error("报告文件不存在");
-            }
+            // 从数据库查到文件名和存储路径
+            FileMap fileMap = fileMapServiceImpl.selectFileMapById(report.getMinioId());
+            String prefix = fileMap.getNewName().substring(0, 2);
+            String objectName = prefix + "/" + fileMap.getNewName();
 
-            // 生成自定义文件名（使用报告名称）
-            String fileName = report.getName() + ".docx";
-
-            // 构建对象路径
-            String objectPath = fileMap.getNewName().substring(0, 2) + "/" + fileMap.getNewName();
-
-            // 使用MinioClient的getPresignedObjectUrl方法生成带有自定义文件名的下载链接
-            String url = minioClient.getPresignedObjectUrl(
-                    GetPresignedObjectUrlArgs.builder()
-                            .method(Method.GET)
+            // 从 MinIO 获取流
+            try (InputStream in = minioClient.getObject(
+                    GetObjectArgs.builder()
                             .bucket(minioConfig.getBucketName())
-                            .object(objectPath)
-                            .expiry(7 * 24 * 3600) // 7天有效期，单位秒
-                            .extraQueryParams(Collections.singletonMap("response-content-disposition", "attachment; filename=\"" + URLEncoder.encode(fileName, StandardCharsets.UTF_8) + "\""))
-                            .build()
-            );
-            url = url.replace("http://biminio:9000", minioConfig.getUrl());
-            return AjaxResult.success("获取下载链接成功", url);
+                            .object(objectName)
+                            .build())) {
+
+                // 设置响应头（指定下载文件名）
+                String fileName = URLEncoder.encode(report.getName()+ ".docx", "UTF-8").replaceAll("\\+", "%20");
+                response.setContentType("application/octet-stream");
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+
+                // 写出到浏览器
+                IOUtils.copy(in, response.getOutputStream());
+                response.flushBuffer();
+            }
         } catch (Exception e) {
-            logger.error("获取报告下载链接失败", e);
-            return AjaxResult.error("获取报告下载链接失败：" + e.getMessage());
+            throw new RuntimeException("下载失败", e);
         }
     }
 

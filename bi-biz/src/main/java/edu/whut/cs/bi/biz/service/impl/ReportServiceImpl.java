@@ -954,6 +954,10 @@ public class ReportServiceImpl implements IReportService {
                 CTTc cttc = cell.getCTTc();
                 CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
 
+                if (tcPr.isSetTcW()) {
+                    tcPr.unsetTcW(); // 关键：去掉默认宽度
+                }
+
                 // 计算每列的实际宽度
                 int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
                 CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
@@ -1119,9 +1123,8 @@ public class ReportServiceImpl implements IReportService {
      */
     private void insertDiseaseImagesWithStreaming(XWPFDocument document, List<Disease> diseases,
                                                   Map<Long, List<String>> diseaseImageRefs, XmlCursor cursor) throws Exception {
-        // 收集所有图片信息，每两张图片一组
-        List<List<Pair<String, String>>> imageGroups = new ArrayList<>(); // 每个元素是一组图片(最多2张)的信息：<图片文件名, 标题>
-        List<Pair<String, String>> currentGroup = new ArrayList<>();
+        // 收集所有图片信息
+        List<Pair<String, String>> allImages = new ArrayList<>(); // <图片文件名, 标题>
 
         // 逐个处理每个病害的图片
         for (Disease d : diseases) {
@@ -1153,21 +1156,14 @@ public class ReportServiceImpl implements IReportService {
                     String imageDesc = componentName + d.getType();
                     imageTitle += " " + imageDesc;
 
-                    // 将图片信息添加到当前组
-                    currentGroup.add(Pair.of(newName, imageTitle));
-
-                    // 如果当前组已有2张图片，添加到组列表并创建新组
-                    if (currentGroup.size() == 2) {
-                        imageGroups.add(new ArrayList<>(currentGroup));
-                        currentGroup.clear();
-                    }
+                    // 将图片信息添加到列表
+                    allImages.add(Pair.of(newName, imageTitle));
                 }
             }
         }
 
-        // 处理最后一组不足2张的情况
-        if (!currentGroup.isEmpty()) {
-            imageGroups.add(currentGroup);
+        if (allImages.isEmpty()) {
+            return;
         }
 
         // 在表格前添加一个空段落，与上方内容分隔
@@ -1178,106 +1174,137 @@ public class ReportServiceImpl implements IReportService {
         } else {
             spacerBefore = document.createParagraph();
         }
-        spacerBefore.setSpacingAfter(300); // 设置较大的段后间距
-        spacerBefore.setSpacingBefore(300); // 设置较大的段前间距
+        spacerBefore.setSpacingAfter(300);
+        spacerBefore.setSpacingBefore(300);
 
-        // 为每组图片创建表格
-        for (List<Pair<String, String>> group : imageGroups) {
-            // 始终创建2行2列的表格，不管图片数量
-            XWPFTable table;
+        // 计算需要的行数：每行放2张图片，需要图片行+标题行
+        int imagesPerRow = 2;
+        int totalImageRows = (int) Math.ceil((double) allImages.size() / imagesPerRow);
+        int totalRows = totalImageRows * 2; // 每组图片需要两行：图片行+标题行
 
-            if (cursor != null) {
-                table = document.insertNewTbl(cursor);
-                cursor.toNextToken();
-                // 初始化表格结构为2行2列
-                XWPFTableRow row0 = table.getRow(0);
-                row0.getCell(0);
-                row0.addNewTableCell();
+        // 创建表格
+        XWPFTable table;
+        if (cursor != null) {
+            table = document.insertNewTbl(cursor);
+            cursor.toNextToken();
 
-                // 创建第二行（标题行）
-                XWPFTableRow row1 = table.createRow();
-                row1.getCell(0);
-                row1.addNewTableCell();
-            } else {
-                table = document.createTable(2, 2);
+            // 初始化表格结构
+            XWPFTableRow row0 = table.getRow(0);
+            row0.getCell(0);
+            row0.addNewTableCell(); // 添加第二列
+
+            // 创建其余行
+            for (int i = 1; i < totalRows; i++) {
+                XWPFTableRow newRow = table.createRow();
+                newRow.getCell(0);
+                newRow.addNewTableCell();
             }
+        } else {
+            table = document.createTable(totalRows, 2);
+        }
 
-            // 设置表格样式
-            CTTblPr tblPr = table.getCTTbl().getTblPr();
-            if (tblPr == null) {
-                tblPr = table.getCTTbl().addNewTblPr();
-            }
+        // 设置表格样式
+        CTTblPr tblPr = table.getCTTbl().getTblPr();
+        if (tblPr == null) {
+            tblPr = table.getCTTbl().addNewTblPr();
+        }
 
-            // 设置表格宽度为页面宽度的80%
-            CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-            tblWidth.setW(BigInteger.valueOf(8000)); // 设置表格总宽度为页面宽度的80%
-            tblWidth.setType(STTblWidth.DXA);
+        // 设置表格宽度为页面宽度的100%，避免右侧留白
+        CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
+        tblWidth.setW(BigInteger.valueOf(10000)); // 使用100%宽度
+        tblWidth.setType(STTblWidth.DXA);
 
-            // 设置表格边框
-            CTTblBorders borders = tblPr.isSetTblBorders() ? tblPr.getTblBorders() : tblPr.addNewTblBorders();
-            borders.addNewBottom().setVal(STBorder.SINGLE);
-            borders.addNewLeft().setVal(STBorder.SINGLE);
-            borders.addNewRight().setVal(STBorder.SINGLE);
-            borders.addNewTop().setVal(STBorder.SINGLE);
-            borders.addNewInsideH().setVal(STBorder.SINGLE);
-            borders.addNewInsideV().setVal(STBorder.SINGLE);
+        // 设置表格边框样式
+        CTTblBorders borders = tblPr.isSetTblBorders() ? tblPr.getTblBorders() : tblPr.addNewTblBorders();
 
-            // 设置表格居中对齐
-            CTJc jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
-            jc.setVal(STJc.CENTER);
+        // 设置外边框
+        CTBorder topBorder = borders.addNewTop();
+        topBorder.setVal(STBorder.DASHED);
+        topBorder.setSz(BigInteger.valueOf(6)); // 设置边框宽度
 
-            // 设置列宽相等
-            int cellWidth = 4000; // 每列宽度为总宽度的一半
+        CTBorder bottomBorder = borders.addNewBottom();
+        bottomBorder.setVal(STBorder.DASHED);
+        bottomBorder.setSz(BigInteger.valueOf(6));
 
+        CTBorder leftBorder = borders.addNewLeft();
+        leftBorder.setVal(STBorder.DASHED);
+        leftBorder.setSz(BigInteger.valueOf(6));
+
+        CTBorder rightBorder = borders.addNewRight();
+        rightBorder.setVal(STBorder.DASHED);
+        rightBorder.setSz(BigInteger.valueOf(6));
+
+        // 设置内部边框
+        CTBorder insideH = borders.addNewInsideH();
+        insideH.setVal(STBorder.DASHED);
+        insideH.setSz(BigInteger.valueOf(6));
+
+        CTBorder insideV = borders.addNewInsideV();
+        insideV.setVal(STBorder.DASHED);
+        insideV.setSz(BigInteger.valueOf(6));
+
+        // 设置表格居中对齐
+        CTJc jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
+        jc.setVal(STJc.CENTER);
+
+        // 设置列宽相等（每列占50%宽度）
+        int cellWidth = 5000; // 10000 / 2 = 5000
+
+        // 设置所有单元格的样式
+        for (int row = 0; row < totalRows; row++) {
             for (int col = 0; col < 2; col++) {
-                for (int row = 0; row < 2; row++) {
-                    XWPFTableCell cell = table.getRow(row).getCell(col);
-                    CTTc ctTc = cell.getCTTc();
-                    CTTcPr tcPr = ctTc.isSetTcPr() ? ctTc.getTcPr() : ctTc.addNewTcPr();
+                XWPFTableCell cell = table.getRow(row).getCell(col);
+                CTTc ctTc = cell.getCTTc();
+                CTTcPr tcPr = ctTc.isSetTcPr() ? ctTc.getTcPr() : ctTc.addNewTcPr();
 
-                    // 设置单元格宽度
-                    CTTblWidth cellWidthObj = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
-                    cellWidthObj.setW(BigInteger.valueOf(cellWidth));
-                    cellWidthObj.setType(STTblWidth.DXA);
+                // 设置单元格宽度
+                CTTblWidth cellWidthObj = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+                cellWidthObj.setW(BigInteger.valueOf(cellWidth));
+                cellWidthObj.setType(STTblWidth.DXA);
 
-                    // 设置单元格垂直居中
-                    CTVerticalJc vJc = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
-                    vJc.setVal(STVerticalJc.CENTER);
+                // 设置单元格垂直居中
+                CTVerticalJc vJc = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
+                vJc.setVal(STVerticalJc.CENTER);
 
-                    // 清除默认段落
-                    if (cell.getParagraphs().size() > 0) {
-                        for (int i = cell.getParagraphs().size() - 1; i >= 0; i--) {
-                            cell.removeParagraph(i);
-                        }
+                // 清除默认段落
+                if (cell.getParagraphs().size() > 0) {
+                    for (int i = cell.getParagraphs().size() - 1; i >= 0; i--) {
+                        cell.removeParagraph(i);
                     }
-
-                    // 添加新段落，居中对齐
-                    XWPFParagraph para = cell.addParagraph();
-                    para.setAlignment(ParagraphAlignment.CENTER);
                 }
-            }
 
-            // 填充图片和标题
-            for (int i = 0; i < group.size(); i++) {
-                Pair<String, String> imageInfo = group.get(i);
+                // 添加新段落，居中对齐
+                XWPFParagraph para = cell.addParagraph();
+                para.setAlignment(ParagraphAlignment.CENTER);
+            }
+        }
+
+        // 填充图片和标题
+        int imageIndex = 0;
+        for (int groupIndex = 0; groupIndex < totalImageRows; groupIndex++) {
+            int imageRowIndex = groupIndex * 2;     // 图片行索引
+            int titleRowIndex = groupIndex * 2 + 1; // 标题行索引
+
+            // 在当前图片行填充最多2张图片
+            for (int col = 0; col < 2 && imageIndex < allImages.size(); col++) {
+                Pair<String, String> imageInfo = allImages.get(imageIndex);
                 String fileName = imageInfo.getLeft();
                 String title = imageInfo.getRight();
 
                 // 获取图片单元格和标题单元格
-                XWPFTableCell imageCell = table.getRow(0).getCell(i);
-                XWPFTableCell titleCell = table.getRow(1).getCell(i);
+                XWPFTableCell imageCell = table.getRow(imageRowIndex).getCell(col);
+                XWPFTableCell titleCell = table.getRow(titleRowIndex).getCell(col);
 
                 // 在图片单元格中添加图片
                 XWPFParagraph imagePara = imageCell.getParagraphs().get(0);
                 XWPFRun imageRun = imagePara.createRun();
 
-                log.info("开始插入图片：{}",fileName);
+                log.info("开始插入图片：{}", fileName);
                 try (InputStream imageStream = minioClient.getObject(
                         GetObjectArgs.builder()
                                 .bucket(minioConfig.getBucketName())
                                 .object(fileName.substring(0, 2) + "/" + fileName)
                                 .build())) {
-
 
                     // 统一图片大小
                     int imgWidth = 7 * 360000;
@@ -1290,13 +1317,14 @@ public class ReportServiceImpl implements IReportService {
                             imgWidth,
                             imgHeight
                     );
-                    log.info("插入图片结束：{}",fileName);
+                    log.info("插入图片结束：{}", fileName);
                 } catch (Exception e) {
                     log.error("插入病害图片失败", e);
                 }
 
                 // 在标题单元格中添加标题
                 XWPFParagraph titlePara = titleCell.getParagraphs().get(0);
+                titlePara.setStyle("12");
                 XWPFRun titleRun = titlePara.createRun();
                 titleRun.setText(title);
                 titleRun.setFontFamily("黑体");
@@ -1304,18 +1332,35 @@ public class ReportServiceImpl implements IReportService {
                 // 设置标题字体大小为10.5磅
                 titleRun.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(21)); // 10.5pt = 21 half-points
                 titleRun.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(21));
+
+                imageIndex++;
             }
 
-            // 添加空段落作为表格间的间距
-            XWPFParagraph spacer;
-            if (cursor != null) {
-                spacer = document.insertNewParagraph(cursor);
-                cursor.toNextToken();
-            } else {
-                spacer = document.createParagraph();
+            // 如果当前行只有一张图片，需要清空第二列的内容
+            if (imageIndex == allImages.size() && (imageIndex - 1) % 2 == 0) {
+                // 最后一张图片在第一列，第二列保持空白
+                XWPFTableCell emptyImageCell = table.getRow(imageRowIndex).getCell(1);
+                XWPFTableCell emptyTitleCell = table.getRow(titleRowIndex).getCell(1);
+
+                // 确保空单元格有段落但无内容
+                if (emptyImageCell.getParagraphs().isEmpty()) {
+                    emptyImageCell.addParagraph();
+                }
+                if (emptyTitleCell.getParagraphs().isEmpty()) {
+                    emptyTitleCell.addParagraph();
+                }
             }
-            spacer.setSpacingAfter(300); // 设置较大的段后间距
         }
+
+        // 在表格后添加空段落
+        XWPFParagraph spacerAfter;
+        if (cursor != null) {
+            spacerAfter = document.insertNewParagraph(cursor);
+            cursor.toNextToken();
+        } else {
+            spacerAfter = document.createParagraph();
+        }
+        spacerAfter.setSpacingAfter(300);
     }
 
     /**

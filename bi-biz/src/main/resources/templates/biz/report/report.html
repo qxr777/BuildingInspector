@@ -171,20 +171,9 @@
 
     // 下载报告
     function downloadReport(id) {
-        $.ajax({
-            url: prefix + "/download/" + id,
-            type: "get",
-            dataType: "json",
-            success: function(result) {
-                if (result.code == 0) {
-                    // 使用window.open在新窗口打开下载链接
-                    window.open(result.data, '_blank');
-                } else {
-                    $.modal.alertError(result.msg);
-                }
-            }
-        });
+        window.location.href = prefix + "/download/" + id;
     }
+
 </script>
 </body>
 </html>
