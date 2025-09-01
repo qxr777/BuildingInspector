@@ -457,7 +457,6 @@ public class ProjectServiceImpl implements IProjectService {
         // 检查用户是否有admin角色
         boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
-        PageUtils.startPage();
         List<Project> projects = null;
         if (isAdmin) {
             // 超级管理员, 所有数据都能看到
