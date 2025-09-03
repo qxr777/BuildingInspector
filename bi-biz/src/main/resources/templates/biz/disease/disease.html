@@ -34,7 +34,7 @@
                 <form id="formId">
                     <input type="hidden" id="projectId" name="projectId" th:value="${task.project.id}">
                     <input type="hidden" id="buildingId" name="buildingId" th:value="${task.building.id}">
-                    <input type="hidden" id="taskId" name="taskId" th:value="${task.id}">
+<!--                    <input type="hidden" id="taskId" name="taskId" th:value="${task.id}">-->
                     <input type="hidden" id="biObjectId" name="biObjectId">
 
                     <div class="select-list">
@@ -103,6 +103,9 @@
 <th:block th:include="include :: footer"/>
 <th:block th:include="include :: layout-latest-js"/>
 <th:block th:include="include :: ztree-js"/>
+<link rel="stylesheet" th:href="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-editable.css}"/>
+<script th:src="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-editable.min.js}"></script>
+<script th:src="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-table-editable.js}"></script>
 <script th:inline="javascript">
     var editFlag = [[${@permission.hasPermi('biz:disease:edit')}]];
     var removeFlag = [[${@permission.hasPermi('biz:disease:remove')}]];
@@ -136,6 +139,7 @@
             removeUrl: prefix + "/remove",
             exportUrl: prefix + "/export",
             modalName: "病害信息",
+            editable: true,
             columns: [{
                 checkbox: true
             },
@@ -187,10 +191,27 @@
                     }
                 },
                 {
+                    field: 'developmentTrend',
+                    title: '发展趋势',
+                    editable: { 
+                        type: 'select', 
+                        source: [{ value: '稳定', text: '稳定' }, 
+                        { value: '发展', text: '发展' }, 
+                        { value: '新增', text: '新增' }, 
+                        { value: '已维修', text: '已维修' }, 
+                        { value: '部分维修', text: '部分维修' }, 
+                         { value: '未找到', text: '未找到' } ] },
+                    formatter: function (value) {
+                        return value || '-';
+                    }
+                },
+                {
                     field: 'description',
                     title: '病害描述',
                     formatter: function (value) {
-                        return value ? (value.length > 20 ? value.substring(0, 20) + '...' : value) : '-';
+                        if (!value) return '-';
+                        var displayText = value.length > 20 ? value.substring(0, 20) + '...' : value;
+                        return '<span title="' + value.replace(/"/g, '&quot;') + '">' + displayText + '</span>';
                     }
                 },
                 {
@@ -215,7 +236,8 @@
                 {
                     field: 'updateBy',
                     title: '更新用户名',
-                    align: 'left'
+                    align: 'left',
+                    visible: false
                 },
                 {
                     title: '操作',
@@ -230,6 +252,31 @@
                 }]
         };
         $.table.init(options);
+        
+        // 配置editable保存事件
+        $('#bootstrap-table').on('editable-save.bs.table', function (e, field, row, oldValue, $el) {
+            $.ajax({
+                type: 'POST',
+                url: prefix + "/edit",
+                data: {
+                    id: row.id,
+                    developmentTrend: row[field]
+                },
+                success: function (response) {
+                    if (response.code === 0) {
+                        $.modal.msgSuccess('更新成功');
+                        $('#bootstrap-table').bootstrapTable('refresh');
+                    } else {
+                        $.modal.msgError(response.msg || '更新失败');
+                        $('#bootstrap-table').bootstrapTable('refresh');
+                    }
+                },
+                error: function () {
+                    $.modal.msgError('网络错误');
+                    $('#bootstrap-table').bootstrapTable('refresh');
+                }
+            });
+        });
     }
 
     window.addEventListener("storage", function (event) {

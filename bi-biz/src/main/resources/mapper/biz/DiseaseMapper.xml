@@ -84,7 +84,7 @@
             <if test="taskId != null"> and d.task_id = #{taskId}</if>
             <if test="biObjectId != null"> and d.bi_object_id = #{biObjectId}</if>
             <if test="componentId != null"> and d.component_id = #{componentId}</if>
-            <if test="participateAssess != null"> and d.participate_assess = #{participateAssess}</if>
+            <if test="participateAssess != null and participateAssess !=''"> and d.participate_assess = #{participateAssess}</if>
             <if test="commitType != null"> and d.commit_type = #{commitType}</if>
             <if test="localId != null"> and d.local_id = #{localId}</if>
         </where>
@@ -206,11 +206,11 @@
             <if test="diseaseTypeId != null">disease_type_id = #{diseaseTypeId},</if>
             <if test="description != null and description != ''">description = #{description},</if>
             <if test="nature != null and nature != ''">nature = #{nature},</if>
-            <if test="level != null">level = #{level},</if>
-            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="level != null and level > 0">level = #{level},</if>
+            <if test="quantity != null and quantity > 0">quantity = #{quantity},</if>
             <if test="units != null and units != ''">units = #{units},</if>
             <if test="participateAssess != null and participateAssess != ''">participate_assess = #{participateAssess},</if>
-            <if test="deductPoints != null">deduct_points = #{deductPoints},</if>
+            <if test="deductPoints != null and deductPoints > 0">deduct_points = #{deductPoints},</if>
             <if test="projectId != null">project_id = #{projectId},</if>
             <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
             <if test="biObjectName != null">bi_object_name = #{biObjectName},</if>

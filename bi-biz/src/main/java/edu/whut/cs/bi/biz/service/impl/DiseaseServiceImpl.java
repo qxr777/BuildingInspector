@@ -559,14 +559,29 @@ public class DiseaseServiceImpl implements IDiseaseService {
         disease.setUpdateTime(DateUtils.getNowDate());
 
         // 更新部件信息
-        Component component = componentService.selectComponentById(disease.getComponentId());
-        if (disease.getBiObjectName() != null || !disease.getBiObjectName().equals("")) {
-            component.setName(disease.getComponent().getCode() + "#" + disease.getBiObjectName());
+        Component component = componentService.selectComponentById(old.getComponentId());
+        if (disease.getComponent() != null
+                && disease.getComponent().getCode() != null
+                && !component.getCode().equals(disease.getComponent().getCode())) {
+            String componentName = disease.getComponent().getCode() + "#" + old.getBiObjectName();
+
+            // 查询数据库，判断是不是已存在对应部件
+            Component select = new Component();
+            select.setName(componentName);
+            select.setBiObjectId(component.getBiObjectId());
+            Component selectedComponent = componentMapper.selectComponent(select);
+            if (selectedComponent == null) {
+                component.setName(componentName);
+
+                component.setCode(disease.getComponent().getCode());
+                component.setUpdateTime(DateUtils.getNowDate());
+                component.setUpdateBy(ShiroUtils.getLoginName());
+                componentService.updateComponent(component);
+            } else {
+                disease.setComponentId(selectedComponent.getId());
+            }
+
         }
-        component.setCode(disease.getComponent().getCode());
-        component.setUpdateTime(DateUtils.getNowDate());
-        component.setUpdateBy(ShiroUtils.getLoginName());
-        componentService.updateComponent(component);
 
         // 删除病害详情
         diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());

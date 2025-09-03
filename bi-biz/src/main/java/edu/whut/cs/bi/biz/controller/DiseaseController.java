@@ -110,8 +110,8 @@ public class DiseaseController extends BaseController {
     @PostMapping("/list")
     @ResponseBody
     public TableDataInfo list(Disease disease) {
-        List<Disease> properties = diseaseService.selectDiseaseList(disease);
-        return getDataTable(properties);
+        List<Disease> diseaseList = diseaseService.selectDiseaseList(disease);
+        return getDataTable(diseaseList);
     }
 
     /**
@@ -541,6 +541,34 @@ public class DiseaseController extends BaseController {
         attachmentService.deleteAttachmentById(id);
 
         return AjaxResult.success("success");
+    }
+
+    /**
+     * 快速更新病害单个字段
+     */
+    @RequiresPermissions("biz:disease:edit")
+    @Log(title = "病害", businessType = BusinessType.UPDATE)
+    @PostMapping("/updateField")
+    @ResponseBody
+    public AjaxResult updateField(@RequestParam("id") Long id, 
+                                  @RequestParam("field") String field, 
+                                  @RequestParam("value") String value) {
+        Disease disease = diseaseService.selectDiseaseById(id);
+        if (disease == null) {
+            return AjaxResult.error("病害不存在");
+        }
+        
+        // 设置更新的字段值
+        if ("developmentTrend".equals(field)) {
+            disease.setDevelopmentTrend(value);
+        } else {
+            return AjaxResult.error("不支持的字段更新");
+        }
+        
+        disease.setUpdateBy(ShiroUtils.getLoginName());
+        disease.setUpdateTime(DateUtils.getNowDate());
+        
+        return toAjax(diseaseService.updateDisease(disease));
     }
 
     @PostMapping("/causeAnalysis")

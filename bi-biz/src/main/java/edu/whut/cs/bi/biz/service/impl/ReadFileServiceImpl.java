@@ -359,9 +359,11 @@ public class ReadFileServiceImpl implements ReadFileService {
 
 
                         // 病害类型
-                        List<DiseaseType> diseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject3.getId());
+                        List<DiseaseType> diseaseTypes = new ArrayList<>();
+                        List<DiseaseType> dts = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject3.getId());
                         List<DiseaseType> childDiseaseTypes = diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(biObject4.getId());
 
+                        diseaseTypes.addAll(dts);
                         diseaseTypes.addAll(childDiseaseTypes);
 
                         DiseaseType queryDiseaseType = null;
@@ -384,6 +386,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setBiObjectName(component_3);
                         disease.setBiObjectId(biObject4.getId());
                         disease.setDescription(diseaseDescription);
+                        disease.setTaskId(taskId);
 
                         if (developmentTrend != null && !developmentTrend.equals("") && developmentTreadSet.contains(developmentTrend)) {
                             disease.setDevelopmentTrend(developmentTrend);
