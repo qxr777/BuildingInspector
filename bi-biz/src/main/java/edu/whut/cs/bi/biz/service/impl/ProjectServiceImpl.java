@@ -168,6 +168,7 @@ public class ProjectServiceImpl implements IProjectService {
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteProjectByIds(String ids) {
         // 删除项目下的任务
         String[] strArray = Convert.toStrArray(ids);
