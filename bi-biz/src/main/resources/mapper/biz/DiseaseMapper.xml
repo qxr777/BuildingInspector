@@ -36,6 +36,7 @@
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
         <result property="taskId" column="task_id"/>
+        <result property="imgNoExp" column="img_no_exp"/>
 
         <!-- diseaseType object -->
         <association property="diseaseType" javaType="DiseaseType">
@@ -58,7 +59,7 @@
     <sql id="selectDiseaseVo">
         select
             d.id, d.position, d.position_number, d.type, d.disease_type_id, d.description, d.level, d.quantity, d.units,
-            d.nature , d.participate_assess, d.deduct_points,
+            d.nature , d.participate_assess, d.deduct_points, d.img_no_exp,
             d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
             d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
             d.attachment_count,
@@ -114,6 +115,7 @@
             <if test="type != null and type != ''">type,</if>
             <if test="diseaseTypeId != null">disease_type_id,</if>
             <if test="description != null and description != ''">description,</if>
+            <if test="imgNoExp != null and imgNoExp !=''">img_no_exp,</if>
             <if test="nature != null and nature != ''">nature,</if>
             <if test="level != null">level,</if>
             <if test="quantity != null">quantity,</if>
@@ -146,6 +148,7 @@
             <if test="type != null and type != ''">#{type},</if>
             <if test="diseaseTypeId != null">#{diseaseTypeId},</if>
             <if test="description != null and description != ''">#{description},</if>
+            <if test="imgNoExp != null and imgNoExp !=''">#{imgNoExp},</if>
             <if test="nature != null and nature != ''">#{nature},</if>
             <if test="level != null">#{level},</if>
             <if test="quantity != null">#{quantity},</if>
@@ -177,7 +180,7 @@
     <insert id="batchInsertDiseases" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO bi_disease (
         position, position_number, type, disease_type_id, description, nature, level, quantity, units,
-        participate_assess, deduct_points, project_id, bi_object_id, bi_object_name,
+        participate_assess, deduct_points, project_id, bi_object_id, bi_object_name, img_no_exp,
         building_id, task_id, component_id, commit_type, local_id, remark, cause,
         repair_recommendation, crack_type, development_trend, detection_method,
         attachment_count, create_by, create_time, update_by, update_time
@@ -187,7 +190,7 @@
             #{disease.position}, #{disease.positionNumber}, #{disease.type}, #{disease.diseaseTypeId},
             #{disease.description}, #{disease.nature}, #{disease.level},
             #{disease.quantity}, #{disease.units}, #{disease.participateAssess}, #{disease.deductPoints},
-            #{disease.projectId}, #{disease.biObjectId}, #{disease.biObjectName},
+            #{disease.projectId}, #{disease.biObjectId}, #{disease.biObjectName}, #{disease.imgNoExp},
             #{disease.buildingId}, #{disease.taskId}, #{disease.componentId}, #{disease.commitType},
             #{disease.localId}, #{disease.remark}, #{disease.cause},
             #{disease.repairRecommendation}, #{disease.crackType}, #{disease.developmentTrend},
@@ -205,6 +208,7 @@
             <if test="type != null and type != ''">type = #{type},</if>
             <if test="diseaseTypeId != null">disease_type_id = #{diseaseTypeId},</if>
             <if test="description != null and description != ''">description = #{description},</if>
+            <if test="imgNoExp != null and imgNoExp !=''">img_no_exp = #{imgNoExp},</if>
             <if test="nature != null and nature != ''">nature = #{nature},</if>
             <if test="level != null and level > 0">level = #{level},</if>
             <if test="quantity != null and quantity > 0">quantity = #{quantity},</if>
@@ -268,6 +272,13 @@
                     <foreach collection="diseaseList" item="item">
                         <if test="item.description != null and item.description != ''">
                             WHEN #{item.id} THEN #{item.description}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="img_no_exp = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.imgNoExp != null and item.imgNoExp != ''">
+                            WHEN #{item.id} THEN #{item.imgNoExp}
                         </if>
                     </foreach>
                 </trim>

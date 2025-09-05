@@ -116,4 +116,7 @@ public class Disease extends BaseEntity {
     private Long localId;
 
     private Integer attachmentCount;
+
+    /** 图片编号 */
+    private String imgNoExp;
 }
