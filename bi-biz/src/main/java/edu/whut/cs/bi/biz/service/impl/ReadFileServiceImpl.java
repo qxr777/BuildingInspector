@@ -299,6 +299,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         continue;
                     }
 
+                    int finalI = i;
                     CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
 
                         ThreadContext.bind(subject);
@@ -336,7 +337,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         if (biObject3 == null) {
                             biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
                             if (biObject3 == null)
-                                throw new RuntimeException("未找到对应的部件：" + component_3);
+                                throw new RuntimeException("第"+(finalI +1)+"行数据未找到对应的部件：" + component_3);
                         }
                         BiObject finalBiObject = biObject3;
                         BiObject biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals(component_4))
@@ -345,7 +346,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         if (biObject4 == null) {
                             biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals("其他")).findFirst().orElse(null);
                             if (biObject4 == null)
-                                throw new RuntimeException("未找到对应的部件：" + component_4);
+                                throw new RuntimeException("第"+(finalI +1)+"行数据未找到对应的部件：" + component_4);
                         }
 
                         List<Component> componentList = newComponentMap.get(position);
@@ -417,7 +418,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                                 try {
                                     decimal = new BigDecimal(length);
                                 } catch (Exception e) {
-                                    log.error("转换长度出错length: ", length);
+                                    log.error("第"+(finalI +1)+"行数据转换长度出错length: ", length);
                                 }
                                 if (lengthUnits.equals("m")) {
                                     diseaseDetail.setLength1(decimal);
@@ -480,7 +481,7 @@ public class ReadFileServiceImpl implements ReadFileService {
             try {
                 component_4 = splitPosition[1];
             } catch (Exception e) {
-                throw new RuntimeException("第"+(i+1)+"行数据，位置格式错误：" + position);
+                throw new RuntimeException("第"+(i+1)+"行数据，病害位置格式错误（应为'code#xx'格式)：" + position + "，或者是excel文件格式错误，缺失部件列。");
             }
 
             BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
@@ -488,7 +489,7 @@ public class ReadFileServiceImpl implements ReadFileService {
             if (biObject3 == null) {
                 biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
                 if (biObject3 == null)
-                    throw new RuntimeException("未找到对应的部件：" + component_3);
+                    throw new RuntimeException("第"+(i+1)+"行数据未找到对应的部件：" + component_3);
             }
 
             BiObject finalBiObject = biObject3;
