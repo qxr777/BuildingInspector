@@ -309,8 +309,17 @@ public class ReadFileServiceImpl implements ReadFileService {
                         String diseaseType = getCellValueAsString(row.getCell(5));
                         // 1处
                         String diseaseNumber = getCellValueAsString(row.getCell(6));
-                        diseaseNumber = diseaseNumber.substring(0, diseaseNumber.length() - 1);
-                        String units = diseaseNumber.substring(diseaseNumber.length() - 1, diseaseNumber.length());
+                        String units = "";
+
+                        // 检查是否以非数字字符结尾
+                        if (diseaseNumber.length() > 0 && !Character.isDigit(diseaseNumber.charAt(diseaseNumber.length() - 1))) {
+                            // 带单位的情况：分离数字和单位
+                            units = diseaseNumber.substring(diseaseNumber.length() - 1); // 单位为最后一个字符
+                            diseaseNumber = diseaseNumber.substring(0, diseaseNumber.length() - 1); // 数字部分
+                        } else {
+                            // 纯数字的情况：单位为空
+                            units = "";
+                        }
 
                         String length = getCellValueAsString(row.getCell(7));
                         String lengthUnits = getCellValueAsString(row.getCell(8));
