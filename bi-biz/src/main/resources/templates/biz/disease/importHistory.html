@@ -1,13 +1,31 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <th:block th:include="include :: header('导入历史病害')" />
+    <th:block th:include="include :: header('导入交投病害')" />
 </head>
 <body class="white-bg">
+<style>
+.modal-footer {
+    display: none !important;
+}
+
+/* 隐藏底部按钮 */
+.layui-layer-btn {
+    display: none !important;
+}
+
+/* 若依框架的按钮 */
+.btn-default, .btn-primary.cancel, .btn-warning {
+    display: none !important;
+}
+</style>
 <div class="wrapper wrapper-content animated fadeInRight ibox-content">
-    <form class="form-horizontal m" id="form-disease-import" enctype="multipart/form-data">
+    <!-- Excel导入区域 -->
+    <form class="form-horizontal m" id="form-excel-import" enctype="multipart/form-data">
         <input type="hidden" id="biObjectId" name="biObjectId" th:value="${biObjectId}">
         <input type="hidden" id="taskId" name="taskId" th:value="${taskId}">
+        
+        <h4 class="page-header">病害导入</h4>
         
         <div class="form-group">
             <label class="col-sm-3 control-label">选择文件：</label>
@@ -31,12 +49,45 @@
             </div>
         </div>
         
-<!--        <div class="form-group">-->
-<!--            <div class="col-sm-offset-3 col-sm-8">-->
-<!--                <button type="button" class="btn btn-primary" onclick="submitHandler()">开始导入</button>-->
-<!--                <button type="button" class="btn btn-default" onclick="$.modal.close()">取消</button>-->
-<!--            </div>-->
-<!--        </div>-->
+        <div class="form-group">
+            <div class="col-sm-offset-3 col-sm-8">
+                <button type="button" class="btn btn-primary" onclick="submitExcelHandler()">导入Excel</button>
+            </div>
+        </div>
+    </form>
+    
+    <hr>
+    
+    <!-- 照片导入区域 -->
+    <form class="form-horizontal m" id="form-photo-import" enctype="multipart/form-data">
+        <input type="hidden" id="photoBiObjectId" name="biObjectId" th:value="${biObjectId}">
+        <input type="hidden" id="photoTaskId" name="taskId" th:value="${taskId}">
+        
+        <h4 class="page-header">照片导入</h4>
+        
+        <div class="form-group">
+            <label class="col-sm-3 control-label">选择照片：</label>
+            <div class="col-sm-8">
+                <input id="photos" name="photos" type="file" accept="image/*" class="form-control" multiple>
+                <span class="help-block m-b-none"><i class="fa fa-info-circle"></i> 请选择病害照片文件（支持jpg、jpeg、png格式，可多选）</span>
+            </div>
+        </div>
+        
+        <div id="failedPhotosDiv" class="form-group" style="display: none;">
+            <label class="col-sm-3 control-label">导入失败的照片：</label>
+            <div class="col-sm-8">
+                <div class="alert alert-danger">
+                    <h5><i class="fa fa-exclamation-triangle"></i> 以下照片导入失败：</h5>
+                    <ul id="failedPhotosList"></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <div class="col-sm-offset-3 col-sm-8">
+                <button type="button" class="btn btn-success" onclick="submitPhotoHandler()">导入照片</button>
+            </div>
+        </div>
     </form>
 </div>
 
@@ -50,9 +101,15 @@
         var extension = value.split('.').pop().toLowerCase();
         return this.optional(element) || extension === 'xlsx' || extension === 'xls';
     }, "请选择Excel文件(.xlsx或.xls格式)");
+    
+    $.validator.addMethod("imageExtension", function(value, element) {
+        if (value === '') return true;
+        var extension = value.split('.').pop().toLowerCase();
+        return extension === 'jpg' || extension === 'jpeg' || extension === 'png';
+    }, "请选择图片文件(.jpg、.jpeg、.png格式)");
 
     $(function() {
-        $("#form-disease-import").validate({
+        $("#form-excel-import").validate({
             rules: {
                 file: {
                     required: true,
@@ -63,28 +120,124 @@
                 error.insertAfter(element.parent());
             }
         });
+        
+        $("#form-photo-import").validate({
+            rules: {
+                photos: {
+                    required: true,
+                    imageExtension: true
+                }
+            },
+            errorPlacement: function(error, element) {
+                error.insertAfter(element.parent());
+            }
+        });
+        
+        // 监听照片选择变化（已移除照片预览功能）
+        // $('#photos').on('change', function() {
+        //     // 仅做基本验证，不显示照片预览
+        //     var files = this.files;
+        //     if (files.length > 0) {
+        //         console.log("已选择 " + files.length + " 张照片");
+        //     }
+        // });
     });
     
-    function submitHandler() {
-        if ($("#form-disease-import").valid()) {
+    function submitExcelHandler() {
+        if ($("#form-excel-import").valid()) {
             var fileInput = $('#file')[0];
-            if (fileInput.files.length > 0) {
-                var formData = new FormData();
-                formData.append('file', fileInput.files[0]);
-                formData.append('taskId', $("#taskId").val());
-                formData.append('biObjectId', $("#biObjectId").val());
-                
-                $.operate.submitJsonFile(prefix + "/upload/diseaseHistoryExcel", formData, function(result) {
+            
+            var formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('taskId', $("#taskId").val());
+            formData.append('biObjectId', $("#biObjectId").val());
+
+            $.modal.loading("正在处理，请稍后...");
+            $.ajax({
+                url: prefix + "/upload/diseaseHistoryExcel",
+                type: 'post',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function(result) {
+                    $.modal.closeLoading();
                     if (result && result.code) {
                         $.modal.alertWarning(result.msg);
                     } else {
-                        $.modal.alertSuccess("导入成功");
-                        $.modal.close();
+                        $.modal.alertSuccess("Excel导入成功");
                         localStorage.setItem("refreshDiseaseTable", Date.now());
                     }
-                });
-            }
+                },
+                error: function() {
+                    $.modal.closeLoading();
+                    $.modal.alertError("导入失败，请重试");
+                }
+            });
         }
+    }
+    
+    function submitPhotoHandler() {
+        if ($("#form-photo-import").valid()) {
+            var photoInput = $('#photos')[0];
+            
+            var formData = new FormData();
+            formData.append('taskId', $("#photoTaskId").val());
+            
+            // 添加照片文件
+            if (photoInput.files.length > 0) {
+                for (var i = 0; i < photoInput.files.length; i++) {
+                    formData.append('photos', photoInput.files[i]);
+                }
+            }
+
+            $.modal.loading("正在处理，请稍后...");
+            $.ajax({
+                url: prefix + "/upload/diseaseHistoryPhotos",
+                type: 'post',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function(result) {
+                    $.modal.closeLoading();
+                    // 后端返回成功响应，data字段即为失败照片列表数组
+                    // 每次导入前先清除之前的失败照片列表
+                    $('#failedPhotosList').empty();
+                    $('#failedPhotosDiv').hide();
+                    
+                    if (result && Array.isArray(result.data)) {
+                        var failedPhotos = result.data;
+                        var failedPhotosList = $('#failedPhotosList');
+                        var failedPhotosDiv = $('#failedPhotosDiv');
+
+                        for (var i = 0; i < failedPhotos.length; i++) {
+                            failedPhotosList.append('<li>' + failedPhotos[i] + '</li>');
+                        }
+
+                        if (failedPhotos.length > 0) {
+                            failedPhotosDiv.show();
+                            $.modal.alertWarning("部分照片导入失败，请查看失败列表");
+                        } else {
+                            $.modal.alertSuccess("照片导入成功");
+                            localStorage.setItem("refreshDiseaseTable", Date.now());
+                        }
+                    } else {
+                        // 兼容其他格式
+                        $.modal.alertSuccess("照片导入成功");
+                        localStorage.setItem("refreshDiseaseTable", Date.now());
+                    }
+                },
+                error: function() {
+                    $.modal.closeLoading();
+                    $.modal.alertError("导入失败，请重试");
+                }
+            });
+        }
+    }
+
+    function submitHandler() {
+        $.modal.close()
     }
 </script>
 </body>

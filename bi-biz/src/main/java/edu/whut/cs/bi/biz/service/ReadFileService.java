@@ -2,6 +2,8 @@ package edu.whut.cs.bi.biz.service;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 public interface ReadFileService {
 
     /**
@@ -17,4 +19,11 @@ public interface ReadFileService {
      * @param file
      */
     void readDiseaseExcel(MultipartFile file, Long taskId);
+
+    /**
+     * 上传病害图片
+     *
+     * @param photos
+     */
+    List<String> uploadPictures(List<MultipartFile> photos, Long taskId);
 }

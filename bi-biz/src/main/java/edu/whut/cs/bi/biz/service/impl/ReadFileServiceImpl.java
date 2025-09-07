@@ -4,16 +4,14 @@ import cn.hutool.core.collection.ConcurrentHashSet;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.*;
-import edu.whut.cs.bi.biz.service.IComponentService;
-import edu.whut.cs.bi.biz.service.IDiseaseTypeService;
-import edu.whut.cs.bi.biz.service.ITaskService;
-import edu.whut.cs.bi.biz.service.ReadFileService;
+import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -54,6 +52,9 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     @Resource
     private DiseaseDetailMapper diseaseDetailMapper;
+
+    @Resource
+    private IDiseaseService diseaseService;
 
     @Override
     public void readCBMSDiseaseExcel(MultipartFile file, Long taskId) {
@@ -154,9 +155,10 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setBuildingId(building.getId());
                         disease.setProjectId(task.getProjectId());
                         disease.setBiObjectName(component_3);
+                        disease.setTaskId(taskId);
                         disease.setBiObjectId(biObject4.getId());
                         if (photoName != null && !photoName.equals("")) {
-                            disease.setRemark("图片名称：" + photoName);
+                            disease.setImgNoExp(photoName);
                         }
 
                         diseaseSet.add(disease);
@@ -242,7 +244,12 @@ public class ReadFileServiceImpl implements ReadFileService {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getDateCellValue().toString();
                 } else {
-                    return String.valueOf(cell.getNumericCellValue());
+                    double numericValue = cell.getNumericCellValue();
+                    if (numericValue == (long) numericValue) {
+                        return String.valueOf((long) numericValue); // 去掉 .0
+                    } else {
+                        return String.valueOf(numericValue); // 保留小数
+                    }
                 }
             case BOOLEAN:
                 return String.valueOf(cell.getBooleanCellValue());
@@ -364,7 +371,12 @@ public class ReadFileServiceImpl implements ReadFileService {
                         if (diseaseNumber == null || diseaseNumber.equals("/") || diseaseNumber.equals("")) {
                             disease.setQuantity(1);
                         } else {
-                            disease.setQuantity((int) Double.parseDouble(diseaseNumber));
+                            try {
+                                disease.setQuantity((int) Double.parseDouble(diseaseNumber));
+                            } catch (Exception e) {
+                                throw new RuntimeException("第"+(finalI +1)+"行数据的数量：" + diseaseNumber + "不规范！");
+                            }
+
                         }
 
 
@@ -406,7 +418,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setUnits(units);
 
                         if (photoName != null && !photoName.equals("")) {
-                            disease.setRemark("图片名称：" + photoName + " ");
+                            disease.setImgNoExp(photoName);
                         }
                         disease.setRemark(disease.getRemark() + remark);
 
@@ -528,4 +540,74 @@ public class ReadFileServiceImpl implements ReadFileService {
         }
 
     }
+
+    @Override
+    @Transactional
+    public List<String> uploadPictures(List<MultipartFile> photos, Long taskId) {
+        // 防止
+        Task task = taskService.selectTaskById(taskId);
+
+        Disease disease =  new Disease();
+        disease.setBuildingId(task.getBuildingId());
+        disease.setProjectId(task.getProjectId());
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+
+        // 1. 收集所有 img -> diseaseId 的映射
+        List<Map.Entry<String, Long>> allEntries = diseases.stream()
+                .flatMap(d -> Arrays.stream(d.getImgNoExp().split("、"))
+                        .map(img -> new AbstractMap.SimpleEntry<>(img.trim(), d.getId())))
+                .collect(Collectors.toList());
+
+        // 2. 统计每个 img 出现的次数
+        Map<String, Long> imgCountMap = allEntries.stream()
+                .collect(Collectors.groupingBy(Map.Entry::getKey, Collectors.counting()));
+
+        // 3. 过滤掉重复的 img，只保留唯一的
+        Map<String, Long> imgToDiseaseMap = allEntries.stream()
+                .filter(e -> imgCountMap.get(e.getKey()) == 1)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        // 定义无法匹配的图片列表
+        List<String> unmatchedPhotos = new ArrayList<>();
+
+        Map<Long, List<MultipartFile>> group = new HashMap<>();
+        photos.forEach(photo -> {
+            String photoName = photo.getOriginalFilename();
+            if (photoName == null) {
+                unmatchedPhotos.add("null"); // 或者跳过，视业务而定
+                return;
+            }
+
+            int dotIndex = photoName.lastIndexOf('.');
+            if (dotIndex <= 4) {
+                unmatchedPhotos.add(photoName); // 格式不对
+                return;
+            }
+
+            String code = photoName.substring(4, dotIndex);
+            Long diseaseId = imgToDiseaseMap.get(code);
+
+            if (diseaseId != null) {
+                group.computeIfAbsent(diseaseId, k -> new ArrayList<>()).add(photo);
+            } else {
+                unmatchedPhotos.add(photoName);
+            }
+        });
+
+        group.forEach((diseaseId, ps) -> {
+            diseaseService.handleDiseaseAttachment(ps.toArray(new MultipartFile[0]), diseaseId, 1);
+            Disease d = diseaseService.selectDiseaseById(diseaseId);
+            if (d.getAttachmentCount() != null) {
+                d.setAttachmentCount(d.getAttachmentCount() + ps.size());
+            } else {
+                d.setAttachmentCount(ps.size());
+            }
+
+            diseaseMapper.updateDisease(d);
+        });
+
+
+        return unmatchedPhotos;
+    }
+
 }
