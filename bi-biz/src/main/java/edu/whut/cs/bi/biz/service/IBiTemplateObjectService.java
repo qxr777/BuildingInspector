@@ -129,4 +129,12 @@ public interface IBiTemplateObjectService {
      * @return 病害类型列表
      */
     public List<TemplateDiseaseTypeVO> selectDiseaseTypeVOList(TemplateDiseaseTypeVO diseaseType, Long templateObjectId);
+
+    /**
+     * 导出模板文件
+     * 将所有模板树导出为JSON文件，并打包成ZIP文件
+     *
+     * @return ZIP文件的字节数组
+     */
+    public byte[] exportTemplateFiles();
 }

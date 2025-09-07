@@ -20,6 +20,9 @@
             <a class="btn btn-primary" onclick="$.operate.edit()" shiro:hasPermission="biz:template_object:edit">
                 <i class="fa fa-edit"></i> 修改
             </a>
+            <a class="btn btn-warning" id="exportTemplateBtn" shiro:hasPermission="biz:template_object:export">
+                <i class="fa fa-download"></i> 导出全部桥梁模版
+            </a>
             <a class="btn btn-info" id="expandAllBtn">
                 <i class="fa fa-exchange"></i> 展开/折叠
             </a>
@@ -51,6 +54,11 @@
         // 监听下拉框变化事件
         $("#templateRootSelect").change(function() {
             loadTreeTable();
+        });
+
+        // 导出模板文件按钮点击事件
+        $("#exportTemplateBtn").click(function() {
+            window.location.href = prefix + "/exportTemplateFiles";
         });
     });
 
