@@ -7,6 +7,10 @@ import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
@@ -222,5 +226,21 @@ public class BiTemplateObjectController extends BaseController {
         startPage();
         List<TemplateDiseaseTypeVO> list = biTemplateObjectService.selectDiseaseTypeVOList(diseaseType, templateObjectId);
         return getDataTable(list);
+    }
+
+    /**
+     * 导出模板文件
+     */
+    @RequiresPermissions("biz:template_object:export")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.EXPORT)
+    @GetMapping("/exportTemplateFiles")
+    public ResponseEntity<byte[]> exportTemplateFiles() {
+        byte[] zipBytes = biTemplateObjectService.exportTemplateFiles();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", "template_files.zip");
+
+        return new ResponseEntity<>(zipBytes, headers, HttpStatus.OK);
     }
 }

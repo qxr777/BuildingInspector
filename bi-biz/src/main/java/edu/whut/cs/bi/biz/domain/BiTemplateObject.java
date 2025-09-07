@@ -58,10 +58,21 @@ public class BiTemplateObject extends TreeEntity {
     @Excel(name = "病害类型数")
     private Integer diseaseTypeCount;
 
+
     /**
      * 子模板对象
      */
     private List<BiTemplateObject> children = new ArrayList<BiTemplateObject>();
+
+    private List<DiseaseType>  diseaseTypes = new ArrayList<>();
+
+    public List<DiseaseType> getDiseaseTypes() {
+        return diseaseTypes;
+    }
+
+    public void setDiseaseTypes(List<DiseaseType> diseaseTypes) {
+        this.diseaseTypes = diseaseTypes;
+    }
 
     public Integer getDiseaseTypeCount() {
         return diseaseTypeCount;

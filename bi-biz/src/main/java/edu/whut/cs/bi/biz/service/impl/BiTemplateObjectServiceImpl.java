@@ -1,11 +1,20 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.Ztree;
+import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
+import edu.whut.cs.bi.biz.service.IDiseaseTypeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper;
@@ -31,6 +40,9 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
 
     @Autowired
     private DiseaseTypeMapper diseaseTypeMapper;
+
+    @Autowired
+    private IDiseaseTypeService diseaseTypeService;
 
     /**
      * 查询桥梁构件模版
@@ -186,11 +198,12 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
      * @return 结果
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int insertTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId) {
         List<Long> componentIds = new ArrayList<>();
         componentIds.add(templateObjectId);
         toDiseaseTypeMapper.insertData(componentIds, diseaseTypeId);
+        updateRootBitemplateObject(templateObjectId);
         return 1;
     }
 
@@ -202,8 +215,9 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
      * @return 结果
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int deleteTemplateDiseaseType(Long templateObjectId, Long diseaseTypeId) {
+        updateRootBitemplateObject(templateObjectId);
         return toDiseaseTypeMapper.deleteData(templateObjectId, diseaseTypeId);
     }
 
@@ -215,16 +229,44 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
      * @return 结果
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchInsertTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds) {
         String[] ids = Convert.toStrArray(diseaseTypeIds);
         List<Long> componentIds = new ArrayList<>();
         componentIds.add(templateObjectId);
-
+        updateRootBitemplateObject(templateObjectId);
         for (String diseaseTypeId : ids) {
             toDiseaseTypeMapper.insertData(componentIds, Long.valueOf(diseaseTypeId));
         }
         return ids.length;
+    }
+
+    /**
+     * 批量添加模板对象和病害类型关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param templateObjectId 病害类型ID字符串，逗号分隔
+     * @return 结果
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateRootBitemplateObject(Long templateObjectId) {
+        BiTemplateObject biTemplateObject = biTemplateObjectMapper.selectBiTemplateObjectById(templateObjectId);
+        String ancestors = biTemplateObject.getAncestors();
+        Long biobjectId = 0L;
+        if (ancestors != null && !ancestors.isEmpty()) {
+            String[] parts = ancestors.split(",");
+            if (parts.length >= 2) {
+                biobjectId = Long.valueOf(parts[1]);
+            } else {
+                biobjectId = Long.valueOf(parts[0]);
+            }
+        }
+        BiTemplateObject biTemplateObjectRoot = biTemplateObjectMapper.selectBiTemplateObjectById(biobjectId);
+        if(biTemplateObjectRoot != null) {
+            biTemplateObjectRoot.setUpdateTime(new Date());
+            biTemplateObjectRoot.setUpdateBy(ShiroUtils.getLoginName());
+            biTemplateObjectMapper.updateBiTemplateObject(biTemplateObjectRoot);
+        }
     }
 
     /**
@@ -235,9 +277,10 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
      * @return 结果
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int batchDeleteTemplateDiseaseType(Long templateObjectId, String diseaseTypeIds) {
         String[] ids = Convert.toStrArray(diseaseTypeIds);
+        updateRootBitemplateObject(templateObjectId);
         return toDiseaseTypeMapper.batchDeleteData(templateObjectId, Arrays.stream(ids)
                 .map(Long::valueOf)
                 .collect(Collectors.toList()));
@@ -253,5 +296,103 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
     @Override
     public List<TemplateDiseaseTypeVO> selectDiseaseTypeVOList(TemplateDiseaseTypeVO diseaseType, Long templateObjectId) {
         return diseaseTypeMapper.selectTemplateDiseaseTypeList(templateObjectId, diseaseType);
+    }
+
+    @Override
+    public byte[] exportTemplateFiles() {
+        // 查询所有根节点模板
+        BiTemplateObject query = new BiTemplateObject();
+        query.setParentId(0L);
+        List<BiTemplateObject> rootList = selectBiTemplateObjectList(query);
+
+        if (rootList == null || rootList.isEmpty()) {
+            return new byte[0];
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            for (BiTemplateObject root : rootList) {
+                // 构建完整的模板树
+                BiTemplateObject fullTree = buildCompleteTemplateTree(root);
+
+                // 创建文件名：id_updatetime.json
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+                String updateTime = "";
+                if (fullTree.getUpdateTime() != null) {
+                    updateTime = sdf.format(fullTree.getUpdateTime());
+                } else {
+                    updateTime = sdf.format(new Date());
+                }
+                String fileName = fullTree.getId() + "_" + updateTime + ".json";
+
+                // 将模板树转换为JSON
+                byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter()
+                        .writeValueAsBytes(fullTree);
+
+                // 添加到ZIP文件
+                ZipEntry entry = new ZipEntry(fileName);
+                zos.putNextEntry(entry);
+                zos.write(jsonBytes);
+                zos.closeEntry();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return baos.toByteArray();
+    }
+
+    /**
+     * 构建完整的模板树，包括子节点和病害类型
+     *
+     * @param root 根节点
+     * @return 完整的模板树
+     */
+    private BiTemplateObject buildCompleteTemplateTree(BiTemplateObject root) {
+        if (root == null) {
+            return null;
+        }
+
+        // 查询所有子节点
+        List<BiTemplateObject> children = biTemplateObjectMapper.selectChildrenById(root.getId());
+
+        // 构建节点ID列表，用于批量查询病害类型
+        List<Long> nodeIds = new ArrayList<>();
+        nodeIds.add(root.getId());
+        children.forEach(child -> nodeIds.add(child.getId()));
+
+        // 批量查询所有节点的病害类型
+        Map<Long, List<DiseaseType>> diseaseTypesMap = diseaseTypeService.batchSelectDiseaseTypeListByTemplateObjectIds(nodeIds);
+
+        // 设置根节点的病害类型
+        if (diseaseTypesMap.containsKey(root.getId())) {
+            root.setDiseaseTypes(diseaseTypesMap.get(root.getId()));
+        }
+
+        // 构建树形结构
+        Map<Long, BiTemplateObject> nodeMap = new HashMap<>();
+        nodeMap.put(root.getId(), root);
+
+        // 将所有子节点添加到nodeMap
+        for (BiTemplateObject child : children) {
+            // 设置病害类型
+            if (diseaseTypesMap.containsKey(child.getId())) {
+                child.setDiseaseTypes(diseaseTypesMap.get(child.getId()));
+            }
+            nodeMap.put(child.getId(), child);
+        }
+
+        // 构建树形结构
+        for (BiTemplateObject node : children) {
+            Long parentId = node.getParentId();
+            if (nodeMap.containsKey(parentId)) {
+                BiTemplateObject parent = nodeMap.get(parentId);
+                parent.getChildren().add(node);
+            }
+        }
+
+        return root;
     }
 }
