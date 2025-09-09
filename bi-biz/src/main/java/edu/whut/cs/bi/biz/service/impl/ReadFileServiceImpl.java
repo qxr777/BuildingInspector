@@ -1,6 +1,9 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.*;
@@ -21,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -157,9 +161,9 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setBiObjectName(component_3);
                         disease.setTaskId(taskId);
                         disease.setBiObjectId(biObject4.getId());
-                        if (photoName != null && !photoName.equals("")) {
-                            disease.setImgNoExp(photoName);
-                        }
+                        // 设置图片编码
+                        List<String> splitPhotos = splitPhotoName(photoName);
+                        disease.setImgNoExp(convertToDbFormat(splitPhotos));
 
                         diseaseSet.add(disease);
                     });
@@ -417,9 +421,10 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setRepairRecommendation(repairSuggestion);
                         disease.setUnits(units);
 
-                        if (photoName != null && !photoName.equals("")) {
-                            disease.setImgNoExp(photoName);
-                        }
+                        // 设置图片编码
+                        List<String> splitPhotos = splitPhotoName(photoName);
+                        disease.setImgNoExp(convertToDbFormat(splitPhotos));
+
                         disease.setRemark(disease.getRemark() + remark);
 
                         DiseaseDetail diseaseDetail = new DiseaseDetail();
@@ -472,6 +477,66 @@ public class ReadFileServiceImpl implements ReadFileService {
             });
 
         }
+    }
+
+    // 定义支持的分隔符（中文顿号和波浪线）
+    private static final String SEPARATOR_DOT = "、";
+    private static final String SEPARATOR_TILDE = "~";
+
+    /**
+     * 将photoName分割为字符串列表
+     * @param photoName 原始字符串（如"1982、1983"或"1982~1985"）
+     * @return 分割后的列表，若输入为空则返回空列表
+     */
+    public List<String> splitPhotoName(String photoName) {
+        List<String> result = new ArrayList<>();
+        if (photoName == null || photoName.trim().isEmpty()) {
+            return result;
+        }
+        // 去除首尾空格，避免空元素
+        String trimmedPhotoName = photoName.trim();
+
+        // 1. 优先判断是否包含中文顿号分隔符
+        if (trimmedPhotoName.contains(SEPARATOR_DOT)) {
+            String[] parts = trimmedPhotoName.split(SEPARATOR_DOT);
+            result.addAll(Arrays.asList(parts));
+        }
+        // 2. 再判断是否包含波浪线分隔符
+        else if (trimmedPhotoName.contains(SEPARATOR_TILDE)) {
+            String[] parts = trimmedPhotoName.split(SEPARATOR_TILDE);
+            for (int i = Integer.valueOf(parts[0]);i <= Integer.valueOf(parts[1]);i++) {
+                result.add(String.valueOf(i));
+            }
+        }
+        // 3. 若没有分隔符（单个值），直接添加到列表
+        else {
+            result.add(trimmedPhotoName);
+        }
+
+        // 过滤空元素（避免分割后出现空字符串，如"1982、 、1983"）
+        result.removeIf(part -> part == null || part.trim().isEmpty());
+        return result;
+    }
+
+    /**
+     * 将分割后的列表转为数据库支持的格式（示例：转为JSON字符串，适配MySQL的JSON类型）
+     * @param photoList 分割后的列表
+     * @return JSON格式字符串（如["1982","1983"]）
+     */
+    public static String convertToDbFormat(List<String> photoList) {
+        if (photoList == null || photoList.isEmpty()) {
+            return "[]"; // 空数组的JSON表示
+        }
+        // 手动拼接JSON（若项目有FastJSON/Jackson，可替换为工具类调用，避免手动拼接错误）
+        StringBuilder jsonSb = new StringBuilder("[");
+        for (int i = 0; i < photoList.size(); i++) {
+            jsonSb.append("\"").append(photoList.get(i).trim()).append("\"");
+            if (i != photoList.size() - 1) {
+                jsonSb.append(",");
+            }
+        }
+        jsonSb.append("]");
+        return jsonSb.toString();
     }
 
     private void addComponent(Sheet sheet, List<BiObject> threeBiObjects, List<BiObject> allBiObjects, Map<String, List<Component>> componentMap) {
@@ -553,9 +618,20 @@ public class ReadFileServiceImpl implements ReadFileService {
         List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
 
         // 1. 收集所有 img -> diseaseId 的映射
+        ObjectMapper mapper = new ObjectMapper();
+
         List<Map.Entry<String, Long>> allEntries = diseases.stream()
-                .flatMap(d -> Arrays.stream(d.getImgNoExp().split("、"))
-                        .map(img -> new AbstractMap.SimpleEntry<>(img.trim(), d.getId())))
+                .flatMap(d -> {
+                    try {
+                        List<String> imgs = mapper.readValue(d.getImgNoExp(), new TypeReference<List<String>>() {});
+                        return imgs.stream()
+                                .filter(img -> img != null && !img.trim().isEmpty())
+                                .map(img -> new AbstractMap.SimpleEntry<>(img.trim(), d.getId()));
+                    } catch (JsonProcessingException e) {
+                        // 如果 JSON 格式非法，可以选择记录日志或跳过
+                        return Stream.empty();
+                    }
+                })
                 .collect(Collectors.toList());
 
         // 2. 统计每个 img 出现的次数
