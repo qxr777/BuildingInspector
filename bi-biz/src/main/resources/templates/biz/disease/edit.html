@@ -214,6 +214,7 @@
                             <option value="稳定">稳定</option>
                             <option value="发展">发展</option>
                             <option value="已维修">已维修</option>
+                            <option value="部分维修">部分维修</option>
                             <option value="未找到">未找到</option>
                         </select>
                     </div>
@@ -233,6 +234,27 @@
                             <option value="非结构病害">非结构病害</option>
                             <option value="结构病害">结构病害</option>
                         </select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-4 control-label is-required">最大标度：</label>
+                    <div class="col-sm-8">
+                        <input name="maxScale" class="form-control" type="text" id="maxScale"
+                               th:field="*{diseaseType.maxScale}" readonly/>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-sm-4" th:if="${biObject.name != '其他'}">
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-4 control-label is-required">评定标度：</label>
+                    <div class="col-sm-8">
+                        <div class="btn-group" id="levelGroup" data-toggle="buttons">
+                            <!-- 选项将通过JavaScript动态生成 -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -271,34 +293,22 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="row mb-4">
-            <div class="col-sm-4" th:if="${biObject.name != '其他'}">
-                <div class="form-group">
-                    <label class="col-sm-4 control-label is-required">评定标度：</label>
-                    <div class="col-sm-8">
-                        <div class="btn-group" id="levelGroup" data-toggle="buttons">
-                            <!-- 选项将通过JavaScript动态生成 -->
-                        </div>
-                    </div>
-                </div>
-            </div>
             <div class="col-sm-4">
-                <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-4 control-label is-required">最大标度：</label>
+                <div class="form-group" style="margin-top: 20px">
+                    <label class="col-sm-4 control-label is-required">图片编号：</label>
                     <div class="col-sm-8">
-                        <input name="maxScale" class="form-control" type="text" id="maxScale"
-                               th:field="*{diseaseType.maxScale}" readonly/>
+                        <input name="imgNoExp" class="form-control" type="text" id="imgNoExp" placeholder="编号之间以'、'分割"
+                               th:field="*{imgNoExp}"/>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-4" style="display: none;">
-                <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-4 control-label is-required">构件扣分：</label>
-                    <div class="col-sm-8">
-                        <input name="deductPoints" class="form-control" type="text" id="deductPoints"
-                               th:field="*{deductPoints}" readonly/>
-                    </div>
+        </div>
+        <div class="col-sm-4" style="display: none;">
+            <div class="form-group" style="margin-bottom: 20px">
+                <label class="col-sm-4 control-label is-required">构件扣分：</label>
+                <div class="col-sm-8">
+                    <input name="deductPoints" class="form-control" type="text" id="deductPoints"
+                           th:field="*{deductPoints}" readonly/>
                 </div>
             </div>
         </div>

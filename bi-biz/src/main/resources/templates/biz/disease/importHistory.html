@@ -200,6 +200,12 @@
                 contentType: false,
                 dataType: 'json',
                 success: function(result) {
+                    if (result && result.code != 0) {
+                        $.modal.closeLoading();
+                        $.modal.alertError("导入失败，" + result.msg);
+                        return;
+                    }
+
                     $.modal.closeLoading();
                     // 后端返回成功响应，data字段即为失败照片列表数组
                     // 每次导入前先清除之前的失败照片列表

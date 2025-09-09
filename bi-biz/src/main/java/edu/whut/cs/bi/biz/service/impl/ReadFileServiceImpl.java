@@ -161,6 +161,8 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setBiObjectName(component_3);
                         disease.setTaskId(taskId);
                         disease.setBiObjectId(biObject4.getId());
+                        disease.setNature("非结构病害");
+
                         // 设置图片编码
                         List<String> splitPhotos = splitPhotoName(photoName);
                         disease.setImgNoExp(convertToDbFormat(splitPhotos));
@@ -413,6 +415,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setBiObjectId(biObject4.getId());
                         disease.setDescription(diseaseDescription);
                         disease.setTaskId(taskId);
+                        disease.setNature("非结构病害");
 
                         if (developmentTrend != null && !developmentTrend.equals("") && developmentTreadSet.contains(developmentTrend)) {
                             disease.setDevelopmentTrend(developmentTrend);
@@ -621,6 +624,7 @@ public class ReadFileServiceImpl implements ReadFileService {
         ObjectMapper mapper = new ObjectMapper();
 
         List<Map.Entry<String, Long>> allEntries = diseases.stream()
+                .filter(dd -> dd.getImgNoExp() != null && !dd.getImgNoExp().trim().isEmpty())
                 .flatMap(d -> {
                     try {
                         List<String> imgs = mapper.readValue(d.getImgNoExp(), new TypeReference<List<String>>() {});
@@ -681,7 +685,6 @@ public class ReadFileServiceImpl implements ReadFileService {
 
             diseaseMapper.updateDisease(d);
         });
-
 
         return unmatchedPhotos;
     }

@@ -2,6 +2,9 @@ package edu.whut.cs.bi.biz.controller;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -19,6 +22,7 @@ import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -55,6 +59,7 @@ import java.util.zip.ZipOutputStream;
  * @date 2025-04-10
  */
 @Controller
+@Slf4j
 @RequestMapping("/biz/disease")
 public class DiseaseController extends BaseController {
     private String prefix = "biz/disease";
@@ -379,6 +384,19 @@ public class DiseaseController extends BaseController {
             String customPosition = disease.getPosition();
             disease.setPosition(String.valueOf(biObject.getChildren().get(0).getId()));
             mmap.put("customPosition", customPosition);
+        }
+
+        String imgNoExp = disease.getImgNoExp();
+        if (imgNoExp != null) {
+            ObjectMapper mapper = new ObjectMapper();
+
+            try {
+                List<String> imgs = mapper.readValue(imgNoExp, new TypeReference<List<String>>() {});
+                disease.setImgNoExp(imgs.stream().collect(Collectors.joining("、")));
+            } catch (JsonProcessingException e) {
+                log.error("图片格式有误转化失败");
+            }
+
         }
 
         // 位置

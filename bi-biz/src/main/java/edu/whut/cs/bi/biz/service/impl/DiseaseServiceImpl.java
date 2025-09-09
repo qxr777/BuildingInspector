@@ -2,6 +2,8 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.text.Convert;
@@ -45,6 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.StringJoiner;
@@ -212,6 +215,19 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
                 ds.setImages(images);
                 ds.setADImgs(ADImgs);
+            }
+
+            String imgNoExp = ds.getImgNoExp();
+            if (imgNoExp != null) {
+                ObjectMapper mapper = new ObjectMapper();
+
+                try {
+                    List<String> imgs = mapper.readValue(imgNoExp, new TypeReference<List<String>>() {});
+                    ds.setImgNoExp(imgs.stream().collect(Collectors.joining("、")));
+                } catch (JsonProcessingException e) {
+                    log.error("图片格式有误转化失败");
+                }
+
             }
         });
         return diseases;
@@ -528,6 +544,18 @@ public class DiseaseServiceImpl implements IDiseaseService {
             disease.setBiObjectName(biObject.getName());
         }
 
+        String imgNoExp = disease.getImgNoExp();
+        if (imgNoExp != null && !imgNoExp.trim().equals("")) {
+            try {
+                String[] split = imgNoExp.split("、");
+                disease.setImgNoExp(ReadFileServiceImpl.convertToDbFormat(Arrays.asList(split)));
+            } catch (Exception e) {
+                log.error("图片编号格式错误：{}", imgNoExp);
+                throw new RuntimeException("图片编号格式错误：" + imgNoExp);
+            }
+        }
+
+
         Integer result = diseaseMapper.insertDisease(disease);
 
         // 添加病害详情
@@ -593,6 +621,16 @@ public class DiseaseServiceImpl implements IDiseaseService {
             diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
         }
 
+        String imgNoExp = disease.getImgNoExp();
+        if (imgNoExp != null && !imgNoExp.trim().equals("")) {
+            try {
+                String[] split = imgNoExp.split("、");
+                disease.setImgNoExp(ReadFileServiceImpl.convertToDbFormat(Arrays.asList(split)));
+            } catch (Exception e) {
+                log.error("图片编号格式错误：{}", imgNoExp);
+                throw new RuntimeException("图片编号格式错误：" + imgNoExp);
+            }
+        }
 
         return diseaseMapper.updateDisease(disease);
     }
