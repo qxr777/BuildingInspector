@@ -162,6 +162,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setTaskId(taskId);
                         disease.setBiObjectId(biObject4.getId());
                         disease.setNature("非结构病害");
+                        disease.setDevelopmentTrend("新增");
 
                         // 设置图片编码
                         List<String> splitPhotos = splitPhotoName(photoName);
