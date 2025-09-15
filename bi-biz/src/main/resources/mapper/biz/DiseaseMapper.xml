@@ -418,6 +418,31 @@
         </where>
     </select>
 
+    <!-- 批量查询构件病害数据（优化版本，专门用于病害选择器） -->
+    <select id="selectDiseaseComponentData" resultMap="DiseaseResult">
+        SELECT DISTINCT
+        d.id, d.bi_object_id, d.disease_type_id,
+        dt.id as dt_id, dt.name as dt_name, dt.code as dt_code,
+        dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status,
+        bp.year as bp_year
+        FROM bi_disease d
+        INNER JOIN bi_disease_type dt ON dt.id = d.disease_type_id
+        LEFT JOIN bi_project bp ON bp.id = d.project_id
+        WHERE d.bi_object_id IN
+        <foreach item="biObjectId" collection="biObjectIds" open="(" separator="," close=")">
+            #{biObjectId}
+        </foreach>
+        <if test="buildingId != null">
+            AND d.building_id = #{buildingId}
+        </if>
+        <if test="year != null">
+            AND bp.year = #{year}
+        </if>
+        AND d.disease_type_id IS NOT NULL
+        AND dt.status = '0'
+        ORDER BY d.bi_object_id, dt.name
+    </select>
+
 
     <select id="selectErrorDiseases" parameterType="Disease" resultMap="DiseaseResult">
         select

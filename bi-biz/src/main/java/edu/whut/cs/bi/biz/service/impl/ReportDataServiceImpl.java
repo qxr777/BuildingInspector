@@ -5,12 +5,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.*;
 
+import com.ruoyi.common.core.domain.AjaxResult;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
-import edu.whut.cs.bi.biz.domain.Building;
-import edu.whut.cs.bi.biz.domain.FileMap;
-import edu.whut.cs.bi.biz.domain.Property;
+import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
@@ -20,7 +20,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.ReportDataMapper;
-import edu.whut.cs.bi.biz.domain.ReportData;
 import com.ruoyi.common.core.text.Convert;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -65,6 +64,12 @@ public class ReportDataServiceImpl implements IReportDataService {
 
     @Autowired
     BiObjectMapper biObjectMapper;
+
+    @Autowired
+    IProjectService projectService;
+
+    @Autowired
+    private DiseaseMapper diseaseMapper;
 
     /**
      * 查询报告数据
@@ -498,5 +503,144 @@ public class ReportDataServiceImpl implements IReportDataService {
         }
 
         return result;
+    }
+
+    /**
+     * 获取构件病害数据（用于病害选择器）
+     *
+     * @param report 报告ID
+     * @return 构件病害数据列表
+     */
+    @Override
+    public List<Map<String, Object>> getDiseaseComponentData(Report report) {
+        long reportId = report.getId();
+        long startTime = System.currentTimeMillis();
+
+        try {
+
+            // 1.获取报告关联的任务ID
+            String taskIdsStr = report.getTaskIds();
+            if (taskIdsStr == null || taskIdsStr.isEmpty()) {
+                return new ArrayList<>();
+            }
+            // 只取第一个任务ID
+            Long taskId = Long.parseLong(taskIdsStr.split(",")[0]);
+            Task task = taskService.selectTaskById(taskId);
+            // 2. 获取Building信息
+            Building building = task.getBuilding();
+            if (building == null) {
+                log.error("未找到建筑物，buildingId: {}", taskId);
+                return new ArrayList<>();
+            }
+
+            // 4. 获取BiObject层级结构
+            Long subBridgeId = building.getRootObjectId();
+            if (subBridgeId == null) {
+                log.error("建筑物未关联BiObject，buildingId: {}", building.getId());
+                return new ArrayList<>();
+            }
+
+            BiObject subBridge = biObjectMapper.selectBiObjectById(subBridgeId);
+            if (subBridge == null) {
+                log.error("未找到BiObject，biObjectId: {}", subBridgeId);
+                return new ArrayList<>();
+            }
+
+            List<BiObject> allObjects = biObjectMapper.selectChildrenById(subBridge.getId());
+            Map<Long, BiObject> objectMap = allObjects.stream()
+                    .collect(HashMap::new, (map, obj) -> map.put(obj.getId(), obj), HashMap::putAll);
+
+            objectMap.put(subBridge.getId(), subBridge);
+            allObjects.add(subBridge);
+
+            // 5. 获取第四层节点（构件层）
+            List<BiObject> level4Objects = findLevel4Objects(allObjects, subBridge.getId());
+
+            if (level4Objects.isEmpty()) {
+                log.warn("未找到第四层构件节点，reportId: {}", reportId);
+                return new ArrayList<>();
+            }
+
+            // 6. 提取所有第四层节点的ID
+            List<Long> level4ObjectIds = level4Objects.stream()
+                    .map(BiObject::getId)
+                    .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+
+            log.info("开始批量查询病害数据，构件数量: {}, reportId: {}", level4ObjectIds.size(), reportId);
+
+            // 7. 批量查询所有构件的病害数据（一次查询替代N次查询）
+            List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
+                    level4ObjectIds, building.getId(), task.getProject().getYear());
+
+            log.info("批量查询完成，病害记录数: {}, 耗时: {}ms", allDiseases.size(), System.currentTimeMillis() - startTime);
+
+            // 8. 构建结果数据
+            List<Map<String, Object>> result = new ArrayList<>();
+            Set<String> uniqueKeys = new HashSet<>();
+
+            for (Disease disease : allDiseases) {
+                if (disease.getDiseaseType() != null) {
+                    // 构造唯一键：构件ID + 病害类型ID
+                    String uniqueKey = disease.getBiObjectId() + "_" + disease.getDiseaseTypeId();
+
+                    if (!uniqueKeys.contains(uniqueKey)) {
+                        uniqueKeys.add(uniqueKey);
+
+                        // 从缓存的objectMap中获取构件名称
+                        BiObject component = objectMap.get(disease.getBiObjectId());
+                        String componentName = component != null ? component.getName() : "未知构件";
+
+                        Map<String, Object> dataItem = new HashMap<>();
+                        dataItem.put("componentId", disease.getBiObjectId());
+                        dataItem.put("componentName", componentName);
+                        dataItem.put("diseaseTypeId", disease.getDiseaseTypeId());
+                        dataItem.put("diseaseTypeName", disease.getDiseaseType().getName());
+                        result.add(dataItem);
+                    }
+                }
+            }
+
+            long totalTime = System.currentTimeMillis() - startTime;
+            log.info("获取构件病害数据成功，reportId: {}, 构件数: {}, 病害类型组合数: {}, 总耗时: {}ms",
+                    reportId, level4Objects.size(), result.size(), totalTime);
+
+            return result;
+
+        } catch (Exception e) {
+            long totalTime = System.currentTimeMillis() - startTime;
+            log.error("获取构件病害数据失败，reportId: {}, 耗时: {}ms", reportId, totalTime, e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * 查找第四层节点
+     */
+    private List<BiObject> findLevel4Objects(List<BiObject> allObjects, Long rootObjectId) {
+        // 构建父子关系映射
+        Map<Long, List<BiObject>> childrenMap = allObjects.stream()
+                .collect(HashMap::new,
+                        (map, obj) -> map.computeIfAbsent(obj.getParentId(), k -> new ArrayList<>()).add(obj),
+                        (map1, map2) -> {
+                            for (Map.Entry<Long, List<BiObject>> entry : map2.entrySet()) {
+                                map1.computeIfAbsent(entry.getKey(), k -> new ArrayList<>()).addAll(entry.getValue());
+                            }
+                        });
+
+        List<BiObject> level4Objects = new ArrayList<>();
+
+        // 遍历根节点的子节点（第二层）
+        List<BiObject> level2Objects = childrenMap.getOrDefault(rootObjectId, new ArrayList<>());
+        for (BiObject level2 : level2Objects) {
+            // 遍历第二层的子节点（第三层）
+            List<BiObject> level3Objects = childrenMap.getOrDefault(level2.getId(), new ArrayList<>());
+            for (BiObject level3 : level3Objects) {
+                // 获取第三层的子节点（第四层）
+                List<BiObject> level4 = childrenMap.getOrDefault(level3.getId(), new ArrayList<>());
+                level4Objects.addAll(level4);
+            }
+        }
+
+        return level4Objects;
     }
 } 

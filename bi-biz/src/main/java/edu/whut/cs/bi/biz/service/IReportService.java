@@ -72,11 +72,11 @@ public interface IReportService {
   /**
    * 生成报告文档
    *
-   * @param reportId 报告ID
+   * @param report 报告ID
    * @param buildingId 建筑物ID
    * @return 生成的文件路径
    */
-  public String generateReportDocument(Long reportId, Long buildingId,Long projectId) ;
+  public String generateReportDocument(Report report, Long buildingId, Long projectId,Long taskId) ;
 
   /**
    * 调用后台 ai 模型获取报告中的病害 小结。

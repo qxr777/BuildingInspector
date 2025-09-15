@@ -346,8 +346,8 @@ public class ReportController extends BaseController {
             borders.addNewInsideV().setVal(STBorder.SINGLE);
 
             // 设置表格居中对齐
-            CTJc jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
-            jc.setVal(STJc.CENTER);
+            CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
+            jc.setVal(STJcTable.CENTER);
 
             // 设置表头
             XWPFTableRow headerRow = table.getRow(0);
@@ -724,7 +724,7 @@ public class ReportController extends BaseController {
             Long projectId = task.getProjectId();
 
             // 异步生成报告
-            reportServiceImpl.generateReportDocumentAsync(id, buildingId, projectId);
+            reportServiceImpl.generateReportDocumentAsync(report, buildingId, projectId,taskId);
 
             return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
         } catch (Exception e) {
