@@ -417,4 +417,18 @@
             </if>
         </where>
     </select>
+
+
+    <select id="selectErrorDiseases" parameterType="Disease" resultMap="DiseaseResult">
+        select
+            d.id, d.position, d.position_number, d.type, d.disease_type_id, d.description, d.level, d.quantity, d.units,
+            d.nature , d.participate_assess, d.deduct_points, d.img_no_exp,
+            d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
+            d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
+            d.attachment_count,
+            d.create_by, d.create_time, d.update_by, d.update_time, d.task_id
+        from bi_disease d
+                left join bi_object on d.bi_object_id=bi_object.id
+        where d.update_time > #{updateTime} and bi_object.name is null
+    </select>
 </mapper>

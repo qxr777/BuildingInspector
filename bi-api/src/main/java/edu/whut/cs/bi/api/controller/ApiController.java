@@ -24,6 +24,7 @@ import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
@@ -33,6 +34,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -88,6 +91,9 @@ public class ApiController {
 
     @Autowired
     private IReportService reportService;
+
+    @Autowired
+    private DiseaseMapper diseaseMapper;
 
 
     /**
@@ -527,4 +533,34 @@ public class ApiController {
         }
         return AjaxResult.success();
     }
+
+    @GetMapping("/updateErrorData")
+    @ResponseBody
+    @Transactional
+    public AjaxResult updateErrorData(Date updateTime) {
+
+        List<Disease> diseases = diseaseMapper.selectErrorDiseases(updateTime);
+
+        Map<Long, List<BiObject>> biObjectsMap = diseases.stream().map(disease -> disease.getBuildingId())
+                .distinct()
+                .collect(Collectors.toMap(buildingId -> buildingId, buildingId -> {
+                    Building building = buildingService.selectBuildingById(buildingId);
+                    return biObjectService.selectBiObjectAndChildren(building.getRootObjectId());
+                }));
+
+        final int[] count = {0};
+        diseases.stream().forEach(disease -> {
+            List<BiObject> biObjects = biObjectsMap.get(disease.getBuildingId());
+            BiObject target = biObjects.stream().filter(biObject -> biObject.getTemplateObjectId().equals(disease.getBiObjectId()))
+                    .findFirst().orElse(null);
+            if (target == null)
+                throw new RuntimeException("没有对应的biObject: " + disease.getBiObjectId());
+            disease.setBiObjectId(target.getId());
+            count[0] += diseaseService.updateDisease(disease);
+        });
+
+
+        return AjaxResult.success(count[0]);
+    }
+
 }

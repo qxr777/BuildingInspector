@@ -5,6 +5,7 @@ import edu.whut.cs.bi.biz.domain.Disease;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.sql.Date;
 import java.util.List;
 import java.util.Set;
 
@@ -96,4 +97,8 @@ public interface DiseaseMapper {
      * @return 处理结果
      */
     int batchUpdateDiseases(@Param("diseaseList") List<Disease> diseaseList);
+
+    // 修复数据
+    List<Disease> selectErrorDiseases(@Param("updateTime") Date updateTime);
+
 }
