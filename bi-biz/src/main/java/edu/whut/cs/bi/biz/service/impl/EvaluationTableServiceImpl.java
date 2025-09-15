@@ -16,6 +16,8 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.deepoove.poi.util.TableTools;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -102,11 +104,10 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
 
-
     /**
      * 在四句话段落后创建第一个分节符
      *
-     * @param document Word文档
+     * @param document       Word文档
      * @param afterParagraph 四句话段落
      */
     private void addSectionBreakAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph) {
@@ -136,7 +137,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     /**
      * 在四句话段落后立即创建一个新段落并设置横向分节符
      *
-     * @param document Word文档
+     * @param document       Word文档
      * @param afterParagraph 四句话段落
      */
     private XWPFParagraph addLandscapeSectionBreakAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph) {
@@ -185,7 +186,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     /**
      * 在表格后创建纵向分节符，恢复纵向布局
      *
-     * @param document Word文档
+     * @param document       Word文档
      * @param afterParagraph 四句话段落（用于定位）
      */
     private void addPortraitSectionBreakAfterTable(XWPFDocument document, XWPFParagraph afterParagraph) {
@@ -223,8 +224,6 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             throw e;
         }
     }
-
-
 
 
     /**
@@ -307,6 +306,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             while (table.getNumberOfRows() < totalRows) {
                 table.createRow();
             }
+            log.info("表格现有行数: {}", table.getNumberOfRows());
 
             // 确保每行有足够的列
             for (int i = 0; i < totalRows; i++) {
@@ -314,10 +314,14 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
                 while (row.getTableCells().size() < 15) {
                     row.createCell();
                 }
+                log.debug("第{}行列数: {}", i, row.getTableCells().size());
             }
 
             // 设置表格基本样式（不包括边框）
             setupComplexTableBasicStyle(table);
+
+            // 设置列宽
+            setColumnWidths(table);
 
             // 填充复杂表头（两行表头）
             fillComplexTableHeader(table);
@@ -329,6 +333,54 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
         } catch (Exception e) {
             log.error("使用XmlCursor在指定位置创建复杂评定表格失败", e);
+            throw e;
+        }
+    }
+
+    /**
+     * 设置表格的列宽
+     *
+     * @param table 表格对象
+     */
+    private void setColumnWidths(XWPFTable table) {
+        try {
+            // 定义每列的宽度（单位：twips，1英寸=1440 twips）- 适用于横向页面
+            int[] columnWidths = {
+                    1000,  // 列0: 部位
+                    800,   // 列1: 部件类别i
+                    2000,  // 列2: 评价部件
+                    1000,  // 列3: 权重标准值
+                    1000,  // 列4: 折算权重值
+                    1000,  // 列5: 技术状况评分
+                    1200,  // 列6: 主要部件技术状况等级
+                    1000,  // 列7: 加权得分
+                    800,   // 列8: 权重
+                    1000,  // 列9: 评价项目
+                    1000,  // 列10: 技术状况评分
+                    1000,  // 列11: 技术状况等级
+                    1000,  // 列12: 加权得分
+                    1000,  // 列13: 技术状况评分Dr
+                    1200   // 列14: 技术状况等级Dj
+            };
+
+            // 设置每一行的每一列的宽度
+            for (XWPFTableRow row : table.getRows()) {
+                for (int i = 0; i < Math.min(columnWidths.length, row.getTableCells().size()); i++) {
+                    XWPFTableCell cell = row.getCell(i);
+                    CTTcPr tcPr = cell.getCTTc().getTcPr();
+                    if (tcPr == null) {
+                        tcPr = cell.getCTTc().addNewTcPr();
+                    }
+
+                    CTTblWidth cellWidth = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+                    cellWidth.setW(BigInteger.valueOf(columnWidths[i]));
+                    cellWidth.setType(STTblWidth.DXA);
+                }
+            }
+
+            log.info("表格列宽设置完成");
+        } catch (Exception e) {
+            log.error("设置表格列宽失败", e);
             throw e;
         }
     }
@@ -368,9 +420,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
 
-
     /**
-     * 填充复杂表头（两行表头带合并）
+     * 填充复杂表头（两行表头带合并）- 修正版
      *
      * @param table 表格对象
      */
@@ -383,9 +434,9 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         // 第一行表头文本（15列）
         String[] firstRowHeaders = {
                 "部位", "部件类别i", "评价部件",
-                "桥梁分项工程", "", "", "", "",  // 第4-8列：第4列显示文本，5-8列为空（将被合并）
-                "桥梁分部工程", "", "", "", "",  // 第9-13列：第9列显示文本，10-13列为空（将被合并）
-                "桥梁总体", ""  // 第14-15列：第14列显示文本，第15列为空（将被合并）
+                "桥梁分项工程", "", "", "", "",  // 第4-8列：第4列显示文本，5-8列为空
+                "桥梁分部工程", "", "", "", "",  // 第9-13列：第9列显示文本，10-13列为空
+                "桥梁总体", ""  // 第14-15列：第14列显示文本，第15列为空
         };
 
         // 第二行表头文本（15列）
@@ -408,43 +459,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             setHeaderCellContentSafely(cell, secondRowHeaders[i]);
         }
 
-        // 最后处理单元格合并
-//        setupHeaderMerges(table);
-    }
-
-    /**
-     * 设置表头单元格内容
-     *
-     * @param cell 单元格
-     * @param text 文本内容
-     */
-    private void setHeaderCellContent(XWPFTableCell cell, String text) {
-        // 清除默认内容
-        if (cell.getParagraphs().size() > 0) {
-            cell.removeParagraph(0);
-        }
-
-        XWPFParagraph para = cell.addParagraph();
-        para.setAlignment(ParagraphAlignment.CENTER);
-
-        XWPFRun run = para.createRun();
-        run.setText(text);
-        run.setBold(true);
-        run.setFontSize(9);
-        run.setFontFamily("宋体");
-
-        // 设置单元格垂直居中
-        CTTc ctTc = cell.getCTTc();
-        CTTcPr tcPr = ctTc.isSetTcPr() ? ctTc.getTcPr() : ctTc.addNewTcPr();
-        CTVerticalJc vJc = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
-        vJc.setVal(STVerticalJc.CENTER);
-
-        // 设置单元格边框
-        CTTcBorders borders = tcPr.addNewTcBorders();
-        borders.addNewTop().setVal(STBorder.SINGLE);
-        borders.addNewBottom().setVal(STBorder.SINGLE);
-        borders.addNewLeft().setVal(STBorder.SINGLE);
-        borders.addNewRight().setVal(STBorder.SINGLE);
+        // 处理表头合并
+        setupHeaderMerges(table);
     }
 
     /**
@@ -476,27 +492,38 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
     /**
-     * 设置表头合并
+     * 设置表头合并 - 修正版
      *
      * @param table 表格对象
      */
     private void setupHeaderMerges(XWPFTable table) {
-        // 垂直合并：部位、部件类别i、评价部件（第0、1、2列跨两行）
-        mergeCellsVertically(table, 0, 0, 1); // 部位列（第1列）
-        mergeCellsVertically(table, 1, 0, 1); // 部件类别i列（第2列）
-        mergeCellsVertically(table, 2, 0, 1); // 评价部件列（第3列）
+        try {
+            log.info("开始设置表头合并");
 
-        // 水平合并：桥梁分项工程（第1行，第4-8列，即索引3-7）
-        mergeCellsHorizontally(table, 0, 3, 7); // 第1行，第4列到第8列
+            // 第一行水平合并
+            // 桥梁分项工程：第0行第3-7列（索引3-7，共5列）
+            mergeTableCellsHorizontally(table, 0, 3, 7);
 
-        // 水平合并：桥梁分部工程（第1行，第9-13列，即索引8-12）
-        mergeCellsHorizontally(table, 0, 8, 12); // 第1行，第9列到第13列
+            // 桥梁分部工程：第0行第8-12列（索引8-12，共5列）
+            mergeTableCellsHorizontally(table, 0, 4, 8);
 
-        // 水平合并：桥梁总体（第1行，第14-15列，即索引13-14）
-        mergeCellsHorizontally(table, 0, 13, 14); // 第1行，第14列到第15列
+            // 桥梁总体：第0行第13-14列（索引13-14，共2列）
+            mergeTableCellsHorizontally(table, 0, 5, 6);
 
-        // 合并完成后，为所有单元格设置垂直居中对齐
-        setVerticalAlignmentForAllCells(table);
+            // 垂直合并：部位、部件类别i、评价部件（第0、1、2列跨两行）
+            mergeCellsVertically(table, 0, 0, 1); // 部位列
+            mergeCellsVertically(table, 1, 0, 1); // 部件类别i列
+            mergeCellsVertically(table, 2, 0, 1); // 评价部件列
+
+            // 合并完成后设置垂直居中
+            setVerticalAlignmentForAllCells(table);
+
+            log.info("表头合并完成");
+
+        } catch (Exception e) {
+            log.error("设置表头合并失败", e);
+            throw e;
+        }
     }
 
     /**
@@ -529,50 +556,135 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
      * @param endRow   结束行
      */
     private void mergeCellsVertically(XWPFTable table, int col, int startRow, int endRow) {
-        for (int row = startRow; row <= endRow; row++) {
-            XWPFTableCell cell = table.getRow(row).getCell(col);
-            CTTcPr tcPr = cell.getCTTc().getTcPr();
-            if (tcPr == null) {
-                tcPr = cell.getCTTc().addNewTcPr();
+        try {
+            log.debug("垂直合并第{}列，从第{}行到第{}行", col, startRow, endRow);
+
+            // 安全检查
+            if (table == null || col < 0 || startRow < 0 || endRow < startRow) {
+                log.warn("垂直合并参数无效: col={}, startRow={}, endRow={}", col, startRow, endRow);
+                return;
             }
 
-            CTVMerge vMerge = tcPr.isSetVMerge() ? tcPr.getVMerge() : tcPr.addNewVMerge();
-            if (row == startRow) {
-                vMerge.setVal(STMerge.RESTART);
-            } else {
-                vMerge.setVal(STMerge.CONTINUE);
+            if (table.getNumberOfRows() <= endRow) {
+                log.warn("表格行数不足，无法进行垂直合并: 表格行数={}, 需要行数={}", table.getNumberOfRows(), endRow + 1);
+                return;
             }
+
+            for (int row = startRow; row <= endRow; row++) {
+                XWPFTableRow tableRow = table.getRow(row);
+                if (tableRow == null || tableRow.getTableCells().size() <= col) {
+                    log.warn("第{}行第{}列不存在，跳过垂直合并", row, col);
+                    continue;
+                }
+
+                XWPFTableCell cell = tableRow.getCell(col);
+                CTTcPr tcPr = cell.getCTTc().getTcPr();
+                if (tcPr == null) {
+                    tcPr = cell.getCTTc().addNewTcPr();
+                }
+
+                CTVMerge vMerge = tcPr.isSetVMerge() ? tcPr.getVMerge() : tcPr.addNewVMerge();
+                if (row == startRow) {
+                    vMerge.setVal(STMerge.RESTART);
+                    log.debug("设置第{}行第{}列为垂直合并起始", row, col);
+                } else {
+                    vMerge.setVal(STMerge.CONTINUE);
+                    log.debug("设置第{}行第{}列为垂直合并继续", row, col);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("垂直合并第{}列（第{}行到第{}行）失败", col, startRow, endRow, e);
+            throw e;
         }
     }
 
     /**
-     * 水平合并单元格（参考DiseaseComparisonTableUtils的安全实现）
+     * 使用poi-tl TableTools进行水平合并
      *
      * @param table    表格
      * @param row      行
      * @param startCol 起始列
      * @param endCol   结束列
      */
-    private void mergeCellsHorizontally(XWPFTable table, int row, int startCol, int endCol) {
-        XWPFTableRow tableRow = table.getRow(row);
-        for (int col = startCol; col <= endCol; col++) {
-            XWPFTableCell cell = tableRow.getCell(col);
-            CTTcPr tcPr = cell.getCTTc().getTcPr();
-            if (tcPr == null) {
-                tcPr = cell.getCTTc().addNewTcPr();
+    private void mergeTableCellsHorizontally(XWPFTable table, int row, int startCol, int endCol) {
+        try {
+            log.debug("使用TableTools水平合并第{}行，从第{}列到第{}列", row, startCol, endCol);
+
+            // 安全检查
+            if (table == null || row < 0 || startCol < 0 || endCol < startCol) {
+                log.warn("TableTools合并参数无效: row={}, startCol={}, endCol={}", row, startCol, endCol);
+                return;
             }
 
-            CTHMerge hMerge = tcPr.isSetHMerge() ? tcPr.getHMerge() : tcPr.addNewHMerge();
-            if (col == startCol) {
-                hMerge.setVal(STMerge.RESTART);
-            } else {
-                hMerge.setVal(STMerge.CONTINUE);
+            if (table.getNumberOfRows() <= row) {
+                log.warn("表格行数不足，无法进行TableTools合并: 表格行数={}, 需要行数={}", table.getNumberOfRows(), row + 1);
+                return;
             }
+
+            XWPFTableRow tableRow = table.getRow(row);
+            if (tableRow == null) {
+                log.warn("第{}行不存在，无法进行TableTools合并", row);
+                return;
+            }
+
+            if (tableRow.getTableCells().size() <= endCol) {
+                log.warn("第{}行列数不足，无法进行TableTools合并: 行列数={}, 需要列数={}", row, tableRow.getTableCells().size(), endCol + 1);
+                return;
+            }
+
+            // 在合并前计算总宽度
+            int totalWidth = 0;
+            for (int i = startCol; i <= endCol; i++) {
+                XWPFTableCell cell = tableRow.getCell(i);
+                CTTcPr tcPr = cell.getCTTc().getTcPr();
+                if (tcPr != null && tcPr.isSetTcW()) {
+                    Object w = tcPr.getTcW().getW();
+                    if (w != null) {
+                        if (w instanceof BigInteger) {
+                            totalWidth += ((BigInteger) w).intValue();
+                        } else if (w instanceof Integer) {
+                            totalWidth += (Integer) w;
+                        } else if (w instanceof String) {
+                            try {
+                                totalWidth += Integer.parseInt((String) w);
+                            } catch (NumberFormatException e) {
+                                log.warn("无法解析单元格宽度: {}", w);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 如果总宽度为0（可能是因为没有设置宽度），使用默认宽度
+            if (totalWidth == 0) {
+                totalWidth = 1000 * (endCol - startCol + 1); // 每个单元格默认1000
+            }
+
+            // 使用poi-tl的TableTools进行合并
+            TableTools.mergeCellsHorizonal(table, row, startCol, endCol);
+
+            // 合并后设置单元格宽度为所有被合并单元格的宽度总和
+            XWPFTableCell mergedCell = tableRow.getCell(startCol);
+            CTTcPr tcPr = mergedCell.getCTTc().getTcPr();
+            if (tcPr == null) {
+                tcPr = mergedCell.getCTTc().addNewTcPr();
+            }
+
+            CTTblWidth tcWidth = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+            tcWidth.setW(BigInteger.valueOf(totalWidth));
+            tcWidth.setType(STTblWidth.DXA);
+
+            log.debug("成功使用TableTools合并第{}行第{}列到第{}列，合并后宽度: {}", row, startCol, endCol, totalWidth);
+
+        } catch (Exception e) {
+            log.error("使用TableTools合并第{}行（第{}列到第{}列）失败", row, startCol, endCol, e);
+            throw e;
         }
     }
 
     /**
-     * 填充复杂表格数据（带合并）
+     * 填充复杂表格数据（带合并）- 修正版
      *
      * @param table         表格对象
      * @param structureData 结构数据
@@ -593,21 +705,26 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         Integer[] structureLevels = {evaluation.getSuperstructureLevel(), evaluation.getSubstructureLevel(), evaluation.getDeckSystemLevel()};
         BigDecimal[] structureWeights = {new BigDecimal("0.4"), new BigDecimal("0.4"), new BigDecimal("0.2")};
 
-        // 记录每个结构的起始行，用于后续的部位列合并
+        // 记录每个结构的起始行和行数
         Map<String, Integer> structureStartRows = new HashMap<>();
         Map<String, Integer> structureRowCounts = new HashMap<>();
+
+        // 记录全局数据行范围
+        int globalDataStartRow = currentRow;
+        int totalDataRows = 0;
 
         for (int structIndex = 0; structIndex < structureTypes.length; structIndex++) {
             String structureType = structureTypes[structIndex];
             List<BiObject> components = structureData.get(structureType);
 
             if (components.isEmpty()) {
-                continue; // 跳过没有构件的结构
+                continue;
             }
 
             int structureStartRow = currentRow;
             structureStartRows.put(structureType, structureStartRow);
             structureRowCounts.put(structureType, components.size());
+            totalDataRows += components.size();
 
             // 填充该结构下的所有构件
             for (int i = 0; i < components.size(); i++) {
@@ -616,37 +733,37 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
                 // 填充构件数据
                 fillComplexComponentRow(dataRow, component, conditionMap.get(component.getId()), i + 1,
-                        structureStartRow, currentRow, components.size(), structureType);
+                        currentRow == structureStartRow, structureType);
+
+                // 只在结构的第一行填充分部工程汇总信息
+                if (currentRow == structureStartRow) {
+                    fillComplexStructureSummary(dataRow, structureType, evalCodes[structIndex],
+                            structureScores[structIndex], structureLevels[structIndex], structureWeights[structIndex]);
+                }
 
                 currentRow++;
             }
-
-            // 在第一行添加结构汇总信息
-            XWPFTableRow firstRow = table.getRow(structureStartRow);
-            fillComplexStructureSummary(firstRow, structureType, evalCodes[structIndex], structureScores[structIndex],
-                    structureLevels[structIndex], structureWeights[structIndex], components.size());
         }
 
-        // 处理部位列的垂直合并
-        setupDataMerges(table, structureStartRows, structureRowCounts);
+        // 在第一个数据行填充全桥汇总信息
+        if (totalDataRows > 0) {
+            XWPFTableRow firstDataRow = table.getRow(globalDataStartRow);
+            fillComplexBridgeOverall(firstDataRow, evaluation);
+        }
 
-        // 在第一行数据行添加全桥汇总信息
-        XWPFTableRow firstDataRow = table.getRow(2); // 第三行是第一行数据
-        fillComplexBridgeOverall(table, firstDataRow, evaluation, structureStartRows, structureRowCounts);
-
-        // 数据填充和合并完成后，再次确保所有单元格垂直居中
-        setVerticalAlignmentForAllCells(table);
+        // 设置数据区域的合并
+        setupDataMerges(table, structureStartRows, structureRowCounts, globalDataStartRow, totalDataRows);
     }
 
     /**
-     * 填充复杂构件行数据
+     * 填充复杂构件行数据 - 修正版
      */
-    private void fillComplexComponentRow(XWPFTableRow row, BiObject component, Condition condition, int index,
-                                         int structureStartRow, int currentRow, int structureSize, String structureType) {
+    private void fillComplexComponentRow(XWPFTableRow row, BiObject component, Condition condition,
+                                         int index, boolean isFirstRowOfStructure, String structureType) {
         String[] cellValues = new String[15];
 
-        // 部位（只在第一行显示，其他行为空，后续会被合并）
-        cellValues[0] = (currentRow == structureStartRow) ? structureType : "";
+        // 部位（只在结构的第一行显示）
+        cellValues[0] = isFirstRowOfStructure ? structureType : "";
 
         // 部件类别
         cellValues[1] = String.valueOf(index);
@@ -654,20 +771,18 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         // 评价部件
         cellValues[2] = component.getName();
 
-        // 权重标准值
+        // 桥梁分项工程列（第3-7列）
         cellValues[3] = component.getStandardWeight() != null ? String.format("%.2f", component.getStandardWeight()) : "/";
+        if (component.getWeight() != null && component.getWeight().doubleValue() != 0) {
+            cellValues[4] = String.format("%.2f", component.getWeight());
+        } else {
+            cellValues[4] = "/";
+        }
 
-        // 折算权重值
-        cellValues[4] = component.getWeight() != null ? String.format("%.2f", component.getWeight()) : "/";
-
-        if (condition != null) {
-            // 技术状况评分
+        if (condition != null && component.getWeight().doubleValue() != 0) {
             cellValues[5] = condition.getScore() != null ? String.format("%.1f", condition.getScore()) : "/";
-
-            // 主要部件技术状况等级
             cellValues[6] = condition.getLevel() != null ? condition.getLevel() + "类" : "/";
 
-            // 加权得分
             if (condition.getScore() != null && component.getWeight() != null) {
                 BigDecimal weightedScore = condition.getScore().multiply(component.getWeight());
                 cellValues[7] = String.format("%.1f", weightedScore);
@@ -680,7 +795,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             cellValues[7] = "/";
         }
 
-        // 后面的列先置空，在汇总方法中填充
+        // 桥梁分部工程列（第8-12列）和桥梁总体列（第13-14列）在各自的填充方法中处理
         for (int i = 8; i < 15; i++) {
             cellValues[i] = "";
         }
@@ -693,23 +808,16 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
     /**
-     * 填充复杂结构汇总信息
+     * 填充复杂结构汇总信息 - 修正版
      */
     private void fillComplexStructureSummary(XWPFTableRow row, String structureType, String evalCode,
-                                             BigDecimal score, Integer level, BigDecimal weight, int componentCount) {
-        // 权重（第9列，索引8）
+                                             BigDecimal score, Integer level, BigDecimal weight) {
+        // 桥梁分部工程列（第8-12列）
         setCellContent(row.getCell(8), weight != null ? String.format("%.1f", weight) : "/");
-
-        // 评价项目（第10列，索引9）
         setCellContent(row.getCell(9), evalCode);
-
-        // 技术状况评分（第11列，索引10）
         setCellContent(row.getCell(10), score != null ? String.format("%.1f", score) : "/");
-
-        // 技术状况等级（第12列，索引11）
         setCellContent(row.getCell(11), level != null ? level + "类" : "/");
 
-        // 加权得分（第13列，索引12）
         if (score != null && weight != null) {
             BigDecimal weightedScore = score.multiply(weight);
             setCellContent(row.getCell(12), String.format("%.1f", weightedScore));
@@ -719,39 +827,59 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
     /**
-     * 设置数据区的合并
+     * 填充复杂全桥汇总信息 - 修正版
      */
-    private void setupDataMerges(XWPFTable table, Map<String, Integer> structureStartRows, Map<String, Integer> structureRowCounts) {
-        // 合并部位列（第1列）
-        for (Map.Entry<String, Integer> entry : structureStartRows.entrySet()) {
-            int startRow = entry.getValue();
-            int rowCount = structureRowCounts.get(entry.getKey());
-            if (rowCount > 1) {
-                mergeCellsVertically(table, 0, startRow, startRow + rowCount - 1);
-            }
-        }
+    private void fillComplexBridgeOverall(XWPFTableRow row, BiEvaluation evaluation) {
+        // 桥梁总体列（第13-14列）
+        setCellContent(row.getCell(13), evaluation.getSystemScore() != null ?
+                String.format("%.1f", evaluation.getSystemScore()) : "/");
+        setCellContent(row.getCell(14), evaluation.getSystemLevel() != null ?
+                evaluation.getSystemLevel() + "类" : "/");
     }
 
     /**
-     * 填充复杂全桥汇总信息
+     * 设置数据区的合并 - 修正版
      */
-    private void fillComplexBridgeOverall(XWPFTable table, XWPFTableRow row, BiEvaluation evaluation,
-                                          Map<String, Integer> structureStartRows, Map<String, Integer> structureRowCounts) {
-        // 技术状况评分Dr（第14列，索引13）
-        setCellContent(row.getCell(13), evaluation.getSystemScore() != null ?
-                String.format("%.1f", evaluation.getSystemScore()) : "/");
+    private void setupDataMerges(XWPFTable table, Map<String, Integer> structureStartRows,
+                                 Map<String, Integer> structureRowCounts, int globalDataStartRow, int totalDataRows) {
+        try {
+            // 1. 合并部位列（第0列）- 按结构类型分别合并
+            for (Map.Entry<String, Integer> entry : structureStartRows.entrySet()) {
+                String structureType = entry.getKey();
+                int startRow = entry.getValue();
+                int rowCount = structureRowCounts.get(structureType);
 
-        // 技术状况等级Dj（第15列，索引14）
-        setCellContent(row.getCell(14), evaluation.getSystemLevel() != null ?
-                evaluation.getSystemLevel() + "类" : "/");
+                if (rowCount > 1) {
+                    log.info("合并{}部位列，从第{}行到第{}行", structureType, startRow, startRow + rowCount - 1);
+                    mergeCellsVertically(table, 0, startRow, startRow + rowCount - 1);
+                }
+            }
 
-        // 计算需要合并的总行数，用于垂直合并全桥汇总列
-        int totalDataRows = structureRowCounts.values().stream().mapToInt(Integer::intValue).sum();
-        if (totalDataRows > 1) {
-            // 合并全桥汇总列（第14、15列，索引13、14）
-            int firstDataRow = structureStartRows.values().stream().mapToInt(Integer::intValue).min().orElse(2);
-            mergeCellsVertically(table, 13, firstDataRow, firstDataRow + totalDataRows - 1); // Dr列（第14列，索引13）
-            mergeCellsVertically(table, 14, firstDataRow, firstDataRow + totalDataRows - 1); // Dj列（第15列，索引14）
+            // 2. 合并分部工程列（第8-12列）- 按结构类型分别合并
+            for (Map.Entry<String, Integer> entry : structureStartRows.entrySet()) {
+                String structureType = entry.getKey();
+                int startRow = entry.getValue();
+                int rowCount = structureRowCounts.get(structureType);
+
+                if (rowCount > 1) {
+                    log.info("合并{}分部工程列，从第{}行到第{}行", structureType, startRow, startRow + rowCount - 1);
+                    for (int col = 8; col <= 12; col++) {
+                        mergeCellsVertically(table, col, startRow, startRow + rowCount - 1);
+                    }
+                }
+            }
+
+            // 3. 合并全桥总体列（第13-14列）- 合并所有数据行
+            if (totalDataRows > 1) {
+                log.info("合并全桥总体列，从第{}行到第{}行", globalDataStartRow, globalDataStartRow + totalDataRows - 1);
+                mergeCellsVertically(table, 13, globalDataStartRow, globalDataStartRow + totalDataRows - 1);
+                mergeCellsVertically(table, 14, globalDataStartRow, globalDataStartRow + totalDataRows - 1);
+            }
+
+            log.info("数据区合并完成");
+        } catch (Exception e) {
+            log.error("设置数据区合并失败", e);
+            throw e;
         }
     }
 
