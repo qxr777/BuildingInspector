@@ -405,11 +405,112 @@
                                 </div>
                             </div>
 
-                            <!-- 其他选项卡内容 -->
+                            <!-- 空间变位检测结果 -->
                             <div class="tab-pane" id="tab_4">
-                                <div class="alert alert-info">
-                                    空间变位检测结果选项卡的内容将根据需求添加
+                                <div class="panel-group" id="accordion_spatial">
+                                    <!-- 桥面高程 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_spatial" href="#collapse_bridge_elevation">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-down"></i> 桥面高程
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_bridge_elevation" class="panel-collapse collapse in">
+                                            <div class="panel-body">
+                                                <!-- 检测内容及方法 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">检测内容及方法:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-4-1-testContentsAndMethods}]" data-original-key="${chapter-4-1-testContentsAndMethods}" rows="5"></textarea>
+                                                </div>
+
+                                                <!-- 桥梁测点布置示意图 -->
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">桥梁测点布置示意图:</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="${chapter-4-1-layoutOfMeasuringPoints}" data-image-title="测点布置示意图" multiple>
+                                                    <input type="hidden" name="dataKeys" value="${chapter-4-1-layoutOfMeasuringPoints}">
+                                                    <input type="hidden" name="dataTypes" value="1">
+                                                    <input type="hidden" name="dataValues" class="image-value-holder" id="value-chapter-4-1-layoutOfMeasuringPoints" data-original-key="${chapter-4-1-layoutOfMeasuringPoints}">
+                                                    <div class="image-preview" id="preview-chapter-4-1-layoutOfMeasuringPoints" data-original-key="${chapter-4-1-layoutOfMeasuringPoints}"></div>
+                                                </div>
+
+                                                <!-- 检测结果 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">检测结果:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-4-1-detectionResult}]" data-original-key="${chapter-4-1-detectionResult}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 墩台变位 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_spatial" href="#collapse_pier_displacement">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 墩台变位
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_pier_displacement" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <!-- 墩台变位 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">墩台变位:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-4-1-pier}]" data-original-key="${chapter-4-1-pier}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 墩台倾斜度 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_spatial" href="#collapse_pier_tilt">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 墩台倾斜度
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_pier_tilt" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <!-- 检测结论 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">检测结论:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-4-3-result}]" data-original-key="${chapter-4-3-result}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 索塔变位 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_spatial" href="#collapse_tower_displacement">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 索塔变位
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_tower_displacement" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <!-- 检测内容及方法 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">检测内容及方法:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-4-4-testContentsAndMethods}]" data-original-key="${chapter-4-4-testContentsAndMethods}" rows="5"></textarea>
+                                                </div>
+
+                                                <!-- 检测数据 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">检测数据:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-4-4-detectionData}]" data-original-key="${chapter-4-4-detectionData}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <!-- 保存按钮 -->
                                 <div class="form-group">
                                     <div class="col-sm-12 text-center">
@@ -443,9 +544,78 @@
                             </div>
 
                             <div class="tab-pane" id="tab_7">
-                                <div class="alert alert-info">
-                                    重点关注病害及主要病害成因分析选项卡的内容将根据需求添加
+                                <div class="panel-group" id="accordion_disease_analysis">
+                                    <!-- 重点关注病害 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_disease_analysis" href="#collapse_focus_diseases">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-down"></i> 重点关注病害
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_focus_diseases" class="panel-collapse collapse in">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">重点关注病害:</label>
+                                                    <div class="row">
+                                                        <div class="col-md-10">
+                                                            <input type="text" class="form-control" readonly
+                                                                   id="focus-diseases-display"
+                                                                   placeholder="请选择重点关注病害"
+                                                                   onclick="showDiseaseSelector('focus-diseases')">
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <button type="button" class="btn btn-primary" onclick="showDiseaseSelector('focus-diseases')">
+                                                                <i class="fa fa-list"></i> 选择
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <!-- 隐藏字段存储JSON数据 -->
+                                                    <input type="hidden" name="dataValues[${chapter-7-1-focusOnDiseases}]"
+                                                           data-original-key="${chapter-7-1-focusOnDiseases}"
+                                                           id="focus-diseases-value">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 主要病害成因分析 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_disease_analysis" href="#collapse_cause_analysis">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-right"></i> 主要病害成因分析
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_cause_analysis" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">主要病害成因分析:</label>
+                                                    <div class="row">
+                                                        <div class="col-md-10">
+                                                            <input type="text" class="form-control" readonly
+                                                                   id="cause-analysis-display"
+                                                                   placeholder="请选择主要病害成因分析"
+                                                                   onclick="showDiseaseSelector('cause-analysis')">
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <button type="button" class="btn btn-primary" onclick="showDiseaseSelector('cause-analysis')">
+                                                                <i class="fa fa-list"></i> 选择
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <!-- 隐藏字段存储JSON数据 -->
+                                                    <input type="hidden" name="dataValues[${chapter-7-2-analysisOfTheCausesOfMajorDiseases}]"
+                                                           data-original-key="${chapter-7-2-analysisOfTheCausesOfMajorDiseases}"
+                                                           id="cause-analysis-value">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <!-- 保存按钮 -->
                                 <div class="form-group">
                                     <div class="col-sm-12 text-center">
@@ -496,11 +666,63 @@
         </div>
     </div>
 </div>
+
+<!-- 病害选择器模态框 -->
+<div class="modal fade" id="diseaseSelectModal" tabindex="-1" role="dialog" aria-labelledby="diseaseSelectModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="diseaseSelectModalLabel">选择病害</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label>搜索过滤:</label>
+                            <input type="text" class="form-control" id="diseaseSearchInput" placeholder="输入构件名称或病害类型进行搜索">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" id="selectAllDiseases"> 全选/全不选
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="panel-body" style="max-height: 400px; overflow-y: auto;">
+                                <div id="diseaseSelectionList">
+                                    <!-- 动态加载病害选择列表 -->
+                                    <div class="text-center">
+                                        <i class="fa fa-spinner fa-spin"></i> 正在加载数据...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmDiseaseSelection">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <th:block th:include="include :: footer" />
 <th:block th:include="include :: bootstrap-fileinput-js"/>
 <script th:inline="javascript">
     var prefix = ctx + "biz/report_data";
     var reportId = /*[[${report.id}]]*/ '';
+    var currentSelectorType = ''; // 当前选择器类型：focus-diseases 或 cause-analysis
+    var diseaseComponentData = []; // 存储构件病害数据
 
     $(function() {
         // 初始化文件上传控件
@@ -599,8 +821,19 @@
             },
             dataType: "json",
             success: function(result) {
+                console.log('加载报告数据结果:', result);
                 if (result.rows && result.rows.length > 0) {
+                    console.log('开始填充表单数据，记录数:', result.rows.length);
+
+                    // 检查是否有病害选择相关的数据
+                    var diseaseData = result.rows.filter(function(item) {
+                        return item.key && (item.key.includes('chapter-7-1-focusOnDiseases') || item.key.includes('chapter-7-2-analysisOfTheCausesOfMajorDiseases'));
+                    });
+                    console.log('病害选择相关数据:', diseaseData);
+
                     fillFormData(result.rows);
+                } else {
+                    console.log('没有加载到报告数据');
                 }
             },
             error: function() {
@@ -622,6 +855,7 @@
                 // 文本类型 - 使用data-original-key属性查找元素
                 $('textarea[data-original-key="' + key + '"]').val(value);
                 $('input[type="text"][data-original-key="' + key + '"]').val(value);
+                $('input[type="hidden"][data-original-key="' + key + '"]').val(value);
             } else if (type == 1) {
                 // 图片类型 - 使用属性选择器查找元素
                 if (value) {
@@ -808,10 +1042,29 @@
             var key = $(this).data('original-key');
             var value = $(this).val();
 
-            // 添加到FormData
-            formData.append("dataKeys", key);
-            formData.append("dataValues", value);
-            formData.append("dataTypes", "0"); // 0表示文本类型
+            // 只处理有original-key属性的文本字段，排除病害选择的显示字段
+            if (key) {
+                // 添加到FormData
+                formData.append("dataKeys", key);
+                formData.append("dataValues", value);
+                formData.append("dataTypes", "0"); // 0表示文本类型
+            }
+        });
+
+        // 添加病害选择字段 - 处理隐藏字段中的JSON数据
+        tabPane.find('input[type="hidden"][data-original-key]').each(function() {
+            var key = $(this).data('original-key');
+            var value = $(this).val();
+
+            // 检查是否是病害选择相关的字段
+            if (key && (key.includes('chapter-7-1-focusOnDiseases') || key.includes('chapter-7-2-analysisOfTheCausesOfMajorDiseases'))) {
+                console.log('处理病害选择字段:', key, '值:', value);
+
+                // 添加到FormData
+                formData.append("dataKeys", key);
+                formData.append("dataValues", value || ""); // 如果没有值，传空字符串
+                formData.append("dataTypes", "0"); // 0表示文本类型（JSON字符串作为文本存储）
+            }
         });
 
         // 添加图片字段
@@ -888,6 +1141,323 @@
             }
         });
     }
+
+    // 显示病害选择器
+    function showDiseaseSelector(selectorType) {
+        currentSelectorType = selectorType;
+
+        // 设置模态框标题
+        var title = selectorType === 'focus-diseases' ? '选择重点关注病害' : '选择主要病害成因分析';
+        $('#diseaseSelectModalLabel').text(title);
+
+        // 检查数据是否已加载（缓存）
+        if (diseaseComponentData.length > 0) {
+            // 数据已缓存，直接渲染选择列表
+            console.log('使用缓存的病害构件数据');
+            renderDiseaseSelectionList();
+        } else {
+            // 第一次点击，需要加载数据
+            console.log('第一次打开选择器，开始加载病害构件数据...');
+            $('#diseaseSelectionList').html('<div class="text-center"><i class="fa fa-spinner fa-spin"></i> 正在加载数据...</div>');
+
+            // 加载数据并缓存
+            loadDiseaseComponentDataWithCallback(function() {
+                // 加载成功后渲染列表
+                renderDiseaseSelectionList();
+            });
+        }
+
+        // 显示模态框
+        $('#diseaseSelectModal').modal('show');
+    }
+
+    // 加载构件病害数据（带回调函数）
+    function loadDiseaseComponentDataWithCallback(successCallback) {
+        // 如果数据已加载，直接执行回调
+        if (diseaseComponentData.length > 0) {
+            console.log('数据已缓存，直接执行回调');
+            if (successCallback) successCallback();
+            return;
+        }
+
+        console.log('开始加载病害构件数据...');
+
+        $.ajax({
+            url: prefix + "/getDiseaseComponentData",
+            type: "post",
+            data: {
+                "reportId": reportId
+            },
+            dataType: "json",
+            success: function(result) {
+                if (result.code == 0 && result.data) {
+                    diseaseComponentData = result.data;
+                    console.log('病害构件数据加载成功，共 ' + diseaseComponentData.length + ' 条记录');
+
+                    // 执行成功回调
+                    if (successCallback) successCallback();
+                } else {
+                    console.error('加载病害构件数据失败：' + (result.msg || '未知错误'));
+                    $('#diseaseSelectionList').html('<div class="text-center text-danger">加载数据失败：' + (result.msg || '未知错误') + '</div>');
+                }
+            },
+            error: function() {
+                console.error('加载病害构件数据失败，网络错误');
+                $('#diseaseSelectionList').html('<div class="text-center text-danger">加载数据失败，请重试</div>');
+            }
+        });
+    }
+
+    // 兼容原有的加载函数（保留用于数据回显等场景）
+    function loadDiseaseComponentData() {
+        loadDiseaseComponentDataWithCallback();
+    }
+
+    // 渲染病害选择列表
+    function renderDiseaseSelectionList() {
+        var html = '';
+
+        if (diseaseComponentData && diseaseComponentData.length > 0) {
+            // 获取当前已选择的数据
+            var currentValue = $('#' + currentSelectorType + '-value').val();
+            var selectedData = [];
+            if (currentValue && currentValue.trim() !== '' && currentValue !== '[]') {
+                try {
+                    selectedData = JSON.parse(currentValue);
+                    console.log('解析已选择数据:', selectedData);
+                } catch (e) {
+                    console.error('解析已选择数据失败:', e);
+                }
+            }
+
+            // 创建已选择数据的映射，便于快速查找
+            var selectedMap = {};
+            for (var i = 0; i < selectedData.length; i++) {
+                var item = selectedData[i];
+                for (var componentId in item) {
+                    var diseaseTypeIds = item[componentId];
+                    if (!selectedMap[componentId]) {
+                        selectedMap[componentId] = {};
+                    }
+                    for (var j = 0; j < diseaseTypeIds.length; j++) {
+                        selectedMap[componentId][diseaseTypeIds[j]] = true;
+                    }
+                }
+            }
+
+            console.log('选择状态映射:', selectedMap);
+
+            // 按构件分组渲染
+            var componentGroups = {};
+            for (var i = 0; i < diseaseComponentData.length; i++) {
+                var item = diseaseComponentData[i];
+                var componentId = item.componentId;
+                var componentName = item.componentName;
+
+                if (!componentGroups[componentId]) {
+                    componentGroups[componentId] = {
+                        name: componentName,
+                        diseases: []
+                    };
+                }
+                componentGroups[componentId].diseases.push({
+                    diseaseTypeId: item.diseaseTypeId,
+                    diseaseTypeName: item.diseaseTypeName
+                });
+            }
+
+            // 渲染HTML
+            for (var componentId in componentGroups) {
+                var group = componentGroups[componentId];
+                html += '<div class="component-group" style="margin-bottom: 20px;">';
+                html += '<h5 style="color: #337ab7; border-bottom: 1px solid #ddd; padding-bottom: 5px;">';
+                html += '<i class="fa fa-building-o"></i> ' + group.name + '</h5>';
+
+                for (var j = 0; j < group.diseases.length; j++) {
+                    var disease = group.diseases[j];
+                    var isChecked = selectedMap[componentId] && selectedMap[componentId][disease.diseaseTypeId];
+
+                    html += '<div class="checkbox" style="margin-left: 20px;">';
+                    html += '<label>';
+                    html += '<input type="checkbox" class="disease-checkbox" ';
+                    html += 'data-component-id="' + componentId + '" ';
+                    html += 'data-component-name="' + group.name + '" ';
+                    html += 'data-disease-type-id="' + disease.diseaseTypeId + '" ';
+                    html += 'data-disease-type-name="' + disease.diseaseTypeName + '"';
+                    if (isChecked) {
+                        html += ' checked';
+                    }
+                    html += '> ' + group.name + ' + ' + disease.diseaseTypeName;
+                    html += '</label>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+        } else {
+            html = '<div class="text-center text-muted">暂无数据</div>';
+        }
+
+        $('#diseaseSelectionList').html(html);
+
+        // 绑定事件
+        bindDiseaseSelectionEvents();
+    }
+
+    // 绑定病害选择事件
+    function bindDiseaseSelectionEvents() {
+        // 全选/全不选事件
+        $('#selectAllDiseases').off('change').on('change', function() {
+            var isChecked = $(this).prop('checked');
+            $('.disease-checkbox').prop('checked', isChecked);
+        });
+
+        // 搜索过滤事件
+        $('#diseaseSearchInput').off('input').on('input', function() {
+            var searchText = $(this).val().toLowerCase();
+            $('.component-group').each(function() {
+                var $group = $(this);
+                var hasMatch = false;
+
+                $group.find('.checkbox').each(function() {
+                    var $checkbox = $(this);
+                    var text = $checkbox.text().toLowerCase();
+                    if (text.indexOf(searchText) !== -1) {
+                        $checkbox.show();
+                        hasMatch = true;
+                    } else {
+                        $checkbox.hide();
+                    }
+                });
+
+                if (hasMatch || searchText === '') {
+                    $group.show();
+                } else {
+                    $group.hide();
+                }
+            });
+        });
+
+        // 确定按钮事件
+        $('#confirmDiseaseSelection').off('click').on('click', function() {
+            confirmDiseaseSelection();
+        });
+    }
+
+    // 确认病害选择
+    function confirmDiseaseSelection() {
+        var selectedItems = [];
+        var componentMap = {}; // 用于按构件ID分组
+
+        // 收集选中的项目
+        $('.disease-checkbox:checked').each(function() {
+            var componentId = $(this).data('component-id');
+            var diseaseTypeId = $(this).data('disease-type-id');
+
+            console.log('选中项目:', componentId, diseaseTypeId);
+
+            if (!componentMap[componentId]) {
+                componentMap[componentId] = [];
+            }
+            componentMap[componentId].push(parseInt(diseaseTypeId)); // 确保是数字类型
+        });
+
+        console.log('构件分组映射:', componentMap);
+
+        // 转换为所需的JSON格式：List<HashMap<Long,List<Long>>>
+        for (var componentId in componentMap) {
+            var item = {};
+            item[parseInt(componentId)] = componentMap[componentId]; // 确保key是数字
+            selectedItems.push(item);
+        }
+
+        console.log('最终选择数据:', selectedItems);
+
+        // 更新隐藏字段
+        var jsonValue = JSON.stringify(selectedItems);
+        console.log('JSON字符串:', jsonValue);
+        console.log('隐藏字段ID:', currentSelectorType + '-value');
+
+        var $hiddenField = $('#' + currentSelectorType + '-value');
+        console.log('找到隐藏字段:', $hiddenField.length > 0);
+        console.log('隐藏字段的data-original-key:', $hiddenField.data('original-key'));
+
+        $hiddenField.val(jsonValue);
+
+        // 更新显示字段
+        updateDiseaseDisplay(currentSelectorType);
+
+        // 关闭模态框
+        $('#diseaseSelectModal').modal('hide');
+    }
+
+    // 更新病害显示
+    function updateDiseaseDisplay(selectorType) {
+        var value = $('#' + selectorType + '-value').val();
+        var displayText = '';
+
+        if (value && value.trim() !== '' && value !== '[]') {
+            try {
+                var selectedData = JSON.parse(value);
+                var totalCount = 0;
+
+                // 计算总选择数量
+                for (var i = 0; i < selectedData.length; i++) {
+                    var item = selectedData[i];
+                    for (var componentId in item) {
+                        var diseaseTypeIds = item[componentId];
+                        totalCount += diseaseTypeIds.length;
+                    }
+                }
+
+                if (totalCount > 0) {
+                    displayText = '已选择' + totalCount + '项';
+                } else {
+                    displayText = '请选择';
+                }
+            } catch (e) {
+                console.error('解析选择数据失败:', e);
+                displayText = '数据格式错误';
+            }
+        } else {
+            displayText = '请选择';
+        }
+
+        $('#' + selectorType + '-display').val(displayText);
+    }
+
+    // 扩展fillFormData函数，处理病害选择字段的数据回显
+    var originalFillFormData = fillFormData;
+    fillFormData = function(dataList) {
+        // 调用原始函数
+        originalFillFormData(dataList);
+
+        // 处理病害选择字段的显示更新
+        setTimeout(function() {
+            // 检查是否有病害选择相关的数据
+            var focusDiseasesValue = $('input[data-original-key="${chapter-7-1-focusOnDiseases}"]').val();
+            var causeAnalysisValue = $('input[data-original-key="${chapter-7-2-analysisOfTheCausesOfMajorDiseases}"]').val();
+
+            console.log('数据回显检查 - 重点关注病害字段:', $('input[data-original-key="${chapter-7-1-focusOnDiseases}"]').length);
+            console.log('数据回显检查 - 重点关注病害值:', focusDiseasesValue);
+            console.log('数据回显检查 - 成因分析字段:', $('input[data-original-key="${chapter-7-2-analysisOfTheCausesOfMajorDiseases}"]').length);
+            console.log('数据回显检查 - 成因分析值:', causeAnalysisValue);
+
+            // 直接更新显示（不需要预加载diseaseComponentData，因为显示不再需要具体的名称映射）
+            if (focusDiseasesValue) {
+                updateDiseaseDisplay('focus-diseases');
+            } else {
+                // 如果没有数据，确保显示"请选择"
+                $('#focus-diseases-display').val('请选择');
+            }
+
+            if (causeAnalysisValue) {
+                updateDiseaseDisplay('cause-analysis');
+            } else {
+                // 如果没有数据，确保显示"请选择"
+                $('#cause-analysis-display').val('请选择');
+            }
+        }, 100);
+    };
 </script>
 </body>
 </html> 

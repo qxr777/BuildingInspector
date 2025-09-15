@@ -7,6 +7,8 @@ import java.util.Map;
 
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.domain.Report;
+import edu.whut.cs.bi.biz.service.IReportService;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,9 @@ public class ReportDataController extends BaseController {
 
     @Autowired
     private MinioConfig minioConfig;
+
+    @Autowired
+    private IReportService reportService;
 
     /**
      * 查询报告数据列表
@@ -247,6 +252,25 @@ public class ReportDataController extends BaseController {
         } catch (Exception e) {
             logger.error("获取文件URL失败", e);
             return AjaxResult.error("获取文件URL失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取构件病害数据（用于病害选择器）
+     */
+    @PostMapping("/getDiseaseComponentData")
+    @ResponseBody
+    public AjaxResult getDiseaseComponentData(@RequestParam("reportId") Long reportId) {
+        try {
+            Report report = reportService.selectReportById(reportId);
+            if(report == null) {
+                return AjaxResult.error("未找到报告");
+            }
+            List<Map<String, Object>> diseaseComponentData = reportDataService.getDiseaseComponentData(report);
+            return AjaxResult.success("获取成功", diseaseComponentData);
+        } catch (Exception e) {
+            logger.error("获取构件病害数据失败", e);
+            return AjaxResult.error("获取构件病害数据失败：" + e.getMessage());
         }
     }
 

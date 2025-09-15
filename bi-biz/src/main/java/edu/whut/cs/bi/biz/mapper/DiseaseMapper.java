@@ -96,4 +96,17 @@ public interface DiseaseMapper {
      * @return 处理结果
      */
     int batchUpdateDiseases(@Param("diseaseList") List<Disease> diseaseList);
+
+    /**
+     * 批量查询构件病害数据（用于病害选择器）
+     *
+     * @param biObjectIds 构件ID列表
+     * @param buildingId 建筑物ID
+     * @param year 年份
+     * @return 病害列表
+     */
+    List<Disease> selectDiseaseComponentData(@Param("biObjectIds") List<Long> biObjectIds,
+                                             @Param("buildingId") Long buildingId,
+                                             @Param("year") Integer year);
+
 }

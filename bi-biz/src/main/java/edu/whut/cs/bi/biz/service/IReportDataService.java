@@ -1,9 +1,11 @@
 package edu.whut.cs.bi.biz.service;
 
+import edu.whut.cs.bi.biz.domain.Report;
 import edu.whut.cs.bi.biz.domain.ReportData;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 报告数据Service接口
@@ -100,4 +102,12 @@ public interface IReportDataService {
      * @return 结果
      */
     public int saveReportDataBatch(Long reportId, List<ReportData> dataList);
+
+    /**
+     * 获取构件病害数据（用于病害选择器）
+     *
+     * @param report 报告ID
+     * @return 构件病害数据列表
+     */
+    public List<Map<String, Object>> getDiseaseComponentData(Report report);
 } 
