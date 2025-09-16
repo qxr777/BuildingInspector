@@ -719,12 +719,8 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("任务不存在");
             }
 
-            // 获取任务关联的建筑ID和项目ID
-            Long buildingId = task.getBuildingId();
-            Long projectId = task.getProjectId();
-
             // 异步生成报告
-            reportServiceImpl.generateReportDocumentAsync(report, buildingId, projectId,taskId);
+            reportServiceImpl.generateReportDocumentAsync(report, task);
 
             return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
         } catch (Exception e) {

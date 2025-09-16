@@ -83,9 +83,6 @@ public class ReportServiceImpl implements IReportService {
     private BiObjectMapper biObjectMapper;
 
     @Autowired
-    private IDiseaseService diseaseService;
-
-    @Autowired
     private FileMapController fileMapController;
 
     @Autowired
@@ -117,6 +114,12 @@ public class ReportServiceImpl implements IReportService {
 
     @Autowired
     private EvaluationTableService evaluationTableService;
+
+    @Autowired
+    private ComparisonAnalysisService comparisonAnalysisService;
+
+    @Autowired
+    private TestConclusionService testConclusionService;
 
     /**
      * 查询检测报告
@@ -266,11 +269,14 @@ public class ReportServiceImpl implements IReportService {
      * 生成报告文档
      *
      * @param report   报告ID
-     * @param buildingId 建筑物ID
+     * @param task 建筑物ID
      * @return 生成的文件路径
      */
     @Override
-    public String generateReportDocument(Report report, Long buildingId, Long projectId,Long taskId) {
+    public String generateReportDocument(Report report, Task task) {
+        // 获取任务关联的建筑ID和项目ID
+        Long buildingId = task.getBuildingId();
+        Long projectId = task.getProjectId();
         InputStream templateStream = null;
         FileOutputStream out = null;
         XWPFDocument document = null;
@@ -368,6 +374,9 @@ public class ReportServiceImpl implements IReportService {
             log.info("桥梁照片处理结束");
 //            debugAllStyles(document);
 
+            // 清空第十章病害汇总缓存，准备重新缓存第三章的结果
+            testConclusionService.clearDiseaseSummaryCache();
+
             // 处理第三章外观检测结果
             BiObject biObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
             List<BiObject> biObjects = new ArrayList<>();
@@ -376,11 +385,31 @@ public class ReportServiceImpl implements IReportService {
 
             // 处理第八章评定结果（不依赖ReportData）
             try {
-                handleChapter8EvaluationResults(document, "${chapter-8-evaluationResults}", building, taskId);
+                handleChapter8EvaluationResults(document, "${chapter-8-evaluationResults}", building, task.getId());
             } catch (Exception e) {
                 log.error("处理第八章评定结果出错: error={}", e.getMessage());
                 // 如果处理失败，降级为普通文本替换
                 replaceText(document, "${chapter-8-evaluationResults}", "评定结果数据获取失败");
+            }
+
+            // 处理第九章比较分析（不依赖ReportData）
+            try {
+                handleChapter9ComparisonAnalysis(document, "${chapter-9-comparativeAnalysisOfEvaluationResults}", task, building.getName());
+            } catch (Exception e) {
+                log.error("处理第九章比较分析出错: error={}", e.getMessage());
+                // 如果处理失败，降级为普通文本替换
+                replaceText(document, "${chapter-9-comparativeAnalysisOfEvaluationResults}", "比较分析数据获取失败");
+            }
+
+            // 处理第十章检测结论（不依赖ReportData）
+            try {
+                handleChapter10TestConclusion(document, "${chapter-10-testConclusion}", task, building.getName());
+                handleChapter10TestConclusionBridge(document, "${chapter-10-testConclusionBridge}", task, building.getName());
+            } catch (Exception e) {
+                log.error("处理第十章检测结论出错: error={}", e.getMessage());
+                // 如果处理失败，降级为普通文本替换
+                replaceText(document, "${chapter-10-testConclusion}", "检测结论数据获取失败");
+                replaceText(document, "${chapter-10-testConclusionBridge}", "检测结论详情数据获取失败");
             }
 
             // 替换其他占位符
@@ -471,11 +500,10 @@ public class ReportServiceImpl implements IReportService {
      * 异步生成报告文档
      *
      * @param report   报告ID
-     * @param buildingId 建筑物ID
-     * @param projectId  项目ID
+     * @param task 任务
      */
     @Async("reportTaskExecutor")
-    public void generateReportDocumentAsync(Report report, Long buildingId, Long projectId,Long taskId) {
+    public void generateReportDocumentAsync(Report report, Task task) {
         try {
             // 更新报告状态为生成中
             Report updateReport = new Report();
@@ -487,7 +515,7 @@ public class ReportServiceImpl implements IReportService {
 
             // 生成报告文档
             log.info("开始生成报告");
-            String minioId = generateReportDocument(report, buildingId, projectId,taskId);
+            String minioId = generateReportDocument(report, task);
             log.info("生成报告结束");
 
             // 更新报告状态为已生成并保存MinioID
@@ -971,6 +999,10 @@ public class ReportServiceImpl implements IReportService {
 
             log.info("开始生成病害小结");
             String diseaseString = getDiseaseSummary(nodeDiseases);
+
+            // 缓存病害汇总到第十章服务，供后续复用
+            testConclusionService.cacheDiseaseSummary(node.getId(), diseaseString);
+
             log.info("生成结束");
 
             // 按行分割字符串并创建多个段落
@@ -1221,6 +1253,9 @@ public class ReportServiceImpl implements IReportService {
 
         int idx = 1;
         for (BiObject child : children) {
+            if("附属设施".equals(child.getName())) {
+                continue;
+            }
             writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel);
             idx++;
         }
@@ -2637,12 +2672,32 @@ public class ReportServiceImpl implements IReportService {
                 targetParagraph.removeRun(0);
             }
 
+            // Part 3: 表格引用部分
+            XWPFParagraph tableRefPara;
+            if (cursor != null) {
+                tableRefPara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                tableRefPara = document.createParagraph();
+            }
+
+            // 设置1.5倍行距
+            CTPPr ppr1 = tableRefPara.getCTP().getPPr();
+            if (ppr1 == null) {
+                ppr1 = tableRefPara.getCTP().addNewPPr();
+            }
+            CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
+            spacing.setLine(BigInteger.valueOf(360));
+
             // 创建第七章表格计数器（如果不存在）
             AtomicInteger chapter7TableCounter = new AtomicInteger(1);
 
             // 使用现有方法创建表格标题
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
                     document, tableTitle, cursor, 7, chapter7TableCounter);
+
+            // 创建章节格式的表格引用域
+            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "重点病害汇总表如下表", ":");
 
             // 创建表格
             XWPFTable table = document.insertNewTbl(cursor);
@@ -3242,5 +3297,119 @@ public class ReportServiceImpl implements IReportService {
             log.error("插入第八章内容失败: key={}", key, e);
             throw e;
         }
+    }
+
+    /**
+     * 处理第九章比较分析
+     *
+     * @param document   Word文档
+     * @param key        占位符
+     * @param task     当前任务ID
+     * @param bridgeName 桥梁名称
+     */
+    private void handleChapter9ComparisonAnalysis(XWPFDocument document, String key, Task task, String bridgeName) {
+        try {
+            log.info("开始处理第九章比较分析, key: {}, taskId: {}", key, task.getId());
+
+            // 查找占位符位置
+            XWPFParagraph targetParagraph = null;
+            List<XWPFParagraph> paragraphs = document.getParagraphs();
+
+            for (XWPFParagraph paragraph : paragraphs) {
+                String text = paragraph.getText();
+                if (text != null && text.contains(key)) {
+                    targetParagraph = paragraph;
+                    break;
+                }
+            }
+
+            if (targetParagraph == null) {
+                log.warn("未找到第九章占位符: {}", key);
+                return;
+            }
+
+            // 调用比较分析服务生成表格
+            comparisonAnalysisService.generateComparisonAnalysisTable(document, targetParagraph, task, bridgeName);
+
+            log.info("第九章比较分析处理完成");
+
+        } catch (Exception e) {
+            log.error("处理第九章比较分析失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 处理第十章检测结论
+     *
+     * @param document   Word文档
+     * @param key        占位符
+     * @param task       当前任务
+     * @param bridgeName 桥梁名称
+     */
+    private void handleChapter10TestConclusion(XWPFDocument document, String key, Task task, String bridgeName) {
+        try {
+            log.info("开始处理第十章检测结论, key: {}, taskId: {}", key, task.getId());
+
+            // 查找占位符位置
+            XWPFParagraph targetParagraph = findParagraphByPlaceholder(document, key);
+            if (targetParagraph == null) {
+                log.warn("未找到第十章检测结论占位符: {}", key);
+                return;
+            }
+
+            // 调用检测结论服务处理检测结论
+            testConclusionService.handleTestConclusion(document, targetParagraph, task, bridgeName);
+
+            log.info("第十章检测结论处理完成");
+
+        } catch (Exception e) {
+            log.error("处理第十章检测结论失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 处理第十章检测结论桥梁详情
+     *
+     * @param document   Word文档
+     * @param key        占位符
+     * @param task       当前任务
+     * @param bridgeName 桥梁名称
+     */
+    private void handleChapter10TestConclusionBridge(XWPFDocument document, String key, Task task, String bridgeName) {
+        try {
+            log.info("开始处理第十章检测结论桥梁详情, key: {}, taskId: {}", key, task.getId());
+
+            // 查找占位符位置
+            XWPFParagraph targetParagraph = findParagraphByPlaceholder(document, key);
+            if (targetParagraph == null) {
+                log.warn("未找到第十章检测结论桥梁详情占位符: {}", key);
+                return;
+            }
+
+            // 调用检测结论服务处理检测结论桥梁详情
+            testConclusionService.handleTestConclusionBridge(document, targetParagraph, task, bridgeName);
+
+            log.info("第十章检测结论桥梁详情处理完成");
+
+        } catch (Exception e) {
+            log.error("处理第十章检测结论桥梁详情失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * 根据占位符查找段落
+     */
+    private XWPFParagraph findParagraphByPlaceholder(XWPFDocument document, String placeholder) {
+        List<XWPFParagraph> paragraphs = document.getParagraphs();
+        for (XWPFParagraph paragraph : paragraphs) {
+            String text = paragraph.getText();
+            if (text != null && text.contains(placeholder)) {
+                return paragraph;
+            }
+        }
+        return null;
     }
 }
