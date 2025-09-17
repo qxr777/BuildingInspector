@@ -536,53 +536,6 @@ public class ReportController extends BaseController {
         }
     }
 
-    private String getHeaderText(int index) {
-        switch (index) {
-            case 0:
-                return "序号";
-            case 1:
-                return "缺损位置";
-            case 2:
-                return "缺损类型";
-            case 3:
-                return "数量";
-            case 4:
-                return "病害描述";
-            case 5:
-                return "评定类别 (1~5)";
-            case 6:
-                return "发展趋势";
-            case 7:
-                return "照片";
-            default:
-                return "";
-        }
-    }
-
-    private Map<String, Object> buildTreeNode(Property current, List<Property> allProperties) {
-        Map<String, Object> node = Map.of(
-                "id", current.getId(),
-                "name", current.getName(),
-                "value", current.getValue());
-
-        List<Property> children = allProperties.stream()
-                .filter(p -> current.getId().equals(p.getParentId()))
-                .collect(Collectors.toList());
-
-        if (!children.isEmpty()) {
-            List<Map<String, Object>> childNodes = children.stream()
-                    .map(child -> buildTreeNode(child, allProperties))
-                    .collect(Collectors.toList());
-            return Map.of(
-                    "id", current.getId(),
-                    "name", current.getName(),
-                    "value", current.getValue(),
-                    "children", childNodes);
-        }
-
-        return node;
-    }
-
     /**
      * 查询检测报告列表
      */

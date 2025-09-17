@@ -416,7 +416,8 @@ public class FileMapServiceImpl implements IFileMapService {
             buffer.flush();
             return buffer.toByteArray();
         } catch (Exception e) {
-            throw new RuntimeException("文件下载失败", e);
+            log.error("文件下载失败", e);
+            return null;
         }
     }
 

@@ -121,6 +121,9 @@ public class ReportServiceImpl implements IReportService {
     @Autowired
     private TestConclusionService testConclusionService;
 
+    @Autowired
+    private IBridgeCardService bridgeCardService;
+
     /**
      * 查询检测报告
      *
@@ -268,8 +271,8 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 生成报告文档
      *
-     * @param report   报告ID
-     * @param task 建筑物ID
+     * @param report 报告ID
+     * @param task   建筑物ID
      * @return 生成的文件路径
      */
     @Override
@@ -372,6 +375,17 @@ public class ReportServiceImpl implements IReportService {
             // 处理桥梁图片
             insertBridgeImages(document, buildingId);
             log.info("桥梁照片处理结束");
+
+            // 处理桥梁卡片数据（使用抽象的公共服务）
+            try {
+                Map<String, Object> additionalData = new HashMap<>();
+                additionalData.put("report", report);
+                additionalData.put("project", project);
+                bridgeCardService.processBridgeCardData(document, building);
+                log.info("桥梁卡片数据处理完成");
+            } catch (Exception e) {
+                log.error("处理桥梁卡片数据失败", e);
+            }
 //            debugAllStyles(document);
 
             // 清空第十章病害汇总缓存，准备重新缓存第三章的结果
@@ -499,8 +513,8 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 异步生成报告文档
      *
-     * @param report   报告ID
-     * @param task 任务
+     * @param report 报告ID
+     * @param task   任务
      */
     @Async("reportTaskExecutor")
     public void generateReportDocumentAsync(Report report, Task task) {
@@ -998,35 +1012,35 @@ public class ReportServiceImpl implements IReportService {
             // Part 2: 生成病害小结
 
             log.info("开始生成病害小结");
-            String diseaseString = getDiseaseSummary(nodeDiseases);
+//            String diseaseString = getDiseaseSummary(nodeDiseases);
 
             // 缓存病害汇总到第十章服务，供后续复用
-            testConclusionService.cacheDiseaseSummary(node.getId(), diseaseString);
+//            testConclusionService.cacheDiseaseSummary(node.getId(), diseaseString);
 
             log.info("生成结束");
 
             // 按行分割字符串并创建多个段落
-            String[] lines = diseaseString.split("\\r?\\n");
-            for (String line : lines) {
-                // 创建新的段落并设置首行缩进
-                XWPFParagraph diseasePara;
-                if (cursor != null) {
-                    diseasePara = document.insertNewParagraph(cursor);
-                    cursor.toNextToken();
-                } else {
-                    diseasePara = document.createParagraph();
-                }
-                CTPPr diseasePpr = diseasePara.getCTP().getPPr();
-                if (diseasePpr == null) {
-                    diseasePpr = diseasePara.getCTP().addNewPPr();
-                }
-                ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
-                ind.setFirstLine(BigInteger.valueOf(480));
-
-                XWPFRun runItem = diseasePara.createRun();
-                runItem.setText(line);
-                runItem.setFontSize(12);
-            }
+//            String[] lines = diseaseString.split("\\r?\\n");
+//            for (String line : lines) {
+//                // 创建新的段落并设置首行缩进
+//                XWPFParagraph diseasePara;
+//                if (cursor != null) {
+//                    diseasePara = document.insertNewParagraph(cursor);
+//                    cursor.toNextToken();
+//                } else {
+//                    diseasePara = document.createParagraph();
+//                }
+//                CTPPr diseasePpr = diseasePara.getCTP().getPPr();
+//                if (diseasePpr == null) {
+//                    diseasePpr = diseasePara.getCTP().addNewPPr();
+//                }
+//                ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
+//                ind.setFirstLine(BigInteger.valueOf(480));
+//
+//                XWPFRun runItem = diseasePara.createRun();
+//                runItem.setText(line);
+//                runItem.setFontSize(12);
+//            }
 
             // Part 3: 表格引用部分
             XWPFParagraph tableRefPara;
@@ -1253,7 +1267,7 @@ public class ReportServiceImpl implements IReportService {
 
         int idx = 1;
         for (BiObject child : children) {
-            if("附属设施".equals(child.getName())) {
+            if ("附属设施".equals(child.getName())) {
                 continue;
             }
             writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel);
@@ -2475,7 +2489,7 @@ public class ReportServiceImpl implements IReportService {
                 String tableTitle = "重点关注病害汇总表";
                 insertChapter7Table(document, key, tableTitle, tableData);
                 log.info("第七章重点关注病害表格处理完成, 生成{}行数据", tableData.size());
-            } else if (key.contains("${chapter-7-2-analysisOfTheCausesOfMajorDiseases}")){
+            } else if (key.contains("${chapter-7-2-analysisOfTheCausesOfMajorDiseases}")) {
                 // 主要病害成因分析 - 按结构分类分别处理
                 generateAndInsertChapter7AnalysisContent(combinations, building, project, biObject, document);
                 log.info("第七章病害成因分析处理完成");
@@ -2610,11 +2624,11 @@ public class ReportServiceImpl implements IReportService {
                     if (detail.getAreaLength() != null && detail.getAreaWidth() != null) {
                         totalArea += detail.getAreaLength().doubleValue() * detail.getAreaWidth().doubleValue();
                     }
-                    if(detail.getWidthRangeEnd()!=null) {
+                    if (detail.getWidthRangeEnd() != null) {
                         maxWidth = Math.max(maxWidth, detail.getWidthRangeEnd().doubleValue());
                     }
-                    if(detail.getLengthRangeStart()!=null && detail.getLengthRangeEnd()!=null) {
-                        totalLength += ((detail.getLengthRangeEnd().doubleValue()-detail.getLengthRangeStart().doubleValue())/2) * disease.getQuantity();
+                    if (detail.getLengthRangeStart() != null && detail.getLengthRangeEnd() != null) {
+                        totalLength += ((detail.getLengthRangeEnd().doubleValue() - detail.getLengthRangeStart().doubleValue()) / 2) * disease.getQuantity();
                         break;
                     }
                 }
@@ -2623,13 +2637,13 @@ public class ReportServiceImpl implements IReportService {
         // 生成汇总描述
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("共计%d条 ", count));
-        if(totalLength > 0) {
+        if (totalLength > 0) {
             sb.append(String.format("总长度%.0fcm, ", totalLength * 100));
         }
-        if(maxWidth > 0) {
+        if (maxWidth > 0) {
             sb.append(String.format("最大缝宽%.2fmm, ", maxWidth));
         }
-        if(totalArea > 0) {
+        if (totalArea > 0) {
             sb.append(String.format("面积%.4f㎡, ", totalArea));
         }
         return sb.toString();
@@ -2835,8 +2849,8 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 生成单个结构分类的分析内容并替换占位符
      *
-     * @param analyses 该结构分类的分析数据
-     * @param document Word文档
+     * @param analyses    该结构分类的分析数据
+     * @param document    Word文档
      * @param placeholder 占位符
      */
     private void generateStructureAnalysisContent(List<ComponentDiseaseAnalysis> analyses, XWPFDocument document, String placeholder) {
@@ -2982,7 +2996,7 @@ public class ReportServiceImpl implements IReportService {
      * 根据结构分类节点和构件信息确定结构分类
      *
      * @param structureNode 结构分类节点
-     * @param component 构件对象
+     * @param component     构件对象
      * @return 结构分类
      */
     private String determineStructureType(BiObject structureNode, BiObject component) {
@@ -3304,7 +3318,7 @@ public class ReportServiceImpl implements IReportService {
      *
      * @param document   Word文档
      * @param key        占位符
-     * @param task     当前任务ID
+     * @param task       当前任务ID
      * @param bridgeName 桥梁名称
      */
     private void handleChapter9ComparisonAnalysis(XWPFDocument document, String key, Task task, String bridgeName) {
