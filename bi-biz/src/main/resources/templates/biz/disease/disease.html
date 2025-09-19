@@ -454,7 +454,7 @@
                 hideExportLoading(); // 成功后立即关闭遮蔽
 
                 // 获取文件名（从响应头）
-                let fileName = '报告文件.pdf'; // 默认文件名，假设是PDF
+                let fileName = '病害报告.docx';
                 const contentDisposition = xhr.getResponseHeader('Content-Disposition');
                 if (contentDisposition) {
                     const match = contentDisposition.match(/filename="(.*?)"/);

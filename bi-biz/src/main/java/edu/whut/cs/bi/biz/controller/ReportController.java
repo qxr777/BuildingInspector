@@ -137,7 +137,9 @@ public class ReportController extends BaseController {
             writeBiObjectTreeToWord(doc, root, biObjects, level3DiseaseMap, "4.1", 1);
             // 5. 导出Word
             response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-            response.setHeader("Content-Disposition", "attachment; filename=report.docx");
+            // 后端修改：对文件名进行URL编码
+            String fileName = URLEncoder.encode(building.getName() + "病害报告.docx", "UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
             doc.write(response.getOutputStream());
             doc.close();
         } catch (Exception e) {
@@ -698,12 +700,12 @@ public class ReportController extends BaseController {
 
             // 检查报告状态
             if (report.getStatus() != 1) {
-                return ;
+                return;
             }
 
             // 检查MinioID
             if (report.getMinioId() == null) {
-                return ;
+                return;
             }
 
             // 从数据库查到文件名和存储路径
@@ -719,7 +721,7 @@ public class ReportController extends BaseController {
                             .build())) {
 
                 // 设置响应头（指定下载文件名）
-                String fileName = URLEncoder.encode(report.getName()+ ".docx", "UTF-8").replaceAll("\\+", "%20");
+                String fileName = URLEncoder.encode(report.getName() + ".docx", "UTF-8").replaceAll("\\+", "%20");
                 response.setContentType("application/octet-stream");
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 
