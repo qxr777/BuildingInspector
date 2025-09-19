@@ -366,85 +366,110 @@
         $.modal.open("导入历史病害", prefix + "/importHistory?taskId=" + taskId, '800', '600');
     }
 
-    function exportDiseaseExcel() {
-        var projectId = task.projectId;
-        var buildingId = task.buildingId;
-        var taskId = task.id;
+    // 统一的加载提示函数
+    function showExportLoading(message = "正在导出，请稍候...") {
+        $.modal.loading(message);
+    }
 
-        // 用jQuery.ajax代替fetch
+    // 统一的关闭加载函数
+    function hideExportLoading() {
+        if ($.modal && typeof $.modal.closeLoading === 'function') {
+            $.modal.closeLoading();
+        }
+    }
+
+    // 导出病害Excel
+    function exportDiseaseExcel() {
+        showExportLoading("正在导出病害数据，请稍候...");
+
+        const {projectId, buildingId, id: taskId} = task;
+
         $.ajax({
             url: '/biz/disease/export',
             type: 'POST',
             data: {
-                projectId: projectId,
-                buildingId: buildingId,
-                taskId: taskId
+                projectId,
+                buildingId,
+                taskId
             },
             xhrFields: {
-                responseType: 'blob' // 关键：指定响应类型为blob
+                responseType: 'blob'
             },
             success: function (blob, status, xhr) {
-                $.modal.closeLoading();
-                // 获取文件名（从响应头）
-                const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                hideExportLoading();
+
                 let fileName = '病害数据压缩包.zip';
+                const contentDisposition = xhr.getResponseHeader('Content-Disposition');
                 if (contentDisposition) {
                     const match = contentDisposition.match(/filename="(.*?)"/);
                     if (match && match[1]) {
                         fileName = decodeURIComponent(match[1]);
                     }
                 }
-                // 下载逻辑
+
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = fileName;
                 document.body.appendChild(a);
                 a.click();
+
                 setTimeout(() => {
                     URL.revokeObjectURL(url);
                     document.body.removeChild(a);
                 }, 1000);
             },
             error: function (xhr, status, error) {
-                $.modal.closeLoading();
-                // 读取错误响应内容
+                hideExportLoading();
+
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     const errorMsg = e.target.result || '导出失败，请稍后重试';
                     $.modal.msgError(errorMsg);
                 };
-                reader.readAsText(xhr.response); // 读取错误响应的blob
+                reader.readAsText(xhr.response);
+            },
+            complete: function () {
+                hideExportLoading();
             }
         });
     }
 
 
+    // 导出报告 - 主要修改此函数
     function exportReport() {
-        var taskId = task.id;
-        var url = ctx + "biz/report/export/" + taskId;
-        $.modal.loading("正在导出报告，请稍候...");
+        showExportLoading("正在导出报告，请稍候...");
+
+        const taskId = task.id;
+        const url = `${ctx}biz/report/export/${taskId}`;
 
         // 移除旧的iframe
         $('#download-iframe').remove();
 
         // 创建新的iframe
-        var iframe = $('<iframe id="download-iframe" style="display:none;"></iframe>');
+        const iframe = $('<iframe id="download-iframe" style="display:none;"></iframe>');
         $('body').append(iframe);
 
-        // 监听iframe加载完成
+        // 监听iframe加载完成 - 关闭遮挡
         iframe.on('load', function () {
-            $.modal.closeLoading();
+            hideExportLoading();
         });
 
+        // 增强的error事件监听 - 确保错误时关闭遮挡并提示
+        iframe.on('error', function () {
+            hideExportLoading();
+            $.modal.msgError('导出报告失败，请稍后重试');
+        });
+
+        // 额外增加的abort事件监听
+        iframe.on('abort', function () {
+            hideExportLoading();
+            $.modal.msgError('导出已中止');
+        });
         // 触发下载
         iframe.attr('src', url);
-
-        // 兜底：10秒后自动关闭loading
-        setTimeout(function () {
-            $.modal.closeLoading();
-        }, 10000);
     }
+
 </script>
 </body>
 </html>
