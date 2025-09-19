@@ -34,7 +34,7 @@
                 <form id="formId">
                     <input type="hidden" id="projectId" name="projectId" th:value="${task.project.id}">
                     <input type="hidden" id="buildingId" name="buildingId" th:value="${task.building.id}">
-<!--                    <input type="hidden" id="taskId" name="taskId" th:value="${task.id}">-->
+                    <!--                    <input type="hidden" id="taskId" name="taskId" th:value="${task.id}">-->
                     <input type="hidden" id="biObjectId" name="biObjectId">
 
                     <div class="select-list">
@@ -193,14 +193,15 @@
                 {
                     field: 'developmentTrend',
                     title: '发展趋势',
-                    editable: { 
-                        type: 'select', 
-                        source: [{ value: '稳定', text: '稳定' }, 
-                        { value: '发展', text: '发展' }, 
-                        { value: '新增', text: '新增' }, 
-                        { value: '已维修', text: '已维修' }, 
-                        { value: '部分维修', text: '部分维修' }, 
-                         { value: '未找到', text: '未找到' } ] },
+                    editable: {
+                        type: 'select',
+                        source: [{value: '稳定', text: '稳定'},
+                            {value: '发展', text: '发展'},
+                            {value: '新增', text: '新增'},
+                            {value: '已维修', text: '已维修'},
+                            {value: '部分维修', text: '部分维修'},
+                            {value: '未找到', text: '未找到'}]
+                    },
                     formatter: function (value) {
                         return value || '-';
                     }
@@ -252,7 +253,7 @@
                 }]
         };
         $.table.init(options);
-        
+
         // 配置editable保存事件
         $('#bootstrap-table').on('editable-save.bs.table', function (e, field, row, oldValue, $el) {
             $.ajax({
@@ -436,40 +437,61 @@
     }
 
 
-    // 导出报告 - 主要修改此函数
     function exportReport() {
         showExportLoading("正在导出报告，请稍候...");
 
         const taskId = task.id;
         const url = `${ctx}biz/report/export/${taskId}`;
 
-        // 移除旧的iframe
-        $('#download-iframe').remove();
+        // 模仿Excel导出的AJAX处理方式
+        $.ajax({
+            url: url,
+            type: 'GET', // 报告导出通常用GET
+            xhrFields: {
+                responseType: 'blob' // 关键：指定响应类型为blob
+            },
+            success: function (blob, status, xhr) {
+                hideExportLoading(); // 成功后立即关闭遮蔽
 
-        // 创建新的iframe
-        const iframe = $('<iframe id="download-iframe" style="display:none;"></iframe>');
-        $('body').append(iframe);
+                // 获取文件名（从响应头）
+                let fileName = '报告文件.pdf'; // 默认文件名，假设是PDF
+                const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="(.*?)"/);
+                    if (match && match[1]) {
+                        fileName = decodeURIComponent(match[1]);
+                    }
+                }
 
-        // 监听iframe加载完成 - 关闭遮挡
-        iframe.on('load', function () {
-            hideExportLoading();
+                // 下载逻辑（与Excel导出保持一致）
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 1000);
+            },
+            error: function (xhr, status, error) {
+                hideExportLoading(); // 错误时立即关闭遮蔽
+
+                // 读取错误响应内容
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const errorMsg = e.target.result || '导出报告失败，请稍后重试';
+                    $.modal.msgError(errorMsg);
+                };
+                reader.readAsText(xhr.response);
+            },
+            complete: function () {
+                hideExportLoading(); // 最终保障，确保遮蔽层关闭
+            }
         });
-
-        // 增强的error事件监听 - 确保错误时关闭遮挡并提示
-        iframe.on('error', function () {
-            hideExportLoading();
-            $.modal.msgError('导出报告失败，请稍后重试');
-        });
-
-        // 额外增加的abort事件监听
-        iframe.on('abort', function () {
-            hideExportLoading();
-            $.modal.msgError('导出已中止');
-        });
-        // 触发下载
-        iframe.attr('src', url);
     }
-
 </script>
 </body>
 </html>
