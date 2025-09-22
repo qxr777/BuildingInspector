@@ -163,7 +163,9 @@ public class DiseaseController extends BaseController {
             // 病害类型
             row.createCell(1).setCellValue(item.getType());
             // 构件名称
-            row.createCell(2).setCellValue(item.getComponent().getName());
+            String componentName = item.getComponent().getName();
+            componentName = componentName.substring(componentName.lastIndexOf("#") + 1);
+            row.createCell(2).setCellValue(componentName);
             // 位置
             row.createCell(3).setCellValue(item.getPosition());
             // 病害描述
