@@ -18,6 +18,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
+import edu.whut.cs.bi.biz.domain.enums.AreaIdentifierEnums;
 import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
@@ -44,6 +45,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.*;
+import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -151,9 +153,9 @@ public class DiseaseController extends BaseController {
         for (int i = 0; i < list.size(); i++) {
             Disease item = list.get(i);
             Row row = sheet.createRow(i + 1);
-            DiseaseDetail detail = null;
+            List<DiseaseDetail> detailList = null;
             if (!item.getDiseaseDetails().isEmpty()) {
-                detail = item.getDiseaseDetails().get(0);
+                detailList = item.getDiseaseDetails();
             }
 
             // 构件编号
@@ -176,29 +178,79 @@ public class DiseaseController extends BaseController {
             }
             // 病害数量
             row.createCell(14).setCellValue(item.getQuantity());
-            if (detail == null) {
-                continue;
+            int detail_length = detailList.size();
+            if (detail_length == 1) {
+                DiseaseDetail detail = detailList.get(0);
+                //长度
+                if (detail.getLength1() != null) {
+                    row.createCell(6).setCellValue(detail.getLength1().toPlainString());
+                }
+                //宽度
+                if (detail.getWidth() != null) {
+                    row.createCell(7).setCellValue(detail.getWidth().toPlainString());
+                }
+                //缝宽
+                if (detail.getCrackWidth() != null) {
+                    row.createCell(8).setCellValue(detail.getCrackWidth().toPlainString());
+                }
+                //高度深度
+                if (detail.getHeightDepth() != null) {
+                    row.createCell(9).setCellValue(detail.getHeightDepth().toPlainString());
+                }
+                //面积
+                // 判断 是否 是 均值。
+                if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
+                    if (detail.getAreaIdentifier() != null && detail.getAreaIdentifier().equals(AreaIdentifierEnums.AVERAGE.getCode())) {
+                        row.createCell(10).setCellValue("S均:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+                    } else if (detail.getAreaIdentifier() != null && detail.getAreaIdentifier().equals(AreaIdentifierEnums.COUNT.getCode())) {
+                        row.createCell(10).setCellValue("S总:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+                    } else {
+                        row.createCell(10).setCellValue("S均:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+                    }
+                }
+            } else if (detail_length > 1) {
+                DiseaseDetail detail = detailList.get(0);
+                //长度
+                if (detail.getLength1() != null) {
+                    List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getLength1).toList();
+                    BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
+                    BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
+                    row.createCell(6).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                }
+                //宽度
+                if (detail.getWidth() != null) {
+                    List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getWidth).toList();
+                    BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
+                    BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
+                    row.createCell(7).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                }
+                //缝宽
+                if (detail.getCrackWidth() != null) {
+                    List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getCrackWidth).toList();
+                    BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
+                    BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
+                    row.createCell(8).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                }
+                //高度深度
+                if (detail.getHeightDepth() != null) {
+                    List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getHeightDepth).toList();
+                    BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
+                    BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
+                    row.createCell(9).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                }
+                //面积
+                if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
+                    BigDecimal count = BigDecimal.valueOf(0L);
+                    List<BigDecimal> areaWidthList = detailList.stream().map(DiseaseDetail::getAreaWidth).toList();
+                    List<BigDecimal> areaLengthList = detailList.stream().map(DiseaseDetail::getAreaLength).toList();
+                    for (int index = 0; index < detail_length; index++) {
+                        count.add(areaWidthList.get(index).multiply(areaLengthList.get(index)));
+                    }
+                    row.createCell(10).setCellValue("S总:" + count.toPlainString());
+                }
+
             }
-            //长度
-            if (detail.getLength1() != null) {
-                row.createCell(6).setCellValue(detail.getLength1().toPlainString());
-            }
-            //宽度
-            if (detail.getWidth() != null) {
-                row.createCell(7).setCellValue(detail.getWidth().toPlainString());
-            }
-            //缝宽
-            if (detail.getCrackWidth() != null) {
-                row.createCell(8).setCellValue(detail.getCrackWidth().toPlainString());
-            }
-            //高度深度
-            if (detail.getHeightDepth() != null) {
-                row.createCell(9).setCellValue(detail.getHeightDepth().toPlainString());
-            }
-            //面积
-            if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
-                row.createCell(10).setCellValue(detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
-            }
+
             //处理照片名称
             List<String> diseaseImages = item.getImages(); // 获取当前病害的图片URL列表
             if (diseaseImages != null && !diseaseImages.isEmpty()) {
