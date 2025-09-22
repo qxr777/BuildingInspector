@@ -141,7 +141,7 @@ public class DiseaseController extends BaseController {
 
         //  创建表头
         Row headerRow = sheet.createRow(0);
-        String[] headers = {"构件编号", "缺损类型", "缺损位置", "病害描述", "标度", "长度(m)", "宽度(m)", "缝宽(mm)", "高度/深度(m)", "面积(㎡)", "照片名称", "备注", "病害数量"};
+        String[] headers = {"构件编号", "缺损类型", "构件", "缺损位置", "病害描述", "标度", "长度(m)", "宽度(m)", "缝宽(mm)", "高度/深度(m)", "面积(㎡)", "照片名称", "发展趋势", "备注", "病害数量"};
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(headers[i]);
@@ -160,40 +160,44 @@ public class DiseaseController extends BaseController {
             row.createCell(0).setCellValue(item.getComponent().getCode());
             // 病害类型
             row.createCell(1).setCellValue(item.getType());
+            // 构件名称
+            row.createCell(2).setCellValue(item.getComponent().getName());
             // 位置
-            row.createCell(2).setCellValue(item.getPosition());
+            row.createCell(3).setCellValue(item.getPosition());
             // 病害描述
-            row.createCell(3).setCellValue(item.getDescription());
+            row.createCell(4).setCellValue(item.getDescription());
             // 标度
-            row.createCell(4).setCellValue(item.getLevel());
+            row.createCell(5).setCellValue(item.getLevel());
+            //发展趋势。
+            row.createCell(12).setCellValue(item.getDevelopmentTrend());
             //备注
             if (item.getRemark() != null) {
-                row.createCell(11).setCellValue(item.getRemark());
+                row.createCell(13).setCellValue(item.getRemark());
             }
             // 病害数量
-            row.createCell(12).setCellValue(item.getQuantity());
+            row.createCell(14).setCellValue(item.getQuantity());
             if (detail == null) {
                 continue;
             }
             //长度
             if (detail.getLength1() != null) {
-                row.createCell(5).setCellValue(detail.getLength1().toPlainString());
+                row.createCell(6).setCellValue(detail.getLength1().toPlainString());
             }
             //宽度
             if (detail.getWidth() != null) {
-                row.createCell(6).setCellValue(detail.getWidth().toPlainString());
+                row.createCell(7).setCellValue(detail.getWidth().toPlainString());
             }
             //缝宽
             if (detail.getCrackWidth() != null) {
-                row.createCell(7).setCellValue(detail.getCrackWidth().toPlainString());
+                row.createCell(8).setCellValue(detail.getCrackWidth().toPlainString());
             }
             //高度深度
             if (detail.getHeightDepth() != null) {
-                row.createCell(8).setCellValue(detail.getHeightDepth().toPlainString());
+                row.createCell(9).setCellValue(detail.getHeightDepth().toPlainString());
             }
             //面积
             if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
-                row.createCell(9).setCellValue(detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+                row.createCell(10).setCellValue(detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
             }
             //处理照片名称
             List<String> diseaseImages = item.getImages(); // 获取当前病害的图片URL列表
@@ -214,7 +218,7 @@ public class DiseaseController extends BaseController {
                     photoSerialNum++;
                 }
                 // 将拼接的图片名写入Excel“照片名称”列（第10列，索引从0开始）
-                row.createCell(10).setCellValue(photoNames.toString());
+                row.createCell(11).setCellValue(photoNames.toString());
             }
         }
 
@@ -391,7 +395,8 @@ public class DiseaseController extends BaseController {
             ObjectMapper mapper = new ObjectMapper();
 
             try {
-                List<String> imgs = mapper.readValue(imgNoExp, new TypeReference<List<String>>() {});
+                List<String> imgs = mapper.readValue(imgNoExp, new TypeReference<List<String>>() {
+                });
                 disease.setImgNoExp(imgs.stream().collect(Collectors.joining("、")));
             } catch (JsonProcessingException e) {
                 log.error("图片格式有误转化失败");
