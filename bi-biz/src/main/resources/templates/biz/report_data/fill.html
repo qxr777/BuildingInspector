@@ -649,9 +649,28 @@
                             </div>
 
                             <div class="tab-pane" id="tab_10">
-                                <div class="alert alert-info">
-                                    结论与建议选项卡的内容将根据需求添加
+                                <div class="panel-group" id="accordion_conclusion">
+                                    <!-- 结论与建议面板 -->
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading" data-toggle="collapse" data-parent="#accordion_conclusion" href="#collapse_conclusion">
+                                            <h4 class="panel-title">
+                                                <a class="accordion-toggle">
+                                                    <i class="fa fa-chevron-down"></i> 技术建议
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_conclusion" class="panel-collapse collapse in">
+                                            <div class="panel-body">
+                                                <!-- 技术建议 -->
+                                                <div class="form-group">
+                                                    <label class="control-label">技术建议:</label>
+                                                    <textarea class="form-control" name="dataValues[${chapter-10-technicalAdvice}]" data-original-key="${chapter-10-technicalAdvice}" rows="5"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <!-- 保存按钮 -->
                                 <div class="form-group">
                                     <div class="col-sm-12 text-center">
@@ -732,9 +751,26 @@
         loadReportData();
 
         // 监听选项卡切换事件
+        $('#reportTabs a').on('show.bs.tab', function (e) {
+            // 获取当前激活的选项卡
+            var currentTab = $('.nav-tabs li.active a').attr("href");
+            var targetTab = $(e.target).attr("href");
+
+            console.log("准备从选项卡 " + currentTab + " 切换到 " + targetTab);
+
+            // 如果当前选项卡存在且不为空，则自动保存当前选项卡数据
+            if (currentTab && currentTab !== targetTab) {
+                var currentTabId = currentTab.replace('#', '');
+                console.log("自动保存当前选项卡数据: " + currentTabId);
+
+                // 同步保存当前选项卡数据
+                saveTabDataSync(currentTabId);
+            }
+        });
+
         $('#reportTabs a').on('shown.bs.tab', function (e) {
             var targetTab = $(e.target).attr("href");
-            console.log("切换到选项卡: " + targetTab);
+            console.log("已切换到选项卡: " + targetTab);
         });
 
         // 监听折叠面板事件
@@ -1019,6 +1055,16 @@
 
     // 保存选项卡数据
     function saveTabData(tabId) {
+        saveTabDataInternal(tabId, true); // 异步保存，显示加载提示
+    }
+
+    // 同步保存选项卡数据（用于切换选项卡时的自动保存）
+    function saveTabDataSync(tabId) {
+        saveTabDataInternal(tabId, false); // 同步保存，不显示加载提示
+    }
+
+    // 内部保存方法
+    function saveTabDataInternal(tabId, showLoading) {
         // 创建FormData对象
         var formData = new FormData();
         formData.append("reportId", reportId);
@@ -1108,7 +1154,7 @@
         });
 
         // 打印所有formData内容
-        console.log("FormData内容:");
+        console.log("FormData内容 (tabId: " + tabId + "):");
         for (var pair of formData.entries()) {
             console.log(pair[0] + ': ' + pair[1]);
         }
@@ -1120,24 +1166,42 @@
             data: formData,
             processData: false,
             contentType: false,
+            async: showLoading, // 根据参数决定是否异步
             beforeSend: function() {
-                $.modal.loading("正在保存数据，请稍候...");
+                if (showLoading) {
+                    $.modal.loading("正在保存数据，请稍候...");
+                }
             },
             success: function(result) {
-                $.modal.closeLoading();
+                if (showLoading) {
+                    $.modal.closeLoading();
+                }
+
                 if (result.code == 0) {
-                    $.modal.alertSuccess("保存成功");
+                    if (showLoading) {
+                        $.modal.alertSuccess("保存成功");
+                        // 清空文件输入框
+                        tabPane.find('input[type="file"]').fileinput('clear');
+                    } else {
+                        console.log("自动保存成功: " + tabId);
+                    }
                     // 重新加载数据
                     loadReportData();
-                    // 清空文件输入框
-                    tabPane.find('input[type="file"]').fileinput('clear');
                 } else {
-                    $.modal.alertError(result.msg);
+                    if (showLoading) {
+                        $.modal.alertError(result.msg);
+                    } else {
+                        console.error("自动保存失败: " + result.msg);
+                    }
                 }
             },
             error: function() {
-                $.modal.closeLoading();
-                $.modal.alertError("保存失败");
+                if (showLoading) {
+                    $.modal.closeLoading();
+                    $.modal.alertError("保存失败");
+                } else {
+                    console.error("自动保存网络错误: " + tabId);
+                }
             }
         });
     }

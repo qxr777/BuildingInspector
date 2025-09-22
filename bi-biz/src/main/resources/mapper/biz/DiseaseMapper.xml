@@ -440,7 +440,6 @@
         </if>
         AND d.disease_type_id IS NOT NULL
         AND dt.status = '0'
-        ORDER BY d.bi_object_id, dt.name
     </select>
 
 

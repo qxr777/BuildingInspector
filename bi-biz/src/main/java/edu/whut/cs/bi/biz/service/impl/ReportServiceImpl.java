@@ -124,6 +124,9 @@ public class ReportServiceImpl implements IReportService {
     @Autowired
     private IBridgeCardService bridgeCardService;
 
+    @Autowired
+    private RegularInspectionService regularInspectionService;
+
     /**
      * 查询检测报告
      *
@@ -426,6 +429,16 @@ public class ReportServiceImpl implements IReportService {
                 replaceText(document, "${chapter-10-testConclusionBridge}", "检测结论详情数据获取失败");
             }
 
+            // 处理第11章定期检查记录表占位符
+            try {
+                // 调用定期检查记录表服务处理占位符
+                regularInspectionService.generateRegularInspectionTable(document, "${chapter-11-regularInspectionRecord}",
+                        building, task, project);
+            } catch (Exception e) {
+                log.error("处理第11章定期检查记录表失败: error={}", e.getMessage(), e);
+                // 如果处理失败，降级为普通文本替换
+            }
+
             // 替换其他占位符
             for (ReportData data : reportDataList) {
                 String key = data.getKey();
@@ -564,8 +577,29 @@ public class ReportServiceImpl implements IReportService {
             newText = "";
         }
 
-        // 替换段落中的文本
-        for (XWPFParagraph paragraph : document.getParagraphs()) {
+        // 替换正文段落中的文本
+        replaceTextInParagraphs(document.getParagraphs(), oldText, newText, "正文段落");
+
+        // 替换正文表格中的文本
+        replaceTextInTables(document.getTables(), oldText, newText, "正文表格");
+
+        // 替换页眉中的文本
+        replaceTextInHeaders(document, oldText, newText);
+
+        // 替换页脚中的文本
+        replaceTextInFooters(document, oldText, newText);
+    }
+
+    /**
+     * 替换段落列表中的文本
+     *
+     * @param paragraphs 段落列表
+     * @param oldText    要替换的文本
+     * @param newText    新文本
+     * @param location   位置描述（用于日志）
+     */
+    private void replaceTextInParagraphs(List<XWPFParagraph> paragraphs, String oldText, String newText, String location) {
+        for (XWPFParagraph paragraph : paragraphs) {
             String paragraphText = paragraph.getText();
             if (paragraphText != null && paragraphText.contains(oldText)) {
                 List<XWPFRun> runs = paragraph.getRuns();
@@ -580,6 +614,7 @@ public class ReportServiceImpl implements IReportService {
                         String replacedText = text.replace(oldText, newText);
                         run.setText(replacedText, 0);
                         replaced = true;
+                        log.debug("在{}中替换占位符: {} -> {}", location, oldText, newText);
                         break;
                     }
                 }
@@ -611,7 +646,7 @@ public class ReportServiceImpl implements IReportService {
 
                     // 如果找到了完整的占位符
                     if (startRunIndex != -1 && endRunIndex != -1) {
-                        log.info("发现分散占位符: {} 从run[{}]到run[{}]", oldText, startRunIndex, endRunIndex);
+                        log.info("在{}中发现分散占位符: {} 从run[{}]到run[{}]", location, oldText, startRunIndex, endRunIndex);
 
                         // 将第一个run设置为替换后的文本
                         runs.get(startRunIndex).setText(newText, 0);
@@ -624,72 +659,91 @@ public class ReportServiceImpl implements IReportService {
                 }
             }
         }
+    }
 
-        // 替换表格中的文本
-        for (XWPFTable table : document.getTables()) {
+    /**
+     * 替换表格列表中的文本
+     *
+     * @param tables   表格列表
+     * @param oldText  要替换的文本
+     * @param newText  新文本
+     * @param location 位置描述（用于日志）
+     */
+    private void replaceTextInTables(List<XWPFTable> tables, String oldText, String newText, String location) {
+        for (XWPFTable table : tables) {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
-                    for (XWPFParagraph paragraph : cell.getParagraphs()) {
-                        String paragraphText = paragraph.getText();
-                        if (paragraphText != null && paragraphText.contains(oldText)) {
-                            List<XWPFRun> runs = paragraph.getRuns();
+                    // 替换表格单元格中的段落文本
+                    replaceTextInParagraphs(cell.getParagraphs(), oldText, newText, location + "单元格");
 
-                            // 先尝试简单替换（单个run包含完整占位符的情况）
-                            boolean replaced = false;
-                            for (int i = 0; i < runs.size(); i++) {
-                                XWPFRun run = runs.get(i);
-                                String text = run.getText(0);
-                                if (text != null && text.contains(oldText)) {
-                                    // 保留原有的字体样式和大小
-                                    String replacedText = text.replace(oldText, newText);
-                                    run.setText(replacedText, 0);
-                                    replaced = true;
-                                    break;
-                                }
-                            }
-
-                            // 如果简单替换失败，处理占位符分散在多个run的情况
-                            if (!replaced && runs.size() > 1) {
-                                // 查找占位符的开始和结束位置
-                                int startRunIndex = -1;
-                                int endRunIndex = -1;
-                                StringBuilder fullText = new StringBuilder();
-
-                                // 寻找占位符的开始和结束位置
-                                for (int i = 0; i < runs.size(); i++) {
-                                    String text = runs.get(i).getText(0);
-                                    if (text == null) continue;
-
-                                    fullText.append(text);
-                                    // 记录可能的起始位置
-                                    if (startRunIndex == -1 && text.contains("${")) {
-                                        startRunIndex = i;
-                                    }
-
-                                    // 检查到目前为止的文本是否包含完整占位符
-                                    if (fullText.toString().contains(oldText)) {
-                                        endRunIndex = i;
-                                        break;
-                                    }
-                                }
-
-                                // 如果找到了完整的占位符
-                                if (startRunIndex != -1 && endRunIndex != -1) {
-                                    log.info("发现表格中的分散占位符: {} 从run[{}]到run[{}]", oldText, startRunIndex, endRunIndex);
-
-                                    // 将第一个run设置为替换后的文本
-                                    runs.get(startRunIndex).setText(newText, 0);
-
-                                    // 清空其他包含占位符的run
-                                    for (int i = startRunIndex + 1; i <= endRunIndex; i++) {
-                                        runs.get(i).setText("", 0);
-                                    }
-                                }
-                            }
-                        }
+                    // 递归处理嵌套表格
+                    if (!cell.getTables().isEmpty()) {
+                        replaceTextInTables(cell.getTables(), oldText, newText, location + "嵌套表格");
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * 替换页眉中的文本
+     *
+     * @param document Word文档
+     * @param oldText  要替换的文本
+     * @param newText  新文本
+     */
+    private void replaceTextInHeaders(XWPFDocument document, String oldText, String newText) {
+        try {
+            List<XWPFHeader> headers = document.getHeaderList();
+            if (headers != null && !headers.isEmpty()) {
+                log.debug("开始处理页眉，共{}个", headers.size());
+
+                for (int i = 0; i < headers.size(); i++) {
+                    XWPFHeader header = headers.get(i);
+                    String location = "页眉" + (i + 1);
+
+                    // 替换页眉段落中的文本
+                    replaceTextInParagraphs(header.getParagraphs(), oldText, newText, location);
+
+                    // 替换页眉表格中的文本
+                    replaceTextInTables(header.getTables(), oldText, newText, location + "表格");
+                }
+
+                log.debug("页眉文本替换完成");
+            }
+        } catch (Exception e) {
+            log.warn("处理页眉时发生错误: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 替换页脚中的文本
+     *
+     * @param document Word文档
+     * @param oldText  要替换的文本
+     * @param newText  新文本
+     */
+    private void replaceTextInFooters(XWPFDocument document, String oldText, String newText) {
+        try {
+            List<XWPFFooter> footers = document.getFooterList();
+            if (footers != null && !footers.isEmpty()) {
+                log.debug("开始处理页脚，共{}个", footers.size());
+
+                for (int i = 0; i < footers.size(); i++) {
+                    XWPFFooter footer = footers.get(i);
+                    String location = "页脚" + (i + 1);
+
+                    // 替换页脚段落中的文本
+                    replaceTextInParagraphs(footer.getParagraphs(), oldText, newText, location);
+
+                    // 替换页脚表格中的文本
+                    replaceTextInTables(footer.getTables(), oldText, newText, location + "表格");
+                }
+
+                log.debug("页脚文本替换完成");
+            }
+        } catch (Exception e) {
+            log.warn("处理页脚时发生错误: {}", e.getMessage());
         }
     }
 
@@ -1012,35 +1066,35 @@ public class ReportServiceImpl implements IReportService {
             // Part 2: 生成病害小结
 
             log.info("开始生成病害小结");
-//            String diseaseString = getDiseaseSummary(nodeDiseases);
+            String diseaseString = getDiseaseSummary(nodeDiseases);
 
-            // 缓存病害汇总到第十章服务，供后续复用
-//            testConclusionService.cacheDiseaseSummary(node.getId(), diseaseString);
+//             缓存病害汇总到第十章服务，供后续复用
+            testConclusionService.cacheDiseaseSummary(node.getId(), diseaseString);
 
             log.info("生成结束");
 
             // 按行分割字符串并创建多个段落
-//            String[] lines = diseaseString.split("\\r?\\n");
-//            for (String line : lines) {
-//                // 创建新的段落并设置首行缩进
-//                XWPFParagraph diseasePara;
-//                if (cursor != null) {
-//                    diseasePara = document.insertNewParagraph(cursor);
-//                    cursor.toNextToken();
-//                } else {
-//                    diseasePara = document.createParagraph();
-//                }
-//                CTPPr diseasePpr = diseasePara.getCTP().getPPr();
-//                if (diseasePpr == null) {
-//                    diseasePpr = diseasePara.getCTP().addNewPPr();
-//                }
-//                ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
-//                ind.setFirstLine(BigInteger.valueOf(480));
-//
-//                XWPFRun runItem = diseasePara.createRun();
-//                runItem.setText(line);
-//                runItem.setFontSize(12);
-//            }
+            String[] lines = diseaseString.split("\\r?\\n");
+            for (String line : lines) {
+                // 创建新的段落并设置首行缩进
+                XWPFParagraph diseasePara;
+                if (cursor != null) {
+                    diseasePara = document.insertNewParagraph(cursor);
+                    cursor.toNextToken();
+                } else {
+                    diseasePara = document.createParagraph();
+                }
+                CTPPr diseasePpr = diseasePara.getCTP().getPPr();
+                if (diseasePpr == null) {
+                    diseasePpr = diseasePara.getCTP().addNewPPr();
+                }
+                ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
+                ind.setFirstLine(BigInteger.valueOf(480));
+
+                XWPFRun runItem = diseasePara.createRun();
+                runItem.setText(line);
+                runItem.setFontSize(12);
+            }
 
             // Part 3: 表格引用部分
             XWPFParagraph tableRefPara;
