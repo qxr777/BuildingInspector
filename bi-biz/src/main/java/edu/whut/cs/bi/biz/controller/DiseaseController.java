@@ -217,7 +217,7 @@ public class DiseaseController extends BaseController {
                     if (location1 != null && distanceOfloc1 != null) {
                         sb.append("距").append(location1).append(distanceOfloc1.toPlainString()).append("m");
                     }
-                    if (location1 != null && location2 != null) {
+                    if (location1 != null && location2 != null && distanceOfloc1 != null && distanceOfloc2 != null) {
                         sb.append(",");
                     }
                     if (location2 != null && distanceOfloc2 != null) {
@@ -408,7 +408,7 @@ public class DiseaseController extends BaseController {
             while (photoIndex < totalPhotos) {
                 // 1. 先插入一行图片（仅图片，不带标题）
                 XWPFParagraph imageRowPara = document.createParagraph();
-                imageRowPara.setAlignment(ParagraphAlignment.CENTER); // 图片居中对齐
+                imageRowPara.setAlignment(ParagraphAlignment.LEFT); // 图片左对齐，通过tab控制间距。
                 // 存储当前行图片的标题，用于后续插入
                 List<String> currentRowTitles = new ArrayList<>();
                 for (int i = 0; i < photosPerRow; i++) {
@@ -424,7 +424,7 @@ public class DiseaseController extends BaseController {
                         if (imgIs != null) {
                             // 添加图片
                             XWPFRun imageRun = imageRowPara.createRun();
-                            // 设置图片宽度为150px，高度按比例自适应
+                            // 设置图片宽度为170px，高度按比例自适应
                             imageRun.addPicture(imgIs, Document.PICTURE_TYPE_JPEG, photoName + ".jpg",
                                     Units.toEMU(170), Units.toEMU(170));
                         } else {
@@ -446,8 +446,12 @@ public class DiseaseController extends BaseController {
 
                 // 2. 图片行之后，插入对应的标题行（与图片位置一一对应）
                 XWPFParagraph titleRowPara = document.createParagraph();
-                titleRowPara.setAlignment(ParagraphAlignment.CENTER); // 标题与图片对齐
-
+                titleRowPara.setAlignment(ParagraphAlignment.LEFT); // 标题与图片对齐
+                if (!currentRowTitles.isEmpty()) {
+                    for (int t = 0; t < 4; t++) {
+                        titleRowPara.createRun().addTab();
+                    }
+                }
                 for (int i = 0; i < currentRowTitles.size(); i++) {
                     XWPFRun imgTitleRun = titleRowPara.createRun();
                     imgTitleRun.setFontFamily("宋体");
@@ -456,7 +460,7 @@ public class DiseaseController extends BaseController {
 
                     // 标题之间保持与图片相同的间距
                     if (i != currentRowTitles.size() - 1) {
-                        for (int t = 0; t < 9; t++) { // 标题间距需要更大一些（文字占空间小）
+                        for (int t = 0; t < 10; t++) { // 标题间距需要更大一些（文字占空间小）
                             titleRowPara.createRun().addTab();
                         }
                     }
