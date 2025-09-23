@@ -36,7 +36,9 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.ModelMap;
@@ -48,8 +50,11 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.*;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -141,32 +146,48 @@ public class DiseaseController extends BaseController {
         if (building != null && org.apache.shiro.util.StringUtils.hasText(building.getName())) {
             buildingName = building.getName();
         }
-        titleRun.setText(buildingName + "表观病害记录报告");
-        titleRun.setFontSize(16);
-        titleRun.setBold(true);
+        titleRun.setText("构件表观病害检查记录表");
+        titleRun.setFontFamily("黑体");
+        titleRun.setFontSize(14);
+        titleRun.setBold(false);
         titleRun.addBreak(); // 换行
 
-        // 1.2 创建表格
+// 1.2 创建表格
         int tableRows = diseaseList.size() + 1; // 数据行 + 表头行
         int tableCols = 7;
         XWPFTable table = document.createTable(tableRows, tableCols);
-        table.setWidth("100%"); // 设置表格宽度为页面100%
 
-        // 1.3 设置表头
+        CTTblPr tblPr = table.getCTTbl().getTblPr();
+        CTTblWidth tblWidth = tblPr.addNewTblW();
+        tblWidth.setType(STTblWidth.PCT); // 按百分比设置
+        tblWidth.setW(BigInteger.valueOf(5500)); // （5000=100%）
+
+// 1.3 设置表头和列宽
         String[] headers = {"序号", "构件名称", "病害位置", "病害类型", "病害参数", "标度", "病害照片"};
         XWPFTableRow headerRow = table.getRow(0);
+
+// 列宽分配比例
+        int[] columnWidths = {400, 800, 1000, 800, 1100, 400, 1000};
+
         for (int i = 0; i < headers.length; i++) {
             XWPFTableCell cell = headerRow.getCell(i);
             cell.setText(headers[i]);
+
             // 设置表头单元格对齐方式
             for (XWPFParagraph p : cell.getParagraphs()) {
                 p.setAlignment(ParagraphAlignment.CENTER);
             }
+
+            // 设置列宽
+            CTTcPr tcPr = cell.getCTTc().addNewTcPr();
+            CTTblWidth colWidth = tcPr.addNewTcW();
+            colWidth.setType(STTblWidth.PCT); // 按百分比设置
+            colWidth.setW(BigInteger.valueOf(columnWidths[i]));
         }
+
         // 1.4 填充数据，并收集所有图片信息
         int photoSerialNum = 1; // 全局图片序号，用于命名
-        Map<String, String> photoUrlToNameMap = new HashMap<>(); // 存储图片URL到图片名的映射
-        List<String> allPhotoUrlsInOrder = new ArrayList<>(); // 按顺序存储所有图片URL
+        Map<String, List<List<String>>> photoUrlToNameMap = new HashMap<>(); // 存储 模板 构件 名称 对应的 图片名 和 url。
         for (int i = 0; i < diseaseList.size(); i++) {
             Disease item = diseaseList.get(i);
             XWPFTableRow dataRow = table.getRow(i + 1);
@@ -317,21 +338,41 @@ public class DiseaseController extends BaseController {
                 StringBuilder photoNamesSb = new StringBuilder();
                 for (String imgUrl : diseaseImages) {
                     if (imgUrl == null || imgUrl.trim().isEmpty()) continue;
-
-                    // 避免重复添加同一张图片（如果URL重复）
-                    if (!photoUrlToNameMap.containsKey(imgUrl)) {
-                        String photoFileName = String.format("图%d", photoSerialNum);
-                        photoUrlToNameMap.put(imgUrl, photoFileName);
-                        allPhotoUrlsInOrder.add(imgUrl);
-                        photoSerialNum++;
+                    String photoFileName = String.format("图%d", photoSerialNum);
+                    List<String> imgNameAndUrl = new ArrayList<>();
+                    imgNameAndUrl.add(photoFileName);
+                    imgNameAndUrl.add(imgUrl);
+                    String parentObjectName = item.getComponent().getParentObjectName();
+                    List<List<String>> list = photoUrlToNameMap.get(parentObjectName);
+                    if (null == list) {
+                        list = new ArrayList<>();
                     }
-
+                    list.add(imgNameAndUrl);
+                    photoUrlToNameMap.put(parentObjectName, list);
+                    photoSerialNum++;
                     if (photoNamesSb.length() > 0) {
                         photoNamesSb.append(", ");
                     }
-                    photoNamesSb.append(photoUrlToNameMap.get(imgUrl));
+                    photoNamesSb.append(photoFileName);
                 }
                 dataRow.getCell(6).setText(photoNamesSb.toString());
+            }
+        }
+        // -------------------------- 新增：统一设置所有单元格字体 --------------------------
+        // 遍历表格所有行
+        for (XWPFTableRow row : table.getRows()) {
+            // 遍历行中所有单元格
+            for (XWPFTableCell cell : row.getTableCells()) {
+                // 遍历单元格内所有段落
+                for (XWPFParagraph para : cell.getParagraphs()) {
+                    // 遍历段落内所有文本运行（Run）
+                    for (XWPFRun run : para.getRuns()) {
+                        // 设置字体为宋体
+                        run.setFontFamily("宋体");
+                        // 设置字号为五号（10.5磅）
+                        run.setFontSize(10.5);
+                    }
+                }
             }
         }
 
@@ -346,78 +387,89 @@ public class DiseaseController extends BaseController {
         XWPFRun imageTitleRun = imageTitlePara.createRun();
         imageTitleRun.setText("病害现场照片");
         imageTitleRun.setFontSize(14);
-        imageTitleRun.setBold(true);
+        imageTitleRun.setFontFamily("黑体");
+        imageTitleRun.setBold(false);
         imageTitleRun.addBreak();
 
-        // 按“一行两张”的格式插入图片
-        int totalPhotos = allPhotoUrlsInOrder.size();
-        int photosPerRow = 2;
-        int currentPhotoIndex = 0;
-
-        while (currentPhotoIndex < totalPhotos) {
-            // 1. 先插入一行图片（仅图片，不带标题）
-            XWPFParagraph imageRowPara = document.createParagraph();
-            imageRowPara.setAlignment(ParagraphAlignment.CENTER); // 图片居中对齐
-
-            // 存储当前行图片的标题，用于后续插入
-            List<String> currentRowTitles = new ArrayList<>();
-
-            for (int i = 0; i < photosPerRow; i++) {
-                if (currentPhotoIndex >= totalPhotos) {
-                    break; // 图片不足时跳出循环
-                }
-
-                String imgUrl = allPhotoUrlsInOrder.get(currentPhotoIndex);
-                String photoName = photoUrlToNameMap.get(imgUrl);
-                currentRowTitles.add(photoName); // 记录当前图片标题
-
-                try (InputStream imgIs = downloadImageByUrl(imgUrl)) {
-                    if (imgIs != null) {
-                        // 添加图片
-                        XWPFRun run = imageRowPara.createRun();
-                        // 设置图片宽度为150px，高度按比例自适应
-                        run.addPicture(imgIs, Document.PICTURE_TYPE_JPEG, photoName + ".jpg",
-                                Units.toEMU(150), Units.toEMU(150));
-                    } else {
-                        XWPFRun run = imageRowPara.createRun();
-                        run.setText("[图片下载失败]");
+        for (Map.Entry<String, List<List<String>>> entry : photoUrlToNameMap.entrySet()) {
+            // 按“一行两张”的格式插入图片
+            int totalPhotos = entry.getValue().size();
+            List<List<String>> allList = entry.getValue();
+            List<String> nameList = allList.stream().map(list -> list.get(0)).toList();
+            List<String> urlList = allList.stream().map(list -> list.get(1)).toList();
+            int photosPerRow = 2;
+            int photoIndex = 0;
+            // 先插入 一行 价绍文字。
+            XWPFParagraph imageDescPara = document.createParagraph();
+            XWPFRun imageDescRun = imageDescPara.createRun();
+            imageDescRun.setText(entry.getKey() + "典型病害照片如下所示：");
+            imageTitleRun.setFontFamily("宋体");
+            imageDescRun.setFontSize(12);
+            while (photoIndex < totalPhotos) {
+                // 1. 先插入一行图片（仅图片，不带标题）
+                XWPFParagraph imageRowPara = document.createParagraph();
+                imageRowPara.setAlignment(ParagraphAlignment.CENTER); // 图片居中对齐
+                // 存储当前行图片的标题，用于后续插入
+                List<String> currentRowTitles = new ArrayList<>();
+                for (int i = 0; i < photosPerRow; i++) {
+                    if (photoIndex >= totalPhotos) {
+                        break; // 图片不足时跳出循环
                     }
-                } catch (Exception e) {
-                    XWPFRun run = imageRowPara.createRun();
-                    run.setText("[图片处理异常]");
+
+                    String imgUrl = urlList.get(photoIndex);
+                    String photoName = nameList.get(photoIndex);
+                    currentRowTitles.add(photoName); // 记录当前图片标题
+
+                    try (InputStream imgIs = downloadImageByUrl(imgUrl)) {
+                        if (imgIs != null) {
+                            // 添加图片
+                            XWPFRun imageRun = imageRowPara.createRun();
+                            // 设置图片宽度为150px，高度按比例自适应
+                            imageRun.addPicture(imgIs, Document.PICTURE_TYPE_JPEG, photoName + ".jpg",
+                                    Units.toEMU(170), Units.toEMU(170));
+                        } else {
+                            XWPFRun imageRun = imageRowPara.createRun();
+                            imageRun.setText("[图片下载失败]");
+                        }
+                    } catch (Exception e) {
+                        XWPFRun imageRun = imageRowPara.createRun();
+                        imageRun.setText("[图片处理异常]");
+                    }
+                    // 两张图片之间添加制表符分隔（增加间距）
+                    if (i != photosPerRow - 1 && (photoIndex + 1) < totalPhotos) {
+                        for (int t = 0; t < 3; t++) { // 多个制表符增加间距
+                            imageRowPara.createRun().addTab();
+                        }
+                    }
+                    photoIndex++;
                 }
 
-                // 两张图片之间添加制表符分隔（增加间距）
-                if (i != photosPerRow - 1 && (currentPhotoIndex + 1) < totalPhotos) {
-                    for (int t = 0; t < 3; t++) { // 多个制表符增加间距
-                        imageRowPara.createRun().addTab();
+                // 2. 图片行之后，插入对应的标题行（与图片位置一一对应）
+                XWPFParagraph titleRowPara = document.createParagraph();
+                titleRowPara.setAlignment(ParagraphAlignment.CENTER); // 标题与图片对齐
+
+                for (int i = 0; i < currentRowTitles.size(); i++) {
+                    XWPFRun imgTitleRun = titleRowPara.createRun();
+                    imgTitleRun.setFontFamily("宋体");
+                    imgTitleRun.setFontSize(11);
+                    imgTitleRun.setText(currentRowTitles.get(i)); // 设置图片标题
+
+                    // 标题之间保持与图片相同的间距
+                    if (i != currentRowTitles.size() - 1) {
+                        for (int t = 0; t < 9; t++) { // 标题间距需要更大一些（文字占空间小）
+                            titleRowPara.createRun().addTab();
+                        }
                     }
                 }
-
-                currentPhotoIndex++;
             }
-
-            // 2. 图片行之后，插入对应的标题行（与图片位置一一对应）
-            XWPFParagraph titleRowPara = document.createParagraph();
-            titleRowPara.setAlignment(ParagraphAlignment.CENTER); // 标题与图片对齐
-
-            for (int i = 0; i < currentRowTitles.size(); i++) {
-                XWPFRun imgTitleRun = titleRowPara.createRun();
-                imgTitleRun.setText(currentRowTitles.get(i)); // 设置图片标题
-
-                // 标题之间保持与图片相同的间距
-                if (i != currentRowTitles.size() - 1) {
-                    for (int t = 0; t < 9; t++) { // 标题间距需要更大一些（文字占空间小）
-                        titleRowPara.createRun().addTab();
-                    }
-                }
-            }
-
         }
 
         // -------------------------- 步骤2：直接输出Word文档 --------------------------
         response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-        String docFileName = URLEncoder.encode(buildingName + "表观病害记录报告.docx", StandardCharsets.UTF_8.name());
+        LocalDateTime dateTime = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+        String date = dateTime.format(formatter);
+        String docFileName = URLEncoder.encode(buildingName + "-构件表观病害检查记录表-" + date + ".docx", StandardCharsets.UTF_8.name());
         response.setHeader("Content-Disposition", "attachment; filename=\"" + docFileName + "\"");
         response.setHeader("Cache-Control", "no-store, no-cache");
 
