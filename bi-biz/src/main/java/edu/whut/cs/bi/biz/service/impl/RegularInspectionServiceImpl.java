@@ -136,41 +136,85 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
     }
 
     /**
+     * 横向合并单元格
+     */
+    private static void mergeHorizontalCells(XWPFTable table, int row, int startCol, int endCol) {
+        XWPFTableRow tableRow = table.getRow(row);
+        for (int col = startCol; col <= endCol; col++) {
+            XWPFTableCell cell = tableRow.getCell(col);
+            CTTcPr tcPr = cell.getCTTc().getTcPr();
+            if (tcPr == null) {
+                tcPr = cell.getCTTc().addNewTcPr();
+            }
+
+            CTHMerge hMerge = tcPr.isSetHMerge() ? tcPr.getHMerge() : tcPr.addNewHMerge();
+            if (col == startCol) {
+                hMerge.setVal(STMerge.RESTART);
+            } else {
+                hMerge.setVal(STMerge.CONTINUE);
+            }
+        }
+    }
+
+    /**
+     * 纵向合并单元格
+     */
+    private static void mergeVerticalCells(XWPFTable table, int col, int startRow, int endRow) {
+        for (int row = startRow; row <= endRow; row++) {
+            XWPFTableCell cell = table.getRow(row).getCell(col);
+            CTTcPr tcPr = cell.getCTTc().getTcPr();
+            if (tcPr == null) {
+                tcPr = cell.getCTTc().addNewTcPr();
+            }
+
+            CTVMerge vMerge = tcPr.isSetVMerge() ? tcPr.getVMerge() : tcPr.addNewVMerge();
+            if (row == startRow) {
+                vMerge.setVal(STMerge.RESTART);
+            } else {
+                vMerge.setVal(STMerge.CONTINUE);
+            }
+        }
+    }
+
+    /**
      * 创建表格头部
      */
     private void createTableHeader(XWPFTable table, Building building, Project project, Task task) {
-        // 定义列宽比例（总和为100）
-        int[] columnWidths = {8, 8, 8, 8, 8, 8, 8, 8, 16, 20};
+        // 统一使用11列布局的宽度配置，保证所有行宽度一致
+        int[] columnWidths = {8, 8, 8, 8, 8, 8, 8, 8, 8, 16, 20}; // 总和为100
         int totalWidth = 9500; // 总宽度
 
-        // 第一行：公路管理机构名称（横跨所有列）
+        // 第一行：公路管理机构名称（横跨所有列，左对齐）
         XWPFTableRow row1 = table.getRow(0);
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        // 确保创建所有单元格（11列）
+        for (int i = 0; i < 11; i++) {
             if (i >= row1.getTableCells().size()) {
                 row1.createCell();
             }
+            setCellWidth(row1.getCell(i), totalWidth * columnWidths[i] / 100);
         }
 
-        // 设置第一个单元格
+        // 设置第一个单元格（左对齐）
         XWPFTableCell cell1 = row1.getCell(0);
-        setCellText(cell1, "公路管理机构名称：");
-        // 横向合并单元格
-        cell1.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        // 设置单元格宽度
-        setCellWidth(cell1, totalWidth * columnWidths[0] / 100);
+        XWPFParagraph paragraph1 = cell1.getParagraphs().get(0);
+        paragraph1.setAlignment(ParagraphAlignment.LEFT);
 
-        // 合并剩余单元格
-        for (int i = 1; i < 10; i++) {
-            XWPFTableCell mergedCell = row1.getCell(i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-            setCellWidth(mergedCell, totalWidth * columnWidths[i] / 100);
-        }
+        // 设置段落行距为单倍行距
+        paragraph1.setSpacingBetween(1.0);
+        paragraph1.setSpacingAfter(0);
+        paragraph1.setSpacingBefore(0);
+
+        XWPFRun run1 = paragraph1.createRun();
+        run1.setText("公路管理机构名称：");
+        run1.setFontSize(9);
+        run1.setFontFamily("宋体");
+
+        // 横向合并所有11列
+        mergeHorizontalCells(table, 0, 0, 10);
 
         // 第二行：基本信息行1
         XWPFTableRow row2 = table.createRow();
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             if (i >= row2.getTableCells().size()) {
                 row2.createCell();
             }
@@ -178,85 +222,113 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         }
 
         // 设置单元格内容
-        createHeaderCell(row2, 0, "1 线路编号");
-        createHeaderCell(row2, 1, "");
-        createHeaderCell(row2, 2, "2 线路名称");
-        createHeaderCell(row2, 3, "");
-        createHeaderCell(row2, 4, "3 桥位桩号");
-        createHeaderCell(row2, 5, "");
+        createHeaderCell(row2, 0, "1线路编号");
+        createHeaderCell(row2, 2, "");
+        createHeaderCell(row2, 4, "2线路名称");
+        createHeaderCell(row2, 6, "");
+        createHeaderCell(row2, 8, "3桥位桩号");
+        createHeaderCell(row2, 10, "");
+
+        // 横向合并
+        mergeHorizontalCells(table, 1, 0, 1);  // 1 线路编号
+        mergeHorizontalCells(table, 1, 2, 3);  // 数据1
+        mergeHorizontalCells(table, 1, 4, 5);  // 2 线路名称
+        mergeHorizontalCells(table, 1, 6, 7);  // 数据2
+        mergeHorizontalCells(table, 1, 8, 9);  // 3 桥位桩号
+        // 数据3只占一列（第10列）
 
         // 第三行：基本信息行2
         XWPFTableRow row3 = table.createRow();
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             if (i >= row3.getTableCells().size()) {
                 row3.createCell();
             }
             setCellWidth(row3.getCell(i), totalWidth * columnWidths[i] / 100);
         }
 
-        createHeaderCell(row3, 0, "4 桥梁编号");
-        createHeaderCell(row3, 1, "");
-        createHeaderCell(row3, 2, "5 桥梁名称");
-        createHeaderCell(row3, 3, building.getName() != null ? building.getName() : "");
-        createHeaderCell(row3, 4, "6 被跨域通道名称");
-        createHeaderCell(row3, 5, "");
+        createHeaderCell(row3, 0, "4桥梁编号");
+        createHeaderCell(row3, 2, "");
+        createHeaderCell(row3, 4, "5桥梁名称");
+        createHeaderCell(row3, 6, building.getName() != null ? building.getName() : "");
+        createHeaderCell(row3, 8, "6被跨域通道名称");
+        createHeaderCell(row3, 10, "");
+
+        mergeHorizontalCells(table, 2, 0, 1);  // 4 桥梁编号
+        mergeHorizontalCells(table, 2, 2, 3);  // 数据1
+        mergeHorizontalCells(table, 2, 4, 5);  // 5 桥梁名称
+        mergeHorizontalCells(table, 2, 6, 7);  // 数据2
+        mergeHorizontalCells(table, 2, 8, 9);  // 6 被跨域通道名称
+        // 数据3只占一列（第10列）
 
         // 第四行：基本信息行3
         XWPFTableRow row4 = table.createRow();
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             if (i >= row4.getTableCells().size()) {
                 row4.createCell();
             }
             setCellWidth(row4.getCell(i), totalWidth * columnWidths[i] / 100);
         }
 
-        createHeaderCell(row4, 0, "7 桥梁全长(m)");
-        createHeaderCell(row4, 1, "");
-        createHeaderCell(row4, 2, "8 主跨结构");
-        createHeaderCell(row4, 3, "");
-        createHeaderCell(row4, 4, "9 最大跨径(m)");
-        createHeaderCell(row4, 5, "");
+        createHeaderCell(row4, 0, "7桥梁全长(m)");
+        createHeaderCell(row4, 2, "");
+        createHeaderCell(row4, 4, "8主跨结构");
+        createHeaderCell(row4, 6, "");
+        createHeaderCell(row4, 8, "9最大跨径(m)");
+        createHeaderCell(row4, 10, "");
+
+        mergeHorizontalCells(table, 3, 0, 1);
+        mergeHorizontalCells(table, 3, 2, 3);
+        mergeHorizontalCells(table, 3, 4, 5);
+        mergeHorizontalCells(table, 3, 6, 7);
+        mergeHorizontalCells(table, 3, 8, 9);
 
         // 第五行：基本信息行4
         XWPFTableRow row5 = table.createRow();
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             if (i >= row5.getTableCells().size()) {
                 row5.createCell();
             }
             setCellWidth(row5.getCell(i), totalWidth * columnWidths[i] / 100);
         }
 
-        createHeaderCell(row5, 0, "10 管养单位");
-        createHeaderCell(row5, 1, "");
-        createHeaderCell(row5, 2, "11 建成时间");
-        createHeaderCell(row5, 3, "");
-        createHeaderCell(row5, 4, "12 上次修复养护时间");
-        createHeaderCell(row5, 5, "");
+        createHeaderCell(row5, 0, "10管养单位");
+        createHeaderCell(row5, 2, "");
+        createHeaderCell(row5, 4, "11建成时间");
+        createHeaderCell(row5, 6, "");
+        createHeaderCell(row5, 8, "12上次修复养护时间");
+        createHeaderCell(row5, 10, "");
+
+        mergeHorizontalCells(table, 4, 0, 1);
+        mergeHorizontalCells(table, 4, 2, 3);
+        mergeHorizontalCells(table, 4, 4, 5);
+        mergeHorizontalCells(table, 4, 6, 7);
+        mergeHorizontalCells(table, 4, 8, 9);
 
         // 第六行：基本信息行5
         XWPFTableRow row6 = table.createRow();
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             if (i >= row6.getTableCells().size()) {
                 row6.createCell();
             }
             setCellWidth(row6.getCell(i), totalWidth * columnWidths[i] / 100);
         }
 
-        createHeaderCell(row6, 0, "13 上次检查时间");
-        createHeaderCell(row6, 1, "");
-        createHeaderCell(row6, 2, "14 本次检查时间");
-        createHeaderCell(row6, 3, "");
-        createHeaderCell(row6, 4, "15 本次检查时气候及环境温度");
-        createHeaderCell(row6, 5, "");
+        createHeaderCell(row6, 0, "13上次检查时间");
+        createHeaderCell(row6, 2, "");
+        createHeaderCell(row6, 4, "14本次检查时间");
+        createHeaderCell(row6, 6, "");
+        createHeaderCell(row6, 8, "15本次检查时气候及环境温度");
+        createHeaderCell(row6, 10, "");
 
-        // 第七行：表头行
+        mergeHorizontalCells(table, 5, 0, 1);
+        mergeHorizontalCells(table, 5, 2, 3);
+        mergeHorizontalCells(table, 5, 4, 5);
+        mergeHorizontalCells(table, 5, 6, 7);
+        mergeHorizontalCells(table, 5, 8, 9);
+
+        // 第七行：表头行（11列）
         XWPFTableRow row7 = table.createRow();
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             if (i >= row7.getTableCells().size()) {
                 row7.createCell();
             }
@@ -265,44 +337,23 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
         // 设置表头单元格
         createHeaderCell(row7, 0, "序号");
-        createHeaderCell(row7, 1, "16 部位");
-        createHeaderCell(row7, 2, "17 部件名称");
+        createHeaderCell(row7, 1, "16部位");
+        createHeaderCell(row7, 2, "17部件名称");
         createHeaderCell(row7, 3, "18\n评分");
+        createHeaderCell(row7, 4, "19缺损");
+        createHeaderCell(row7, 9, "20养护建议\n(维修范围、方式、时间)");
+        createHeaderCell(row7, 10, "21是否需要专项检查");
 
-        // 创建"19 缺损"列，合并5个单元格
-        XWPFTableCell cell19 = row7.getCell(4);
-        cell19.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        XWPFParagraph para19 = cell19.getParagraphs().get(0);
-        para19.setAlignment(ParagraphAlignment.CENTER);
-        XWPFRun run19 = para19.createRun();
-        run19.setText("19 缺损");
-        run19.setBold(true);
-        run19.setFontSize(9);
+        // 横向合并"19 缺损"（第4-8列）
+        mergeHorizontalCells(table, 6, 4, 8);
 
-        // 合并后续4个单元格
-        for (int i = 0; i < 4; i++) {
-            XWPFTableCell mergedCell = row7.getCell(5 + i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-        }
-
-        // 设置最后两列
-        createHeaderCell(row7, 9, "20 养护建议\n(维修范围、方式、时间)");
-        createHeaderCell(row7, 9, "21 是否需要专项检查");
-
-        // 第八行：缺损子表头
+        // 第八行：缺损子表头（11列）
         XWPFTableRow row8 = table.createRow();
-        // 确保创建所有单元格
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             if (i >= row8.getTableCells().size()) {
                 row8.createCell();
             }
             setCellWidth(row8.getCell(i), totalWidth * columnWidths[i] / 100);
-        }
-
-        // 设置前4列与上一行垂直合并
-        for (int i = 0; i < 4; i++) {
-            XWPFTableCell cell = row8.getCell(i);
-            cell.getCTTc().addNewTcPr().addNewVMerge().setVal(STMerge.CONTINUE);
         }
 
         // 设置缺损子表头
@@ -312,17 +363,21 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         createHeaderCell(row8, 7, "照片");
         createHeaderCell(row8, 8, "最不利构件");
 
-        // 设置最后一列与上一行垂直合并
-        XWPFTableCell lastCell = row8.getCell(9);
-        lastCell.getCTTc().addNewTcPr().addNewVMerge().setVal(STMerge.CONTINUE);
+        // 纵向合并第7-8行的前4列和后2列
+        mergeVerticalCells(table, 0, 6, 7);  // 序号
+        mergeVerticalCells(table, 1, 6, 7);  // 16 部位
+        mergeVerticalCells(table, 2, 6, 7);  // 17 部件名称
+        mergeVerticalCells(table, 3, 6, 7);  // 18 评分
+        mergeVerticalCells(table, 9, 6, 7);  // 20 养护建议
+        mergeVerticalCells(table, 10, 6, 7); // 21 是否需要专项检查
     }
 
     /**
      * 创建表格主体部分
      */
     private void createTableBody(XWPFTable table, BiObject rootObject, List<BiObject> allObjects, Long buildingId, Long projectId, Task task) {
-        // 定义列宽比例（总和为100）- 与表头保持一致
-        int[] columnWidths = {8, 8, 8, 8, 8, 8, 8, 8, 16, 20};
+        // 定义列宽比例（11列）- 与表头保持一致
+        int[] columnWidths = {8, 8, 8, 8, 8, 8, 8, 8, 8, 16, 20}; // 总和为100
         int totalWidth = 9500; // 总宽度
 
         // 获取第二层节点（部位）
@@ -379,8 +434,8 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                 // 创建新行
                 XWPFTableRow row = table.createRow();
 
-                // 确保创建足够的单元格
-                for (int i = 0; i < 10; i++) {
+                // 确保创建足够的单元格（11列）
+                for (int i = 0; i < 11; i++) {
                     if (i >= row.getTableCells().size()) {
                         row.createCell();
                     }
@@ -423,12 +478,15 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                 String diseaseTypes = componentDiseaseTypesMap.getOrDefault(level3Object.getId(), "");
                 setCellText(cellDiseaseType, diseaseTypes);
 
-                // 其他单元格暂时留空
+                // 其他缺损相关单元格暂时留空
                 setCellText(row.getCell(5), "/"); // 位置
                 setCellText(row.getCell(6), "/"); // 范围
                 setCellText(row.getCell(7), "/"); // 照片
                 setCellText(row.getCell(8), ""); // 最不利构件
-                setCellText(row.getCell(9), ""); // 养护建议/是否需要专项检查
+
+                // 养护建议和专项检查列
+                setCellText(row.getCell(9), ""); // 养护建议
+                setCellText(row.getCell(10), ""); // 是否需要专项检查
 
                 isFirstLevel3 = false;
                 rowIndex++;
@@ -591,15 +649,16 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
      * 创建表格底部
      */
     private void createTableFooter(XWPFTable table) {
-        // 定义列宽比例（总和为100）- 与表头保持一致
-        int[] columnWidths = {8, 8, 8, 8, 8, 8, 8, 8, 16, 20};
+        // 定义列宽比例（11列）- 与表头保持一致
+        int[] columnWidths = {8, 8, 8, 8, 8, 8, 8, 8, 8, 16, 20}; // 总和为100
         int totalWidth = 9500; // 总宽度
 
         // 创建底部行1
         XWPFTableRow footerRow1 = table.createRow();
+        int footerRow1Index = table.getRows().size() - 1; // 获取当前行索引
 
-        // 确保创建足够的单元格
-        for (int i = 0; i < 10; i++) {
+        // 确保创建足够的单元格（11列）
+        for (int i = 0; i < 11; i++) {
             if (i >= footerRow1.getTableCells().size()) {
                 footerRow1.createCell();
             }
@@ -607,44 +666,28 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             setCellWidth(footerRow1.getCell(i), totalWidth * columnWidths[i] / 100);
         }
 
-        // 设置"22 桥梁技术状况评定等级"单元格
-        XWPFTableCell cell22 = footerRow1.getCell(0);
-        cell22.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        setCellText(cell22, "22 桥梁技术状况评定等级");
+        // 设置单元格内容（按照6列的逻辑）
+        createHeaderCell(footerRow1, 0, "22桥梁技术状况评定等级");
+        createHeaderCell(footerRow1, 2, "");
+        createHeaderCell(footerRow1, 4, "23全桥清洁状况");
+        createHeaderCell(footerRow1, 6, "/");
+        createHeaderCell(footerRow1, 8, "24预防及修复养护状况");
+        createHeaderCell(footerRow1, 10, "/");
 
-        // 合并后续单元格
-        for (int i = 1; i < 3; i++) {
-            XWPFTableCell mergedCell = footerRow1.getCell(i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-        }
-
-        // 设置"23 全桥清洁状况"单元格
-        XWPFTableCell cell23 = footerRow1.getCell(3);
-        cell23.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        setCellText(cell23, "23 全桥清洁状况");
-
-        // 合并后续单元格
-        for (int i = 4; i < 7; i++) {
-            XWPFTableCell mergedCell = footerRow1.getCell(i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-        }
-
-        // 设置"24 预防及修复养护状况"单元格
-        XWPFTableCell cell24 = footerRow1.getCell(7);
-        cell24.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        setCellText(cell24, "24 预防及修复养护状况");
-
-        // 合并后续单元格
-        for (int i = 8; i < 10; i++) {
-            XWPFTableCell mergedCell = footerRow1.getCell(i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-        }
+        // 横向合并
+        mergeHorizontalCells(table, footerRow1Index, 0, 1);  // 22桥梁技术状况评定等级
+        mergeHorizontalCells(table, footerRow1Index, 2, 3);  // 数据1
+        mergeHorizontalCells(table, footerRow1Index, 4, 5);  // 23全桥清洁状况
+        mergeHorizontalCells(table, footerRow1Index, 6, 7);  // 数据2
+        mergeHorizontalCells(table, footerRow1Index, 8, 9);  // 24预防及修复养护状况
+        // 数据3只占一列（第10列）
 
         // 创建底部行2
         XWPFTableRow footerRow2 = table.createRow();
+        int footerRow2Index = table.getRows().size() - 1; // 获取当前行索引
 
-        // 确保创建足够的单元格
-        for (int i = 0; i < 10; i++) {
+        // 确保创建足够的单元格（11列）
+        for (int i = 0; i < 11; i++) {
             if (i >= footerRow2.getTableCells().size()) {
                 footerRow2.createCell();
             }
@@ -652,38 +695,21 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             setCellWidth(footerRow2.getCell(i), totalWidth * columnWidths[i] / 100);
         }
 
-        // 设置"25 记录人"单元格
-        XWPFTableCell cell25 = footerRow2.getCell(0);
-        cell25.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        setCellText(cell25, "25 记录人");
+        // 设置单元格内容（按照6列的逻辑）
+        createHeaderCell(footerRow2, 0, "25记录人");
+        createHeaderCell(footerRow2, 2, "");
+        createHeaderCell(footerRow2, 4, "26负责人");
+        createHeaderCell(footerRow2, 6, "");
+        createHeaderCell(footerRow2, 8, "27下次检查时间");
+        createHeaderCell(footerRow2, 10, "");
 
-        // 合并后续单元格
-        for (int i = 1; i < 3; i++) {
-            XWPFTableCell mergedCell = footerRow2.getCell(i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-        }
-
-        // 设置"26 负责人"单元格
-        XWPFTableCell cell26 = footerRow2.getCell(3);
-        cell26.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        setCellText(cell26, "26 负责人");
-
-        // 合并后续单元格
-        for (int i = 4; i < 7; i++) {
-            XWPFTableCell mergedCell = footerRow2.getCell(i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-        }
-
-        // 设置"27 下次检查时间"单元格
-        XWPFTableCell cell27 = footerRow2.getCell(7);
-        cell27.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.RESTART);
-        setCellText(cell27, "27 下次检查时间");
-
-        // 合并后续单元格
-        for (int i = 8; i < 10; i++) {
-            XWPFTableCell mergedCell = footerRow2.getCell(i);
-            mergedCell.getCTTc().addNewTcPr().addNewHMerge().setVal(STMerge.CONTINUE);
-        }
+        // 横向合并
+        mergeHorizontalCells(table, footerRow2Index, 0, 1);  // 25记录人
+        mergeHorizontalCells(table, footerRow2Index, 2, 3);  // 数据1
+        mergeHorizontalCells(table, footerRow2Index, 4, 5);  // 26负责人
+        mergeHorizontalCells(table, footerRow2Index, 6, 7);  // 数据2
+        mergeHorizontalCells(table, footerRow2Index, 8, 9);  // 27下次检查时间
+        // 数据3只占一列（第10列）
     }
 
     /**
@@ -697,13 +723,22 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             cell = row.createCell();
         }
 
+        // 清除现有内容
+        for (int i = cell.getParagraphs().size() - 1; i >= 0; i--) {
+            cell.removeParagraph(i);
+        }
+
         // 设置单元格文本
-        XWPFParagraph paragraph = cell.getParagraphs().get(0);
+        XWPFParagraph paragraph = cell.addParagraph();
         paragraph.setAlignment(ParagraphAlignment.CENTER);
+
+        // 设置段落行距为单倍行距
+        paragraph.setSpacingBetween(1.0);
+        paragraph.setSpacingAfter(0);
+        paragraph.setSpacingBefore(0);
 
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-        run.setBold(true);
         run.setFontSize(9);
         run.setFontFamily("宋体");
 
@@ -725,6 +760,11 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         // 添加新段落
         XWPFParagraph paragraph = cell.addParagraph();
         paragraph.setAlignment(ParagraphAlignment.CENTER);
+
+        // 设置段落行距为单倍行距
+        paragraph.setSpacingBetween(1.0);
+        paragraph.setSpacingAfter(0);
+        paragraph.setSpacingBefore(0);
 
         XWPFRun run = paragraph.createRun();
         run.setText(text);
