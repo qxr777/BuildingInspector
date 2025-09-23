@@ -31,7 +31,9 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.util.Units;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xwpf.usermodel.*;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -121,6 +123,316 @@ public class DiseaseController extends BaseController {
         return getDataTable(diseaseList);
     }
 
+    @RequiresPermissions("biz:disease:export")
+    @Log(title = "病害", businessType = BusinessType.EXPORT)
+    @PostMapping("/exportApparentReport")
+    public void exportApparentReport(Disease disease, HttpServletResponse response) throws IOException {
+        List<Disease> diseaseList = diseaseService.selectDiseaseListForTask(disease);
+
+        // -------------------------- 步骤1：生成Word文档 --------------------------
+        XWPFDocument document = new XWPFDocument();
+
+        // 1.1 设置文档标题
+        XWPFParagraph titlePara = document.createParagraph();
+        titlePara.setAlignment(ParagraphAlignment.CENTER);
+        XWPFRun titleRun = titlePara.createRun();
+        String buildingName = "未知建筑";
+        Building building = buildingMapper.selectBuildingById(disease.getBuildingId());
+        if (building != null && org.apache.shiro.util.StringUtils.hasText(building.getName())) {
+            buildingName = building.getName();
+        }
+        titleRun.setText(buildingName + "表观病害记录报告");
+        titleRun.setFontSize(16);
+        titleRun.setBold(true);
+        titleRun.addBreak(); // 换行
+
+        // 1.2 创建表格
+        int tableRows = diseaseList.size() + 1; // 数据行 + 表头行
+        int tableCols = 7;
+        XWPFTable table = document.createTable(tableRows, tableCols);
+        table.setWidth("100%"); // 设置表格宽度为页面100%
+
+        // 1.3 设置表头
+        String[] headers = {"序号", "构件名称", "病害位置", "病害类型", "病害参数", "标度", "病害照片"};
+        XWPFTableRow headerRow = table.getRow(0);
+        for (int i = 0; i < headers.length; i++) {
+            XWPFTableCell cell = headerRow.getCell(i);
+            cell.setText(headers[i]);
+            // 设置表头单元格对齐方式
+            for (XWPFParagraph p : cell.getParagraphs()) {
+                p.setAlignment(ParagraphAlignment.CENTER);
+            }
+        }
+        // 1.4 填充数据，并收集所有图片信息
+        int photoSerialNum = 1; // 全局图片序号，用于命名
+        Map<String, String> photoUrlToNameMap = new HashMap<>(); // 存储图片URL到图片名的映射
+        List<String> allPhotoUrlsInOrder = new ArrayList<>(); // 按顺序存储所有图片URL
+        for (int i = 0; i < diseaseList.size(); i++) {
+            Disease item = diseaseList.get(i);
+            XWPFTableRow dataRow = table.getRow(i + 1);
+
+            // 序号
+            dataRow.getCell(0).setText(i + 1 + "");
+            // 构件名称
+            dataRow.getCell(1).setText(item.getComponent() != null ? item.getComponent().getName() : "");
+            // 病害类型
+            dataRow.getCell(3).setText(item.getType().substring(item.getType().lastIndexOf("#") + 1));
+            //标度
+            dataRow.getCell(5).setText(item.getLevel() + "");
+
+            List<DiseaseDetail> detailList = item.getDiseaseDetails();
+            if (null != detailList && !detailList.isEmpty()) {
+                if (detailList.size() == 1) {
+                    // 只有一个 detail ，  要么数量为1 ， 要么 超过阈值。
+                    DiseaseDetail detail = detailList.get(0);
+
+                    // 病害位置 ， 需要参考系。 距离参考系的距离是米。
+
+                    String location1 = detail.getReference1Location();
+                    String location2 = detail.getReference2Location();
+                    BigDecimal distanceOfloc1 = detail.getReference1LocationStart();
+                    BigDecimal distanceOfloc2 = detail.getReference2LocationStart();
+                    StringBuilder sb = new StringBuilder();
+                    if (location1 != null && distanceOfloc1 != null) {
+                        sb.append("距").append(location1).append(distanceOfloc1.toPlainString()).append("m");
+                    }
+                    if (location1 != null && location2 != null) {
+                        sb.append(",");
+                    }
+                    if (location2 != null && distanceOfloc2 != null) {
+                        sb.append("距").append(location2).append(distanceOfloc2.toPlainString()).append("m");
+                    }
+                    dataRow.getCell(2).setText(sb.toString());
+
+                    //  病害参数。
+                    // 数量。
+                    String qutity = "数量：" + item.getQuantity() + item.getUnits();
+                    // 面积 有无 阈值 统一处理。 后面的参数 有无阈值 分开处理。
+                    boolean hasArea = detail.getAreaLength() != null && detail.getAreaWidth() != null;
+                    String area = detail.getAreaIdentifier() != null && hasArea ? detail.getAreaIdentifier() == 2 ? "面积 S总=" : "面积 S均=" : hasArea ? "面积 S=" : "";
+                    area = hasArea ? area + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString() + "㎡" : "";
+                    // 缝宽
+                    String crackWidth = detail.getCrackWidth() != null ? "缝宽 W=" + detail.getCrackWidth().toPlainString() + "mm" : "";
+                    // 长度
+                    String length = detail.getLength1() != null ? "长度 L=" + detail.getLength1().toPlainString() + "m" : "";
+                    // 角度
+                    String angle = detail.getAngle() != null ? "角度：" + detail.getAngle() + "度" : "";
+                    // 高度 / 深度
+                    String heightOrDepth = detail.getHeightDepth() != null ? "高度/深度：" + detail.getHeightDepth().toPlainString() + "m" : "";
+                    // 变形 位移
+                    String deformation = detail.getDeformation() != null ? "变形/位移：" + detail.getDeformation().toPlainString() + "m" : "";
+
+                    // 超 阈值的处理 。
+                    String lengthRange = detail.getLengthRangeStart() != null && detail.getLengthRangeEnd() != null ? "长度 L=" + detail.getLengthRangeStart().toPlainString() + "-" + detail.getLengthRangeEnd().toPlainString() + "m" : "";
+                    String heightDepthRange = detail.getHeightDepthRangeStart() != null && detail.getHeightDepthRangeEnd() != null ? "高度/深度：" + detail.getHeightDepthRangeStart().toPlainString() + "-" + detail.getHeightDepthRangeEnd().toPlainString() + "m" : "";
+                    String crackWidthRange = detail.getCrackWidthRangeStart() != null && detail.getCrackWidthRangeEnd() != null ? "缝宽 W=" + detail.getCrackWidthRangeStart().toPlainString() + "-" + detail.getCrackWidthRangeEnd().toPlainString() + "mm" : "";
+                    String deformationRange = detail.getDeformationRangeStart() != null && detail.getDeformationRangeEnd() != null ? "位移/变形：" + detail.getDeformationRangeStart().toPlainString() + "-" + detail.getDeformationRangeEnd().toPlainString() + "m" : "";
+                    String angleRange = detail.getAngleRangeStart() != null && detail.getAngleRangeEnd() != null ? "角度：" + detail.getAngleRangeStart().toPlainString() + "-" + detail.getAngleRangeEnd().toPlainString() + "度" : "";
+
+                    sb = new StringBuilder();
+                    // 长度
+                    sb.append(length != "" ? length + "," : length);
+                    sb.append(lengthRange != "" ? lengthRange + "," : lengthRange);
+                    //缝宽
+                    sb.append(crackWidth != "" ? crackWidth + "," : crackWidth);
+                    sb.append(crackWidthRange != "" ? crackWidthRange + "," : crackWidthRange);
+                    //角度
+                    sb.append(angle != "" ? angle + "," : angle);
+                    sb.append(angleRange != "" ? angleRange + "," : angleRange);
+                    //变形位移
+                    sb.append(deformation != "" ? deformation + "," : deformation);
+                    sb.append(deformationRange != "" ? deformationRange + "," : deformationRange);
+                    //高度/深度
+                    sb.append(heightOrDepth != "" ? heightOrDepth + "," : heightOrDepth);
+                    sb.append(heightDepthRange != "" ? heightDepthRange + "," : heightDepthRange);
+                    //面积
+                    sb.append(area != "" ? area + "," : area);
+                    //数量
+                    sb.append(qutity);
+                    dataRow.getCell(4).setText(sb.toString());
+                } else {
+                    // 病害位置
+                    StringBuilder sb_position = new StringBuilder();
+                    // 病害参数
+                    StringBuilder sb_info = new StringBuilder();
+                    for (int index = 0; index < detailList.size(); index++) {
+                        DiseaseDetail detail = detailList.get(index);
+                        String start = "(" + (index + 1) + ")";
+                        sb_position.append(start);
+                        sb_info.append(start);
+                        String location1 = detail.getReference1Location();
+                        String location2 = detail.getReference2Location();
+                        BigDecimal distanceOfloc1 = detail.getReference1LocationStart();
+                        BigDecimal distanceOfloc2 = detail.getReference2LocationStart();
+                        if (location1 != null && distanceOfloc1 != null) {
+                            sb_position.append("距").append(location1).append(distanceOfloc1.toPlainString()).append("m");
+                        }
+                        if (location1 != null && location2 != null && distanceOfloc1 != null && distanceOfloc2 != null) {
+                            sb_position.append(",");
+                        }
+                        if (location2 != null && distanceOfloc2 != null) {
+                            sb_position.append("距").append(location2).append(distanceOfloc2.toPlainString()).append("m");
+                        }
+
+                        //  病害参数。
+                        // 数量。
+                        String qutity = "数量：" + item.getQuantity() + item.getUnits();
+                        // 面积 有无 阈值 统一处理。 后面的参数 有无阈值 分开处理。
+                        boolean hasArea = detail.getAreaLength() != null && detail.getAreaWidth() != null;
+                        String area = hasArea ? "面积 S=" : "";
+                        area = hasArea ? area + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString() + "㎡" : "";
+                        // 缝宽
+                        String crackWidth = detail.getCrackWidth() != null ? "缝宽 W=" + detail.getCrackWidth().toPlainString() + "mm" : "";
+                        // 长度
+                        String length = detail.getLength1() != null ? "长度 L=" + detail.getLength1().toPlainString() + "m" : "";
+                        // 角度
+                        String angle = detail.getAngle() != null ? "角度：" + detail.getAngle() + "度" : "";
+                        // 高度 / 深度
+                        String heightOrDepth = detail.getHeightDepth() != null ? "高度/深度：" + detail.getHeightDepth().toPlainString() + "m" : "";
+                        // 变形 位移
+                        String deformation = detail.getDeformation() != null ? "变形/位移：" + detail.getDeformation().toPlainString() + "m" : "";
+                        // 长度
+                        sb_info.append(length != "" ? length + "," : length);
+                        //缝宽
+                        sb_info.append(crackWidth != "" ? crackWidth + "," : crackWidth);
+                        //角度
+                        sb_info.append(angle != "" ? angle + "," : angle);
+                        //变形位移
+                        sb_info.append(deformation != "" ? deformation + "," : deformation);
+                        //高度/深度
+                        sb_info.append(heightOrDepth != "" ? heightOrDepth + "," : heightOrDepth);
+                        //面积
+                        sb_info.append(area != "" ? area + "," : area);
+                        //数量
+                        sb_info.append(qutity);
+                    }
+                    dataRow.getCell(2).setText(sb_position.toString());
+                    dataRow.getCell(4).setText(sb_info.toString());
+                }
+            }
+
+            // --- 处理图片：只填写图片名称，不插入图片 ---
+            List<String> diseaseImages = item.getImages();
+            if (diseaseImages != null && !diseaseImages.isEmpty()) {
+                StringBuilder photoNamesSb = new StringBuilder();
+                for (String imgUrl : diseaseImages) {
+                    if (imgUrl == null || imgUrl.trim().isEmpty()) continue;
+
+                    // 避免重复添加同一张图片（如果URL重复）
+                    if (!photoUrlToNameMap.containsKey(imgUrl)) {
+                        String photoFileName = String.format("图%d", photoSerialNum);
+                        photoUrlToNameMap.put(imgUrl, photoFileName);
+                        allPhotoUrlsInOrder.add(imgUrl);
+                        photoSerialNum++;
+                    }
+
+                    if (photoNamesSb.length() > 0) {
+                        photoNamesSb.append(", ");
+                    }
+                    photoNamesSb.append(photoUrlToNameMap.get(imgUrl));
+                }
+                dataRow.getCell(6).setText(photoNamesSb.toString());
+            }
+        }
+
+        //--------------------- 在表格下方统一插入所有图片 --------------------------
+        // 添加一个分页符，将图片与表格分开
+        XWPFParagraph pageBreakPara = document.createParagraph();
+        pageBreakPara.createRun().addBreak(BreakType.PAGE);
+
+        // 添加图片标题
+        XWPFParagraph imageTitlePara = document.createParagraph();
+        imageTitlePara.setAlignment(ParagraphAlignment.CENTER);
+        XWPFRun imageTitleRun = imageTitlePara.createRun();
+        imageTitleRun.setText("病害现场照片");
+        imageTitleRun.setFontSize(14);
+        imageTitleRun.setBold(true);
+        imageTitleRun.addBreak();
+
+        // 按“一行两张”的格式插入图片
+        int totalPhotos = allPhotoUrlsInOrder.size();
+        int photosPerRow = 2;
+        int currentPhotoIndex = 0;
+
+        while (currentPhotoIndex < totalPhotos) {
+            // 1. 先插入一行图片（仅图片，不带标题）
+            XWPFParagraph imageRowPara = document.createParagraph();
+            imageRowPara.setAlignment(ParagraphAlignment.CENTER); // 图片居中对齐
+
+            // 存储当前行图片的标题，用于后续插入
+            List<String> currentRowTitles = new ArrayList<>();
+
+            for (int i = 0; i < photosPerRow; i++) {
+                if (currentPhotoIndex >= totalPhotos) {
+                    break; // 图片不足时跳出循环
+                }
+
+                String imgUrl = allPhotoUrlsInOrder.get(currentPhotoIndex);
+                String photoName = photoUrlToNameMap.get(imgUrl);
+                currentRowTitles.add(photoName); // 记录当前图片标题
+
+                try (InputStream imgIs = downloadImageByUrl(imgUrl)) {
+                    if (imgIs != null) {
+                        // 添加图片
+                        XWPFRun run = imageRowPara.createRun();
+                        // 设置图片宽度为150px，高度按比例自适应
+                        run.addPicture(imgIs, Document.PICTURE_TYPE_JPEG, photoName + ".jpg",
+                                Units.toEMU(150), Units.toEMU(150));
+                    } else {
+                        XWPFRun run = imageRowPara.createRun();
+                        run.setText("[图片下载失败]");
+                    }
+                } catch (Exception e) {
+                    XWPFRun run = imageRowPara.createRun();
+                    run.setText("[图片处理异常]");
+                }
+
+                // 两张图片之间添加制表符分隔（增加间距）
+                if (i != photosPerRow - 1 && (currentPhotoIndex + 1) < totalPhotos) {
+                    for (int t = 0; t < 3; t++) { // 多个制表符增加间距
+                        imageRowPara.createRun().addTab();
+                    }
+                }
+
+                currentPhotoIndex++;
+            }
+
+            // 2. 图片行之后，插入对应的标题行（与图片位置一一对应）
+            XWPFParagraph titleRowPara = document.createParagraph();
+            titleRowPara.setAlignment(ParagraphAlignment.CENTER); // 标题与图片对齐
+
+            for (int i = 0; i < currentRowTitles.size(); i++) {
+                XWPFRun imgTitleRun = titleRowPara.createRun();
+                imgTitleRun.setText(currentRowTitles.get(i)); // 设置图片标题
+
+                // 标题之间保持与图片相同的间距
+                if (i != currentRowTitles.size() - 1) {
+                    for (int t = 0; t < 9; t++) { // 标题间距需要更大一些（文字占空间小）
+                        titleRowPara.createRun().addTab();
+                    }
+                }
+            }
+
+        }
+
+        // -------------------------- 步骤2：直接输出Word文档 --------------------------
+        response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        String docFileName = URLEncoder.encode(buildingName + "表观病害记录报告.docx", StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + docFileName + "\"");
+        response.setHeader("Cache-Control", "no-store, no-cache");
+
+        // 将Word文档写入响应流
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             InputStream fis = new ByteArrayInputStream(baos.toByteArray())) {
+            document.write(baos);
+            baos.writeTo(response.getOutputStream());
+            response.getOutputStream().flush();
+        } finally {
+            document.close();
+        }
+
+    }
+
     /**
      * 导出病害列表
      */
@@ -186,18 +498,27 @@ public class DiseaseController extends BaseController {
                 //长度
                 if (detail.getLength1() != null) {
                     row.createCell(6).setCellValue(detail.getLength1().toPlainString());
+                } else if (detail.getLengthRangeStart() != null && detail.getLengthRangeEnd() != null) {
+                    row.createCell(6).setCellValue(detail.getLengthRangeStart().toPlainString() + "-" + detail.getLengthRangeEnd().toPlainString());
                 }
                 //宽度
                 if (detail.getWidth() != null) {
                     row.createCell(7).setCellValue(detail.getWidth().toPlainString());
+                } else if (detail.getWidthRangeStart() != null && detail.getWidthRangeEnd() != null) {
+                    row.createCell(7).setCellValue(detail.getWidthRangeStart().toPlainString() + "-" + detail.getWidthRangeEnd().toPlainString());
+
                 }
                 //缝宽
                 if (detail.getCrackWidth() != null) {
                     row.createCell(8).setCellValue(detail.getCrackWidth().toPlainString());
+                } else if (detail.getCrackWidthRangeStart() != null && detail.getCrackWidthRangeEnd() != null) {
+                    row.createCell(8).setCellValue(detail.getCrackWidthRangeStart().toPlainString() + "-" + detail.getCrackWidthRangeEnd().toPlainString());
                 }
                 //高度深度
                 if (detail.getHeightDepth() != null) {
                     row.createCell(9).setCellValue(detail.getHeightDepth().toPlainString());
+                } else if (detail.getHeightDepthRangeStart() != null && detail.getHeightDepthRangeEnd() != null) {
+                    row.createCell(9).setCellValue(detail.getHeightDepthRangeStart().toPlainString() + "-" + detail.getHeightDepthRangeEnd().toPlainString());
                 }
                 //面积
                 // 判断 是否 是 均值。

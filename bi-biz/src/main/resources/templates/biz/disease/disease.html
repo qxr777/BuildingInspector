@@ -87,6 +87,9 @@
                 <a class="btn btn-warning" onclick="exportReport()" shiro:hasPermission="biz:disease:export">
                     <i class="fa fa-download"></i> 导出报告
                 </a>
+                <a class="btn btn-warning" onclick="exportApparentReport()" shiro:hasPermission="biz:disease:export">
+                    <i class="fa fa-download"></i> 导出构件表观病害记录表
+                </a>
                 <a class="btn btn-info" onclick="importCBMSDisease()" shiro:hasPermission="biz:disease:add">
                     <i class="fa fa-upload"></i> 导入CBMS模板病害
                 </a>
@@ -492,6 +495,63 @@
             }
         });
     }
+
+    // 导出病害Excel
+    function exportApparentReport() {
+        showExportLoading("正在导出表观病害记录，请稍候...");
+        const {projectId, buildingId, id: taskId} = task;
+
+        $.ajax({
+            url: '/biz/disease/exportApparentReport',
+            type: 'POST',
+            data: {
+                projectId,
+                buildingId,
+                taskId
+            },
+            xhrFields: {
+                responseType: 'blob'
+            },
+            success: function (blob, status, xhr) {
+                hideExportLoading();
+
+                let fileName = '表观病害数据记录报告.docx';
+                const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="(.*?)"/);
+                    if (match && match[1]) {
+                        fileName = decodeURIComponent(match[1]);
+                    }
+                }
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 1000);
+            },
+            error: function (xhr, status, error) {
+                hideExportLoading();
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const errorMsg = e.target.result || '导出失败，请稍后重试';
+                    $.modal.msgError(errorMsg);
+                };
+                reader.readAsText(xhr.response);
+            },
+            complete: function () {
+                hideExportLoading();
+            }
+        });
+    }
+
 </script>
 </body>
 </html>
