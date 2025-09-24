@@ -154,25 +154,24 @@ public class DiseaseController extends BaseController {
 
 // 1.2 创建表格
         int tableRows = diseaseList.size() + 1; // 数据行 + 表头行
-        int tableCols = 7;
+        int tableCols = 8;
         XWPFTable table = document.createTable(tableRows, tableCols);
 
         CTTblPr tblPr = table.getCTTbl().getTblPr();
         CTTblWidth tblWidth = tblPr.addNewTblW();
         tblWidth.setType(STTblWidth.PCT); // 按百分比设置
-        tblWidth.setW(BigInteger.valueOf(5500)); // （5000=100%）
+        tblWidth.setW(BigInteger.valueOf(5300)); // （5000=100%）
 
 // 1.3 设置表头和列宽
-        String[] headers = {"序号", "构件名称", "病害位置", "病害类型", "病害参数", "标度", "病害照片"};
+        String[] headers = {"序号", "构件名称", "病害位置", "病害类型", "病害参数", "标度", "病害照片", "发展趋势"};
         XWPFTableRow headerRow = table.getRow(0);
 
 // 列宽分配比例
-        int[] columnWidths = {400, 800, 1000, 800, 1100, 400, 1000};
+        int[] columnWidths = {350, 600, 700, 600, 1100, 350, 650, 650};
 
         for (int i = 0; i < headers.length; i++) {
             XWPFTableCell cell = headerRow.getCell(i);
             cell.setText(headers[i]);
-
             // 设置表头单元格对齐方式
             for (XWPFParagraph p : cell.getParagraphs()) {
                 p.setAlignment(ParagraphAlignment.CENTER);
@@ -200,7 +199,10 @@ public class DiseaseController extends BaseController {
             dataRow.getCell(3).setText(item.getType().substring(item.getType().lastIndexOf("#") + 1));
             //标度
             dataRow.getCell(5).setText(item.getLevel() + "");
-
+            //发展趋势
+            dataRow.getCell(7).setText(item.getDevelopmentTrend());
+            //病害参数。
+            dataRow.getCell(4).setText(item.getDescription());
             List<DiseaseDetail> detailList = item.getDiseaseDetails();
             if (null != detailList && !detailList.isEmpty()) {
                 if (detailList.size() == 1) {
@@ -225,62 +227,61 @@ public class DiseaseController extends BaseController {
                     }
                     dataRow.getCell(2).setText(sb.toString());
 
-                    //  病害参数。
-                    // 数量。
-                    String qutity = "数量：" + item.getQuantity() + item.getUnits();
-                    // 面积 有无 阈值 统一处理。 后面的参数 有无阈值 分开处理。
-                    boolean hasArea = detail.getAreaLength() != null && detail.getAreaWidth() != null;
-                    String area = detail.getAreaIdentifier() != null && hasArea ? detail.getAreaIdentifier() == 2 ? "面积 S总=" : "面积 S均=" : hasArea ? "面积 S=" : "";
-                    area = hasArea ? area + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString() + "㎡" : "";
-                    // 缝宽
-                    String crackWidth = detail.getCrackWidth() != null ? "缝宽 W=" + detail.getCrackWidth().toPlainString() + "mm" : "";
-                    // 长度
-                    String length = detail.getLength1() != null ? "长度 L=" + detail.getLength1().toPlainString() + "m" : "";
-                    // 角度
-                    String angle = detail.getAngle() != null ? "角度：" + detail.getAngle() + "度" : "";
-                    // 高度 / 深度
-                    String heightOrDepth = detail.getHeightDepth() != null ? "高度/深度：" + detail.getHeightDepth().toPlainString() + "m" : "";
-                    // 变形 位移
-                    String deformation = detail.getDeformation() != null ? "变形/位移：" + detail.getDeformation().toPlainString() + "m" : "";
-
-                    // 超 阈值的处理 。
-                    String lengthRange = detail.getLengthRangeStart() != null && detail.getLengthRangeEnd() != null ? "长度 L=" + detail.getLengthRangeStart().toPlainString() + "-" + detail.getLengthRangeEnd().toPlainString() + "m" : "";
-                    String heightDepthRange = detail.getHeightDepthRangeStart() != null && detail.getHeightDepthRangeEnd() != null ? "高度/深度：" + detail.getHeightDepthRangeStart().toPlainString() + "-" + detail.getHeightDepthRangeEnd().toPlainString() + "m" : "";
-                    String crackWidthRange = detail.getCrackWidthRangeStart() != null && detail.getCrackWidthRangeEnd() != null ? "缝宽 W=" + detail.getCrackWidthRangeStart().toPlainString() + "-" + detail.getCrackWidthRangeEnd().toPlainString() + "mm" : "";
-                    String deformationRange = detail.getDeformationRangeStart() != null && detail.getDeformationRangeEnd() != null ? "位移/变形：" + detail.getDeformationRangeStart().toPlainString() + "-" + detail.getDeformationRangeEnd().toPlainString() + "m" : "";
-                    String angleRange = detail.getAngleRangeStart() != null && detail.getAngleRangeEnd() != null ? "角度：" + detail.getAngleRangeStart().toPlainString() + "-" + detail.getAngleRangeEnd().toPlainString() + "度" : "";
-
-                    sb = new StringBuilder();
-                    // 长度
-                    sb.append(length != "" ? length + "," : length);
-                    sb.append(lengthRange != "" ? lengthRange + "," : lengthRange);
-                    //缝宽
-                    sb.append(crackWidth != "" ? crackWidth + "," : crackWidth);
-                    sb.append(crackWidthRange != "" ? crackWidthRange + "," : crackWidthRange);
-                    //角度
-                    sb.append(angle != "" ? angle + "," : angle);
-                    sb.append(angleRange != "" ? angleRange + "," : angleRange);
-                    //变形位移
-                    sb.append(deformation != "" ? deformation + "," : deformation);
-                    sb.append(deformationRange != "" ? deformationRange + "," : deformationRange);
-                    //高度/深度
-                    sb.append(heightOrDepth != "" ? heightOrDepth + "," : heightOrDepth);
-                    sb.append(heightDepthRange != "" ? heightDepthRange + "," : heightDepthRange);
-                    //面积
-                    sb.append(area != "" ? area + "," : area);
-                    //数量
-                    sb.append(qutity);
-                    dataRow.getCell(4).setText(sb.toString());
+//                    //  病害参数。
+//                    // 数量。
+//                    String qutity = "数量：" + item.getQuantity() + item.getUnits();
+//                    // 面积 有无 阈值 统一处理。 后面的参数 有无阈值 分开处理。
+//                    boolean hasArea = detail.getAreaLength() != null && detail.getAreaWidth() != null;
+//                    String area = detail.getAreaIdentifier() != null && hasArea ? detail.getAreaIdentifier() == 2 ? "面积 S总=" : "面积 S均=" : hasArea ? "面积 S=" : "";
+//                    area = hasArea ? area + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString() + "㎡" : "";
+//                    // 缝宽
+//                    String crackWidth = detail.getCrackWidth() != null ? "缝宽 W=" + detail.getCrackWidth().toPlainString() + "mm" : "";
+//                    // 长度
+//                    String length = detail.getLength1() != null ? "长度 L=" + detail.getLength1().toPlainString() + "m" : "";
+//                    // 角度
+//                    String angle = detail.getAngle() != null ? "角度：" + detail.getAngle() + "度" : "";
+//                    // 高度 / 深度
+//                    String heightOrDepth = detail.getHeightDepth() != null ? "高度/深度：" + detail.getHeightDepth().toPlainString() + "m" : "";
+//                    // 变形 位移
+//                    String deformation = detail.getDeformation() != null ? "变形/位移：" + detail.getDeformation().toPlainString() + "m" : "";
+//
+//                    // 超 阈值的处理 。
+//                    String lengthRange = detail.getLengthRangeStart() != null && detail.getLengthRangeEnd() != null ? "长度 L=" + detail.getLengthRangeStart().toPlainString() + "-" + detail.getLengthRangeEnd().toPlainString() + "m" : "";
+//                    String heightDepthRange = detail.getHeightDepthRangeStart() != null && detail.getHeightDepthRangeEnd() != null ? "高度/深度：" + detail.getHeightDepthRangeStart().toPlainString() + "-" + detail.getHeightDepthRangeEnd().toPlainString() + "m" : "";
+//                    String crackWidthRange = detail.getCrackWidthRangeStart() != null && detail.getCrackWidthRangeEnd() != null ? "缝宽 W=" + detail.getCrackWidthRangeStart().toPlainString() + "-" + detail.getCrackWidthRangeEnd().toPlainString() + "mm" : "";
+//                    String deformationRange = detail.getDeformationRangeStart() != null && detail.getDeformationRangeEnd() != null ? "位移/变形：" + detail.getDeformationRangeStart().toPlainString() + "-" + detail.getDeformationRangeEnd().toPlainString() + "m" : "";
+//                    String angleRange = detail.getAngleRangeStart() != null && detail.getAngleRangeEnd() != null ? "角度：" + detail.getAngleRangeStart().toPlainString() + "-" + detail.getAngleRangeEnd().toPlainString() + "度" : "";
+//
+//                    sb = new StringBuilder();
+//                    // 长度
+//                    sb.append(length != "" ? length + "," : length);
+//                    sb.append(lengthRange != "" ? lengthRange + "," : lengthRange);
+//                    //缝宽
+//                    sb.append(crackWidth != "" ? crackWidth + "," : crackWidth);
+//                    sb.append(crackWidthRange != "" ? crackWidthRange + "," : crackWidthRange);
+//                    //角度
+//                    sb.append(angle != "" ? angle + "," : angle);
+//                    sb.append(angleRange != "" ? angleRange + "," : angleRange);
+//                    //变形位移
+//                    sb.append(deformation != "" ? deformation + "," : deformation);
+//                    sb.append(deformationRange != "" ? deformationRange + "," : deformationRange);
+//                    //高度/深度
+//                    sb.append(heightOrDepth != "" ? heightOrDepth + "," : heightOrDepth);
+//                    sb.append(heightDepthRange != "" ? heightDepthRange + "," : heightDepthRange);
+//                    //面积
+//                    sb.append(area != "" ? area + "," : area);
+//                    //数量
+//                    sb.append(qutity);
                 } else {
                     // 病害位置
                     StringBuilder sb_position = new StringBuilder();
-                    // 病害参数
-                    StringBuilder sb_info = new StringBuilder();
+//                    // 病害参数
+//                    StringBuilder sb_info = new StringBuilder();
                     for (int index = 0; index < detailList.size(); index++) {
                         DiseaseDetail detail = detailList.get(index);
                         String start = "(" + (index + 1) + ")";
                         sb_position.append(start);
-                        sb_info.append(start);
+//                        sb_info.append(start);
                         String location1 = detail.getReference1Location();
                         String location2 = detail.getReference2Location();
                         BigDecimal distanceOfloc1 = detail.getReference1LocationStart();
@@ -294,41 +295,41 @@ public class DiseaseController extends BaseController {
                         if (location2 != null && distanceOfloc2 != null) {
                             sb_position.append("距").append(location2).append(distanceOfloc2.toPlainString()).append("m");
                         }
-
-                        //  病害参数。
-                        // 数量。
-                        String qutity = "数量：" + item.getQuantity() + item.getUnits();
-                        // 面积 有无 阈值 统一处理。 后面的参数 有无阈值 分开处理。
-                        boolean hasArea = detail.getAreaLength() != null && detail.getAreaWidth() != null;
-                        String area = hasArea ? "面积 S=" : "";
-                        area = hasArea ? area + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString() + "㎡" : "";
-                        // 缝宽
-                        String crackWidth = detail.getCrackWidth() != null ? "缝宽 W=" + detail.getCrackWidth().toPlainString() + "mm" : "";
-                        // 长度
-                        String length = detail.getLength1() != null ? "长度 L=" + detail.getLength1().toPlainString() + "m" : "";
-                        // 角度
-                        String angle = detail.getAngle() != null ? "角度：" + detail.getAngle() + "度" : "";
-                        // 高度 / 深度
-                        String heightOrDepth = detail.getHeightDepth() != null ? "高度/深度：" + detail.getHeightDepth().toPlainString() + "m" : "";
-                        // 变形 位移
-                        String deformation = detail.getDeformation() != null ? "变形/位移：" + detail.getDeformation().toPlainString() + "m" : "";
-                        // 长度
-                        sb_info.append(length != "" ? length + "," : length);
-                        //缝宽
-                        sb_info.append(crackWidth != "" ? crackWidth + "," : crackWidth);
-                        //角度
-                        sb_info.append(angle != "" ? angle + "," : angle);
-                        //变形位移
-                        sb_info.append(deformation != "" ? deformation + "," : deformation);
-                        //高度/深度
-                        sb_info.append(heightOrDepth != "" ? heightOrDepth + "," : heightOrDepth);
-                        //面积
-                        sb_info.append(area != "" ? area + "," : area);
-                        //数量
-                        sb_info.append(qutity);
+//
+//                        //  病害参数。
+//                        // 数量。
+//                        String qutity = "数量：" + item.getQuantity() + item.getUnits();
+//                        // 面积 有无 阈值 统一处理。 后面的参数 有无阈值 分开处理。
+//                        boolean hasArea = detail.getAreaLength() != null && detail.getAreaWidth() != null;
+//                        String area = hasArea ? "面积 S=" : "";
+//                        area = hasArea ? area + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString() + "㎡" : "";
+//                        // 缝宽
+//                        String crackWidth = detail.getCrackWidth() != null ? "缝宽 W=" + detail.getCrackWidth().toPlainString() + "mm" : "";
+//                        // 长度
+//                        String length = detail.getLength1() != null ? "长度 L=" + detail.getLength1().toPlainString() + "m" : "";
+//                        // 角度
+//                        String angle = detail.getAngle() != null ? "角度：" + detail.getAngle() + "度" : "";
+//                        // 高度 / 深度
+//                        String heightOrDepth = detail.getHeightDepth() != null ? "高度/深度：" + detail.getHeightDepth().toPlainString() + "m" : "";
+//                        // 变形 位移
+//                        String deformation = detail.getDeformation() != null ? "变形/位移：" + detail.getDeformation().toPlainString() + "m" : "";
+//                        // 长度
+//                        sb_info.append(length != "" ? length + "," : length);
+//                        //缝宽
+//                        sb_info.append(crackWidth != "" ? crackWidth + "," : crackWidth);
+//                        //角度
+//                        sb_info.append(angle != "" ? angle + "," : angle);
+//                        //变形位移
+//                        sb_info.append(deformation != "" ? deformation + "," : deformation);
+//                        //高度/深度
+//                        sb_info.append(heightOrDepth != "" ? heightOrDepth + "," : heightOrDepth);
+//                        //面积
+//                        sb_info.append(area != "" ? area + "," : area);
+//                        //数量
+//                        sb_info.append(qutity);
                     }
                     dataRow.getCell(2).setText(sb_position.toString());
-                    dataRow.getCell(4).setText(sb_info.toString());
+//                    dataRow.getCell(4).setText(sb_info.toString());
                 }
             }
 
@@ -361,10 +362,15 @@ public class DiseaseController extends BaseController {
         // -------------------------- 新增：统一设置所有单元格字体 --------------------------
         // 遍历表格所有行
         for (XWPFTableRow row : table.getRows()) {
+
             // 遍历行中所有单元格
             for (XWPFTableCell cell : row.getTableCells()) {
+                // ========== 新增：设置垂直居中 ==========
+                cell.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
                 // 遍历单元格内所有段落
                 for (XWPFParagraph para : cell.getParagraphs()) {
+                    // ========== 新增：设置水平居中 ==========
+                    para.setAlignment(ParagraphAlignment.CENTER);
                     // 遍历段落内所有文本运行（Run）
                     for (XWPFRun run : para.getRuns()) {
                         // 设置字体为宋体
@@ -424,9 +430,9 @@ public class DiseaseController extends BaseController {
                         if (imgIs != null) {
                             // 添加图片
                             XWPFRun imageRun = imageRowPara.createRun();
-                            // 设置图片宽度为170px，高度按比例自适应
+                            // 设置图片宽度为170px 4：3
                             imageRun.addPicture(imgIs, Document.PICTURE_TYPE_JPEG, photoName + ".jpg",
-                                    Units.toEMU(170), Units.toEMU(170));
+                                    Units.toEMU(170), Units.toEMU(128));
                         } else {
                             XWPFRun imageRun = imageRowPara.createRun();
                             imageRun.setText("[图片下载失败]");
