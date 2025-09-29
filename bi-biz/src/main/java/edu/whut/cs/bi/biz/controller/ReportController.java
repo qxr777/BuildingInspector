@@ -437,7 +437,7 @@ public class ReportController extends BaseController {
                             cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
                             break;
                         case 6:
-                            cellR.setText("/");
+                            cellR.setText(d.getDevelopmentTrend() != null && !d.getDevelopmentTrend().isEmpty() ? d.getDevelopmentTrend() : "/");
                             break;
                         case 7:
                             // 获取该病害对应的所有图片序号
