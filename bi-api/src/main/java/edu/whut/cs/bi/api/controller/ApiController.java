@@ -182,7 +182,7 @@ public class ApiController {
     /**
      * 获取建筑物对象树结构
      */
-    @GetMapping("/building/{bid}/object-Online")
+    @GetMapping("/building/{bid}/object-online")
     @RequiresPermissions("biz:object:list")
     @ResponseBody
     public AjaxResult getObjectTreeOnline(@PathVariable("bid") Long buildingId) {
