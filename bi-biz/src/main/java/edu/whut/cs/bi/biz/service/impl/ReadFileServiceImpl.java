@@ -1,10 +1,13 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.system.service.ISysDictDataService;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
@@ -688,6 +691,135 @@ public class ReadFileServiceImpl implements ReadFileService {
         });
 
         return unmatchedPhotos;
+    }
+
+    @Resource
+    private ISysDictDataService sysDictDataService;
+
+    private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
+
+    static {
+        BRIDGE_TYPE_MAP.put("梁式桥", 1L);
+        BRIDGE_TYPE_MAP.put("箱形拱桥", 3L);
+        BRIDGE_TYPE_MAP.put("双曲拱桥", 4L);
+        BRIDGE_TYPE_MAP.put("板拱桥", 5L);
+        BRIDGE_TYPE_MAP.put("刚架拱桥", 6L);
+        BRIDGE_TYPE_MAP.put("桁架拱桥", 7L);
+        BRIDGE_TYPE_MAP.put("钢-混凝土组合拱桥", 8L);
+        BRIDGE_TYPE_MAP.put("预应力混凝土悬索桥", 9L);
+        BRIDGE_TYPE_MAP.put("预应力混凝土斜拉桥", 10L);
+        BRIDGE_TYPE_MAP.put("钢箱梁斜拉桥", 11L);
+        BRIDGE_TYPE_MAP.put("肋拱桥", 12L);
+        BRIDGE_TYPE_MAP.put("钢箱梁悬索桥", 13L);
+        BRIDGE_TYPE_MAP.put("钢桁梁悬索桥", 14L);
+        BRIDGE_TYPE_MAP.put("叠合梁悬索桥", 15L);
+        BRIDGE_TYPE_MAP.put("钢桁梁斜拉桥", 16L);
+        BRIDGE_TYPE_MAP.put("叠合梁斜拉桥", 17L);
+    }
+
+    @Resource
+    private IBuildingService buildingService;
+
+    @Override
+    @Transactional
+    public void ReadBuildingFile(MultipartFile file, Long projectId)  {
+        List<Long> buildingList = new ArrayList<>();
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            for (int j = 0; j < 1; j++) {
+//            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
+                Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
+
+                for (int i = 1; i < sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null) continue;
+
+                    String buildingName = getCellValueAsString(row.getCell(0));
+                    String type = getCellValueAsString(row.getCell(1));
+                    String fatherBuilding = getCellValueAsString(row.getCell(2));
+                    String area = getCellValueAsString(row.getCell(3));
+                    String line =  getCellValueAsString(row.getCell(4));
+                    String template = getCellValueAsString(row.getCell(5));
+
+                    Building building = new Building();
+
+                    building.setName(buildingName);
+                    SysDictData sysDictData = new SysDictData();
+                    sysDictData.setDictType("bi_building_area");
+                    sysDictData.setDictLabel(area);
+                    List<SysDictData> areaCode = sysDictDataService.selectDictDataList(sysDictData);
+                    if (areaCode == null || CollUtil.isEmpty(areaCode)) {
+                        throw new RuntimeException("请检查字典数据: " +  area);
+                    }
+                    building.setArea(String.valueOf(areaCode.get(0).getDictValue()));
+
+                    sysDictData.setDictType("bi_buildeing_line");
+                    sysDictData.setDictLabel(line);
+                    List<SysDictData> lineCode = sysDictDataService.selectDictDataList(sysDictData);
+                    if (lineCode == null || CollUtil.isEmpty(lineCode)) {
+                        throw new RuntimeException("请检查字典数据: " +  line);
+                    }
+                    building.setLine(String.valueOf(lineCode.get(0).getDictValue()));
+
+                    List<Building> buildings = buildingMapper.selectBuildingList(building);
+                    if (buildings == null || buildings.size() == 0) {
+                        if (type.equals("组合桥")) {
+                            building.setStatus("0");
+                            building.setIsLeaf("0");
+                        } else if (type.equals("桥幅")) {
+                            building.setStatus("0");
+                            building.setIsLeaf("1");
+                            building.setTemplateId(BRIDGE_TYPE_MAP.get(template));
+                            if (!fatherBuilding.equals(buildingName)) {
+                                Building parent = new Building();
+                                parent.setName(fatherBuilding);
+                                parent.setIsLeaf("0");
+                                parent.setArea(String.valueOf(areaCode.get(0).getDictValue()));
+                                parent.setLine(String.valueOf(lineCode.get(0).getDictValue()));
+                                List<Building> parentBuildings = buildingMapper.selectBuildingList(parent);
+                                if (parentBuildings != null && !parentBuildings.isEmpty()) {
+                                    building.setParentId(parentBuildings.get(0).getId());
+
+//                                    throw new RuntimeException("请检查桥梁数据: " +  buildingName + " 父桥梁: " + fatherBuilding);
+                                }
+                            }
+                        }
+
+                        buildingService.insertBuilding(building);
+
+                        if (type.equals("桥幅")) {
+                            buildingList.add(building.getId());
+                        }
+
+                    } else {
+                        if (type.equals("桥幅")) {
+                            building = buildings.get(0);
+                            if (!fatherBuilding.equals(buildingName)) {
+                                Building parent = new Building();
+                                parent.setName(fatherBuilding);
+                                parent.setIsLeaf("0");
+                                parent.setArea(String.valueOf(areaCode.get(0).getDictValue()));
+                                parent.setLine(String.valueOf(lineCode.get(0).getDictValue()));
+                                List<Building> parentBuildings = buildingMapper.selectBuildingList(parent);
+                                if (parentBuildings != null && parentBuildings.size() > 0) {
+                                    building.setParentId(parentBuildings.get(0).getId());
+                                    buildingService.updateBuilding(building);
+//                                    throw new RuntimeException("请检查桥梁数据: " +  buildingName + " 父桥梁: " + fatherBuilding);
+                                }
+
+                            }
+                        }
+
+                    }
+
+                }
+            }
+        } catch (IOException e) {
+            log.error("读取桥梁文件时出错", e);
+            throw new RuntimeException(e);
+        }
+        if (buildingList.size() > 0)
+            taskService.batchInsertTasks(projectId, buildingList);
     }
 
 }

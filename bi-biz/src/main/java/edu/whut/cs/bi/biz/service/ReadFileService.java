@@ -26,4 +26,11 @@ public interface ReadFileService {
      * @param photos
      */
     List<String> uploadPictures(List<MultipartFile> photos, Long taskId);
+
+    /**
+     * 批量导入桥梁信息
+     *
+     * @param file
+     */
+    void ReadBuildingFile(MultipartFile file, Long projectId);
 }

@@ -24,6 +24,7 @@ import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
+import edu.whut.cs.bi.biz.service.impl.ReadFileServiceImpl;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -561,6 +562,68 @@ public class ApiController {
 
 
         return AjaxResult.success(count[0]);
+    }
+
+    @Resource
+    private IBiTemplateObjectService biTemplateObjectService;
+    @GetMapping("/updateTemplate")
+    @ResponseBody
+    @Transactional
+    public AjaxResult updateTemplate() {
+        BiTemplateObject biTemplateObject = new BiTemplateObject();
+        biTemplateObject.setParentId(0L);
+        List<BiTemplateObject> biTemplateObjects = biTemplateObjectMapper.selectBiTemplateObjectList(biTemplateObject);
+
+        biTemplateObjects.forEach(bt -> {
+            List<BiTemplateObject> biTemplateObject2s = biTemplateObjectMapper.selectChildrenById(bt.getId());
+            // 找到下部结构
+            BiTemplateObject biTemplateObject_2 = biTemplateObject2s.stream()
+                    .filter(biTemplateObject2 -> biTemplateObject2.getParentId().equals(bt.getId()) && biTemplateObject2.getName().equals("下部结构"))
+                    .findFirst().orElse(null);
+
+            // 第三层
+            List<BiTemplateObject> biTemplateObject3s = biTemplateObject2s.stream().filter(bt2 -> bt2.getParentId().equals(biTemplateObject_2.getId())).toList();
+
+            biTemplateObject3s.forEach(biTemplateObject3 -> {
+                // 第四层
+                List<BiTemplateObject> biTemplateObject4s = biTemplateObject2s.stream()
+                        .filter(bt3 -> bt3.getParentId().equals(biTemplateObject3.getId()))
+                        .toList();
+
+                // 查第五层
+                biTemplateObject4s.forEach(biTemplateObject4 -> {
+                    // 判断其下有无左侧面和左侧面
+                    List<BiTemplateObject> list = biTemplateObject2s.stream().filter(bt4 -> bt4.getParentId().equals(biTemplateObject4.getId())).toList();
+
+                    BiTemplateObject left = list.stream().filter(bt5 -> bt5.getName().equals("左侧面")).findFirst().orElse(null);
+                    BiTemplateObject right = list.stream().filter(bt5 -> bt5.getName().equals("右侧面")).findFirst().orElse(null);
+                    if (left != null && right != null) {
+                        // 判断是否有内侧面和外侧面
+                        BiTemplateObject inner = list.stream().filter(bt5 -> bt5.getName().equals("内侧面")).findFirst().orElse(null);
+
+                        if (inner != null) {
+                            inner.setOrderNum(4);
+                            biTemplateObjectService.updateBiTemplateObject(inner);
+                        }
+                    }
+                });
+            });
+
+        });
+
+
+        return AjaxResult.success();
+    }
+
+    @Resource
+    private ReadFileServiceImpl readFileService;
+
+    @PostMapping("/batchAddBuilding")
+    @ResponseBody
+    public AjaxResult batchAddBuilding(MultipartFile file, Long projectId) {
+        readFileService.ReadBuildingFile(file, projectId);
+
+        return AjaxResult.success();
     }
 
 }
