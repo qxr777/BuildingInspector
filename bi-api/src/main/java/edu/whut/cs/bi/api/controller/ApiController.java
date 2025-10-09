@@ -171,6 +171,29 @@ public class ApiController {
             }
 
             // 获取对象树的JSON结构
+            String jsonTree = biObjectService.bridgeStructureJson(building.getRootObjectId());
+            JSONObject jsonObject = JSONObject.parseObject(jsonTree);
+            return AjaxResult.success("ObjectTree success", jsonObject);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取建筑物对象树结构
+     */
+    @GetMapping("/building/{bid}/object-Online")
+    @RequiresPermissions("biz:object:list")
+    @ResponseBody
+    public AjaxResult getObjectTreeOnline(@PathVariable("bid") Long buildingId) {
+        try {
+            // 查询建筑物的root_object_id
+            Building building = buildingService.selectBuildingById(buildingId);
+            if (building == null || building.getRootObjectId() == null) {
+                return AjaxResult.error("未找到指定的建筑物或其结构信息");
+            }
+
+            // 获取对象树的JSON结构
             String jsonTree = biObjectService.bridgeStructureJsonWithPictures(building.getRootObjectId());
             JSONObject jsonObject = JSONObject.parseObject(jsonTree);
             return AjaxResult.success("ObjectTree success", jsonObject);
