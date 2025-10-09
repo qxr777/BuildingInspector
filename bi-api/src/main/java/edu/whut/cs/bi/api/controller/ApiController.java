@@ -171,7 +171,7 @@ public class ApiController {
             }
 
             // 获取对象树的JSON结构
-            String jsonTree = biObjectService.bridgeStructureJson(building.getRootObjectId());
+            String jsonTree = biObjectService.bridgeStructureJsonWithPictures(building.getRootObjectId());
             JSONObject jsonObject = JSONObject.parseObject(jsonTree);
             return AjaxResult.success("ObjectTree success", jsonObject);
         } catch (Exception e) {

@@ -129,6 +129,8 @@ public interface IBiObjectService {
 
     String bridgeStructureJson(Long id) throws Exception;
 
+    String bridgeStructureJsonWithPictures(Long id) throws Exception;
+
     /**
      * 递归更新BiObject树结构
      *

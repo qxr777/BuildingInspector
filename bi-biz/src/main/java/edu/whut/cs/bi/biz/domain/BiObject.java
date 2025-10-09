@@ -3,6 +3,8 @@ package edu.whut.cs.bi.biz.domain;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.TreeEntity;
 import io.swagger.models.auth.In;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.hibernate.validator.constraints.Length;
@@ -16,6 +18,8 @@ import java.util.List;
  * @author QiXin
  * @date 2025/3/17
  */
+@EqualsAndHashCode(callSuper = true)
+@Data
 public class BiObject extends TreeEntity {
     /**
      * 对象id
@@ -128,182 +132,6 @@ public class BiObject extends TreeEntity {
      */
     @Excel(name = "构件数量")
     private Integer count;
-
-    public BigDecimal getStandardWeight() {
-        return standardWeight;
-    }
-
-    public void setStandardWeight(BigDecimal standardWeight) {
-        this.standardWeight = standardWeight;
-    }
-
-    public List<String> getInformation() {
-        return information;
-    }
-
-    public void setInformation(List<String> information) {
-        this.information = information;
-    }
-
-    public List<String> getPhoto() {
-        return photo;
-    }
-
-    public void setPhoto(List<String> photo) {
-        this.photo = photo;
-    }
-
-    public String getProps() {
-        return props;
-    }
-
-    public void setProps(String props) {
-        this.props = props;
-    }
-
-    public List<Component> getComments() {
-        return comments;
-    }
-
-    public List<DiseaseType> getDiseaseTypes() {
-        return diseaseTypes;
-    }
-
-    public void setDiseaseTypes(List<DiseaseType> diseaseTypes) {
-        this.diseaseTypes = diseaseTypes;
-    }
-
-    public void setComments(List<Component> comments) {
-        this.comments = comments;
-    }
-
-    public Integer getCount() {
-        return count;
-    }
-
-    public void setCount(Integer count) {
-        this.count = count;
-    }
-
-    public void setArea(String area) {
-        this.area = area;
-    }
-
-    public List<BiObject> getChildren() {
-        return children;
-    }
-
-    public void setChildren(List<BiObject> children) {
-        this.children = children;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setAncestors(String ancestors) {
-        this.ancestors = ancestors;
-    }
-
-    public String getAncestors() {
-        return ancestors;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setDelFlag(String delFlag) {
-        this.delFlag = delFlag;
-    }
-
-    public String getDelFlag() {
-        return delFlag;
-    }
-
-    public void setLongitude(BigDecimal longitude) {
-        this.longitude = longitude;
-    }
-
-    public BigDecimal getLongitude() {
-        return longitude;
-    }
-
-    public void setLatitude(BigDecimal latitude) {
-        this.latitude = latitude;
-    }
-
-    public BigDecimal getLatitude() {
-        return latitude;
-    }
-
-    public void setAltitude(BigDecimal altitude) {
-        this.altitude = altitude;
-    }
-
-    public BigDecimal getAltitude() {
-        return altitude;
-    }
-
-    public void setPosition(String position) {
-        this.position = position;
-    }
-
-    public String getPosition() {
-        return position;
-    }
-
-    public String getArea() {
-        return area;
-    }
-
-    public void setAdminDept(String adminDept) {
-        this.adminDept = adminDept;
-    }
-
-    public String getAdminDept() {
-        return adminDept;
-    }
-
-    public void setWeight(BigDecimal weight) {
-        this.weight = weight;
-    }
-
-    public BigDecimal getWeight() {
-        return weight;
-    }
-
-    public String getVideoFeed() {
-        return videoFeed;
-    }
-
-    public void setVideoFeed(String videoFeed) {
-        this.videoFeed = videoFeed;
-    }
-
-    public Long getTemplateObjectId() {
-        return templateObjectId;
-    }
-
-    public void setTemplateObjectId(Long templateObjectId) {
-        this.templateObjectId = templateObjectId;
-    }
 
     @Override
     public String toString() {

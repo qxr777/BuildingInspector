@@ -17,22 +17,22 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.bean.BeanUtils;
-import edu.whut.cs.bi.biz.domain.DiseaseType;
+import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.IFileMapService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
-import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import com.ruoyi.common.core.text.Convert;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.mapper.ComponentMapper;
-import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Resource;
 
 
 /**
@@ -64,6 +64,9 @@ public class BiObjectServiceImpl implements IBiObjectService {
 
     @Autowired
     private DiseaseMapper diseaseMapper;
+
+    @Resource
+    private IFileMapService fileMapService;
 
     /**
      * 查询对象
@@ -431,6 +434,74 @@ public class BiObjectServiceImpl implements IBiObjectService {
                 newNode.setDiseaseTypes(diseaseTypeMap.get(node.getTemplateObjectId()));
             } else {
                 newNode.setDiseaseTypes(new ArrayList<>());
+            }
+
+            nodeMap.put(newNode.getId(), newNode);
+        }
+
+        // 构建树结构
+        BiObject rootNode = null;
+        for (BiObject node : allNodes) {
+            BiObject newNode = nodeMap.get(node.getId());
+
+            if (node.getId().equals(id)) {
+                rootNode = newNode; // 找到根节点
+            }
+
+            // 将当前节点添加到父节点的children列表中
+            if (node.getParentId() != null && node.getParentId() != 0 && nodeMap.containsKey(node.getParentId())) {
+                BiObject parent = nodeMap.get(node.getParentId());
+                parent.getChildren().add(newNode);
+            }
+        }
+
+        // 配置序列化选项
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        return objectMapper.writeValueAsString(rootNode);
+    }
+
+    /**
+     * 导出JSON桥梁结构数据
+     */
+    @Override
+    public String bridgeStructureJsonWithPictures(Long id) throws Exception {
+        BiObject root = selectBiObjectById(id);
+        if (root == null) {
+            throw new Exception("未找到指定的构件");
+        }
+
+        // 一次性获取所有节点，避免递归查询
+        List<BiObject> allNodes = biObjectService.selectBiObjectAndChildren(id);
+
+        // 获取所有节点的ID
+        List<Long> allNodeIds = allNodes.stream().map(BiObject::getId).collect(Collectors.toList());
+
+        // 一次获取所有节点的现状照
+        Map<Long, List<FileMap>> fileMapMap = new HashMap<>();
+        if (!allNodeIds.isEmpty()) {
+            List<FileMap> fileMaps = fileMapService.selectBiObjectPhotoList(id);
+            Map<Long, List<FileMap>> collect = fileMaps.stream().collect(Collectors.groupingBy(FileMap::getSubjectId));
+            if (collect != null) {
+                fileMapMap = collect;
+            }
+        }
+
+        // 构建节点ID到节点的映射
+        Map<Long, BiObject> nodeMap = new HashMap<>();
+        for (BiObject node : allNodes) {
+            // 深拷贝节点，避免修改原始数据
+            BiObject newNode = new BiObject();
+            BeanUtils.copyProperties(node, newNode);
+            newNode.setChildren(new ArrayList<>());
+
+            // 设置疾病类型
+            if (fileMapMap.containsKey(node.getId())) {
+                newNode.setPhoto(fileMapMap.get(node.getId()).stream().map(FileMap::getUrl).toList());
+                newNode.setInformation(fileMapMap.get(node.getId()).stream().map(FileMap::getAttachmentRemark).toList());
+            } else {
+                newNode.setPhoto(new ArrayList<>());
+                newNode.setInformation(new ArrayList<>());
             }
 
             nodeMap.put(newNode.getId(), newNode);

@@ -481,6 +481,7 @@ public class FileMapServiceImpl implements IFileMapService {
             String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;
             fileMap.setAttachmentRemark(attachment.getRemark());
             fileMap.setUrl(url);
+            fileMap.setSubjectId(attachment.getSubjectId());
             map.put("fileMap", fileMap);
             // 根据文件后缀判断是否为图片
             if (!isImageFile(attachment.getName()))
