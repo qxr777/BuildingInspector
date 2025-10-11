@@ -77,7 +77,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                     AND dept_id = #{project.deptId}
                 </if>
                 <if test="project.selectDeptId != null">
-                    AND (dept_id = #{project.selectDeptId} OR owner_dept_id = #{project.selectDeptId})
+                    <!-- 提取公共条件：dept_id或owner_dept_id等于selectDeptId -->
+                    <bind name="selectDeptCondition" value="'dept_id = #{project.selectDeptId} OR owner_dept_id = #{project.selectDeptId}'"/>
+
+                    AND (
+                    ${selectDeptCondition}
+                    <!-- 如果存在parentDeptId，追加其条件 -->
+                    <if test="project.parentDeptId != null">
+                        OR dept_id = #{project.parentDeptId}
+                        OR owner_dept_id = #{project.parentDeptId}
+                    </if>
+                    )
                 </if>
                 <if test="project.startDate != null">
                     AND start_date &gt;= #{project.startDate}

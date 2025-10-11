@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -90,6 +91,9 @@ public class ProjectServiceImpl implements IProjectService {
         // 检查用户是否有admin角色
         boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
 
+        // 查询部门 - 设置父部门
+        SysDept curSysDept = deptService.selectDeptById(sysUser.getDeptId());
+
         PageUtils.startPage();
         List<Project> projects = null;
         if (isAdmin || select.equals("platform")) {
@@ -101,6 +105,8 @@ public class ProjectServiceImpl implements IProjectService {
 
                 // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
                 project.setSelectDeptId(sysUser.getDeptId());
+                project.setParentDeptId(curSysDept.getParentId());
+
                 projects = projectMapper.selectProjectList(project, null, null);
             } else {
                 // 当前登录用户关联的业务实体
@@ -115,6 +121,11 @@ public class ProjectServiceImpl implements IProjectService {
             // 所属单位
             SysDept ownerDept = deptService.selectDeptById(pj.getOwnerDeptId());
             pj.setOwnerDept(ownerDept);
+
+            if (Objects.equals(dept.getDeptId(), curSysDept.getParentId()) || Objects.equals(ownerDept.getDeptId(), curSysDept.getParentId())) {
+                pj.setParentDeptId(curSysDept.getParentId());
+            }
+
             // 已选择桥梁数
             List<Task> tasks = taskMapper.selectTaskListByProjectId(pj.getId());
             if (CollUtil.isNotEmpty(tasks)) {
@@ -170,6 +181,8 @@ public class ProjectServiceImpl implements IProjectService {
     @Override
     @Transactional
     public int deleteProjectByIds(String ids) {
+        // 这个地方应该做一次权限校验
+
         // 删除项目下的任务
         String[] strArray = Convert.toStrArray(ids);
         for (int i = 0; i < strArray.length; i++) {

@@ -78,11 +78,14 @@ public class Project extends BaseEntity {
     private List<BiDevice> biDevices;
 
     // 业务实体可见性控制
-    String select;
+    private String select;
 
     // 业务实体根据部门查询项目
-    Long selectDeptId;
+    private Long selectDeptId;
 
     // 已经选择的桥梁数
-    int bridgeCount;
+    private int bridgeCount;
+
+    // 父级部门id
+    private Long parentDeptId;
 }
