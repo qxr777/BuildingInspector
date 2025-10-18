@@ -455,4 +455,13 @@
                 left join bi_object on d.bi_object_id=bi_object.id
         where d.update_time > #{updateTime} and bi_object.name is null
     </select>
+
+
+    <!-- 查询指定时间范围内的病害 -->
+    <select id="selectDiseasesByTimeRange" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        where d.create_time >= #{startTime}
+        and d.create_time &lt;= #{endTime}
+        order by d.create_time desc
+    </select>
 </mapper>

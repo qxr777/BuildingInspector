@@ -35,7 +35,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
-import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -95,6 +94,9 @@ public class ApiController {
 
     @Autowired
     private DiseaseMapper diseaseMapper;
+
+    @Autowired
+    private IComponentService componentService;
 
 
     /**
@@ -647,6 +649,146 @@ public class ApiController {
         readFileService.ReadBuildingFile(file, projectId);
 
         return AjaxResult.success();
+    }
+
+
+    /**
+     * 修复病害与构件的关联关系
+     * 扫描2025-09-13至2025-09-14期间的病害数据，
+     * 清理不一致的构件关联，并重新匹配或创建正确的构件
+     */
+    @PostMapping("/fixDiseaseComponents")
+    @ResponseBody
+    @Transactional
+    public AjaxResult fixDiseaseComponents() {
+        try {
+            // 查询指定时间范围内的病害
+            String startTime = "2025-09-13 00:00:00";
+            String endTime = "2025-09-14 23:59:59";
+            List<Disease> diseases = diseaseMapper.selectDiseasesByTimeRange(startTime, endTime);
+
+            if (diseases == null || diseases.isEmpty()) {
+                return AjaxResult.success("未找到需要处理的病害数据");
+            }
+
+            int processedCount = 0; // 处理的病害数量
+            int fixedCount = 0; // 修复的构件关联数量
+            int createdCount = 0; // 新建的构件数量
+            int deletedCount = 0; // 删除的构件数量
+
+            for (Disease disease : diseases) {
+                // 步骤1: 解析病害描述，提取code和name
+                String description = disease.getDescription();
+                if (description == null || description.trim().isEmpty()) {
+                    processedCount++;
+                    continue;
+                }
+
+                String code = extractCode(description);
+                String name = extractName(description);
+
+                // 步骤2: 验证并清理旧的构件关联
+                if (disease.getComponentId() != null) {
+                    Component oldComponent = componentService.selectComponentById(disease.getComponentId());
+                    if (oldComponent != null) {
+                        // 检查构件的bi_object_id是否与病害的bi_object_id一致
+                        if (!oldComponent.getBiObjectId().equals(disease.getBiObjectId())) {
+                            // 不一致，逻辑删除该构件
+                            code = oldComponent.getCode();
+                            name = oldComponent.getName();
+                            componentService.deleteComponentById(oldComponent.getId());
+                            deletedCount++;
+                        }
+                    }
+                }
+                log.info("code:{},name:{}",code,name);
+                // 步骤3: 查询病害的bi_object_id对应的构件列表
+                List<Component> components = componentService.selectComponentsByBiObjectId(disease.getBiObjectId());
+                log.info("查询构件列表：{}", components);
+                Component matchedComponent = null;
+
+                // 步骤4: 匹配逻辑
+                if (components != null && !components.isEmpty()) {
+                    // 遍历构件列表，比对name
+                    for (Component component : components) {
+                        if (name.equals(component.getName())) {
+                            matchedComponent = component;
+                            log.info("匹配已有构件：{}", matchedComponent);
+                            break;
+                        }
+                    }
+                }
+
+                // 步骤5: 如果没有匹配到，创建新构件
+                if (matchedComponent == null) {
+                    Component newComponent = new Component();
+                    newComponent.setBiObjectId(disease.getBiObjectId());
+                    newComponent.setCode(code);
+                    newComponent.setName(name);
+                    newComponent.setStatus("0");
+                    newComponent.setDelFlag("0");
+                    newComponent.setCreateBy(ShiroUtils.getLoginName());
+                    newComponent.setCreateTime(new Date());
+
+                    componentService.insertComponent(newComponent);
+                    matchedComponent = newComponent;
+                    createdCount++;
+                }
+
+                // 步骤6: 更新病害的component_id
+                if (matchedComponent != null && !matchedComponent.getId().equals(disease.getComponentId())) {
+                    disease.setComponentId(matchedComponent.getId());
+                    disease.setUpdateBy(ShiroUtils.getLoginName());
+                    disease.setUpdateTime(new Date());
+                    diseaseService.updateDisease(disease);
+                    fixedCount++;
+                }
+
+                processedCount++;
+            }
+
+
+            String message = String.format("处理完成！共处理 %d 条病害数据，修复 %d 个构件关联，新建 %d 个构件，删除 %d 个不一致的构件",
+                    processedCount, fixedCount, createdCount, deletedCount);
+            log.info(message);
+            return AjaxResult.success(message);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return AjaxResult.error("处理失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 从描述中提取构件编号（#号前的内容）
+     */
+    private String extractCode(String description) {
+        if (description == null || description.isEmpty()) {
+            return "";
+        }
+        int hashIndex = description.indexOf("#");
+        if (hashIndex > 0) {
+            return description.substring(0, hashIndex);
+        }
+        return "";
+    }
+
+    /**
+     * 从描述中提取构件名称（第一个逗号前的内容）
+     */
+    private String extractName(String description) {
+        if (description == null || description.isEmpty()) {
+            return null;
+        }
+        int commaIndex = description.indexOf("，");
+        if (commaIndex == -1) {
+            commaIndex = description.indexOf(",");
+        }
+        if (commaIndex > 0) {
+            return description.substring(0, commaIndex).trim();
+        }
+        // 没有逗号，返回整个描述
+        return description.trim();
     }
 
 }

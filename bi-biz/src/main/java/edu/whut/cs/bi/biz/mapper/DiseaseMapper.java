@@ -4,7 +4,7 @@ import edu.whut.cs.bi.biz.domain.Disease;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.sql.Date;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -111,5 +111,15 @@ public interface DiseaseMapper {
 
     // 修复数据
     List<Disease> selectErrorDiseases(@Param("updateTime") Date updateTime);
+
+    /**
+     * 查询指定时间范围内的病害
+     *
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return 病害列表
+     */
+    List<Disease> selectDiseasesByTimeRange(@Param("startTime") String startTime,
+                                            @Param("endTime") String endTime);
 
 }
