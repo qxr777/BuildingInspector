@@ -241,6 +241,11 @@
                     <label class="col-sm-1 control-label is-required">描述：</label>
                     <div class="col-sm-11">
                         <textarea name="description" maxlength="500" class="form-control" rows="3" required placeholder="请输入病害描述"></textarea>
+                        <div style="margin-top:8px;">
+                            <button type="button" class="btn btn-default btn-sm" id="btnGenerateDesc" onclick="generateAndFillDescription()">
+                                <i class="fa fa-magic"></i> 生成病害描述
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1505,6 +1510,259 @@
         }
     }
 
+    // 生成病害描述（规则函数）
+    function generateDiseaseDescription(data) {
+        var componentName = data.componentName;
+        var componentCode = data.componentCode;
+        var showColumns = data.showColumns || [];
+        var diseaseType = data.diseaseType;
+        var diseasePosition = data.diseasePosition;
+        var positionNumber = data.positionNumber;
+        var crackType = data.crackType;
+        var defects = data.defects || [];
+        var counts = data.counts || 0;
+        var units = data.units || '';
+        var threshold = data.threshold;
+
+        var count = defects.length;
+        if (count === 0) return '还未填写病害数据';
+
+        var mileageText = ''; // 页面当前无里程字段，置空
+
+        var description = componentCode + '#' + componentName;
+        if (componentName !== diseasePosition) {
+            description += '，' + (positionNumber ? ('第' + positionNumber + '#') : '') + diseasePosition;
+        }
+        description += '，' + mileageText;
+        description += (diseaseType && diseaseType.split ? (diseaseType.split('#')[1] || diseaseType) : diseaseType);
+        description += (counts > 0 ? ('' + counts) : '');
+        description += (units !== '' ? units : '个');
+
+        if (showColumns[0] == 1 && crackType) {
+            description += '，' + crackType + '裂缝';
+        }
+        var descriptionArr = [];
+
+        if (counts < threshold) {
+            var details = defects.map(function (item, index) {
+                if (showColumns[8] == 1 && item.reference1Location && item.reference1LocationStart) {
+                    descriptionArr.push('距' + item.reference1Location + ' ' + item.reference1LocationStart + 'm');
+                }
+                if (showColumns[9] == 1 && item.reference2Location && item.reference2LocationStart) {
+                    descriptionArr.push('距' + item.reference2Location + ' ' + item.reference2LocationStart + 'm');
+                }
+                if (showColumns[1] == 1 && item.length1) {
+                    if (crackType === 'L型') {
+                        descriptionArr.push('长度L1=' + item.length1 + 'm');
+                        if (item.length2) descriptionArr.push('L2=' + item.length2 + 'm');
+                    } else if (crackType === 'U型') {
+                        descriptionArr.push('长度L1=' + item.length1 + 'm');
+                        if (item.length2) descriptionArr.push('L2=' + item.length2 + 'm');
+                        if (item.length3) descriptionArr.push('L3=' + item.length3 + 'm');
+                    } else {
+                        descriptionArr.push('长度L=' + item.length1 + 'm');
+                    }
+                }
+                if (showColumns[2] == 1 && item.crackWidth) {
+                    descriptionArr.push('缝宽：' + item.crackWidth + 'mm');
+                }
+                if (showColumns[3] == 1 && item.heightDepth) {
+                    descriptionArr.push('高度/深度：' + item.heightDepth + 'm');
+                }
+                if (showColumns[4] == 1 && item.areaLength && item.areaWidth) {
+                    var areaLabel = count >= 2 ? '_' + (index + 1) : '';
+                    descriptionArr.push('面积S' + areaLabel + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
+                }
+                if (showColumns[5] == 1 && item.deformation) {
+                    descriptionArr.push('变形/位移：' + item.deformation + 'm');
+                }
+                if (showColumns[6] == 1 && item.angle) {
+                    descriptionArr.push('角度：' + item.angle + '度');
+                }
+                if (showColumns[7] == 1 && item.numeratorRatio && item.denominatorRatio) {
+                    descriptionArr.push('比例：' + item.numeratorRatio + '/' + item.denominatorRatio);
+                }
+                var prefix = count >= 2 ? '（' + (index + 1) + '）' : '';
+                var result = prefix + descriptionArr.join('，');
+                descriptionArr = [];
+                return result;
+            }).join('；');
+
+            return description + '，' + details;
+        } else {
+            var item = defects[0];
+            if (showColumns[8] == 1 && item.reference1Location && item.reference1LocationStart) {
+                descriptionArr.push('距' + item.reference1Location + ' ' + item.reference1LocationStart + 'm');
+            }
+            if (showColumns[9] == 1 && item.reference2Location && item.reference2LocationStart) {
+                descriptionArr.push('距' + item.reference2Location + ' ' + item.reference2LocationStart + 'm');
+            }
+            if (showColumns[1] == 1 && item.lengthRangeStart && item.lengthRangeEnd) {
+                descriptionArr.push('长度L=' + item.lengthRangeStart + '~' + item.lengthRangeEnd + 'm');
+            }
+            if (showColumns[2] == 1 && item.crackWidthRangeStart && item.crackWidthRangeEnd) {
+                descriptionArr.push('缝宽：' + item.crackWidthRangeStart + '~' + item.crackWidthRangeEnd + 'mm');
+            }
+            if (showColumns[3] == 1 && item.heightDepthRangeStart && item.heightDepthRangeEnd) {
+                descriptionArr.push('高度/深度：' + item.heightDepthRangeStart + '~' + item.heightDepthRangeEnd + 'm');
+            }
+            if (showColumns[4] == 1 && item.areaLength && item.areaWidth) {
+                var areaLabel2 = item.areaIdentifier == 1 ? '均' : (item.areaIdentifier == 2 ? '总' : item.areaIdentifier);
+                descriptionArr.push('面积S_' + areaLabel2 + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
+            }
+            if (showColumns[5] == 1 && item.deformationRangeStart && item.deformationRangeEnd) {
+                descriptionArr.push('变形/位移：' + item.deformationRangeStart + '~' + item.deformationRangeEnd + 'm');
+            }
+            if (showColumns[6] == 1 && item.angleRangeStart && item.angleRangeEnd) {
+                descriptionArr.push('角度：' + item.angleRangeStart + '~' + item.angleRangeEnd + '度');
+            }
+            if (showColumns[7] == 1 && item.numeratorRatio && item.denominatorRatio) {
+                descriptionArr.push('比例：' + item.numeratorRatio + '/' + item.denominatorRatio);
+            }
+
+            var result2 = descriptionArr.join('，');
+            descriptionArr = [];
+            return description + '，' + result2;
+        }
+    }
+
+    // 采集页面数据并填充描述
+    function generateAndFillDescription() {
+        try {
+            var counts = parseInt($("#quantityInput").val() || '0', 10);
+            var units = $("select[name='units']").val() || '条';
+            var positionNumber = $("#positionNumber").val() || '';
+            var componentCode = $("input[name='component.code']").val() || '';
+
+            // 构件名称：当biObject为“其他/其它”时使用输入框，否则用biObject变量
+            var componentName = (biObject && (biObject.name === '其他' || biObject.name === '其它'))
+                ? ($("input[name='biObjectName']").val() || '')
+                : (biObject ? biObject.name : '');
+
+            // 病害类型：优先自定义
+            var diseaseType = $("#diseaseTypeId option:selected").text().trim();
+            if ($("#customDiseaseType").is(":visible")) {
+                var customType = $("#customDiseaseType").val().trim();
+                if (customType) diseaseType = customType;
+            }
+
+            // 病害位置：与提交逻辑保持一致
+            var diseasePosition = $("#position option:selected").text().trim();
+            var positionValue = $("#position").val();
+            if (diseasePosition === "其他" || diseasePosition === "其它" || positionValue === "other") {
+                diseasePosition = $("#customPosition").val().trim();
+            }
+
+            // 当前病害类型与selectColumn/threshold
+            var selectedDiseaseTypeId = $("#diseaseTypeId").val();
+            var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+                return item.id == selectedDiseaseTypeId;
+            }) : null;
+            var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+            var selectColumn = (selectedDiseaseType && selectedDiseaseType.selectColumn !== undefined)
+                ? parseInt(selectedDiseaseType.selectColumn || 0)
+                : 0;
+
+            // showColumns: 0-7由selectColumn位控制，8/9为参考面1/2（默认显示）
+            var showColumns = [
+                (selectColumn & 1) === 1 ? 1 : 0,
+                (selectColumn & 2) === 2 ? 1 : 0,
+                (selectColumn & 4) === 4 ? 1 : 0,
+                (selectColumn & 8) === 8 ? 1 : 0,
+                (selectColumn & 16) === 16 ? 1 : 0,
+                (selectColumn & 32) === 32 ? 1 : 0,
+                (selectColumn & 64) === 64 ? 1 : 0,
+                (selectColumn & 128) === 128 ? 1 : 0,
+                1,
+                1
+            ];
+
+            // 裂缝特征（若字段存在）
+            var crackTypeEl = $("#crackType");
+            var crackType = crackTypeEl.length ? crackTypeEl.val() : '';
+
+            // 组装缺损数据
+            var defects = [];
+            if (counts < threshold) {
+                for (var i = 0; i < counts; i++) {
+                    // 参考面位置，兼容“其他”
+                    var r1 = $('#reference1Location_' + i).val();
+                    var r2 = $('#reference2Location_' + i).val();
+                    if (r1 === "其他") r1 = $('#reference1LocationCustom_' + i).val();
+                    if (r2 === "其他") r2 = $('#reference2LocationCustom_' + i).val();
+
+                    var defect = {
+                        reference1Location: r1 || undefined,
+                        reference1LocationStart: $("input[name='diseaseDetails[" + i + "].reference1LocationStart']").val() || undefined,
+                        reference2Location: r2 || undefined,
+                        reference2LocationStart: $("input[name='diseaseDetails[" + i + "].reference2LocationStart']").val() || undefined,
+                        length1: $("input[name='diseaseDetails[" + i + "].length1']").val() || undefined,
+                        // 针对L/U型的L2/L3（页面未提供则为空）
+                        length2: $("input[name='diseaseDetails[" + i + "].length2']").val() || undefined,
+                        length3: $("input[name='diseaseDetails[" + i + "].length3']").val() || undefined,
+                        crackWidth: $("input[name='diseaseDetails[" + i + "].crackWidth']").val() || undefined,
+                        heightDepth: $("input[name='diseaseDetails[" + i + "].heightDepth']").val() || undefined,
+                        areaLength: $("input[name='diseaseDetails[" + i + "].areaLength']").val() || undefined,
+                        areaWidth: $("input[name='diseaseDetails[" + i + "].areaWidth']").val() || undefined,
+                        areaIdentifier: $("select[name='diseaseDetails[" + i + "].areaIdentifier']").val() || undefined,
+                        deformation: $("input[name='diseaseDetails[" + i + "].deformation']").val() || undefined,
+                        angle: $("input[name='diseaseDetails[" + i + "].angle']").val() || undefined,
+                        numeratorRatio: $("input[name='diseaseDetails[" + i + "].numeratorRatio']").val() || undefined,
+                        denominatorRatio: $("input[name='diseaseDetails[" + i + "].denominatorRatio']").val() || undefined
+                    };
+                    defects.push(defect);
+                }
+            } else {
+                // 单条范围数据
+                var r1s = $('#reference1Location').val();
+                var r2s = $('#reference2Location').val();
+                if (r1s === "其他") r1s = $('#reference1LocationCustom').val();
+                if (r2s === "其他") r2s = $('#reference2LocationCustom').val();
+
+                var defectSingle = {
+                    reference1Location: r1s || undefined,
+                    reference1LocationStart: $("input[name='diseaseDetails[0].reference1LocationStart']").val() || undefined,
+                    reference2Location: r2s || undefined,
+                    reference2LocationStart: $("input[name='diseaseDetails[0].reference2LocationStart']").val() || undefined,
+                    lengthRangeStart: $("input[name='diseaseDetails[0].lengthRangeStart']").val() || undefined,
+                    lengthRangeEnd: $("input[name='diseaseDetails[0].lengthRangeEnd']").val() || undefined,
+                    crackWidthRangeStart: $("input[name='diseaseDetails[0].crackWidthRangeStart']").val() || undefined,
+                    crackWidthRangeEnd: $("input[name='diseaseDetails[0].crackWidthRangeEnd']").val() || undefined,
+                    heightDepthRangeStart: $("input[name='diseaseDetails[0].heightDepthRangeStart']").val() || undefined,
+                    heightDepthRangeEnd: $("input[name='diseaseDetails[0].heightDepthRangeEnd']").val() || undefined,
+                    areaLength: $("input[name='diseaseDetails[0].areaLengthRange']").val() || undefined,
+                    areaWidth: $("input[name='diseaseDetails[0].areaWidthRange']").val() || undefined,
+                    areaIdentifier: $("select[name='diseaseDetails[0].areaIdentifier']").val() || undefined,
+                    deformationRangeStart: $("input[name='diseaseDetails[0].deformationRangeStart']").val() || undefined,
+                    deformationRangeEnd: $("input[name='diseaseDetails[0].deformationRangeEnd']").val() || undefined,
+                    angleRangeStart: $("input[name='diseaseDetails[0].angleRangeStart']").val() || undefined,
+                    angleRangeEnd: $("input[name='diseaseDetails[0].angleRangeEnd']").val() || undefined,
+                    numeratorRatio: $("input[name='diseaseDetails[0].numeratorRatioRange']").val() || undefined,
+                    denominatorRatio: $("input[name='diseaseDetails[0].denominatorRatioRange']").val() || undefined
+                };
+                defects.push(defectSingle);
+            }
+
+            var result = generateDiseaseDescription({
+                componentName: componentName,
+                componentCode: componentCode,
+                showColumns: showColumns,
+                diseaseType: diseaseType,
+                diseasePosition: diseasePosition,
+                positionNumber: positionNumber,
+                crackType: crackType,
+                defects: defects,
+                counts: counts,
+                units: units,
+                threshold: threshold
+            });
+
+            $("textarea[name='description']").val(result);
+        } catch (e) {
+            console.error(e);
+            $.modal.alertError("生成描述失败，请检查字段是否完整");
+        }
+    }
 </script>
 </body>
 </html>
