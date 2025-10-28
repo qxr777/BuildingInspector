@@ -1082,7 +1082,7 @@ public class ReportServiceImpl implements IReportService {
                             componentName = component.getName();
                         }
                         // 照片 图注 的 描述 不需要带病害规范号。
-                        String type = d.getType().substring(d.getType().lastIndexOf("#" + 1));
+                        String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
                         String imageDesc = componentName + type;
                         // 使用第3章编号规则
                         String bookmark = "Figure_Chapter3_" + chapterImageCounter.getAndIncrement();
