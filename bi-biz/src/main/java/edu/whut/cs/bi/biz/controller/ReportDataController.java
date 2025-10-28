@@ -274,4 +274,26 @@ public class ReportDataController extends BaseController {
         }
     }
 
+    /**
+     * 跳转到单桥梁桥报告数据填充页面
+     */
+    @RequiresPermissions("biz:report:edit")
+    @GetMapping("/fill_single_beam/{id}")
+    public String fillSingleBeam(@PathVariable("id") Long id, ModelMap mmap) {
+        Report report = reportService.selectReportById(id);
+        mmap.put("report", report);
+        return "biz/report_data/fill_single_beam";
+    }
+
+    /**
+     * 跳转到单桥拱桥报告数据填充页面
+     */
+    @RequiresPermissions("biz:report:edit")
+    @GetMapping("/fill_single_arch/{id}")
+    public String fillSingleArch(@PathVariable("id") Long id, ModelMap mmap) {
+        Report report = reportService.selectReportById(id);
+        mmap.put("report", report);
+        return "biz/report_data/fill_single_arch";
+    }
+
 } 
