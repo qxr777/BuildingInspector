@@ -1,15 +1,14 @@
 package edu.whut.cs.bi.biz.controller;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Report;
 import edu.whut.cs.bi.biz.service.IReportService;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -137,8 +136,8 @@ public class ReportDataController extends BaseController {
             @RequestParam(value = "dataTypes", required = false) Integer[] dataTypes,
             @RequestParam(value = "files", required = false) MultipartFile[] files) {
 
-        if (dataKeys == null || dataKeys.length == 0) {
-            return AjaxResult.error("没有要保存的数据");
+        if (ObjectUtils.isEmpty(dataKeys) || ObjectUtils.isEmpty(dataValues)) {
+            return AjaxResult.success("没有要保存的数据");
         }
 
         try {
