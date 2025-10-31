@@ -3,12 +3,14 @@ package edu.whut.cs.bi.api.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
+import com.ruoyi.system.service.ISysDictDataService;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.api.task.UserPackageTask;
@@ -98,7 +100,8 @@ public class ApiController {
     @Autowired
     private IComponentService componentService;
 
-
+    @Autowired
+    private ISysDictDataService dictDataService;
     /**
      * 无权限访问
      *
@@ -791,4 +794,8 @@ public class ApiController {
         return description.trim();
     }
 
+    @PostMapping("/dict/data/list")
+    public List<SysDictData> listDictData(SysDictData dictData) {
+        return dictDataService.selectDictDataListForApi(dictData);
+    }
 }

@@ -33,6 +33,18 @@ public class SysDictDataServiceImpl implements ISysDictDataService
     }
 
     /**
+     * 根据条件分页查询字典数据
+     *
+     * @param dictData 字典数据信息
+     * @return 字典数据集合信息
+     */
+    @Override
+    public List<SysDictData> selectDictDataListForApi(SysDictData dictData)
+    {
+        return dictDataMapper.selectDictDataListForApi(dictData);
+    }
+
+    /**
      * 根据字典类型和字典键值查询字典数据信息
      * 
      * @param dictType 字典类型
