@@ -813,8 +813,7 @@ public class ApiController {
 
     @PostMapping("/addBuilding")
     public AjaxResult addBuilding(Building building, Long projectId) {
-        // 先获取父桥
-        Building parentBuilding = buildingService.selectBuildingById(building.getParentId());
+
 
         // 判断是否已经存在
         Building query = new Building();
@@ -829,7 +828,13 @@ public class ApiController {
 
         // 新增新桥
         Building newBuilding = new Building();
-        newBuilding.setParentId(parentBuilding.getId());
+
+        if (building.getParentId() != null) {
+            // 先获取父桥
+            Building parentBuilding = buildingService.selectBuildingById(building.getParentId());
+            newBuilding.setParentId(parentBuilding.getId());
+        }
+
         newBuilding.setLine(building.getLine());
         newBuilding.setName(building.getName());
         newBuilding.setArea(building.getArea());
