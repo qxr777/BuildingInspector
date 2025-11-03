@@ -817,7 +817,7 @@ public class ApiController {
         String line = building.getLine();
         String buildingName = building.getName();
         Long templateId = building.getTemplateId();
-        if (area == null || line == null || buildingName == null || templateId != null) {
+        if (area == null || line == null || buildingName == null || templateId != null || projectId == null) {
             throw new RuntimeException("错误，参数不全");
         }
 
