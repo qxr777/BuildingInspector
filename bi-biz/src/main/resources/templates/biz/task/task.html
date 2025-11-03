@@ -74,6 +74,9 @@
             <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:task:export">
                 <i class="fa fa-download"></i> 导出
             </a>
+            <a class="btn btn-success multiple disabled" onclick="batchExportDisease()" shiro:hasPermission="biz:disease:export">
+                <i class="fa fa-download"></i> 批量导出病害
+            </a>
         </div>
         <div class="col-sm-12 select-table table-striped">
             <table id="bootstrap-table"></table>
@@ -252,6 +255,39 @@
         // 通过URL参数传递桥梁名称
         var url = ctx + "biz/building?name=" + encodeURIComponent(buildingName);
         $.modal.openTab("桥梁建筑管理", url);
+    }
+    
+    /**
+     * 批量导出病害数据
+     */
+    function batchExportDisease() {
+        console.log("开始批量导出病害数据");
+        var rows = $.table.selectColumns("id");
+        console.log("选中的任务ID:", rows);
+        
+        if (rows.length == 0) {
+            $.modal.alertWarning("请至少选择一个任务");
+            return;
+        }
+        
+        $.modal.confirm("确认要导出选中的" + rows.length + "个任务的病害数据吗？", function() {
+            $.modal.loading("正在导出数据，请稍候...");
+            
+            // 直接使用window.location进行下载，避免表单提交问题
+            var url = ctx + "biz/task/batchExport?taskIds=" + rows.join(",");
+            console.log("导出URL:", url);
+            
+            // 使用iframe下载文件，避免页面跳转
+            var downloadFrame = $('<iframe style="display:none;"></iframe>');
+            downloadFrame.attr('src', url);
+            $(document.body).append(downloadFrame);
+            
+            // 30秒后移除iframe并关闭加载提示
+            setTimeout(function() {
+                downloadFrame.remove();
+                $.modal.closeLoading();
+            }, 30000);
+        });
     }
 
 </script>

@@ -52,7 +52,8 @@ public class ReportDataController extends BaseController {
     @RequiresPermissions("biz:report_data:list")
     @PostMapping("/list")
     @ResponseBody
-    public TableDataInfo list(ReportData reportData) {
+    public TableDataInfo
+    list(ReportData reportData) {
         List<ReportData> list = reportDataService.selectReportDataList(reportData);
         return getDataTable(list);
     }
@@ -149,7 +150,7 @@ public class ReportDataController extends BaseController {
             // 如果有文件上传，先整理文件
             if (files != null && files.length > 0) {
                 for (int i = 0; i < dataKeys.length; i++) {
-                    if (dataTypes[i] == 1) { 
+                    if (dataTypes[i] == 1) {
                         String key = dataKeys[i];
 
                         // 从文件名中提取key
@@ -262,7 +263,7 @@ public class ReportDataController extends BaseController {
     public AjaxResult getDiseaseComponentData(@RequestParam("reportId") Long reportId) {
         try {
             Report report = reportService.selectReportById(reportId);
-            if(report == null) {
+            if (report == null) {
                 return AjaxResult.error("未找到报告");
             }
             List<Map<String, Object>> diseaseComponentData = reportDataService.getDiseaseComponentData(report);
