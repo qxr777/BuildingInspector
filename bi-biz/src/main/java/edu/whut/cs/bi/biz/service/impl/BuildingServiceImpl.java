@@ -88,6 +88,17 @@ public class BuildingServiceImpl implements IBuildingService {
     @Override
     @Transactional
     public int insertBuilding(Building building) {
+        // 先校验是否已经存在
+        Building query = new Building();
+        query.setName(building.getName());
+        query.setArea(building.getArea());
+        query.setLine(building.getLine());
+        List<Building> buildings = this.selectBuildingList(query);
+        if (CollUtil.isNotEmpty(buildings)) {
+            log.error("该片区线路桥梁已存在");
+            throw new RuntimeException("该片区线路桥梁已存在");
+        }
+
         building.setCreateTime(DateUtils.getNowDate());
         
         // 1. 创建BiObject根节点
@@ -150,6 +161,9 @@ public class BuildingServiceImpl implements IBuildingService {
                     
                     // 设置Building的rootObjectId，避免后续更新
                     building.setRootObjectId(rootObjectId);
+                } else {
+                    log.error("未找到指定模版!");
+                    throw new RuntimeException("未找到指定模版!");
                 }
             }
         }
@@ -167,6 +181,17 @@ public class BuildingServiceImpl implements IBuildingService {
     @Override
     @Transactional
     public int updateBuilding(Building building) {
+        // 先校验是否已经存在
+        Building query = new Building();
+        query.setName(building.getName());
+        query.setArea(building.getArea());
+        query.setLine(building.getLine());
+        List<Building> buildings = this.selectBuildingList(query);
+        if (CollUtil.isNotEmpty(buildings)) {
+            log.error("该片区线路桥梁已存在");
+            throw new RuntimeException("该片区线路桥梁已存在");
+        }
+
         building.setUpdateTime(DateUtils.getNowDate());
         building.setUpdateBy(ShiroUtils.getLoginName());
         

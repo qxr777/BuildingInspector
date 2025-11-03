@@ -104,8 +104,11 @@ public class TaskServiceImpl implements ITaskService {
         } else {
             // 部门管理员
             if (select.equals("department")) {
-                // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
-                task.setSelectDeptId(sysUser.getDeptId());
+                if (task.getProject() == null) {
+                    // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
+                    task.setSelectDeptId(sysUser.getDeptId());
+                }
+
                 tasks = taskMapper.selectTaskList(task, null);
             } else {
                 // 当前登录用户关联的业务实体

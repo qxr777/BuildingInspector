@@ -726,7 +726,7 @@ public class ReadFileServiceImpl implements ReadFileService {
         List<Long> buildingList = new ArrayList<>();
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            for (int j = 0; j < 1; j++) {
+            for (int j = 0; j < 7; j++) {
 //            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
                 Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
 
@@ -818,8 +818,8 @@ public class ReadFileServiceImpl implements ReadFileService {
             log.error("读取桥梁文件时出错", e);
             throw new RuntimeException(e);
         }
-        if (buildingList.size() > 0)
-            taskService.batchInsertTasks(projectId, buildingList);
+//        if (buildingList.size() > 0)
+//            taskService.batchInsertTasks(projectId, buildingList);
     }
 
 }
