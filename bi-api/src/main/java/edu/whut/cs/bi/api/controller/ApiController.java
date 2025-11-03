@@ -29,6 +29,7 @@ import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.ReadFileServiceImpl;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.compress.utils.Lists;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -797,5 +798,49 @@ public class ApiController {
     @PostMapping("/dict/data/list")
     public List<SysDictData> listDictData(SysDictData dictData) {
         return dictDataService.selectDictDataListForApi(dictData);
+    }
+
+    @PostMapping("/getParentBuilding")
+    public AjaxResult getParentBuilding(Long id) {
+        // 获取所有可选的父桥（组合桥）
+        Building parentQuery = new Building();
+        parentQuery.setIsLeaf("0");
+        parentQuery.setStatus("0");
+        List<Building> parentBuildings = buildingService.selectBuildingList(parentQuery);
+
+        return AjaxResult.success(parentBuildings);
+    }
+
+    @PostMapping("/addBuilding")
+    public AjaxResult addBuilding(Building building, Long projectId) {
+        // 先获取父桥
+        Building parentBuilding = buildingService.selectBuildingById(building.getParentId());
+
+        // 判断是否已经存在
+        Building query = new Building();
+        query.setName(building.getName());
+        query.setIsLeaf("1");
+        query.setArea(building.getArea());
+        query.setLine(building.getLine());
+        List<Building> buildings = buildingService.selectBuildingList(query);
+        if (buildings != null && !buildings.isEmpty()) {
+            return AjaxResult.error("该区域线路下已存在同名桥");
+        }
+
+        // 新增新桥
+        Building newBuilding = new Building();
+        newBuilding.setParentId(parentBuilding.getId());
+        newBuilding.setLine(building.getLine());
+        newBuilding.setName(building.getName());
+        newBuilding.setArea(building.getArea());
+        newBuilding.setStatus("0");
+        newBuilding.setTemplateId(building.getTemplateId());
+        newBuilding.setIsLeaf("1");
+        buildingService.insertBuilding(newBuilding);
+
+        // 添加到项目
+        taskService.batchInsertTasks(projectId, List.of(newBuilding.getId()));
+
+        return AjaxResult.success();
     }
 }
