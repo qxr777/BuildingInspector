@@ -161,6 +161,9 @@ public class BuildingServiceImpl implements IBuildingService {
                     
                     // 设置Building的rootObjectId，避免后续更新
                     building.setRootObjectId(rootObjectId);
+                } else {
+                    log.error("未找到指定模版!");
+                    throw new RuntimeException("未找到指定模版!");
                 }
             }
         }

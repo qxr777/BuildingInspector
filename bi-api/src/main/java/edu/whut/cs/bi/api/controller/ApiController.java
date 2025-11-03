@@ -813,14 +813,19 @@ public class ApiController {
 
     @PostMapping("/addBuilding")
     public AjaxResult addBuilding(Building building, Long projectId) {
-
+        String area = building.getArea();
+        String line = building.getLine();
+        String buildingName = building.getName();
+        Long templateId = building.getTemplateId();
+        if (area == null || line == null || buildingName == null || templateId != null) {
+            throw new RuntimeException("错误，参数不全");
+        }
 
         // 判断是否已经存在
         Building query = new Building();
-        query.setName(building.getName());
-        query.setIsLeaf("1");
-        query.setArea(building.getArea());
-        query.setLine(building.getLine());
+        query.setName(buildingName);
+        query.setArea(area);
+        query.setLine(line);
         List<Building> buildings = buildingService.selectBuildingList(query);
         if (buildings != null && !buildings.isEmpty()) {
             return AjaxResult.error("该区域线路下已存在同名桥");
@@ -835,11 +840,11 @@ public class ApiController {
             newBuilding.setParentId(parentBuilding.getId());
         }
 
-        newBuilding.setLine(building.getLine());
-        newBuilding.setName(building.getName());
-        newBuilding.setArea(building.getArea());
+        newBuilding.setLine(line);
+        newBuilding.setName(buildingName);
+        newBuilding.setArea(area);
         newBuilding.setStatus("0");
-        newBuilding.setTemplateId(building.getTemplateId());
+        newBuilding.setTemplateId(templateId);
         newBuilding.setIsLeaf("1");
         buildingService.insertBuilding(newBuilding);
 
