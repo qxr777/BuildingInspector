@@ -743,4 +743,20 @@ public class ReportController extends BaseController {
         reportDataService.exportPropertyWord(bid, response);
     }
 
+    /**
+     * 克隆检测报告
+     */
+    @RequiresPermissions("biz:report:add")
+    @Log(title = "检测报告", businessType = BusinessType.INSERT)
+    @PostMapping("/clone/{id}")
+    @ResponseBody
+    public AjaxResult clone(@PathVariable("id") Long id) {
+        try {
+            return toAjax(reportService.cloneReport(id));
+        } catch (Exception e) {
+            logger.error("克隆报告失败", e);
+            return AjaxResult.error("克隆报告失败：" + e.getMessage());
+        }
+    }
+
 }

@@ -43,6 +43,9 @@
             <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:report:remove">
                 <i class="fa fa-remove"></i> 删除
             </a>
+            <a class="btn btn-info single disabled" onclick="cloneReport()" shiro:hasPermission="biz:report:add">
+                <i class="fa fa-copy"></i> 克隆
+            </a>
             <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:report:export">
                 <i class="fa fa-download"></i> 导出
             </a>
@@ -192,6 +195,37 @@
     function downloadReport(id) {
         window.location.href = prefix + "/download/" + id;
     }
+    // 克隆报告
+    function cloneReport() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length == 0) {
+            $.modal.alertWarning("请至少选择一条记录");
+            return;
+        }
+        if (rows.length > 1) {
+            $.modal.alertWarning("只能选择一条记录进行克隆");
+            return;
+        }
+        $.modal.confirm("确认要克隆选中的报告吗？", function() {
+            $.ajax({
+                url: prefix + "/clone/" + rows[0],
+                type: "post",
+                dataType: "json",
+                success: function(result) {
+                    if (result.code == web_status.SUCCESS) {
+                        $.modal.msgSuccess("克隆成功");
+                        $.table.refresh();
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $.modal.alertError("克隆失败：" + error);
+                }
+            });
+        });
+    }
+
 
 </script>
 </body>

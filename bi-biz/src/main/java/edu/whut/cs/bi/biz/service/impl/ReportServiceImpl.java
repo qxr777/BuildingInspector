@@ -4398,4 +4398,94 @@ public class ReportServiceImpl implements IReportService {
             setTableHeaderRepeat(table.getRow(i));
         }
     }
+
+    /**
+     * 克隆报告
+     *
+     * @param id 需要克隆的报告ID
+     * @return 结果
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int cloneReport(Long id) {
+        // 1. 查询原报告
+        Report sourceReport = reportMapper.selectReportById(id);
+        if (sourceReport == null) {
+            throw new RuntimeException("源报告不存在");
+        }
+
+        // 2. 创建新报告对象，复制所有字段
+        Report newReport = new Report();
+        newReport.setName(sourceReport.getName() + "_副本");
+        newReport.setProjectId(sourceReport.getProjectId());
+        newReport.setTaskIds(sourceReport.getTaskIds());
+        newReport.setReportTemplateId(sourceReport.getReportTemplateId());
+        newReport.setStatus(0);
+        newReport.setReviewerId(sourceReport.getReviewerId());
+        newReport.setReviewer(sourceReport.getReviewer());
+        newReport.setApproverId(sourceReport.getApproverId());
+        newReport.setApprover(sourceReport.getApprover());
+        newReport.setRemark(sourceReport.getRemark());
+        newReport.setCreateBy(ShiroUtils.getLoginName());
+
+        // 3. 插入新报告
+        int rows = reportMapper.insertReport(newReport);
+        if (rows <= 0) {
+            throw new RuntimeException("克隆报告失败");
+        }
+
+        // 4. 查询原报告的所有数据
+        List<ReportData> sourceDataList = reportDataService.selectReportDataByReportId(id);
+
+        // 5. 克隆报告数据
+        if (!sourceDataList.isEmpty()) {
+            List<ReportData> newDataList = new ArrayList<>();
+
+            for (ReportData sourceData : sourceDataList) {
+                ReportData newData = new ReportData();
+                newData.setKey(sourceData.getKey());
+                newData.setReportId(newReport.getId());
+                newData.setType(sourceData.getType());
+                newData.setRemark(sourceData.getRemark());
+                newData.setCreateBy(ShiroUtils.getLoginName());
+
+                // 根据类型处理value字段
+                if (sourceData.getType() != null && sourceData.getType() == 1) {
+                    // 图片类型，需要克隆文件
+                    if (sourceData.getValue() != null && !sourceData.getValue().isEmpty()) {
+                        String[] minioIds = sourceData.getValue().split(",");
+                        List<String> newMinioIds = new ArrayList<>();
+
+                        for (String minioIdStr : minioIds) {
+                            if (!minioIdStr.isEmpty()) {
+                                try {
+                                    Long minioId = Long.parseLong(minioIdStr.trim());
+                                    // 调用copyFile方法克隆文件
+                                    FileMap newFileMap = fileMapService.copyFile(minioId);
+                                    newMinioIds.add(String.valueOf(newFileMap.getId()));
+                                } catch (Exception e) {
+                                    log.error("克隆图片文件失败，minioId: " + minioIdStr, e);
+                                }
+                            }
+                        }
+
+                        // 设置新的minioId列表
+                        newData.setValue(String.join(",", newMinioIds));
+                    }
+                } else {
+                    // 文本类型，直接复制
+                    newData.setValue(sourceData.getValue());
+                }
+
+                newDataList.add(newData);
+            }
+
+            // 6. 批量插入新的报告数据
+            if (!newDataList.isEmpty()) {
+                reportDataService.batchInsertReportData(newDataList);
+            }
+        }
+
+        return rows;
+    }
 }
