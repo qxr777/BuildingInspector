@@ -629,7 +629,40 @@ public class ReportController extends BaseController {
     }
 
     /**
+     * 获取报告的模板信息
+     */
+    @RequiresPermissions("biz:report:view")
+    @GetMapping("/getTemplateInfo/{id}")
+    @ResponseBody
+    public AjaxResult getTemplateInfo(@PathVariable("id") Long id) {
+        try {
+            Report report = reportService.selectReportById(id);
+            if (report == null) {
+                return AjaxResult.error("报告不存在");
+            }
+
+            if (report.getReportTemplateId() == null) {
+                return AjaxResult.error("报告未关联模板");
+            }
+
+            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+            if (template == null) {
+                return AjaxResult.error("模板不存在");
+            }
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("templateName", template.getName());
+            data.put("templateId", template.getId());
+
+            return AjaxResult.success("获取模板信息成功", data);
+        } catch (Exception e) {
+            return AjaxResult.error("获取模板信息失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 跳转到报告数据填充页面
+     * 跳转到 比较大 的报告模板的 填充页面。（复杂桥）
      */
     @RequiresPermissions("biz:report:edit")
     @GetMapping("/fill/{id}")

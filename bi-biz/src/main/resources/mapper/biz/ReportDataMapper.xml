@@ -98,12 +98,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         update bi_report_data
         <set>
             <if test="key != null and key != ''">`key` = #{key},</if>
-            <if test="value != null">value = #{value},</if>
+            value = #{value},
             <if test="reportId != null">report_id = #{reportId},</if>
             <if test="type != null">type = #{type},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
-            update_time = sysdate(),
-            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+            <if test="remark != null">, remark = #{remark}</if>
         </set>
         where id = #{id} and flag = 0
     </update>

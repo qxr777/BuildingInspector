@@ -280,11 +280,17 @@ public class ReportServiceImpl implements IReportService {
      */
     @Override
     public String generateReportDocument(Report report, Task task) {
-        // 判断是否为单桥模板（根据报告名称判断）
-        if (report != null && report.getName() != null &&
-                report.getName().contains("单桥")) {
-            log.info("检测到单桥模板，使用简化生成逻辑");
-            return generateSingleBridgeReportDocument(report, task);
+        // 判断是否为单桥模板（根据模板名称判断）
+        if (report != null && report.getReportTemplateId() != null) {
+            try {
+                ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+                if (template != null && template.getName() != null && template.getName().contains("单桥")) {
+                    log.info("检测到单桥模板：{}，使用单桥生成逻辑", template.getName());
+                    return generateSingleBridgeReportDocument(report, task);
+                }
+            } catch (Exception e) {
+                log.error("获取模板信息失败，使用默认生成逻辑", e);
+            }
         }
 
         // 原有的组合桥模板生成逻辑
@@ -2415,7 +2421,14 @@ public class ReportServiceImpl implements IReportService {
         // 替换段落中的图片
         for (int i = 0; i < document.getParagraphs().size(); i++) {
             XWPFParagraph paragraph = document.getParagraphs().get(i);
-            if (paragraph.getText().contains(placeholder)) {
+            String paragraphText = paragraph.getText();
+            
+            // 先检查段落文本中是否包含占位符
+            if (paragraphText.contains(placeholder)) {
+                log.info("在普通段落中找到占位符(带域): {}, 段落文本: {}", placeholder, paragraphText);
+                
+                // 合并段落中的runs，解决Word分割占位符的问题
+                mergeParagraphRuns(paragraph, placeholder);
                 try {
                     // 清除占位符段落的内容，但保留段落本身
                     clearParagraph(paragraph);
@@ -2482,7 +2495,15 @@ public class ReportServiceImpl implements IReportService {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
-                        if (paragraph.getText().contains(placeholder)) {
+                        String cellParagraphText = paragraph.getText();
+                        
+                        // 先检查单元格段落文本中是否包含占位符
+                        if (cellParagraphText.contains(placeholder)) {
+                            log.info("在表格单元格中找到占位符(带域): {}, 单元格文本: {}", placeholder, cellParagraphText);
+                            
+                            // 合并段落中的runs，解决Word分割占位符的问题
+                            mergeParagraphRuns(paragraph, placeholder);
+                            
                             try {
                                 // 清除占位符
                                 clearParagraph(paragraph);
@@ -2501,7 +2522,10 @@ public class ReportServiceImpl implements IReportService {
                                         // 表格中的图片使用较小尺寸
                                         run.addPicture(imageStream, XWPFDocument.PICTURE_TYPE_JPEG, placeholder,
                                                 Units.toEMU(200), Units.toEMU(150));
+                                        log.info("成功在表格单元格中插入图片(带域): {}", placeholder);
                                     }
+                                } else {
+                                    log.info("图片为空，已清除表格中的占位符(带域): {}", placeholder);
                                 }
 
                                 // 如果有标题，在图片之后添加标题域
@@ -2528,7 +2552,31 @@ public class ReportServiceImpl implements IReportService {
             }
         }
 
-        log.warn("未找到占位符在文档中: {}", placeholder);
+        log.warn("未找到占位符在文档中: {}, 请检查Word模板中是否存在该占位符", placeholder);
+    }
+
+    /**
+     * 合并段落中的所有文本运行（Runs），解决Word将占位符分割的问题
+     * @param paragraph 段落对象
+     * @param placeholder 要查找的占位符
+     * @return 如果找到占位符返回true，否则返回false
+     */
+    private boolean mergeParagraphRuns(XWPFParagraph paragraph, String placeholder) {
+        String fullText = paragraph.getText();
+        if (!fullText.contains(placeholder)) {
+            return false;
+        }
+
+        // 清除所有现有的runs
+        while (paragraph.getRuns().size() > 0) {
+            paragraph.removeRun(0);
+        }
+
+        // 创建一个新的run，包含合并后的文本
+        XWPFRun newRun = paragraph.createRun();
+        newRun.setText(fullText);
+
+        return true;
     }
 
     /**
@@ -2544,7 +2592,14 @@ public class ReportServiceImpl implements IReportService {
         // 替换段落中的图片
         for (int i = 0; i < document.getParagraphs().size(); i++) {
             XWPFParagraph paragraph = document.getParagraphs().get(i);
-            if (paragraph.getText().contains(placeholder)) {
+            String paragraphText = paragraph.getText();
+            
+            // 先检查段落文本中是否包含占位符
+            if (paragraphText.contains(placeholder)) {
+                log.info("在普通段落中找到占位符: {}, 段落文本: {}", placeholder, paragraphText);
+                
+                // 合并段落中的runs，解决Word分割占位符的问题
+                mergeParagraphRuns(paragraph, placeholder);
                 try {
                     // 清除占位符段落的内容，但保留段落本身
                     clearParagraph(paragraph);
@@ -2582,6 +2637,10 @@ public class ReportServiceImpl implements IReportService {
 
                             run.addPicture(imageStream, XWPFDocument.PICTURE_TYPE_JPEG, placeholder, width, height);
                         }
+                    } else {
+                        // 当图片为空时，清除占位符，不显示任何内容
+                        // 段落已经被清空，不需要额外操作
+                        log.debug("图片为空，已清除占位符: {}", placeholder);
                     }
 
                     // 如果有标题且不是封面图片，添加标题段落
@@ -2614,7 +2673,15 @@ public class ReportServiceImpl implements IReportService {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
-                        if (paragraph.getText().contains(placeholder)) {
+                        String cellParagraphText = paragraph.getText();
+                        
+                        // 先检查单元格段落文本中是否包含占位符
+                        if (cellParagraphText.contains(placeholder)) {
+                            log.info("在表格单元格中找到占位符: {}, 单元格文本: {}", placeholder, cellParagraphText);
+                            
+                            // 合并段落中的runs，解决Word分割占位符的问题
+                            mergeParagraphRuns(paragraph, placeholder);
+                            
                             try {
                                 // 清除占位符
                                 clearParagraph(paragraph);
@@ -2633,7 +2700,10 @@ public class ReportServiceImpl implements IReportService {
                                         // 表格中的图片使用较小尺寸
                                         run.addPicture(imageStream, XWPFDocument.PICTURE_TYPE_JPEG, placeholder,
                                                 Units.toEMU(200), Units.toEMU(150));
+                                        log.info("成功在表格单元格中插入图片: {}", placeholder);
                                     }
+                                } else {
+                                    log.info("图片为空，已清除表格中的占位符: {}", placeholder);
                                 }
 
                                 // 如果有标题，在图片之后添加标题段落
@@ -2663,7 +2733,7 @@ public class ReportServiceImpl implements IReportService {
             }
         }
 
-        log.warn("未找到占位符在文档中: {}", placeholder);
+        log.warn("未找到占位符在文档中: {}, 请检查Word模板中是否存在该占位符", placeholder);
     }
 
     private void debugAllStyles(XWPFDocument document) {
@@ -3907,129 +3977,19 @@ public class ReportServiceImpl implements IReportService {
             // 清空第十章病害汇总缓存
             testConclusionService.clearDiseaseSummaryCache();
 
-            // 4. 处理用户填写的简单数据（文本和图片）
-            for (ReportData data : reportDataList) {
-                String key = data.getKey();
-                String value = data.getValue();
-                Integer type = data.getType();
-
-                try {
-                    // 跳过需要特殊处理的章节（病害分析）
-                    if (key != null && key.contains("diseases")) {
-                        continue; // 病害分析会在后面单独处理
-                    }
-
-                    if (type == 0) {
-                        // 文本类型 - 直接替换
-                        String placeholder = "${" + key + "}";
-                        replaceText(document, placeholder, value != null ? value : "");
-                        log.debug("替换文本字段: {} = {}", key, value != null ? value : "(空)");
-
-                    } else if (type == 1 && value != null && !value.isEmpty()) {
-                        // 图片类型 - 使用参数化的图片处理方法
-                        String placeholder = "${" + key + "}";
-                        String titleText = null;
-                        Integer chapterNumber = 1; // 单桥模板统一使用第1章
-
-                        // 根据key设置图片标题
-                        if (key.equals("single-1-1-1-photos")) {
-                            titleText = "桥梁照片";
-                        }
-
-                        try {
-                            handleImagePlaceholderWithCustomTitle(document, placeholder, value, building, titleText, chapterNumber);
-                            log.info("已插入图片字段: {} = {}", key, value);
-                        } catch (Exception e) {
-                            log.error("处理图片占位符出错: key={}, value={}, error={}", key, value, e.getMessage());
-                            replaceText(document, placeholder, "");
-                        }
-                    }
-                } catch (Exception e) {
-                    log.error("处理字段出错: key={}, type={}, error={}", key, type, e.getMessage(), e);
-                }
-            }
-
-            // 5. 处理第1.1.2章 - 外观检测结果（从数据库自动生成）
+            // 4. 处理桥梁基本状况卡片数据
             try {
-                List<BiObject> biObjects = new ArrayList<>();
-                biObjects.add(biObject);
-                processChapter3WithCustomPlaceholder(document, biObjects, building, project.getId(), "${single-1-1-2-appearance}");
-                log.info("第1.1.2章外观检测结果生成完成");
+                processBridgeBasicInfoCard(document, building);
+                log.info("桥梁基本状况卡片处理完成");
             } catch (Exception e) {
-                log.error("处理第1.1.2章外观检测结果出错: error={}", e.getMessage(), e);
-                replaceText(document, "${single-1-1-2-appearance}", "");
+                log.error("处理桥梁基本状况卡片出错: error={}", e.getMessage(), e);
             }
 
-            // 6. 处理第1.1.5章 - 技术状况评定（自动生成）
-            try {
-                handleChapter8EvaluationResults(document, "${single-1-1-5-evaluation}", building, task.getId());
-                log.info("第1.1.5章技术状况评定生成完成");
-            } catch (Exception e) {
-                log.error("处理第1.1.5章技术状况评定出错: error={}", e.getMessage(), e);
-                replaceText(document, "${single-1-1-5-evaluation}", "");
-            }
+            // 5. 先处理自动生成的章节内容（包括从数据库自动获取的照片）
+            processSingleBridgeAutoGeneratedContent(document, building, project, task, biObject, dataMap);
 
-            // 7. 处理第1.1.6章 - 近年评定结果对比（自动生成）
-            try {
-                handleChapter9ComparisonAnalysis(document, "${single-1-1-6-comparison}", task, building.getName());
-                log.info("第1.1.6章近年评定结果对比生成完成");
-            } catch (Exception e) {
-                log.error("处理第1.1.6章近年评定结果对比出错: error={}", e.getMessage(), e);
-                replaceText(document, "${single-1-1-6-comparison}", "");
-            }
-
-            // 8. 处理第1.1.7章 - 重点关注病害及成因分析（病害选择器）
-            ReportData diseaseData = dataMap.get("single-1-1-7-diseases");
-            if (diseaseData != null && diseaseData.getValue() != null && !diseaseData.getValue().isEmpty()) {
-                try {
-                    String diseaseJson = diseaseData.getValue();
-                    log.info("开始处理第1.1.7章病害分析，JSON: {}", diseaseJson);
-
-                    // 解析病害数据
-                    List<ComponentDiseaseType> combinations = parseChapter7Json(diseaseJson);
-                    if (!combinations.isEmpty()) {
-                        // 生成病害汇总表
-                        List<Map<String, Object>> tableData = generateChapter7TableData(combinations, building, project, biObject);
-                        if (!tableData.isEmpty()) {
-                            insertChapter7Table(document, "${single-1-1-7-disease-table}", "重点关注病害汇总表", tableData);
-                            log.info("病害汇总表生成完成，共{}行数据", tableData.size());
-                        }
-
-                        // 生成成因分析（使用自定义占位符）
-                        generateAndInsertChapter7AnalysisWithCustomPlaceholders(
-                                combinations, building, project, biObject, document,
-                                "${single-1-1-7-analysis-super}",
-                                "${single-1-1-7-analysis-sub}",
-                                "${single-1-1-7-analysis-deck}"
-                        );
-                        log.info("病害成因分析生成完成");
-                    } else {
-                        log.warn("病害数据解析为空");
-                    }
-                } catch (Exception e) {
-                    log.error("处理第1.1.7章病害分析出错: error={}", e.getMessage(), e);
-                    replaceText(document, "${single-1-1-7-disease-table}", "");
-                    replaceText(document, "${single-1-1-7-analysis-super}", "");
-                    replaceText(document, "${single-1-1-7-analysis-sub}", "");
-                    replaceText(document, "${single-1-1-7-analysis-deck}", "");
-                }
-            } else {
-                log.info("未找到病害分析数据，跳过第1.1.7章");
-                // 清空占位符
-                replaceText(document, "${single-1-1-7-disease-table}", "");
-                replaceText(document, "${single-1-1-7-analysis-super}", "");
-                replaceText(document, "${single-1-1-7-analysis-sub}", "");
-                replaceText(document, "${single-1-1-7-analysis-deck}", "");
-            }
-
-            // 9. 处理第1.1.8.1章 - 检测结论（自动生成）
-            try {
-                handleChapter10TestConclusion(document, "${single-1-1-8-1-conclusion}", task, building.getName());
-                log.info("第1.1.8.1章检测结论生成完成");
-            } catch (Exception e) {
-                log.error("处理第1.1.8.1章检测结论出错: error={}", e.getMessage(), e);
-                replaceText(document, "${single-1-1-8-1-conclusion}", "");
-            }
+            // 6. 再处理用户填写的简单数据
+            processSingleBridgeUserData(document, reportDataList, building, dataMap, project, biObject);
 
             // 10. 更新文档中的所有域（图表自动编号）
             WordFieldUtils.updateAllFields(document);
@@ -4487,5 +4447,860 @@ public class ReportServiceImpl implements IReportService {
         }
 
         return rows;
+    }
+
+    /**
+     * 处理单桥模板用户填写的数据（仅处理文本，照片由系统自动处理）
+     */
+    private void processSingleBridgeUserData(XWPFDocument document, List<ReportData> reportDataList,
+                                             Building building, Map<String, ReportData> dataMap, Project project, BiObject biObject) {
+        for (ReportData data : reportDataList) {
+            String key = data.getKey();
+            String value = data.getValue();
+            Integer type = data.getType();
+            try {
+                // 跳过照片相关的字段，照片由系统自动处理
+                if (key != null && (key.contains("leftFront") || key.contains("rightFront") ||
+                        key.contains("leftSide") || key.contains("rightSide"))) {
+                    log.debug("跳过照片字段（由系统自动处理）: {}", key);
+                    continue;
+                }
+
+                if (type == 0) {
+                    // 文本类型
+                    // 检查是否是病害选择字段，需要特殊处理
+                    if (key != null && key.contains("chapter-4-1-7-diseases")) {
+                        try {
+                            log.info("开始处理单桥病害数据，key: {}, value: {}", key, value);
+                            // 解析病害数据
+                            List<ComponentDiseaseType> combinations = parseChapter7Json(value);
+                            if (!combinations.isEmpty()) {
+                                // 生成重点关注病害内容（包含表格和成因分析）
+                                generateSingleBridgeFocusOnDiseases(document, combinations, building, project, biObject);
+                                log.info("单桥病害分析生成完成");
+                            } else {
+                                log.warn("病害数据解析为空");
+                                replaceText(document, "${chapter-4-1-7-focusOnDiseases}", "无重点关注病害");
+                            }
+                        } catch (Exception e) {
+                            log.error("处理单桥病害数据出错: key={}, value={}, error={}", key, value, e.getMessage(), e);
+                            replaceText(document, "${chapter-4-1-7-focusOnDiseases}", "【病害数据处理失败，请联系管理员】");
+                        }
+                    } else {
+                        // 普通文本字段 - 直接替换
+                        String placeholder = "${" + key + "}";
+                        replaceText(document, placeholder, value != null ? value : "");
+                        log.debug("替换文本字段: {} = {}", key, value != null ? value : "(空)");
+                    }
+                }
+            } catch (Exception e) {
+                log.error("处理字段出错: key={}, type={}, error={}", key, type, e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * 处理单桥模板自动生成的内容
+     */
+    private void processSingleBridgeAutoGeneratedContent(XWPFDocument document, Building building,
+                                                         Project project, Task task, BiObject biObject,
+                                                         Map<String, ReportData> dataMap) {
+        // 0. 处理桥梁概况照片（从数据库自动获取，与组合桥同步）
+        try {
+            insertSingleBridgeImages(document, building.getId());
+            log.info("单桥桥梁概况照片处理完成");
+        } catch (Exception e) {
+            log.error("处理单桥桥梁概况照片出错: error={}", e.getMessage(), e);
+            // 照片处理失败不影响其他内容生成，只记录日志
+        }
+
+        // 1. 处理第4.1.2章 - 外观检测结果（从数据库自动生成）
+        try {
+            processSingleBridgeAppearanceInspection(document, biObject, building, project.getId(), "${chapter-4-1-2-appearanceInspectionResults}");
+            log.info("第4.1.2章外观检测结果生成完成");
+        } catch (Exception e) {
+            log.error("处理第4.1.2章外观检测结果出错: error={}", e.getMessage(), e);
+            replaceText(document, "${chapter-4-1-2-appearanceInspectionResults}", "【外观检测结果生成失败，请联系管理员】");
+        }
+
+        // 2. 处理第4.1.5章 - 技术状况评定（自动生成）
+        try {
+            handleChapter8EvaluationResults(document, "${chapter-4-1-5-evaluationResults}", building, task.getId());
+            log.info("第4.1.5章技术状况评定生成完成");
+        } catch (Exception e) {
+            log.error("处理第4.1.5章技术状况评定出错: error={}", e.getMessage(), e);
+            replaceText(document, "${chapter-4-1-5-evaluationResults}", "【技术状况评定生成失败，请联系管理员】");
+        }
+
+        // 3. 处理第4.1.6章 - 近年评定结果对比（自动生成）
+        try {
+            handleChapter9ComparisonAnalysis(document, "${chapter-4-1-6-comparativeAnalysisOfEvaluationResults}", task, building.getName());
+            log.info("第4.1.6章近年评定结果对比生成完成");
+        } catch (Exception e) {
+            log.error("处理第4.1.6章近年评定结果对比出错: error={}", e.getMessage(), e);
+            replaceText(document, "${chapter-4-1-6-comparativeAnalysisOfEvaluationResults}", "【近年评定结果对比生成失败，请联系管理员】");
+        }
+
+        // 4. 第4.1.7章病害分析已在processSingleBridgeUserData中处理，此处跳过
+
+        // 5. 处理第4.1.8.2章 - 主要病害（新格式）
+        try {
+            generateSingleBridgeMainDiseases(document, building, project, task);
+            log.info("第4.1.8.2章主要病害生成完成");
+        } catch (Exception e) {
+            log.error("处理第4.1.8.2章主要病害出错: error={}", e.getMessage(), e);
+            replaceText(document, "${chapter-4-1-8-2-mainDiseases}", "【主要病害生成失败，请联系管理员】");
+        }
+    }
+
+    /**
+     * 处理桥梁基本状况卡片数据
+     */
+    private void processBridgeBasicInfoCard(XWPFDocument document, Building building) {
+        try {
+            // 使用现有的桥梁卡片服务处理基本信息
+            bridgeCardService.processBridgeCardData(document, building);
+            log.info("桥梁基本状况卡片数据处理完成");
+        } catch (Exception e) {
+            log.error("处理桥梁基本状况卡片数据失败", e);
+            // 对于卡片数据处理失败，不影响整体生成，只记录错误
+        }
+    }
+
+    /**
+     * 生成单桥重点关注病害内容
+     */
+    private void generateSingleBridgeFocusOnDiseases(XWPFDocument document, List<ComponentDiseaseType> combinations,
+                                                     Building building, Project project, BiObject biObject) {
+        try {
+            StringBuilder content = new StringBuilder();
+
+            // 1. 生成病害汇总表
+            List<Map<String, Object>> tableData = generateChapter7TableData(combinations, building, project, biObject);
+            if (!tableData.isEmpty()) {
+                content.append("表4-1 重点关注病害汇总表\n");
+                content.append(generateTableContent(tableData));
+                content.append("\n\n");
+            }
+
+            // 2. 生成主要病害成因分析
+            content.append("主要病害成因分析：\n\n");
+
+            // 按结构分类生成成因分析
+            Map<String, List<ComponentDiseaseType>> structureGroups = groupByStructureType(combinations);
+
+            int index = 1;
+            for (Map.Entry<String, List<ComponentDiseaseType>> entry : structureGroups.entrySet()) {
+                String structureType = entry.getKey();
+                List<ComponentDiseaseType> structureCombinations = entry.getValue();
+
+                content.append(String.format("（%d）%s\n", index++, structureType));
+
+                // 生成该结构类型的病害分析
+                String analysis = generateStructureAnalysisText(structureCombinations, building, project, biObject);
+                content.append(analysis).append("\n\n");
+            }
+
+            // 替换占位符
+            replaceText(document, "${chapter-4-1-7-focusOnDiseases}", content.toString().trim());
+
+        } catch (Exception e) {
+            log.error("生成单桥重点关注病害内容失败", e);
+            replaceText(document, "${chapter-4-1-7-focusOnDiseases}", "【病害分析生成失败】");
+        }
+    }
+
+    /**
+     * 生成单桥主要病害内容（新格式）
+     */
+    private void generateSingleBridgeMainDiseases(XWPFDocument document, Building building, Project project, Task task) {
+        try {
+            // 查询病害数据
+            Disease queryParam = new Disease();
+            queryParam.setBuildingId(building.getId());
+            queryParam.setProjectId(project.getId());
+            List<Disease> diseases = diseaseMapper.selectDiseaseList(queryParam);
+
+            if (diseases == null || diseases.isEmpty()) {
+                replaceText(document, "${chapter-4-1-8-2-mainDiseases}", "经检查，该桥无明显病害。");
+                return;
+            }
+
+            // 按结构类型分组病害
+            Map<String, List<Disease>> structureGroups = groupDiseasesByStructure(diseases);
+
+            StringBuilder content = new StringBuilder();
+            int structureIndex = 1;
+
+            for (Map.Entry<String, List<Disease>> entry : structureGroups.entrySet()) {
+                String structureType = entry.getKey();
+                List<Disease> structureDiseases = entry.getValue();
+
+                if (structureDiseases.isEmpty()) continue;
+
+                content.append(String.format("%d、%s：\n", structureIndex++, structureType));
+
+                // 使用AI一次性生成该结构类型的所有病害描述
+                try {
+                    log.debug("为结构类型 {} 调用AI生成病害描述，病害数量: {}", structureType, structureDiseases.size());
+
+                    String aiDescription = getDiseaseSummary(structureDiseases);
+                    if (aiDescription != null && !aiDescription.trim().isEmpty()) {
+                        // 记录AI原始输出用于调试
+                        log.debug("AI原始输出: {}", aiDescription);
+
+                        // 清理和标准化AI生成的内容
+                        String cleanedDescription = cleanAndStandardizeStructureAiDescription(aiDescription, structureType);
+
+                        // 记录清理后的输出用于调试
+                        log.debug("清理后输出: {}", cleanedDescription);
+
+                        content.append(cleanedDescription);
+                    } else {
+                        // AI生成失败时的备用逻辑
+                        log.warn("AI生成结构 {} 的病害描述为空，使用备用逻辑", structureType);
+                        content.append(generateFallbackStructureDescription(structureDiseases));
+                    }
+                } catch (Exception e) {
+                    log.error("AI生成结构 {} 的病害描述失败，使用备用逻辑: {}", structureType, e.getMessage());
+                    content.append(generateFallbackStructureDescription(structureDiseases));
+                }
+                content.append("\n");
+            }
+
+            replaceText(document, "${chapter-4-1-8-2-mainDiseases}", content.toString().trim());
+
+        } catch (Exception e) {
+            log.error("生成单桥主要病害内容失败", e);
+            replaceText(document, "${chapter-4-1-8-2-mainDiseases}", "【主要病害生成失败】");
+        }
+    }
+
+    /**
+     * 按结构类型分组病害（基于BiObject祖先数组第三层）
+     */
+    private Map<String, List<Disease>> groupDiseasesByStructure(List<Disease> diseases) {
+        Map<String, List<Disease>> groups = new LinkedHashMap<>();
+
+        try {
+            // 收集所有需要查询的BiObject ID
+            Set<Long> biObjectIds = new HashSet<>();
+            for (Disease disease : diseases) {
+                if (disease.getBiObjectId() != null) {
+                    biObjectIds.add(disease.getBiObjectId());
+                }
+            }
+
+            if (biObjectIds.isEmpty()) {
+                return groups;
+            }
+
+            // 批量查询BiObject
+            List<BiObject> biObjects = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(biObjectIds));
+
+            // 收集所有第三层节点ID
+            Set<Long> thirdLevelNodeIds = new HashSet<>();
+            Map<Long, Long> componentToThirdLevelMap = new HashMap<>();
+
+            for (BiObject biObject : biObjects) {
+                String ancestors = biObject.getAncestors();
+                if (ancestors != null && !ancestors.isEmpty()) {
+                    String[] ancestorIds = ancestors.split(",");
+                    if (ancestorIds.length >= 3) {
+                        // 第三层节点ID（索引为2，因为从0开始：0,桥梁,第三层）
+                        try {
+                            Long thirdLevelId = Long.parseLong(ancestorIds[2].trim());
+                            thirdLevelNodeIds.add(thirdLevelId);
+                            componentToThirdLevelMap.put(biObject.getId(), thirdLevelId);
+                        } catch (NumberFormatException e) {
+                            log.warn("解析第三层节点ID失败: {}", ancestorIds[2]);
+                        }
+                    }
+                }
+            }
+
+            // 批量查询第三层节点信息
+            if (!thirdLevelNodeIds.isEmpty()) {
+                List<BiObject> thirdLevelNodes = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(thirdLevelNodeIds));
+                Map<Long, String> thirdLevelNameMap = thirdLevelNodes.stream()
+                        .collect(Collectors.toMap(BiObject::getId, BiObject::getName));
+
+                // 初始化分组（动态创建分组）
+                for (String nodeName : thirdLevelNameMap.values()) {
+                    groups.put(nodeName, new ArrayList<>());
+                }
+
+                // 分组病害
+                for (Disease disease : diseases) {
+                    if (disease.getBiObjectId() != null) {
+                        Long thirdLevelId = componentToThirdLevelMap.get(disease.getBiObjectId());
+                        if (thirdLevelId != null) {
+                            String thirdLevelName = thirdLevelNameMap.get(thirdLevelId);
+                            if (thirdLevelName != null && groups.containsKey(thirdLevelName)) {
+                                groups.get(thirdLevelName).add(disease);
+                            } else {
+                                // 如果找不到对应的第三层节点，创建一个默认分组
+                                String defaultGroup = "其他结构";
+                                groups.computeIfAbsent(defaultGroup, k -> new ArrayList<>()).add(disease);
+                            }
+                        } else {
+                            // 如果无法确定第三层节点，创建一个默认分组
+                            String defaultGroup = "其他结构";
+                            groups.computeIfAbsent(defaultGroup, k -> new ArrayList<>()).add(disease);
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("按结构类型分组病害失败", e);
+            // 异常情况下，创建一个默认分组
+            String defaultGroup = "未分类结构";
+            groups.put(defaultGroup, new ArrayList<>(diseases));
+        }
+
+        return groups;
+    }
+
+    /**
+     * 转换结构类型为中文名称
+     */
+    private String convertStructureTypeToChineseName(String structureType) {
+        switch (structureType) {
+            case "superstructure":
+                return "上部结构";
+            case "substructure":
+                return "下部结构";
+            case "deckSystem":
+                return "桥面系";
+            default:
+                return "上部结构";
+        }
+    }
+
+    /**
+     * 格式化病害参数（使用AI生成）
+     */
+    private String formatDiseaseParameters(Disease disease) {
+        try {
+            // 使用AI生成病害描述
+            List<Disease> singleDiseaseList = Arrays.asList(disease);
+            String aiDescription = getDiseaseSummary(singleDiseaseList);
+
+            if (aiDescription != null && !aiDescription.trim().isEmpty()) {
+                return aiDescription.trim();
+            } else {
+                // AI生成失败时的备用逻辑
+                return generateFallbackDiseaseDescription(disease);
+            }
+        } catch (Exception e) {
+            log.error("AI生成病害描述失败，使用备用逻辑", e);
+            return generateFallbackDiseaseDescription(disease);
+        }
+    }
+
+    /**
+     * 备用病害描述生成逻辑
+     */
+    private String generateFallbackDiseaseDescription(Disease disease) {
+        StringBuilder description = new StringBuilder();
+
+        if (disease.getDiseaseDetails() != null && !disease.getDiseaseDetails().isEmpty()) {
+            DiseaseDetail detail = disease.getDiseaseDetails().get(0);
+
+            // 添加数量信息
+            if (disease.getQuantity() > 0) {
+                description.append(disease.getQuantity()).append("处");
+            }
+
+            // 添加病害类型
+            if (disease.getDiseaseType() != null && disease.getDiseaseType().getName() != null) {
+                description.append(disease.getDiseaseType().getName());
+            }
+
+            // 添加尺寸信息
+            if (detail.getLength1() != null && detail.getLength1().doubleValue() > 0) {
+                description.append("，L=").append(String.format("%.1f", detail.getLength1().doubleValue())).append("m");
+            }
+
+            if (detail.getCrackWidth() != null && detail.getCrackWidth().doubleValue() > 0) {
+                description.append("，W=").append(String.format("%.2f", detail.getCrackWidth().doubleValue())).append("mm");
+            }
+
+            if (detail.getAreaLength() != null && detail.getAreaWidth() != null &&
+                    detail.getAreaLength().doubleValue() > 0 && detail.getAreaWidth().doubleValue() > 0) {
+                double area = detail.getAreaLength().doubleValue() * detail.getAreaWidth().doubleValue();
+                description.append("，S=").append(String.format("%.1f", area)).append("m²");
+            }
+        } else {
+            // 没有详细信息时的简单描述
+            if (disease.getDiseaseType() != null && disease.getDiseaseType().getName() != null) {
+                description.append(disease.getDiseaseType().getName());
+            }
+        }
+
+        return description.toString();
+    }
+
+    /**
+     * 清理和标准化AI生成的病害描述
+     */
+    private String cleanAndStandardizeAiDescription(String aiDescription, Disease disease) {
+        if (aiDescription == null || aiDescription.trim().isEmpty()) {
+            return "";
+        }
+
+        String cleaned = aiDescription.trim();
+
+        // 移除可能的序号前缀（如"1）"）
+        cleaned = cleaned.replaceAll("^\\d+[）)]\\s*", "");
+
+        // 移除末尾的分号和句号
+        cleaned = cleaned.replaceAll("[；;。.]+$", "");
+
+        // 处理可能的重复信息
+        String componentName = disease.getComponent() != null ? disease.getComponent().getName() : "";
+        String diseaseTypeName = disease.getDiseaseType() != null ? disease.getDiseaseType().getName() : "";
+
+        // 移除可能的重复构件名称（AI可能重复生成）
+        if (!componentName.isEmpty()) {
+            // 移除开头的重复构件名称
+            String duplicatePattern = "^" + componentName + "[:：]?\\s*" + componentName;
+            cleaned = cleaned.replaceAll(duplicatePattern, componentName);
+        }
+
+        // 移除可能的重复病害类型
+        if (!diseaseTypeName.isEmpty()) {
+            String duplicatePattern = diseaseTypeName + "\\s*" + diseaseTypeName;
+            cleaned = cleaned.replaceAll(duplicatePattern, diseaseTypeName);
+        }
+
+        // 如果AI生成的内容不包含构件名称，则添加标准格式前缀
+        if (!componentName.isEmpty() && !cleaned.contains(componentName)) {
+            // 检查是否已经有"存在"关键词
+            if (!cleaned.contains("存在")) {
+                cleaned = componentName + "存在" + cleaned;
+            } else {
+                cleaned = componentName + cleaned;
+            }
+        }
+
+        // 处理可能的格式问题：移除多余的"存在"
+        cleaned = cleaned.replaceAll("存在\\s*存在", "存在");
+
+        // 标准化参数格式
+        cleaned = standardizeParameters(cleaned);
+
+        // 确保以正确的格式结尾
+        cleaned = cleaned.trim();
+
+        return cleaned;
+    }
+
+    /**
+     * 标准化参数格式
+     */
+    private String standardizeParameters(String description) {
+        // 标准化长度单位：统一为m
+        description = description.replaceAll("(\\d+\\.?\\d*)cm", "$1m");
+        description = description.replaceAll("(\\d+\\.?\\d*)厘米", "$1m");
+
+        // 标准化面积单位：统一为m²
+        description = description.replaceAll("(\\d+\\.?\\d*)平方米", "$1m²");
+        description = description.replaceAll("(\\d+\\.?\\d*)㎡", "$1m²");
+
+        // 标准化宽度单位：统一为mm
+        description = description.replaceAll("(\\d+\\.?\\d*)毫米", "$1mm");
+
+        // 标准化参数分隔符：统一使用中文逗号
+        description = description.replaceAll(",\\s*", "，");
+
+        // 标准化参数格式：L=、W=、S=
+        description = description.replaceAll("长度[:：=]?\\s*(\\d+\\.?\\d*m)", "L=$1");
+        description = description.replaceAll("宽度[:：=]?\\s*(\\d+\\.?\\d*mm)", "W=$1");
+        description = description.replaceAll("面积[:：=]?\\s*(\\d+\\.?\\d*m²)", "S=$1");
+        description = description.replaceAll("总长度[:：=]?\\s*(\\d+\\.?\\d*m)", "L=$1");
+        description = description.replaceAll("总面积[:：=]?\\s*(\\d+\\.?\\d*m²)", "S=$1");
+
+        // 处理可能的重复描述（如：1）桥面铺装：高低不平1处，总长度10.00m。）
+        description = description.replaceAll("\\d+[）)]\\s*([^：]+)[:：]\\s*", "");
+
+        // 移除多余的句号和分号
+        description = description.replaceAll("[。；;.]+\\s*[；;]", "");
+        description = description.replaceAll("[。.]+$", "");
+
+        // 清理多余的空格和标点
+        description = description.replaceAll("\\s+", " ");
+        description = description.replaceAll("\\s*，\\s*", "，");
+
+        return description;
+    }
+
+    /**
+     * 清理和标准化结构级别的AI生成病害描述
+     */
+    private String cleanAndStandardizeStructureAiDescription(String aiDescription, String structureType) {
+        if (aiDescription == null || aiDescription.trim().isEmpty()) {
+            return "";
+        }
+
+        String cleaned = aiDescription.trim();
+
+        // 移除可能的结构类型重复
+        cleaned = cleaned.replaceAll("^" + structureType + "[:：]?\\s*", "");
+
+        // 确保每行都有正确的序号格式
+        String[] lines = cleaned.split("\\r?\\n");
+        StringBuilder result = new StringBuilder();
+        int index = 1;
+
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+
+            // 移除可能的原有序号
+            line = line.replaceAll("^\\d+[）)]\\s*", "");
+
+            if (!line.isEmpty()) {
+                result.append(String.format("%d）", index++));
+                result.append(line);
+
+                // 确保以分号结尾
+                if (!line.endsWith("；") && !line.endsWith(";")) {
+                    result.append("；");
+                }
+                result.append("\n");
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * 生成结构级别的备用病害描述
+     */
+    private String generateFallbackStructureDescription(List<Disease> diseases) {
+        StringBuilder result = new StringBuilder();
+        int index = 1;
+
+        for (Disease disease : diseases) {
+            result.append(String.format("%d）", index++));
+
+            // 构件名称
+            if (disease.getComponent() != null && disease.getComponent().getName() != null) {
+                result.append(disease.getComponent().getName());
+            }
+
+            result.append("存在");
+
+            // 数量
+            if (disease.getQuantity() > 0) {
+                result.append(disease.getQuantity()).append("处");
+            }
+
+            // 病害类型
+            if (disease.getDiseaseType() != null && disease.getDiseaseType().getName() != null) {
+                result.append(disease.getDiseaseType().getName());
+            }
+
+            // 添加基本参数
+            if (disease.getDiseaseDetails() != null && !disease.getDiseaseDetails().isEmpty()) {
+                DiseaseDetail detail = disease.getDiseaseDetails().get(0);
+
+                if (detail.getLength1() != null && detail.getLength1().doubleValue() > 0) {
+                    result.append("，L=").append(String.format("%.1f", detail.getLength1().doubleValue())).append("m");
+                }
+
+                if (detail.getCrackWidth() != null && detail.getCrackWidth().doubleValue() > 0) {
+                    result.append("，W=").append(String.format("%.2f", detail.getCrackWidth().doubleValue())).append("mm");
+                }
+
+                if (detail.getAreaLength() != null && detail.getAreaWidth() != null &&
+                        detail.getAreaLength().doubleValue() > 0 && detail.getAreaWidth().doubleValue() > 0) {
+                    double area = detail.getAreaLength().doubleValue() * detail.getAreaWidth().doubleValue();
+                    result.append("，S=").append(String.format("%.1f", area)).append("m²");
+                }
+            }
+
+            result.append("；\n");
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * 处理单桥模板的外观检测结果（跳过桥名层级，直接生成结构内容）
+     */
+    private void processSingleBridgeAppearanceInspection(XWPFDocument document, BiObject biObject,
+                                                         Building building, Long projectId, String placeholder) throws Exception {
+        // 获取所有子部件
+        List<BiObject> allObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
+
+        // 找到占位符所在的段落
+        XWPFParagraph placeholderParagraph = null;
+        for (int i = 0; i < document.getParagraphs().size(); i++) {
+            XWPFParagraph paragraph = document.getParagraphs().get(i);
+            if (paragraph.getText().contains(placeholder)) {
+                placeholderParagraph = paragraph;
+                break;
+            }
+        }
+
+        // 如果找不到占位符，直接返回
+        if (placeholderParagraph == null) {
+            log.warn("未找到占位符: {}", placeholder);
+            return;
+        }
+
+        // 获取占位符段落的XML游标
+        XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
+
+        // 收集病害数据
+        Disease queryParam = new Disease();
+        queryParam.setBuildingId(building.getId());
+        queryParam.setProjectId(projectId);
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(queryParam);
+
+        // 为桥梁收集病害
+        Map<Long, List<Disease>> bridgeDiseaseMap = new LinkedHashMap<>();
+        collectDiseases(biObject, allObjects, diseases, 1, bridgeDiseaseMap);
+
+        AtomicInteger imageCounter = new AtomicInteger(1);
+        AtomicInteger tableCounter = new AtomicInteger(1);
+
+        // 直接生成结构内容，跳过桥名层级
+        // 获取桥梁的直接子节点（通常是上部结构、下部结构、桥面系等）
+        List<BiObject> structureNodes = allObjects.stream()
+                .filter(obj -> biObject.getId().equals(obj.getParentId()))
+                .collect(Collectors.toList());
+
+        // 为每个结构节点生成内容
+        for (BiObject structureNode : structureNodes) {
+            XmlCursor structureCursor = cursor.newCursor();
+
+            // 生成结构内容，从第2层开始（跳过桥名层级）
+            writeBiObjectTreeToWord(document, structureNode, allObjects,
+                    bridgeDiseaseMap, "", 2, imageCounter, tableCounter, structureCursor, 2);
+        }
+
+        // 删除占位符段落
+        if (placeholderParagraph.getRuns().size() > 0) {
+            placeholderParagraph.removeRun(0);
+        }
+        if (placeholderParagraph.getRuns().size() == 0) {
+            for (int i = 0; i < document.getParagraphs().size(); i++) {
+                if (document.getParagraphs().get(i) == placeholderParagraph) {
+                    document.removeBodyElement(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * 按结构类型分组构件病害类型组合（基于BiObject祖先数组第三层）
+     */
+    private Map<String, List<ComponentDiseaseType>> groupByStructureType(List<ComponentDiseaseType> combinations) {
+        Map<String, List<ComponentDiseaseType>> groups = new LinkedHashMap<>();
+
+        try {
+            // 收集所有需要查询的BiObject ID
+            Set<Long> componentIds = new HashSet<>();
+            for (ComponentDiseaseType combination : combinations) {
+                if (combination.getComponentId() != null) {
+                    componentIds.add(combination.getComponentId());
+                }
+            }
+
+            if (componentIds.isEmpty()) {
+                return groups;
+            }
+
+            // 批量查询BiObject
+            List<BiObject> components = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(componentIds));
+
+            // 收集所有第三层节点ID
+            Set<Long> thirdLevelNodeIds = new HashSet<>();
+            Map<Long, Long> componentToThirdLevelMap = new HashMap<>();
+
+            for (BiObject component : components) {
+                String ancestors = component.getAncestors();
+                if (ancestors != null && !ancestors.isEmpty()) {
+                    String[] ancestorIds = ancestors.split(",");
+                    if (ancestorIds.length >= 3) {
+                        // 第三层节点ID（索引为2，因为从0开始：0,桥梁,第三层）
+                        try {
+                            Long thirdLevelId = Long.parseLong(ancestorIds[2].trim());
+                            thirdLevelNodeIds.add(thirdLevelId);
+                            componentToThirdLevelMap.put(component.getId(), thirdLevelId);
+                        } catch (NumberFormatException e) {
+                            log.warn("解析第三层节点ID失败: {}", ancestorIds[2]);
+                        }
+                    }
+                }
+            }
+
+            // 批量查询第三层节点信息
+            if (!thirdLevelNodeIds.isEmpty()) {
+                List<BiObject> thirdLevelNodes = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(thirdLevelNodeIds));
+                Map<Long, String> thirdLevelNameMap = thirdLevelNodes.stream()
+                        .collect(Collectors.toMap(BiObject::getId, BiObject::getName));
+
+                // 初始化分组（动态创建分组）
+                for (String nodeName : thirdLevelNameMap.values()) {
+                    groups.put(nodeName, new ArrayList<>());
+                }
+
+                // 分组病害组合
+                for (ComponentDiseaseType combination : combinations) {
+                    if (combination.getComponentId() != null) {
+                        Long thirdLevelId = componentToThirdLevelMap.get(combination.getComponentId());
+                        if (thirdLevelId != null) {
+                            String thirdLevelName = thirdLevelNameMap.get(thirdLevelId);
+                            if (thirdLevelName != null && groups.containsKey(thirdLevelName)) {
+                                groups.get(thirdLevelName).add(combination);
+                            } else {
+                                // 如果找不到对应的第三层节点，创建一个默认分组
+                                String defaultGroup = "其他结构";
+                                groups.computeIfAbsent(defaultGroup, k -> new ArrayList<>()).add(combination);
+                            }
+                        } else {
+                            // 如果无法确定第三层节点，创建一个默认分组
+                            String defaultGroup = "其他结构";
+                            groups.computeIfAbsent(defaultGroup, k -> new ArrayList<>()).add(combination);
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("按结构类型分组构件病害类型组合失败", e);
+            // 异常情况下，创建一个默认分组
+            String defaultGroup = "未分类结构";
+            groups.put(defaultGroup, new ArrayList<>(combinations));
+        }
+
+        return groups;
+    }
+
+    /**
+     * 处理单桥桥梁概况照片（与组合桥同步）
+     *
+     * @param document   Word文档
+     * @param buildingId 建筑物ID
+     * @throws Exception 异常
+     */
+    private void insertSingleBridgeImages(XWPFDocument document, Long buildingId) throws Exception {
+        log.info("开始处理单桥桥梁概况照片，buildingId: {}", buildingId);
+
+        // 获取桥梁图片（与组合桥使用相同的逻辑）
+        List<FileMap> images = fileMapController.getImageMaps(buildingId, "newfront", "newside");
+        log.info("从数据库获取到 {} 张图片", images != null ? images.size() : 0);
+
+        if (images != null) {
+            for (FileMap image : images) {
+                log.debug("图片信息: oldName={}, newName={}", image.getOldName(), image.getNewName());
+            }
+        }
+
+        // 分类存储图片
+        List<String> frontImagesList = new ArrayList<>();
+        List<String> sideImagesList = new ArrayList<>();
+
+        if (images != null) {
+            for (FileMap image : images) {
+                String[] parts = image.getOldName().split("_");
+                log.debug("解析图片名称: {} -> parts: {}", image.getOldName(), Arrays.toString(parts));
+
+                if (parts.length > 1 && "newfront".equals(parts[1])) {
+                    frontImagesList.add(image.getNewName());
+                    log.debug("添加正面照: {}", image.getNewName());
+                } else if (parts.length > 1 && "newside".equals(parts[1])) {
+                    sideImagesList.add(image.getNewName());
+                    log.debug("添加立面照: {}", image.getNewName());
+                }
+            }
+        }
+
+        log.info("图片分类结果 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
+
+        // 替换单桥模板的桥梁概况照片占位符
+        if (!frontImagesList.isEmpty()) {
+            log.info("替换正面照占位符");
+            replaceImageInDocument(document, "${chapter-4-1-1-leftFront}", frontImagesList.get(0));
+            replaceImageInDocument(document, "${chapter-4-1-1-rightFront}", frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0));
+        } else {
+            log.warn("没有找到正面照，清除占位符");
+            // 直接替换为空文本，而不是null
+            replaceText(document, "${chapter-4-1-1-leftFront}", "");
+            replaceText(document, "${chapter-4-1-1-rightFront}", "");
+        }
+
+        // 替换左右立面照
+        if (!sideImagesList.isEmpty()) {
+            log.info("替换立面照占位符");
+            replaceImageInDocument(document, "${chapter-4-1-1-leftSide}", sideImagesList.get(0));
+            replaceImageInDocument(document, "${chapter-4-1-1-rightSide}", sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0));
+        } else {
+            log.warn("没有找到立面照，清除占位符");
+            // 直接替换为空文本，而不是null
+            replaceText(document, "${chapter-4-1-1-leftSide}", "");
+            replaceText(document, "${chapter-4-1-1-rightSide}", "");
+        }
+
+        log.info("单桥桥梁概况照片处理完成 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
+    }
+
+    /**
+     * 生成结构分析文本
+     */
+    private String generateStructureAnalysisText(List<ComponentDiseaseType> combinations, Building building,
+                                                 Project project, BiObject biObject) {
+        StringBuilder analysis = new StringBuilder();
+
+        for (ComponentDiseaseType combination : combinations) {
+            BiObject component = biObjectMapper.selectBiObjectById(combination.getComponentId());
+            if (component != null) {
+                // 查询该构件的病害
+                Disease queryParam = new Disease();
+                queryParam.setBuildingId(building.getId());
+                queryParam.setProjectId(project.getId());
+                queryParam.setBiObjectId(component.getId());
+                queryParam.setDiseaseTypeId(combination.getDiseaseTypeId());
+
+                List<Disease> diseases = diseaseMapper.selectDiseaseList(queryParam);
+                if (!diseases.isEmpty()) {
+                    Disease firstDisease = diseases.get(0);
+                    analysis.append(component.getName());
+                    if (firstDisease.getDiseaseType() != null) {
+                        analysis.append(firstDisease.getDiseaseType().getName());
+                    }
+                    analysis.append("；");
+                }
+            }
+        }
+
+        return analysis.toString();
+    }
+
+    /**
+     * 生成表格内容文本
+     */
+    private String generateTableContent(List<Map<String, Object>> tableData) {
+        StringBuilder table = new StringBuilder();
+
+        // 表头
+        table.append("序号\t桥梁名称\t缺损位置\t缺损类型\t病害描述\n");
+
+        // 数据行
+        for (Map<String, Object> row : tableData) {
+            table.append(row.get("序号")).append("\t")
+                    .append(row.get("桥梁名称")).append("\t")
+                    .append(row.get("缺损位置")).append("\t")
+                    .append(row.get("缺损类型")).append("\t")
+                    .append(row.get("病害描述")).append("\n");
+        }
+
+        return table.toString();
     }
 }
