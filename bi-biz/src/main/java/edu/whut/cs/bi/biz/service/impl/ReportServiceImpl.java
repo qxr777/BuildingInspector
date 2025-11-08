@@ -22,6 +22,7 @@ import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.Convert2VO;
 import edu.whut.cs.bi.biz.utils.DiseaseComparisonTableUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.apache.xmlbeans.XmlCursor;
@@ -2422,11 +2423,11 @@ public class ReportServiceImpl implements IReportService {
         for (int i = 0; i < document.getParagraphs().size(); i++) {
             XWPFParagraph paragraph = document.getParagraphs().get(i);
             String paragraphText = paragraph.getText();
-            
+
             // 先检查段落文本中是否包含占位符
             if (paragraphText.contains(placeholder)) {
                 log.info("在普通段落中找到占位符(带域): {}, 段落文本: {}", placeholder, paragraphText);
-                
+
                 // 合并段落中的runs，解决Word分割占位符的问题
                 mergeParagraphRuns(paragraph, placeholder);
                 try {
@@ -2496,14 +2497,14 @@ public class ReportServiceImpl implements IReportService {
                 for (XWPFTableCell cell : row.getTableCells()) {
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
                         String cellParagraphText = paragraph.getText();
-                        
+
                         // 先检查单元格段落文本中是否包含占位符
                         if (cellParagraphText.contains(placeholder)) {
                             log.info("在表格单元格中找到占位符(带域): {}, 单元格文本: {}", placeholder, cellParagraphText);
-                            
+
                             // 合并段落中的runs，解决Word分割占位符的问题
                             mergeParagraphRuns(paragraph, placeholder);
-                            
+
                             try {
                                 // 清除占位符
                                 clearParagraph(paragraph);
@@ -2557,7 +2558,8 @@ public class ReportServiceImpl implements IReportService {
 
     /**
      * 合并段落中的所有文本运行（Runs），解决Word将占位符分割的问题
-     * @param paragraph 段落对象
+     *
+     * @param paragraph   段落对象
      * @param placeholder 要查找的占位符
      * @return 如果找到占位符返回true，否则返回false
      */
@@ -2593,11 +2595,11 @@ public class ReportServiceImpl implements IReportService {
         for (int i = 0; i < document.getParagraphs().size(); i++) {
             XWPFParagraph paragraph = document.getParagraphs().get(i);
             String paragraphText = paragraph.getText();
-            
+
             // 先检查段落文本中是否包含占位符
             if (paragraphText.contains(placeholder)) {
                 log.info("在普通段落中找到占位符: {}, 段落文本: {}", placeholder, paragraphText);
-                
+
                 // 合并段落中的runs，解决Word分割占位符的问题
                 mergeParagraphRuns(paragraph, placeholder);
                 try {
@@ -2674,14 +2676,14 @@ public class ReportServiceImpl implements IReportService {
                 for (XWPFTableCell cell : row.getTableCells()) {
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
                         String cellParagraphText = paragraph.getText();
-                        
+
                         // 先检查单元格段落文本中是否包含占位符
                         if (cellParagraphText.contains(placeholder)) {
                             log.info("在表格单元格中找到占位符: {}, 单元格文本: {}", placeholder, cellParagraphText);
-                            
+
                             // 合并段落中的runs，解决Word分割占位符的问题
                             mergeParagraphRuns(paragraph, placeholder);
-                            
+
                             try {
                                 // 清除占位符
                                 clearParagraph(paragraph);
@@ -3974,6 +3976,10 @@ public class ReportServiceImpl implements IReportService {
             replaceText(document, "${building-name}", building.getName() != null ? building.getName() : "");
             log.info("已替换项目和建筑物信息");
 
+            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+            if (ObjectUtils.isNotEmpty(biEvaluation)) {
+                replaceText(document, "${4-1-8-1-evaluationLevel}", String.valueOf(biEvaluation.getSystemLevel()));
+            }
             // 清空第十章病害汇总缓存
             testConclusionService.clearDiseaseSummaryCache();
 
@@ -3983,6 +3989,16 @@ public class ReportServiceImpl implements IReportService {
                 log.info("桥梁基本状况卡片处理完成");
             } catch (Exception e) {
                 log.error("处理桥梁基本状况卡片出错: error={}", e.getMessage(), e);
+            }
+
+            // 处理 最后的 定期检查记录表占位符
+            try {
+                // 调用定期检查记录表服务处理占位符
+                regularInspectionService.generateRegularInspectionTable(document, "${chapter-4-1-9-regularInspectionRecord}",
+                        building, task, project);
+            } catch (Exception e) {
+                log.error("处理定期检查记录表失败: error={}", e.getMessage(), e);
+                // 如果处理失败，降级为普通文本替换
             }
 
             // 5. 先处理自动生成的章节内容（包括从数据库自动获取的照片）
@@ -5227,25 +5243,25 @@ public class ReportServiceImpl implements IReportService {
         // 替换单桥模板的桥梁概况照片占位符
         if (!frontImagesList.isEmpty()) {
             log.info("替换正面照占位符");
-            replaceImageInDocument(document, "${chapter-4-1-1-leftFront}", frontImagesList.get(0));
-            replaceImageInDocument(document, "${chapter-4-1-1-rightFront}", frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0));
+            replaceImageInDocument(document, "%{chapter-4-1-1-leftFront}", frontImagesList.get(0));
+            replaceImageInDocument(document, "%{chapter-4-1-1-rightFront}", frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0));
         } else {
             log.warn("没有找到正面照，清除占位符");
             // 直接替换为空文本，而不是null
-            replaceText(document, "${chapter-4-1-1-leftFront}", "");
-            replaceText(document, "${chapter-4-1-1-rightFront}", "");
+            replaceText(document, "%{chapter-4-1-1-leftFront}", "");
+            replaceText(document, "%{chapter-4-1-1-rightFront}", "");
         }
 
         // 替换左右立面照
         if (!sideImagesList.isEmpty()) {
             log.info("替换立面照占位符");
-            replaceImageInDocument(document, "${chapter-4-1-1-leftSide}", sideImagesList.get(0));
-            replaceImageInDocument(document, "${chapter-4-1-1-rightSide}", sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0));
+            replaceImageInDocument(document, "%{chapter-4-1-1-leftSide}", sideImagesList.get(0));
+            replaceImageInDocument(document, "%{chapter-4-1-1-rightSide}", sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0));
         } else {
             log.warn("没有找到立面照，清除占位符");
             // 直接替换为空文本，而不是null
-            replaceText(document, "${chapter-4-1-1-leftSide}", "");
-            replaceText(document, "${chapter-4-1-1-rightSide}", "");
+            replaceText(document, "%{chapter-4-1-1-leftSide}", "");
+            replaceText(document, "%{chapter-4-1-1-rightSide}", "");
         }
 
         log.info("单桥桥梁概况照片处理完成 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());

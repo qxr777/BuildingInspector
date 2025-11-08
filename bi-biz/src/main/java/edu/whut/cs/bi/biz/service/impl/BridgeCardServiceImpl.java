@@ -77,22 +77,51 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             }
 
             List<Property> properties = propertyService.selectPropertyList(property);
+//
+//            // 3. 处理结构体系特殊属性
+//            processStructureSystemProperty(properties);
+//
+//            // 4. 处理图片附件
+//            processImageAttachments(document, building.getId());
+//
+//            // 5. 替换表格中的占位符
+//            replacePlaceholdersInTables(document, properties);
+//
+//            // 6. 替换剩余的占位符
+//            replaceRemainingPlaceholders(document);
+            // 改为excel导入 property
 
-            // 3. 处理结构体系特殊属性
-            processStructureSystemProperty(properties);
-
-            // 4. 处理图片附件
+            // 处理 特殊字段
+            processSpecialProp(building, properties);
+            // 处理图片
             processImageAttachments(document, building.getId());
-
-            // 5. 替换表格中的占位符
+            // 将属性替换占位符
             replacePlaceholdersInTables(document, properties);
-
-            // 6. 替换剩余的占位符
+            // 替换 无效的 占位符。
             replaceRemainingPlaceholders(document);
-
         } catch (Exception e) {
             log.error("处理桥梁卡片数据失败", e);
             throw new RuntimeException("处理桥梁卡片数据失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 处理 桥梁名称 和 功能类型 等特别字段。
+     */
+    private void processSpecialProp(Building building, List<Property> properties) {
+        // 没有桥梁名称属性，从数据库拿
+        Property propertyBuilding = new Property();
+        propertyBuilding.setName("桥梁名称");
+        propertyBuilding.setValue(building.getName());
+        properties.add(propertyBuilding);
+
+        // 桥梁功能类型 ， 需要进行判断转换。
+        for (int i = 0; i < properties.size(); i++) {
+            Property prop = properties.get(i);
+            if (prop.getName().equals("是否公铁两用桥梁")) {
+                String curValue = prop.getValue();
+                prop.setValue(curValue.equals("否") ? "公路" : "公铁两用桥");
+            }
         }
     }
 
