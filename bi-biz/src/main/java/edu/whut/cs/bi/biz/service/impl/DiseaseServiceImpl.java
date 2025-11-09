@@ -529,9 +529,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
         Component old = componentService.selectComponent(component);
         if (old == null) {
             if (disease.getBiObjectName() == null || disease.getBiObjectName().equals("")) {
-                component.setName(biObject.getName() + "#" + component.getCode());
+                component.setName(component.getCode() + "#" + biObject.getName());
             } else {
-                component.setName(disease.getBiObjectName() + "#" + component.getCode());
+                component.setName(component.getCode() + "#" + disease.getBiObjectName());
             }
 
             componentService.insertComponent(component);
