@@ -142,6 +142,26 @@ public class ReportDataController extends BaseController {
         }
 
         try {
+            // 添加调试日志
+            logger.info("接收到保存请求 - reportId: {}", reportId);
+            logger.info("dataKeys数量: {}", dataKeys != null ? dataKeys.length : 0);
+            logger.info("dataValues数量: {}", dataValues != null ? dataValues.length : 0);
+            logger.info("dataTypes数量: {}", dataTypes != null ? dataTypes.length : 0);
+            
+            if (dataKeys != null) {
+                for (int i = 0; i < dataKeys.length; i++) {
+                    String key = dataKeys[i];
+                    String value = dataValues != null && i < dataValues.length ? dataValues[i] : "null";
+                    Integer type = dataTypes != null && i < dataTypes.length ? dataTypes[i] : null;
+                    
+                    if (key != null && key.contains("diseases")) {
+                        logger.info("病害数据 - 索引: {}, key: {}, value长度: {}, type: {}", 
+                                i, key, value != null ? value.length() : 0, type);
+                        logger.info("病害数据内容: {}", value);
+                    }
+                }
+            }
+
             List<ReportData> dataList = new ArrayList<>();
 
             // 创建一个Map来存储每个key对应的文件列表
@@ -176,6 +196,11 @@ public class ReportDataController extends BaseController {
             for (int i = 0; i < dataKeys.length; i++) {
                 String key = dataKeys[i];
                 Integer type = dataTypes[i];
+                
+                // 跳过空的key（前端为了防止Spring分割而添加的占位符）
+                if (key == null || key.trim().isEmpty()) {
+                    continue;
+                }
 
                 ReportData reportData = new ReportData();
                 reportData.setReportId(reportId);

@@ -86,4 +86,12 @@ public interface IReportService {
    */
   String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException;
 
+  /**
+   * 克隆报告
+   *
+   * @param id 需要克隆的报告ID
+   * @return 结果
+   */
+  public int cloneReport(Long id);
+
 }

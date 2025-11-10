@@ -43,6 +43,9 @@
             <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:report:remove">
                 <i class="fa fa-remove"></i> 删除
             </a>
+            <a class="btn btn-info single disabled" onclick="cloneReport()" shiro:hasPermission="biz:report:add">
+                <i class="fa fa-copy"></i> 克隆
+            </a>
             <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:report:export">
                 <i class="fa fa-download"></i> 导出
             </a>
@@ -113,22 +116,37 @@
 
     /* 跳转到报告数据填充页面 - 支持多模板 */
     function fillReport(id, reportName) {
-        // 根据报告名称判断模板类型
-        var url = prefix + '/fill/' + id;
-        var tabTitle = "报告模板填充";
-        
-        // 单桥模板判断（梁桥）
-        if (reportName && reportName.indexOf("单桥") !== -1 && reportName.indexOf("梁桥") !== -1) {
-            url = ctx + "biz/report_data/fill_single_beam/" + id;
-            tabTitle = "单桥梁桥报告填充";
-        }
-        // 单桥模板判断（拱桥）
-        else if (reportName && reportName.indexOf("单桥") !== -1 && reportName.indexOf("拱桥") !== -1) {
-            url = ctx + "biz/report_data/fill_single_arch/" + id;
-            tabTitle = "单桥拱桥报告填充";
-        }
-        
-        $.modal.openTab(tabTitle, url);
+        // 通过AJAX获取报告的模板信息来判断模板类型
+        $.ajax({
+            url: prefix + '/getTemplateInfo/' + id,
+            type: 'GET',
+            dataType: 'json',
+            success: function(result) {
+                var url = prefix + '/fill/' + id;
+                var tabTitle = "报告模板填充";
+                
+                if (result.code === 0 && result.data && result.data.templateName) {
+                    var templateName = result.data.templateName;
+                    
+                    // 单桥模板判断（梁桥）
+                    if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("梁桥") !== -1) {
+                        url = ctx + "biz/report_data/fill_single_beam/" + id;
+                        tabTitle = "单桥梁桥报告填充";
+                    }
+                    // 单桥模板判断（拱桥）
+                    else if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("拱桥") !== -1) {
+                        url = ctx + "biz/report_data/fill_single_arch/" + id;
+                        tabTitle = "单桥拱桥报告填充";
+                    }
+                }
+                
+                $.modal.openTab(tabTitle, url);
+            },
+            error: function() {
+                // 如果获取模板信息失败，使用默认的组合桥模板
+                $.modal.openTab("报告模板填充", prefix + '/fill/' + id);
+            }
+        });
     }
     
     /* 兼容旧版本的fill函数 */
@@ -192,6 +210,37 @@
     function downloadReport(id) {
         window.location.href = prefix + "/download/" + id;
     }
+    // 克隆报告
+    function cloneReport() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length == 0) {
+            $.modal.alertWarning("请至少选择一条记录");
+            return;
+        }
+        if (rows.length > 1) {
+            $.modal.alertWarning("只能选择一条记录进行克隆");
+            return;
+        }
+        $.modal.confirm("确认要克隆选中的报告吗？", function() {
+            $.ajax({
+                url: prefix + "/clone/" + rows[0],
+                type: "post",
+                dataType: "json",
+                success: function(result) {
+                    if (result.code == web_status.SUCCESS) {
+                        $.modal.msgSuccess("克隆成功");
+                        $.table.refresh();
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $.modal.alertError("克隆失败：" + error);
+                }
+            });
+        });
+    }
+
 
 </script>
 </body>
