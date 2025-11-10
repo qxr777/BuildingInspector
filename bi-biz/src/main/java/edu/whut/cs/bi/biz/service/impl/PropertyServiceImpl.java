@@ -479,7 +479,7 @@ public class PropertyServiceImpl implements IPropertyService {
         if (buildingId == null) {
             throw new ServiceException("buildingId不能为空");
         }
-    String jsonData = getJsonData(file);
+        String jsonData = getJsonData(file);
 
         if (StringUtils.isEmpty(jsonData)) {
             throw new ServiceException("word解析失败：AI服务返回为空");
@@ -490,7 +490,7 @@ public class PropertyServiceImpl implements IPropertyService {
 
         String finalJsonData = jsonData;
         final Long[] rootId = new Long[1];
-    transactionTemplate.execute(status -> {
+        transactionTemplate.execute(status -> {
             try {
                 // 先删除原本的属性树
                 Building bd = buildingMapper.selectBuildingById(buildingId);
