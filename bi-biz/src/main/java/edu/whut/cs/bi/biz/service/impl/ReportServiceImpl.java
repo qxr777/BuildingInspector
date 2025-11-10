@@ -1169,7 +1169,7 @@ public class ReportServiceImpl implements IReportService {
             spacing.setLine(BigInteger.valueOf(360));
 
             // 添加表格标题，获取书签名用于引用
-            String tableBookmark = addTableCaption(document, node.getName(), cursor, chapter3TableCounter);
+            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, node.getName() + "检测结果表", cursor, 3, chapter3TableCounter);
 
             // 创建章节格式的表格引用域
             WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", ":");
@@ -1393,17 +1393,386 @@ public class ReportServiceImpl implements IReportService {
         }
     }
 
+    /**
+     * 针对单桥模板的病害树写入方法
+     * 从第二层节点（如上部结构）开始，收集该层下所有病害，生成表格和图片，最后插入现状照片
+     *
+     * @param document            Word文档
+     * @param node                第二层BiObject节点（如上部结构）
+     * @param allNodes            所有BiObject节点列表
+     * @param diseaseMap          病害映射表
+     * @param level              章节前缀
+     * @param chapterImageCounter 图片计数器
+     * @param chapter3TableCounter 表格计数器
+     * @param cursor              XML游标
+     * @param baseHeadingLevel    基础标题级别
+     * @throws Exception 异常
+     */
+    private void writeBiObjectTreeToWordForSingleBridge(XWPFDocument document, BiObject node, List<BiObject> allNodes,
+                                                        Map<Long, List<Disease>> diseaseMap,int level,
+                                                        AtomicInteger chapterImageCounter, AtomicInteger chapter3TableCounter,
+                                                        XmlCursor cursor, int baseHeadingLevel) throws Exception {
+        // 写标题
+        XWPFParagraph p;
+        if (cursor != null) {
+            p = document.insertNewParagraph(cursor);
+            cursor.toNextToken();
+        } else {
+            p = document.createParagraph();
+        }
+
+        // 设置标题样式
+        int actualHeadingLevel = baseHeadingLevel + level;
+        String headingStyle = String.valueOf(Math.min(actualHeadingLevel, 9));
+        p.setStyle(headingStyle);
+        p.setAlignment(ParagraphAlignment.LEFT);
+
+        // 设置段落缩进
+        CTPPr ppr = p.getCTP().getPPr();
+        if (ppr == null) ppr = p.getCTP().addNewPPr();
+        CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
+        ind.setFirstLine(BigInteger.valueOf(0));
+        ind.setLeft(BigInteger.valueOf(0));
+
+        // 创建标题运行
+        XWPFRun run = p.createRun();
+        run.setText(node.getName());
+        run.setBold(false);
+        run.setFontFamily("黑体");
+
+        // 获取当前节点的所有第三层子节点（部件）
+        List<BiObject> childComponents = allNodes.stream()
+                .filter(obj -> node.getId().equals(obj.getParentId()))
+                .sorted(Comparator.comparing(BiObject::getName))
+                .collect(Collectors.toList());
+
+        // 收集该节点下所有子节点的病害
+        List<Disease> allNodeDiseases = new ArrayList<>();
+        collectAllDiseases(node, allNodes, diseaseMap, allNodeDiseases);
+
+        // 提前收集所有病害的图片书签信息
+        Map<Long, List<String>> diseaseImageRefs = new HashMap<>(); // key: 病害ID, value: 图片书签列表
+
+        for (Disease d : allNodeDiseases) {
+            List<String> imageBookmarks = new ArrayList<>();
+            List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+            if (images != null) {
+                for (Map<String, Object> img : images) {
+                    if (Boolean.TRUE.equals(img.get("isImage"))) {
+                        // 为每张病害图片创建书签
+                        String componentName = "";
+                        Component component = componentService.selectComponentById(d.getComponentId());
+                        if (component != null) {
+                            componentName = component.getName();
+                        }
+                        // 照片图注的描述不需要带病害规范号
+                        String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
+                        String imageDesc = componentName + type;
+                        // 使用第3章编号规则
+                        String bookmark = "Figure_Chapter3_" + chapterImageCounter.getAndIncrement();
+                        imageBookmarks.add(bookmark + "|" + imageDesc); // 书签名和描述用|分隔
+                    }
+                }
+            }
+            diseaseImageRefs.put(d.getId(), imageBookmarks);
+        }
+
+        // 生成病害小结（按部件分组）
+        // 创建介绍段落
+        XWPFParagraph introPara;
+        if (cursor != null) {
+            introPara = document.insertNewParagraph(cursor);
+            cursor.toNextToken();
+        } else {
+            introPara = document.createParagraph();
+        }
+
+        // Part 1: 加粗的开头部分
+        XWPFRun runBold = introPara.createRun();
+        runBold.setText("经检查:");
+        runBold.setBold(true);
+        runBold.setFontSize(12);
+
+        // Part 2: 按部件生成病害小结
+        log.info("开始按部件生成病害小结");
+        int componentIndex = 1;
+        for (BiObject component : childComponents) {
+            // 收集该部件的病害
+            List<Disease> componentDiseases = new ArrayList<>();
+            collectAllDiseases(component, allNodes, diseaseMap, componentDiseases);
+
+            // 创建新的段落并设置首行缩进
+            XWPFParagraph diseasePara;
+            if (cursor != null) {
+                diseasePara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                diseasePara = document.createParagraph();
+            }
+            CTPPr diseasePpr = diseasePara.getCTP().getPPr();
+            if (diseasePpr == null) {
+                diseasePpr = diseasePara.getCTP().addNewPPr();
+            }
+            ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
+            ind.setFirstLine(BigInteger.valueOf(480));
+
+            XWPFRun runItem = diseasePara.createRun();
+            runItem.setFontSize(12);
+
+            // 生成该部件的病害小结
+            if (componentDiseases.isEmpty()) {
+                // 没有病害，显示未见明显病害
+                runItem.setText(componentIndex + ") " + component.getName() + "：未见明显病害。");
+            } else {
+                // 有病害，调用病害小结生成
+                String componentDiseaseSummary = getDiseaseSummary(componentDiseases);
+                // 去掉换行，因为每个部件显示在一段
+                componentDiseaseSummary = componentDiseaseSummary
+                        .replace("\n", "")
+                        .replace("\r", "")
+                        .replaceAll("\\d+）", "");
+                runItem.setText(componentIndex + ") " + component.getName() + "：" + componentDiseaseSummary);
+
+                // 缓存病害汇总到第十章服务，供后续复用
+                testConclusionService.cacheDiseaseSummary(component.getId(), componentDiseaseSummary);
+            }
+
+            componentIndex++;
+        }
+
+        log.info("按部件生成病害小结结束");
+
+        // 如果存在病害信息，则生成表格
+        if (!allNodeDiseases.isEmpty()) {
+
+            // Part 3: 表格引用部分
+            XWPFParagraph tableRefPara;
+            if (cursor != null) {
+                tableRefPara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                tableRefPara = document.createParagraph();
+            }
+
+            // 设置1.5倍行距
+            CTPPr ppr1 = tableRefPara.getCTP().getPPr();
+            if (ppr1 == null) {
+                ppr1 = tableRefPara.getCTP().addNewPPr();
+            }
+            CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
+            spacing.setLine(BigInteger.valueOf(360));
+
+            // 添加表格标题，获取书签名用于引用
+            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, node.getName() + "检查汇总表", cursor, 4, chapter3TableCounter);
+
+            // 创建表格
+            XWPFTable table;
+            if (cursor != null) {
+                table = document.insertNewTbl(cursor);
+                cursor.toNextToken();
+                // 初始化表格结构
+                for (int i = 0; i < 8; i++) {
+                    if (i == 0) {
+                        table.getRow(0).getCell(i);
+                    } else {
+                        table.getRow(0).addNewTableCell();
+                    }
+                }
+            } else {
+                table = document.createTable(1, 8);
+            }
+
+            // 设置表格边框
+            CTTblPr tblPr = table.getCTTbl().getTblPr();
+            if (tblPr == null) {
+                tblPr = table.getCTTbl().addNewTblPr();
+            }
+            CTTblBorders borders = tblPr.addNewTblBorders();
+            borders.addNewBottom().setVal(STBorder.SINGLE);
+            borders.addNewLeft().setVal(STBorder.SINGLE);
+            borders.addNewRight().setVal(STBorder.SINGLE);
+            borders.addNewTop().setVal(STBorder.SINGLE);
+            borders.addNewInsideH().setVal(STBorder.SINGLE);
+            borders.addNewInsideV().setVal(STBorder.SINGLE);
+
+            CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
+            jc.setVal(STJcTable.CENTER);
+
+            // 设置表格宽度为页面宽度
+            CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
+            tblWidth.setW(BigInteger.valueOf(9534));
+            tblWidth.setType(STTblWidth.DXA);
+
+            // 设置表头
+            XWPFTableRow headerRow = table.getRow(0);
+
+            // 表头文本数组
+            String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
+
+            // 修改列宽比例
+            Double[] columnWidthRatios = {0.08, 0.18, 0.14, 0.08, 0.26, 0.10, 0.08, 0.08};
+            int totalWidth = 9534;
+
+            CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
+            tblLayout.setType(STTblLayoutType.FIXED);
+
+            // 设置每列
+            for (int i = 0; i < headers.length; i++) {
+                XWPFTableCell cell = headerRow.getCell(i);
+
+                // 清除内容
+                for (int j = cell.getParagraphs().size() - 1; j >= 0; j--) {
+                    cell.removeParagraph(j);
+                }
+
+                // 设置文本样式
+                XWPFParagraph paragraph = cell.addParagraph();
+                setSingleLineSpacing(paragraph);
+                paragraph.setAlignment(ParagraphAlignment.CENTER);
+
+                XWPFRun run1 = paragraph.createRun();
+                run1.setText(headers[i]);
+                run1.setBold(true);
+
+                // 设置中英文字体和字号
+                setMixedFontFamily(run1, 21);
+
+                // 设置列宽
+                CTTc cttc = cell.getCTTc();
+                CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
+
+                if (tcPr.isSetTcW()) {
+                    tcPr.unsetTcW();
+                }
+
+                // 计算每列的实际宽度
+                int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+                tcW.setW(BigInteger.valueOf(columnWidth));
+                tcW.setType(STTblWidth.DXA);
+
+                // 防止内容换行
+                tcPr.addNewNoWrap();
+            }
+
+            // 设置标题行在跨页时重复显示
+            setTableHeaderRepeat(headerRow);
+
+            // 填充数据行
+            int seqNum = 1;
+            for (Disease d : allNodeDiseases) {
+                XWPFTableRow dataRow = table.createRow();
+
+                // 为数据行的每个单元格设置相同的宽度
+                for (int i = 0; i < headers.length; i++) {
+                    XWPFTableCell cell = dataRow.getCell(i);
+
+                    // 设置单元格宽度与表头一致
+                    CTTc cttc = cell.getCTTc();
+                    CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
+                    int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                    CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+                    tcW.setW(BigInteger.valueOf(columnWidth));
+                    tcW.setType(STTblWidth.DXA);
+
+                    // 设置单元格内容居中
+                    XWPFParagraph cellP = cell.getParagraphs().get(0);
+                    setSingleLineSpacing(cellP);
+                    cellP.setAlignment(ParagraphAlignment.CENTER);
+
+                    // 设置文本内容
+                    XWPFRun cellR = cellP.createRun();
+
+                    // 设置中英文字体和字号
+                    setMixedFontFamily(cellR, 21);
+                    Component component = componentService.selectComponentById(d.getComponentId());
+                    switch (i) {
+                        case 0:
+                            cellR.setText(String.valueOf(seqNum++));
+                            break;
+                        case 1:
+                            cellR.setText(component != null ? component.getName() : "/");
+                            break;
+                        case 2:
+                            cellR.setText(d.getDiseaseType().getName() != null ? d.getDiseaseType().getName() : "/");
+                            break;
+                        case 3:
+                            cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
+                            break;
+                        case 4:
+                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            break;
+                        case 5:
+                            cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+                            break;
+                        case 6:
+                            cellR.setText(d.getDevelopmentTrend());
+                            break;
+                        case 7:
+                            // 获取该病害对应的所有图片书签信息
+                            List<String> refs = diseaseImageRefs.getOrDefault(d.getId(), new ArrayList<>());
+                            // 从书签信息中提取书签名，创建图片引用域
+                            if (!refs.isEmpty()) {
+                                // 清除现有内容
+                                cellP.removeRun(cellP.getRuns().size() - 1);
+
+                                for (int j = 0; j < refs.size(); j++) {
+                                    String[] parts = refs.get(j).split("\\|");
+                                    String bookmarkName = parts[0];
+
+                                    if (j > 0) {
+                                        XWPFRun commaRun = cellP.createRun();
+                                        commaRun.setText(",");
+                                        setMixedFontFamily(commaRun, 21);
+                                    }
+
+                                    // 创建章节格式的图片引用域，添加"图"字前缀
+                                    WordFieldUtils.createChapterFigureReference(cellP, bookmarkName, "图", "");
+                                }
+                            } else {
+                                cellR.setText("/");
+                            }
+                            break;
+                    }
+                }
+            }
+
+            // 在表格下方插入病害图片
+            if (!allNodeDiseases.isEmpty()) {
+                insertDiseaseImagesWithStreaming(document, allNodeDiseases, diseaseImageRefs, cursor);
+            }
+        }
+
+        // 最后插入当前节点的现状照片（无论有无病害都要插入）
+        try {
+            insertBiObjectStatusImages(document, node, chapterImageCounter, cursor);
+        } catch (Exception e) {
+            log.error("插入BiObject现状照片失败", e);
+        }
+    }
 
     /**
-     * 添加表格标题的方法（使用域）
+     * 递归收集某个节点下所有子节点的病害
      *
-     * @param cursor 指定插入位置的游标，如果为null则追加到文档末尾
-     * @return 返回表格的书签名，用于后续引用
+     * @param node         当前节点
+     * @param allNodes     所有节点列表
+     * @param diseaseMap   病害映射表
+     * @param resultList   结果列表（用于收集所有病害）
      */
-    private String addTableCaption(XWPFDocument document, String nodeName, XmlCursor cursor, AtomicInteger chapter3TableCounter) {
-        String titleText = nodeName + "检测结果表";
-        // 第三章的表格使用章节编号，传递表格计数器用于正确的序号生成
-        return WordFieldUtils.createTableCaptionWithCounter(document, titleText, cursor, 3, chapter3TableCounter);
+    private void collectAllDiseases(BiObject node, List<BiObject> allNodes,
+                                    Map<Long, List<Disease>> diseaseMap, List<Disease> resultList) {
+        // 收集当前节点的病害
+        List<Disease> nodeDiseases = diseaseMap.getOrDefault(node.getId(), List.of());
+        resultList.addAll(nodeDiseases);
+
+        // 递归收集子节点的病害
+        List<BiObject> children = allNodes.stream()
+                .filter(obj -> node.getId().equals(obj.getParentId()))
+                .collect(Collectors.toList());
+
+        for (BiObject child : children) {
+            collectAllDiseases(child, allNodes, diseaseMap, resultList);
+        }
     }
 
     /**
@@ -1471,7 +1840,7 @@ public class ReportServiceImpl implements IReportService {
             table = document.insertNewTbl(cursor);
             cursor.toNextToken();
 
-            // 初始化表格结构
+            // 初始化第一行：确保有2列
             XWPFTableRow row0 = table.getRow(0);
             row0.getCell(0);
             row0.addNewTableCell(); // 添加第二列
@@ -1479,8 +1848,18 @@ public class ReportServiceImpl implements IReportService {
             // 创建其余行
             for (int i = 1; i < totalRows; i++) {
                 XWPFTableRow newRow = table.createRow();
-                newRow.getCell(0);
-                newRow.addNewTableCell();
+
+                // 确保新行有且仅有2列
+                int currentCells = newRow.getTableCells().size();
+                if (currentCells < 2) {
+                    for (int j = currentCells; j < 2; j++) {
+                        newRow.addNewTableCell();
+                    }
+                } else if (currentCells > 2) {
+                    for (int j = currentCells - 1; j >= 2; j--) {
+                        newRow.removeCell(j);
+                    }
+                }
             }
         } else {
             table = document.createTable(totalRows, 2);
@@ -1494,7 +1873,7 @@ public class ReportServiceImpl implements IReportService {
 
         // 设置表格宽度为页面宽度的100%，避免右侧留白
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(10000)); // 使用100%宽度
+        tblWidth.setW(BigInteger.valueOf(9534)); // 使用100%宽度
         tblWidth.setType(STTblWidth.DXA);
 
         // 设置表格边框样式
@@ -1502,35 +1881,29 @@ public class ReportServiceImpl implements IReportService {
 
         // 设置外边框
         CTBorder topBorder = borders.addNewTop();
-        topBorder.setVal(STBorder.DASHED);
-        topBorder.setSz(BigInteger.valueOf(6)); // 设置边框宽度
+        topBorder.setVal(STBorder.NONE);
 
         CTBorder bottomBorder = borders.addNewBottom();
-        bottomBorder.setVal(STBorder.DASHED);
-        bottomBorder.setSz(BigInteger.valueOf(6));
+        bottomBorder.setVal(STBorder.NONE);
 
         CTBorder leftBorder = borders.addNewLeft();
-        leftBorder.setVal(STBorder.DASHED);
-        leftBorder.setSz(BigInteger.valueOf(6));
+        leftBorder.setVal(STBorder.NONE);
 
         CTBorder rightBorder = borders.addNewRight();
-        rightBorder.setVal(STBorder.DASHED);
-        rightBorder.setSz(BigInteger.valueOf(6));
+        rightBorder.setVal(STBorder.NONE);
 
         // 设置内部边框
         CTBorder insideH = borders.addNewInsideH();
-        insideH.setVal(STBorder.DASHED);
-        insideH.setSz(BigInteger.valueOf(6));
+        insideH.setVal(STBorder.NONE);
 
         CTBorder insideV = borders.addNewInsideV();
-        insideV.setVal(STBorder.DASHED);
-        insideV.setSz(BigInteger.valueOf(6));
+        insideV.setVal(STBorder.NONE);
 
         CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
         jc.setVal(STJcTable.CENTER);
 
         // 设置列宽相等（每列占50%宽度）
-        int cellWidth = 5000; // 10000 / 2 = 5000
+        int cellWidth = 4767;
 
         // 设置所有单元格的样式
         for (int row = 0; row < totalRows; row++) {
@@ -1728,7 +2101,7 @@ public class ReportServiceImpl implements IReportService {
             table = document.insertNewTbl(cursor);
             cursor.toNextToken();
 
-            // 初始化表格结构
+            // 初始化第一行：确保有2列
             XWPFTableRow row0 = table.getRow(0);
             row0.getCell(0);
             row0.addNewTableCell(); // 添加第二列
@@ -1736,8 +2109,18 @@ public class ReportServiceImpl implements IReportService {
             // 创建其余行
             for (int i = 1; i < totalRows; i++) {
                 XWPFTableRow newRow = table.createRow();
-                newRow.getCell(0);
-                newRow.addNewTableCell();
+
+                // 确保新行有且仅有2列
+                int currentCells = newRow.getTableCells().size();
+                if (currentCells < 2) {
+                    for (int j = currentCells; j < 2; j++) {
+                        newRow.addNewTableCell();
+                    }
+                } else if (currentCells > 2) {
+                    for (int j = currentCells - 1; j >= 2; j--) {
+                        newRow.removeCell(j);
+                    }
+                }
             }
         } else {
             table = document.createTable(totalRows, 2);
@@ -1751,7 +2134,7 @@ public class ReportServiceImpl implements IReportService {
 
         // 设置表格宽度为页面宽度的100%，避免右侧留白
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(10000)); // 使用100%宽度
+        tblWidth.setW(BigInteger.valueOf(9534)); // 使用100%宽度
         tblWidth.setType(STTblWidth.DXA);
 
         // 设置表格边框样式
@@ -1759,35 +2142,29 @@ public class ReportServiceImpl implements IReportService {
 
         // 设置外边框
         CTBorder topBorder = borders.addNewTop();
-        topBorder.setVal(STBorder.DASHED);
-        topBorder.setSz(BigInteger.valueOf(6)); // 设置边框宽度
+        topBorder.setVal(STBorder.NONE);
 
         CTBorder bottomBorder = borders.addNewBottom();
-        bottomBorder.setVal(STBorder.DASHED);
-        bottomBorder.setSz(BigInteger.valueOf(6));
+        bottomBorder.setVal(STBorder.NONE);
 
         CTBorder leftBorder = borders.addNewLeft();
-        leftBorder.setVal(STBorder.DASHED);
-        leftBorder.setSz(BigInteger.valueOf(6));
+        leftBorder.setVal(STBorder.NONE);
 
         CTBorder rightBorder = borders.addNewRight();
-        rightBorder.setVal(STBorder.DASHED);
-        rightBorder.setSz(BigInteger.valueOf(6));
+        rightBorder.setVal(STBorder.NONE);
 
         // 设置内部边框
         CTBorder insideH = borders.addNewInsideH();
-        insideH.setVal(STBorder.DASHED);
-        insideH.setSz(BigInteger.valueOf(6));
+        insideH.setVal(STBorder.NONE);
 
         CTBorder insideV = borders.addNewInsideV();
-        insideV.setVal(STBorder.DASHED);
-        insideV.setSz(BigInteger.valueOf(6));
+        insideV.setVal(STBorder.NONE);
 
         CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
         jc.setVal(STJcTable.CENTER);
 
         // 设置列宽相等（每列占50%宽度）
-        int cellWidth = 5000; // 10000 / 2 = 5000
+        int cellWidth = 4767;
 
         // 设置所有单元格的样式
         for (int row = 0; row < totalRows; row++) {
@@ -5092,23 +5469,26 @@ public class ReportServiceImpl implements IReportService {
 
         // 为每个结构节点生成内容
         for (BiObject structureNode : structureNodes) {
+            if("附属设施".equals(structureNode.getName())) {
+                continue;
+            }
             XmlCursor structureCursor = cursor.newCursor();
 
             // 生成结构内容，从第2层开始（跳过桥名层级）
-            writeBiObjectTreeToWord(document, structureNode, allObjects,
-                    bridgeDiseaseMap, "", 2, imageCounter, tableCounter, structureCursor, 2);
+            writeBiObjectTreeToWordForSingleBridge(document, structureNode, allObjects, bridgeDiseaseMap,2
+                    ,imageCounter,tableCounter,structureCursor, 2 );
         }
 
-        // 删除占位符段落
-        if (placeholderParagraph.getRuns().size() > 0) {
+        // 删除占位符段落 - 改进的删除逻辑，确保完全删除
+        // 先删除所有runs
+        while (placeholderParagraph.getRuns().size() > 0) {
             placeholderParagraph.removeRun(0);
         }
-        if (placeholderParagraph.getRuns().size() == 0) {
-            for (int i = 0; i < document.getParagraphs().size(); i++) {
-                if (document.getParagraphs().get(i) == placeholderParagraph) {
-                    document.removeBodyElement(i);
-                    break;
-                }
+        // 然后删除整个段落
+        for (int i = 0; i < document.getParagraphs().size(); i++) {
+            if (document.getParagraphs().get(i) == placeholderParagraph) {
+                document.removeBodyElement(i);
+                break;
             }
         }
     }
