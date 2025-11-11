@@ -1,6 +1,8 @@
 package edu.whut.cs.bi.biz.service;
 
 import edu.whut.cs.bi.biz.domain.Building;
+import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 import java.util.Map;
@@ -18,7 +20,7 @@ public interface IBridgeCardService {
      * @param buildingId 建筑物ID
      * @return Word文档对象
      */
-    XWPFDocument generateBridgeCardDocument(Long buildingId);
+    XWPFDocument generateBridgeCardDocument(Long buildingId, ReportTemplateTypes templateType);
 
     /**
      * 处理桥梁卡片表格数据替换
@@ -26,5 +28,5 @@ public interface IBridgeCardService {
      * @param document Word文档
      * @param building 建筑物ID
      */
-    void processBridgeCardData(XWPFDocument document, Building building);
+    void processBridgeCardData(XWPFDocument document, Building building, ReportTemplateTypes templateType, Task task);
 }

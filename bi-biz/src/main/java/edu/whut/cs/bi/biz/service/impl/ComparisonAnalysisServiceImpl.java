@@ -1,11 +1,11 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import edu.whut.cs.bi.biz.domain.BiEvaluation;
+import edu.whut.cs.bi.biz.domain.Building;
+import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
-import edu.whut.cs.bi.biz.service.ComparisonAnalysisService;
-import edu.whut.cs.bi.biz.service.IBiEvaluationService;
-import edu.whut.cs.bi.biz.service.ITaskService;
+import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
@@ -14,8 +14,12 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -37,11 +41,19 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
     @Autowired
     private IBiEvaluationService biEvaluationService;
 
+    @Resource
+    private IPropertyService propertyService;
+
+    @Resource
+    private IBuildingService buildingService;
+    @Autowired
+    private ProjectServiceImpl projectServiceImpl;
+
     @Override
     public void generateComparisonAnalysisTable(XWPFDocument document, XWPFParagraph targetParagraph,
-                                                Task currentTask, String bridgeName) {
+                                                Task currentTask, String bridgeName, boolean isSingleBridege) {
         try {
-            log.info("开始生成第九章比较分析表格，当前任务ID: {}", currentTask.getId());
+            log.info("开始生成比较分析表格，当前任务ID: {}", currentTask.getId());
 
             if (targetParagraph == null) {
                 log.warn("目标段落为null，无法生成表格");
@@ -81,17 +93,37 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             if (previousYearTask != null) {
                 previousEvaluation = biEvaluationService.selectBiEvaluationByTaskId(previousYearTask.getId());
             }
+            // 11.10 修改 ， 如果上次 检查记录 数据库中没有记录对应任务 ， 可以查询excel 中的数据 组成部分信息。
+            if (previousEvaluation == null) {
+                Building building = buildingService.selectBuildingById(currentTask.getBuildingId());
+                Property property = propertyService.selectPropertyById(building.getRootPropertyId());
+                List<Property> properties = propertyService.selectPropertyList(property);
+                String lastCheckDateStr = properties.stream().filter(a -> a.getName().equals("最近评定日期")).map(a -> a.getValue()).toList().get(0);
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                Date date = simpleDateFormat.parse(lastCheckDateStr);
+                ZoneId zoneId = ZoneId.of("Asia/Shanghai");
+                previousYear = date.toInstant().atZone(zoneId).toLocalDate().getYear();
+
+                String lastSysLevelStr = properties.stream().filter(a -> a.getName().equals("桥梁技术状况")).map(a -> a.getValue()).toList().get(0);
+                previousEvaluation = new BiEvaluation();
+                previousEvaluation.setSystemLevel(lastSysLevelStr != null && lastCheckDateStr.length() >= 2 ? lastSysLevelStr.charAt(0) - '0' : null);
+            }
 
             // 3. 生成表格
-            generateComparisonTable(document, targetParagraph, bridgeName,
-                    currentYear, currentEvaluation,
-                    previousYear, previousEvaluation);
+            if (isSingleBridege) {
+                generateSingleBridgeComparisonTable(document, targetParagraph, bridgeName,
+                        currentYear, currentEvaluation,
+                        previousYear, previousEvaluation);
+            } else {
+                generateComparisonTable(document, targetParagraph, bridgeName,
+                        currentYear, currentEvaluation,
+                        previousYear, previousEvaluation);
+            }
 
-            log.info("第九章比较分析表格生成完成");
+            log.info("比较分析表格生成完成");
 
         } catch (Exception e) {
-            log.error("生成第九章比较分析表格失败", e);
-            throw e;
+            log.error("生成比较分析表格失败", e);
         }
     }
 
@@ -149,6 +181,70 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             throw e;
         }
     }
+
+    /**
+     * 生成单桥比较分析表格
+     */
+    private void generateSingleBridgeComparisonTable(XWPFDocument document, XWPFParagraph targetParagraph,
+                                                     String bridgeName, Integer currentYear, BiEvaluation currentEvaluation,
+                                                     Integer previousYear, BiEvaluation previousEvaluation) {
+        try {
+            // 获取插入位置的游标
+            XmlCursor cursor = targetParagraph.getCTP().newCursor();
+
+            // 清空占位符段落的所有Run
+            while (targetParagraph.getRuns().size() > 0) {
+                targetParagraph.removeRun(0);
+            }
+
+            // 创建表格引用段落
+            XWPFParagraph tableRefPara;
+            if (cursor != null) {
+                tableRefPara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                tableRefPara = document.createParagraph();
+            }
+
+            // 设置1.5倍行距
+            CTPPr ppr1 = tableRefPara.getCTP().getPPr();
+            if (ppr1 == null) {
+                ppr1 = tableRefPara.getCTP().addNewPPr();
+            }
+            CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
+            spacing.setLine(BigInteger.valueOf(360));
+
+            // 创建第九章表格计数器
+            AtomicInteger chapter9TableCounter = new AtomicInteger(1);
+            String tableTitle = "近两次桥梁技术状况评分及评定等级对比分析表";
+
+            // 使用现有方法创建表格标题
+            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
+                    document, tableTitle, cursor, 9, chapter9TableCounter);
+
+//            // 创建章节格式的表格引用域
+//            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark,
+//                    "对比分析详情见表", "所示。");
+            // 单桥改为 如下表
+            XWPFRun prefixRun = tableRefPara.createRun();
+            prefixRun.setText("对比分析详情如下表所示。");
+            // 设置前缀字体格式
+            CTRPr prefixRPr = prefixRun.getCTR().addNewRPr();
+            prefixRPr.addNewRFonts().setAscii("宋体");
+            prefixRPr.addNewRFonts().setEastAsia("宋体");
+            prefixRPr.addNewSz().setVal(BigInteger.valueOf(24)); // 12号字体
+            prefixRPr.addNewSzCs().setVal(BigInteger.valueOf(24));
+            // 创建表格
+            createComparisonTableWithData(document, cursor, bridgeName,
+                    currentYear, currentEvaluation,
+                    previousYear, previousEvaluation);
+
+        } catch (Exception e) {
+            log.error("生成比较分析表格失败", e);
+            throw e;
+        }
+    }
+
 
     /**
      * 创建带数据的比较表格
@@ -229,6 +325,18 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
         // 设置表格固定布局
         CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
         tblLayout.setType(STTblLayoutType.FIXED);
+
+        /* ===== 11.11 新增：固定行高 0.8 cm ===== */
+        int twips = (int) Math.round(0.8 * 567);          // 0.8 cm → 454 twips
+        for (XWPFTableRow row : table.getRows()) {
+            CTTrPr trPr = row.getCtRow().getTrPr();
+            if (trPr == null) trPr = row.getCtRow().addNewTrPr();
+            CTHeight ht = trPr.sizeOfTrHeightArray() > 0   // 复用或新建
+                    ? trPr.getTrHeightArray(0)
+                    : trPr.addNewTrHeight();
+            ht.setVal(BigInteger.valueOf(twips));
+            ht.setHRule(STHeightRule.EXACT);                // 关键：固定高度
+        }
     }
 
     /**
@@ -298,10 +406,12 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
         // 填充前一年数据（如果存在）
         if (previousYear != null) {
             XWPFTableRow previousRow = table.getRow(currentRowIndex);
-            if(previousEvaluation != null) {
+            if (previousEvaluation != null) {
                 fillEvaluationDataRow(previousRow, previousYear.toString(), bridgeName, previousEvaluation);
             } else {
-                // 如果前一年没有评定数据，也用"/"填充
+                // 如果前一年没有评定数据，可以填充部分数据 （11.10 修改）
+                // 所以 previousEvaluation 基本 不会 为null 。
+                // 因为 甲方 的桥梁信息 excel 包含了上一次的部分数据。
                 fillEvaluationDataRow(previousRow, previousYear.toString(), bridgeName, null);
             }
             currentRowIndex++;
@@ -329,12 +439,12 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
         cellValues[1] = bridgeName;
 
         if (evaluation != null) {
-            cellValues[2] = formatScore(evaluation.getSuperstructureScore()); // 上部结构得分
-            cellValues[3] = formatScore(evaluation.getSubstructureScore());   // 下部结构得分
-            cellValues[4] = formatScore(evaluation.getDeckSystemScore());     // 桥面系得分
-            cellValues[5] = formatScore(evaluation.getSystemScore());         // 总得分
-            cellValues[6] = formatLevel(evaluation.getSystemLevel());         // 评定等级
-            cellValues[7] = formatLevel(evaluation.getSystemLevel());         // 总体技术状况等级
+            cellValues[2] = evaluation.getSuperstructureScore() == null ? "/" : formatScore(evaluation.getSuperstructureScore()); // 上部结构得分
+            cellValues[3] = evaluation.getSubstructureScore() == null ? "/" : formatScore(evaluation.getSubstructureScore());   // 下部结构得分
+            cellValues[4] = evaluation.getDeckSystemScore() == null ? "/" : formatScore(evaluation.getDeckSystemScore());     // 桥面系得分
+            cellValues[5] = evaluation.getSystemScore() == null ? "/" : formatScore(evaluation.getSystemScore());         // 总得分
+            cellValues[6] = evaluation.getSystemLevel() == null ? "/" : formatLevel(evaluation.getSystemLevel());         // 评定等级
+            cellValues[7] = evaluation.getSystemLevel() == null ? "/" : formatLevel(evaluation.getSystemLevel());         // 总体技术状况等级
         } else {
             // 没有评定数据时用"/"填充
             for (int i = 2; i < 8; i++) {

@@ -1,9 +1,12 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.enums.BeamBridgeRecordTableComponentList;
+import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.ConditionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
+import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -13,10 +16,16 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.math.BigInteger;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +48,9 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
     @Autowired
     private IBiEvaluationService biEvaluationService;
+
+    @Autowired
+    private IPropertyService propertyService;
 
     @Override
     public void generateRegularInspectionTable(XWPFDocument document, String placeholder, Building building, Task task, Project project) throws Exception {
@@ -543,9 +555,9 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
      * 批量获取构件病害类型
      * 将第四层节点的病害类型汇总到第三层节点
      *
-     * @param level3Ids 第三层节点ID列表
+     * @param level3Ids  第三层节点ID列表
      * @param buildingId 建筑物ID
-     * @param projectId 项目ID
+     * @param projectId  项目ID
      * @param allObjects 所有节点列表，包含了所有层级的节点
      * @return 第三层节点ID到病害类型名称的映射
      */
@@ -785,5 +797,190 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         CTTblWidth tcWidth = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
         tcWidth.setW(BigInteger.valueOf(width));
         tcWidth.setType(STTblWidth.DXA);
+    }
+
+    @Override
+    public void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task, Project project, ReportTemplateTypes templateType) {
+        if (null != templateType && templateType.getType().equals(ReportTemplateTypes.BEAM_BRIDGE.getType())) {
+            // 拿到 建筑 部件树 的根节点 。
+            BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+            if (rootObject == null) {
+                log.warn("未找到桥梁结构树: rootObjectId={}", building.getRootObjectId());
+                return;
+            }
+            List<Property> properties = new ArrayList<>();
+            // 拿到 所有部件 对象。
+            List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootObject.getId());
+
+            // 使用 所有部件对象查询 所有第三层结点的 评分 和 病害类型总结。
+
+            // 获取第二层节点（部位）
+            List<BiObject> level2Objects = allObjects.stream()
+                    .filter(obj -> obj.getParentId() != null && obj.getParentId().equals(rootObject.getId()))
+                    .collect(Collectors.toList());
+
+            // 收集所有第三层节点的ID
+            List<Long> allLevel3Ids = new ArrayList<>();
+            Map<Long, BiObject> level3ObjectMap = new HashMap<>();
+            Map<Long, BiObject> level2ForLevel3Map = new HashMap<>(); // 记录每个第三层节点对应的第二层节点
+
+            // 遍历第二层节点（部位）
+            for (BiObject level2Object : level2Objects) {
+                // 获取第三层节点（部件）
+                List<BiObject> level3Objects = allObjects.stream()
+                        .filter(obj -> obj.getParentId() != null && obj.getParentId().equals(level2Object.getId()))
+                        .collect(Collectors.toList());
+
+                // 收集第三层节点ID
+                for (BiObject level3Object : level3Objects) {
+                    allLevel3Ids.add(level3Object.getId());
+                    level3ObjectMap.put(level3Object.getId(), level3Object);
+                    level2ForLevel3Map.put(level3Object.getId(), level2Object);
+                }
+            }
+
+            // 批量查询所有构件的评分
+            Map<Long, String> componentScoreMap = batchGetComponentScores(allLevel3Ids, building.getId(), project.getId(), task);
+            // 批量查询所有构件的病害类型
+            Map<Long, String> componentDiseaseTypesMap = batchGetComponentDiseaseTypes(allLevel3Ids, building.getId(), project.getId(), allObjects);
+
+            // 使用 enum 中的 list 查询固定格式 的 表格cell 应该填入的值。
+            List<String> recordComponentNameList = BeamBridgeRecordTableComponentList.getComponentNameList();
+            // 表格 固定 名称 对应 对 biObject id
+            Map<String, Long> idMap = new HashMap<>();
+            for (String s : recordComponentNameList) {
+                idMap.put(s, null);
+            }
+            // 不能从 allObjects 中查找  ， 因为 第三层 有的 和第四层 名称相同。
+            for (BiObject object : level3ObjectMap.values()) {
+                if (idMap.containsKey(object.getName())) {
+                    idMap.put(object.getName(), object.getId());
+                }
+            }
+            // 构造 占位符 name 和 value
+            for (int i = 1; i <= recordComponentNameList.size(); i++) {
+                String name = recordComponentNameList.get(i - 1);
+                Long objectId = idMap.get(name);
+                String scoreStr = null == objectId ? "0" : componentScoreMap.get(objectId);
+                String typeStr = null == objectId ? "" : componentDiseaseTypesMap.get(objectId);
+                Property propertyScore = new Property();
+                propertyScore.setName("评分" + i);
+                propertyScore.setValue(scoreStr);
+
+                Property propertyType = new Property();
+                propertyType.setName("类型" + i);
+                propertyType.setValue(typeStr);
+
+                properties.add(propertyScore);
+                properties.add(propertyType);
+            }
+            // 处理 定期检查记录表特殊 的 属性。
+            processSingleBridgeRecordTableSpecialProp(properties, building);
+            // 将表格中的占位符 替换。
+            replacePlaceholdersInTables(document, properties);
+            //！！！ 注意 ， 这里考虑到 基本卡片的 最后 清除了 所有表格中的占位符 ，所以这里没有再次清除。
+
+        }
+    }
+
+    private void replacePlaceholdersInTables(XWPFDocument document, List<Property> properties) {
+
+        for (XWPFTable table : document.getTables()) {
+            for (XWPFTableRow row : table.getRows()) {
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                        // 遍历所有属性进行替换
+                        for (Property prop : properties) {
+                            String propertyName = prop.getName();
+                            String placeholder = "${" + propertyName + "}";
+                            String value = prop.getValue() != null ? prop.getValue() : "/";
+                            replacePlaceholder(paragraph, placeholder, value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 替换单个占位符的方法
+     */
+    private void replacePlaceholder(XWPFParagraph paragraph, String placeholder, String value) {
+        String text = paragraph.getText();
+        if (text.contains(placeholder)) {
+            // 清除段落中的所有runs
+            for (int i = paragraph.getRuns().size() - 1; i >= 0; i--) {
+                paragraph.removeRun(i);
+            }
+
+            // 创建新的run并设置替换后的文本
+            XWPFRun newRun = paragraph.createRun();
+            newRun.setText(text.replace(placeholder, value));
+
+            // 设置字体为宋体小五
+            newRun.setFontFamily("宋体");
+            newRun.setFontSize(9);
+        }
+    }
+
+    private void processSingleBridgeRecordTableSpecialProp(List<Property> properties, Building building) {
+        Property property = propertyService.selectPropertyById(building.getRootPropertyId());
+        List<Property> allProperties = propertyService.selectPropertyList(property);
+        // 处理 跨径组合中最大跨径
+        String spanStr = allProperties.stream().filter(a -> a.getName().equals("跨径组合")).map(Property::getValue).toList().get(0);
+        double maxSpan = getMaxSpan(spanStr);
+
+        // 处理 生成报告的年份。
+        LocalDateTime localDateTime = LocalDateTime.now();
+        int curYear = localDateTime.getYear();
+
+        // 处理 上次检查的年份。
+        String lastCheckDateStr = allProperties.stream().filter(a -> a.getName().equals("最近评定日期")).map(Property::getValue).toList().get(0);
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        Integer lastYear = null;
+        try {
+            Date lastCheckDate = simpleDateFormat.parse(lastCheckDateStr);
+            ZoneId zoneId = ZoneId.of("Asia/Shanghai");
+            lastYear = lastCheckDate.toInstant().atZone(zoneId).toLocalDate().getYear();
+        } catch (ParseException e) {
+            log.error("处理 上次检查的年份 ，解析日期字符串出错。");
+            lastYear = curYear + 10;
+        }
+        Property propertyMaxSpan = new Property();
+        propertyMaxSpan.setName("跨径组合中最大跨径");
+        propertyMaxSpan.setValue(Double.toString(maxSpan));
+
+        Property propertyCurYear = new Property();
+        propertyCurYear.setName("生成报告的年份");
+        propertyCurYear.setValue(Integer.toString(curYear));
+
+        Property propertyLastYear = new Property();
+        propertyLastYear.setName("最近评定日期的年份");
+        propertyLastYear.setValue(Integer.toString(lastYear));
+
+        properties.add(propertyMaxSpan);
+        properties.add(propertyCurYear);
+        properties.add(propertyLastYear);
+    }
+
+    /**
+     * 提取跨径组合字符串中的最大跨径（支持整数和小数）
+     *
+     * @param spanStr 跨径组合（格式：n*x+...+数字+...，数字可含小数）
+     * @return 最大跨径数值（double 类型，兼容小数）
+     */
+    public static double getMaxSpan(String spanStr) {
+        // 正则：匹配 "n*x"（n和x支持小数）或单独数字（支持小数）
+        Pattern pattern = Pattern.compile("(\\d+(\\.\\d+)?)\\*(\\d+(\\.\\d+)?)|(\\d+(\\.\\d+)?)");
+        Matcher matcher = pattern.matcher(spanStr.replaceAll("\\s+", "")); // 先去除所有空格（可选，增强兼容性）
+
+        return matcher.results()
+                .map(match -> {
+                    // 匹配 "n*x" 取第3组（x），匹配单独数字取第5组
+                    String span = match.group(3) != null ? match.group(3) : match.group(5);
+                    return Double.parseDouble(span); // 用 double 接收，兼容小数
+                })
+                .max(Double::compareTo) // 小数版最大值对比
+                .orElseThrow(() -> new IllegalArgumentException("无效的跨径组合：" + spanStr));
     }
 }
