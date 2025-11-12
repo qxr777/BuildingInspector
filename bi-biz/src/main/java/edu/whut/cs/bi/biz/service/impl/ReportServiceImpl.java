@@ -1451,7 +1451,7 @@ public class ReportServiceImpl implements IReportService {
         // 获取当前节点的所有第三层子节点（部件）
         List<BiObject> childComponents = allNodes.stream()
                 .filter(obj -> node.getId().equals(obj.getParentId()))
-                .sorted(Comparator.comparing(BiObject::getName))
+                .sorted(Comparator.comparing(BiObject::getOrderNum))
                 .collect(Collectors.toList());
 
         // 收集该节点下所有子节点的病害
@@ -1494,6 +1494,12 @@ public class ReportServiceImpl implements IReportService {
         } else {
             introPara = document.createParagraph();
         }
+        CTPPr introPpr = introPara.getCTP().getPPr();
+        if (introPpr == null) {
+            introPpr = introPara.getCTP().addNewPPr();
+        }
+        CTSpacing introSpacing = introPpr.isSetSpacing() ? introPpr.getSpacing() : introPpr.addNewSpacing();
+        introSpacing.setLine(BigInteger.valueOf(360));
 
         // Part 1: 加粗的开头部分
         XWPFRun runBold = introPara.createRun();
@@ -1505,6 +1511,9 @@ public class ReportServiceImpl implements IReportService {
         log.info("开始按部件生成病害小结");
         int componentIndex = 1;
         for (BiObject component : childComponents) {
+            if ("其他".equals(component.getName())) {
+                continue;
+            }
             // 收集该部件的病害
             List<Disease> componentDiseases = new ArrayList<>();
             collectAllDiseases(component, allNodes, diseaseMap, componentDiseases);
@@ -1523,6 +1532,10 @@ public class ReportServiceImpl implements IReportService {
             }
             ind = diseasePpr.isSetInd() ? diseasePpr.getInd() : diseasePpr.addNewInd();
             ind.setFirstLine(BigInteger.valueOf(480));
+
+            // 设置1.5倍行距
+            CTSpacing diseaseSpacing = diseasePpr.isSetSpacing() ? diseasePpr.getSpacing() : diseasePpr.addNewSpacing();
+            diseaseSpacing.setLine(BigInteger.valueOf(360));
 
             XWPFRun runItem = diseasePara.createRun();
             runItem.setFontSize(12);
@@ -1797,6 +1810,9 @@ public class ReportServiceImpl implements IReportService {
                 .collect(Collectors.toList());
 
         for (BiObject child : children) {
+            if ("其他".equals(child.getName())) {
+                continue;
+            }
             collectAllDiseases(child, allNodes, diseaseMap, resultList);
         }
     }
