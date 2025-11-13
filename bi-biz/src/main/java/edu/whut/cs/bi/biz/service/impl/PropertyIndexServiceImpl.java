@@ -343,7 +343,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
     public List<String> batchImportPropertyData(MultipartFile file) {
         // 清空上次导入的未匹配数据
         unmatchedBuildings.clear();
-
+        List<Building> allBuildings = buildingService.selectBuildingList(new Building());
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             // 读取第一个工作表（如需多工作表，可循环处理）
             Sheet sheet = workbook.getSheetAt(0);
@@ -368,7 +368,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
             // 2. 多线程处理每行数据（提交任务到线程池）
             List<CompletableFuture<Void>> futures = dataRows.stream()
                     .map(row -> CompletableFuture.runAsync(
-                            () -> processSingleRow(row, titleRow), // 每行的处理逻辑
+                            () -> processSingleRow(allBuildings, row, titleRow), // 每行的处理逻辑
                             executorService // 指定线程池
                     ))
                     .collect(Collectors.toList());
@@ -403,41 +403,43 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
      */
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public void processSingleRow(Row row, Row titleRow) {
+    public void processSingleRow(List<Building> allBuildings, Row row, Row titleRow) {
         try {
             // 1. 读取行数据（与原逻辑一致）
             String buildingName = getCellValueAsString(row.getCell(1));
             String lineCode = getCellValueAsString(row.getCell(5));
-//            String areaName = getCellValueAsString(row.getCell(10));
+            String areaName = getCellValueAsString(row.getCell(10));
 
-//            // 2. 校验行政区域
+            // 2. 校验行政区域
 //            SysDictData dictData = new SysDictData();
 //            dictData.setDictType("bi_building_area");
 //            dictData.setDictLabel(areaName);
 //            dictData.setStatus("0");
 //            List<SysDictData> areaCodeList = dictDataService.selectDictDataListForApi(dictData);
 //            if (CollectionUtil.isEmpty(areaCodeList)) {
-//                dictData.setDictLabel("恩施州");
-//                areaCodeList = dictDataService.selectDictDataListForApi(dictData);
-//                if (CollectionUtil.isEmpty(areaCodeList)) {
-//                    unmatchedBuildings.add(buildingName);
-//                    return;
-//                }
+//                unmatchedBuildings.add(buildingName);
+//                return;
+//            }
+            // 3. 查询桥梁（确保唯一匹配）
+            Building bd = allBuildings.stream().filter(b ->
+                            b.getName().equals(buildingName) && b.getLine().equals(lineCode) && b.getStatus().equals("0"))
+                    .findFirst().orElse(null);
+
+//            Building queryBuilding = new Building();
+//            queryBuilding.setName(buildingName);
+//            queryBuilding.setLine(lineCode);
+//            queryBuilding.setArea(areaCodeList.get(0).getDictValue());
+//            queryBuilding.setStatus("0");
+//            List<Building> buildings = buildingService.selectBuildingList(queryBuilding);
+//            dictData.setDictLabel("恩施州");
+//            areaCodeList = dictDataService.selectDictDataListForApi(dictData);
+//            queryBuilding.setArea(areaCodeList.get(0).getDictValue());
+//            buildings.addAll(buildingService.selectBuildingList(queryBuilding));
+//            if (CollectionUtil.isEmpty(buildings)) {
+//                unmatchedBuildings.add(buildingName);
+//                return;
 //            }
 
-            // 3. 查询桥梁（确保唯一匹配）
-            Building queryBuilding = new Building();
-            queryBuilding.setName(buildingName);
-            queryBuilding.setLine(lineCode);
-//            queryBuilding.setArea(areaCodeList.get(0).getDictValue());
-            queryBuilding.setStatus("0");
-            List<Building> buildings = buildingService.selectBuildingList(queryBuilding);
-            if (CollectionUtil.isEmpty(buildings)) {
-                unmatchedBuildings.add(buildingName);
-                return;
-            }
-            // 匹配桥梁名称
-            Building bd = buildings.stream().filter(b -> b.getName().equals(buildingName)).findFirst().orElse(null);
             if (bd == null) {
                 unmatchedBuildings.add(buildingName);
                 return;
@@ -445,7 +447,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
 
             // 4. 删除原有属性树（与原逻辑一致）
             Long oldRootId = bd.getRootPropertyId();
-            if (oldRootId != null) {
+            if (oldRootId != null && oldRootId != 0) {
                 propertyService.deletePropertyById(oldRootId);
             }
 
@@ -478,12 +480,13 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
             createPropertyNode(rootProperty, titleRow, row, curCol, curOrder, "桥牌信息", 13);
 
         } catch (Exception e) {
-            // 记录异常日志（建议使用日志框架，如SLF4J）
-            log.error("处理行数据失败（桥梁名称：{}）", getCellValueAsString(row.getCell(1)), e);
+            // 记录异常日志
+            log.error("处理行数据失败（桥梁名称：{}）", getCellValueAsString(row.getCell(1)));
+            log.error(e.getMessage());
             // 失败的行也加入未匹配列表（便于前端排查）
             unmatchedBuildings.add(getCellValueAsString(row.getCell(1)));
-            // 抛出异常触发事务回滚
-            throw new ServiceException("处理行数据失败：" + e.getMessage());
+//            // 抛出异常触发事务回滚
+//            throw new ServiceException("处理行数据失败：" + e.getMessage());
         }
     }
 
