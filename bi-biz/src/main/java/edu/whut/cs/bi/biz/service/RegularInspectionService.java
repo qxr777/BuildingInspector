@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.service;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 /**
@@ -15,12 +16,17 @@ public interface RegularInspectionService {
     /**
      * 生成定期检查记录表
      *
-     * @param document Word文档
+     * @param document    Word文档
      * @param placeholder 占位符
-     * @param building 建筑物ID
-     * @param task 任务ID
-     * @param project 项目ID
+     * @param building    建筑物ID
+     * @param task        任务ID
+     * @param project     项目ID
      * @throws Exception 异常
      */
     void generateRegularInspectionTable(XWPFDocument document, String placeholder, Building building, Task task, Project project) throws Exception;
+
+    /**
+     * 填充单桥 的定期检查记录表
+     */
+    void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task, Project project, ReportTemplateTypes templateType);
 }

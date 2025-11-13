@@ -2,7 +2,9 @@ package edu.whut.cs.bi.biz.service;
 
 
 import com.ruoyi.common.core.domain.Ztree;
+import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Property;
+import org.springframework.web.multipart.MultipartFile;
 
 
 import java.util.List;
@@ -47,4 +49,15 @@ public interface IPropertyIndexService {
      * @return
      */
     List<Ztree> selectPropertyTree(Long rootPropertyId);
+
+    /**
+     * 导入excel文件中桥梁属性数据
+     */
+    Boolean readExcelPropertyData(MultipartFile file, Long buildingId);
+
+    /**
+     * 批量导入属性数据
+     * @param file excel文件
+     */
+    List<String> batchImportPropertyData(MultipartFile file);
 }

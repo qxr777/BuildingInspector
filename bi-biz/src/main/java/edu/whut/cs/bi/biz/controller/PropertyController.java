@@ -11,6 +11,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.service.IBuildingService;
+import edu.whut.cs.bi.biz.service.IPropertyIndexService;
 import edu.whut.cs.bi.biz.service.IPropertyService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,9 @@ public class PropertyController extends BaseController
     @Resource
     private IBuildingService buildingService;
 
+    @Resource
+    private IPropertyIndexService propertyIndexService;
+
     @RequiresPermissions("biz:property:view")
     @GetMapping()
     public String property()
@@ -61,6 +65,15 @@ public class PropertyController extends BaseController
             mmap.put("buildingId", id);
         }
         return prefix + "/readWord";
+    }
+
+    @GetMapping(value = {"/readExcel/{id}", "/readExcel"})
+    public String readExcel(@PathVariable(value = "id", required = false) Long id, ModelMap mmap)
+    {
+        if (id != null) {
+            mmap.put("buildingId", id);
+        }
+        return prefix + "/readExcel";
     }
 
     /**
@@ -100,6 +113,26 @@ public class PropertyController extends BaseController
         property.setUpdateBy(ShiroUtils.getLoginName());
 
         Boolean read = propertyService.readWordFile(file, property, buildingId);
+
+        Building building = null;
+        if (read) {
+            building = buildingService.selectBuildingById(buildingId);
+        }
+
+        return building;
+    }
+
+    /**
+     * 通过word文件添加
+     */
+    @PostMapping( "/readExcel" )
+    @ResponseBody
+    @RequiresPermissions("biz:property:add")
+    @Log(title = "读取属性excel文件", businessType = BusinessType.INSERT)
+    public Building readExcelFile(@RequestPart("file") MultipartFile file, Long buildingId)
+    {
+
+        Boolean read = propertyIndexService.readExcelPropertyData(file, buildingId);
 
         Building building = null;
         if (read) {

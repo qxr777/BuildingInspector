@@ -57,6 +57,9 @@ public class ApiController {
     private IPropertyService propertyService;
 
     @Resource
+    private IPropertyIndexService propertyIndexService;
+
+    @Resource
     private IBiObjectService biObjectService;
 
     @Resource
@@ -103,6 +106,8 @@ public class ApiController {
 
     @Autowired
     private ISysDictDataService dictDataService;
+
+
     /**
      * 无权限访问
      *
@@ -852,5 +857,10 @@ public class ApiController {
         taskService.batchInsertTasks(projectId, List.of(newBuilding.getId()));
 
         return AjaxResult.success();
+    }
+
+    @PostMapping("/batchImportPropertyData")
+    public AjaxResult batchImportPropertyData(MultipartFile file) {
+        return AjaxResult.success(propertyIndexService.batchImportPropertyData(file));
     }
 }
