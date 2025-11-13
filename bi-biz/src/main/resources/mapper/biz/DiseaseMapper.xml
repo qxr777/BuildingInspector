@@ -57,15 +57,48 @@
     </resultMap>
 
     <sql id="selectDiseaseVo">
-        select
-            d.id, d.position, d.position_number, d.type, d.disease_type_id, d.description, d.level, d.quantity, d.units,
-            d.nature , d.participate_assess, d.deduct_points, d.img_no_exp,
-            d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
-            d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
-            d.attachment_count,
-            d.create_by, d.create_time, d.update_by, d.update_time, d.task_id, bp.year as bp_year,
-            dt.id as dt_id, dt.name as dt_name, dt.code as dt_code, dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status,
-            dt.select_column as dt_select_column, dt.threshold as dt_threshold, dt.group_name as dt_group_name
+        select d.id,
+               d.position,
+               d.position_number,
+               d.type,
+               d.disease_type_id,
+               d.description,
+               d.level,
+               d.quantity,
+               d.units,
+               d.nature,
+               d.participate_assess,
+               d.deduct_points,
+               d.img_no_exp,
+               d.project_id,
+               d.bi_object_id,
+               d.bi_object_name,
+               d.building_id,
+               d.component_id,
+               d.commit_type,
+               d.local_id,
+               d.remark,
+               d.cause,
+               d.repair_recommendation,
+               d.crack_type,
+               d.development_trend,
+               d.detection_method as detection_method,
+               d.attachment_count,
+               d.create_by,
+               d.create_time,
+               d.update_by,
+               d.update_time,
+               d.task_id,
+               bp.year            as bp_year,
+               dt.id              as dt_id,
+               dt.name            as dt_name,
+               dt.code            as dt_code,
+               dt.min_scale       as dt_min_scale,
+               dt.max_scale       as dt_max_scale,
+               dt.status          as dt_status,
+               dt.select_column   as dt_select_column,
+               dt.threshold       as dt_threshold,
+               dt.group_name      as dt_group_name
         from bi_disease d
                  left join bi_disease_type dt on d.disease_type_id = dt.id
                  left join bi.bi_project bp on d.project_id = bp.id
@@ -74,20 +107,22 @@
     <select id="selectDiseaseList" parameterType="Disease" resultMap="DiseaseResult">
         <include refid="selectDiseaseVo"/>
         <where>
-            <if test="buildingId != null"> and d.building_id = #{buildingId}</if>
-            <if test="year != null">and bp.year = #{year} </if>
-            <if test="position != null and position != ''"> and d.position like concat('%', #{position}, '%')</if>
-            <if test="type != null and type != ''"> and d.type = #{type}</if>
-            <if test="diseaseTypeId != null"> and d.disease_type_id = #{diseaseTypeId}</if>
-            <if test="level != null and level > 0"> and d.level = #{level}</if>
-            <if test="nature != null and nature != ''"> and d.nature = #{nature}</if>
-            <if test="projectId != null"> and d.project_id = #{projectId}</if>
-            <if test="taskId != null"> and d.task_id = #{taskId}</if>
-            <if test="biObjectId != null"> and d.bi_object_id = #{biObjectId}</if>
-            <if test="componentId != null"> and d.component_id = #{componentId}</if>
-            <if test="participateAssess != null and participateAssess !=''"> and d.participate_assess = #{participateAssess}</if>
-            <if test="commitType != null"> and d.commit_type = #{commitType}</if>
-            <if test="localId != null"> and d.local_id = #{localId}</if>
+            <if test="buildingId != null">and d.building_id = #{buildingId}</if>
+            <if test="year != null">and bp.year = #{year}</if>
+            <if test="position != null and position != ''">and d.position like concat('%', #{position}, '%')</if>
+            <if test="type != null and type != ''">and d.type = #{type}</if>
+            <if test="diseaseTypeId != null">and d.disease_type_id = #{diseaseTypeId}</if>
+            <if test="level != null and level > 0">and d.level = #{level}</if>
+            <if test="nature != null and nature != ''">and d.nature = #{nature}</if>
+            <if test="projectId != null">and d.project_id = #{projectId}</if>
+            <if test="taskId != null">and d.task_id = #{taskId}</if>
+            <if test="biObjectId != null">and d.bi_object_id = #{biObjectId}</if>
+            <if test="componentId != null">and d.component_id = #{componentId}</if>
+            <if test="participateAssess != null and participateAssess !=''">and d.participate_assess =
+                #{participateAssess}
+            </if>
+            <if test="commitType != null">and d.commit_type = #{commitType}</if>
+            <if test="localId != null">and d.local_id = #{localId}</if>
         </where>
         order by d.create_time desc
     </select>
@@ -213,7 +248,9 @@
             <if test="level != null and level > 0">level = #{level},</if>
             <if test="quantity != null and quantity > 0">quantity = #{quantity},</if>
             <if test="units != null and units != ''">units = #{units},</if>
-            <if test="participateAssess != null and participateAssess != ''">participate_assess = #{participateAssess},</if>
+            <if test="participateAssess != null and participateAssess != ''">participate_assess =
+                #{participateAssess},
+            </if>
             <if test="deductPoints != null and deductPoints > 0">deduct_points = #{deductPoints},</if>
             <if test="projectId != null">project_id = #{projectId},</if>
             <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
@@ -396,7 +433,9 @@
     </update>
 
     <delete id="deleteDiseaseById" parameterType="Long">
-        delete from bi_disease where id = #{id}
+        delete
+        from bi_disease
+        where id = #{id}
     </delete>
 
     <delete id="deleteDiseaseByIds" parameterType="String">
@@ -421,7 +460,7 @@
     <!-- 批量查询构件病害数据（优化版本，专门用于病害选择器） -->
     <select id="selectDiseaseComponentData" resultMap="DiseaseResult">
         SELECT DISTINCT
-        d.id, d.bi_object_id, d.disease_type_id,
+        d.id, d.bi_object_id, d.disease_type_id,d.description,d.position,d.type,d.component_id,
         dt.id as dt_id, dt.name as dt_name, dt.code as dt_code,
         dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status,
         bp.year as bp_year
@@ -444,16 +483,42 @@
 
 
     <select id="selectErrorDiseases" parameterType="Disease" resultMap="DiseaseResult">
-        select
-            d.id, d.position, d.position_number, d.type, d.disease_type_id, d.description, d.level, d.quantity, d.units,
-            d.nature , d.participate_assess, d.deduct_points, d.img_no_exp,
-            d.project_id, d.bi_object_id, d.bi_object_name, d.building_id, d.component_id, d.commit_type, d.local_id, d.remark,
-            d.cause, d.repair_recommendation, d.crack_type, d.development_trend, d.detection_method as detection_method,
-            d.attachment_count,
-            d.create_by, d.create_time, d.update_by, d.update_time, d.task_id
+        select d.id,
+               d.position,
+               d.position_number,
+               d.type,
+               d.disease_type_id,
+               d.description,
+               d.level,
+               d.quantity,
+               d.units,
+               d.nature,
+               d.participate_assess,
+               d.deduct_points,
+               d.img_no_exp,
+               d.project_id,
+               d.bi_object_id,
+               d.bi_object_name,
+               d.building_id,
+               d.component_id,
+               d.commit_type,
+               d.local_id,
+               d.remark,
+               d.cause,
+               d.repair_recommendation,
+               d.crack_type,
+               d.development_trend,
+               d.detection_method as detection_method,
+               d.attachment_count,
+               d.create_by,
+               d.create_time,
+               d.update_by,
+               d.update_time,
+               d.task_id
         from bi_disease d
-                left join bi_object on d.bi_object_id=bi_object.id
-        where d.update_time > #{updateTime} and bi_object.name is null
+                 left join bi_object on d.bi_object_id = bi_object.id
+        where d.update_time > #{updateTime}
+          and bi_object.name is null
     </select>
 
 

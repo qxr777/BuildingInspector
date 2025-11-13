@@ -417,6 +417,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         // 设置表格固定布局
         CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
         tblLayout.setType(STTblLayoutType.FIXED);
+
+
     }
 
 
@@ -531,8 +533,25 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
      *
      * @param table 表格对象
      */
-    private void setVerticalAlignmentForAllCells(XWPFTable table) {
+    public static void setVerticalAlignmentForAllCells(XWPFTable table) {
+        // 设置行高。 固定高度0.75cm
+        int twips = (int) Math.round(0.75 * 567);   // 1 cm = 567 twips
         for (XWPFTableRow row : table.getRows()) {
+            CTRow ctRow = row.getCtRow();
+            CTTrPr trPr = ctRow.getTrPr();
+            if (trPr == null) {
+                trPr = ctRow.addNewTrPr();
+            }
+            CTHeight ht = null;
+            for (CTHeight h : trPr.getTrHeightList()) {
+                ht = h;
+                break;
+            }
+            if (ht == null) {
+                ht = trPr.addNewTrHeight();
+            }
+            ht.setHRule(STHeightRule.AT_LEAST);   // 最小高度 ， 保证数据能撑开。
+            ht.setVal(BigInteger.valueOf(twips));
             for (XWPFTableCell cell : row.getTableCells()) {
                 CTTcPr tcPr = cell.getCTTc().getTcPr();
                 if (tcPr == null) {

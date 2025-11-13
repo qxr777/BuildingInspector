@@ -16,9 +16,9 @@ public interface ComparisonAnalysisService {
      *
      * @param document        Word文档
      * @param targetParagraph 目标段落（占位符段落）
-     * @param currentTask   当前任务ID
+     * @param currentTask     当前任务ID
      * @param bridgeName      桥梁名称
      */
     void generateComparisonAnalysisTable(XWPFDocument document, XWPFParagraph targetParagraph,
-                                         Task currentTask, String bridgeName);
+                                         Task currentTask, String bridgeName, boolean isSingleBridege);
 }

@@ -609,7 +609,7 @@ public class WordFieldUtils {
      * @param paragraph 段落
      * @param bookmarkName 要引用的书签名称
      */
-    private static void createReferenceField(XWPFParagraph paragraph, String bookmarkName) {
+    public static void createReferenceField(XWPFParagraph paragraph, String bookmarkName) {
         // 创建域开始
         CTR ctr = paragraph.getCTP().addNewR();
         CTFldChar fieldBegin = ctr.addNewFldChar();

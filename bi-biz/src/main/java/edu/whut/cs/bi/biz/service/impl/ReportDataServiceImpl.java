@@ -5,6 +5,7 @@ import java.util.*;
 
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
@@ -188,7 +189,7 @@ public class ReportDataServiceImpl implements IReportDataService {
             }
 
             // 使用新的桥梁卡片服务生成文档
-            XWPFDocument document = bridgeCardService.generateBridgeCardDocument(bid);
+            XWPFDocument document = bridgeCardService.generateBridgeCardDocument(bid, ReportTemplateTypes.COMBINED_BRIDGE);
 
             // 将XWPFDocument转换为MultipartFile
             String fileName = property.getName() + "文档信息" + ".docx";
@@ -239,10 +240,10 @@ public class ReportDataServiceImpl implements IReportDataService {
         // 将现有数据按key放入Map中，便于快速查找
         for (ReportData existingData : existingDataList) {
             existingDataMap.put(existingData.getKey(), existingData);
-            
+
             // 添加病害数据的查询日志
             if (existingData.getKey() != null && existingData.getKey().contains("diseases")) {
-                log.info("查询到已存在的病害数据 - id: {}, key: {}, value长度: {}", 
+                log.info("查询到已存在的病害数据 - id: {}, key: {}, value长度: {}",
                         existingData.getId(),
                         existingData.getKey(),
                         existingData.getValue() != null ? existingData.getValue().length() : 0);
@@ -260,8 +261,8 @@ public class ReportDataServiceImpl implements IReportDataService {
 
             // 添加病害数据的详细日志
             if (newData.getKey() != null && newData.getKey().contains("diseases")) {
-                log.info("准备保存病害数据 - key: {}, value长度: {}, value内容: {}", 
-                        newData.getKey(), 
+                log.info("准备保存病害数据 - key: {}, value长度: {}, value内容: {}",
+                        newData.getKey(),
                         newData.getValue() != null ? newData.getValue().length() : 0,
                         newData.getValue());
             }
@@ -272,10 +273,10 @@ public class ReportDataServiceImpl implements IReportDataService {
             if (existingData != null) {
                 // 已存在，需要更新
                 newData.setId(existingData.getId());
-                
+
                 // 添加更新日志
                 if (newData.getKey() != null && newData.getKey().contains("diseases")) {
-                    log.info("病害数据将被更新 - 原有id: {}, 原有value长度: {}", 
+                    log.info("病害数据将被更新 - 原有id: {}, 原有value长度: {}",
                             existingData.getId(),
                             existingData.getValue() != null ? existingData.getValue().length() : 0);
                 }
@@ -324,12 +325,12 @@ public class ReportDataServiceImpl implements IReportDataService {
         for (ReportData data : toUpdateList) {
             int updateResult = reportDataMapper.updateReportData(data);
             result += updateResult;
-            
+
             // 添加病害数据更新结果日志
             if (data.getKey() != null && data.getKey().contains("diseases")) {
-                log.info("病害数据更新完成 - id: {}, key: {}, 更新结果: {}, value长度: {}", 
-                        data.getId(), 
-                        data.getKey(), 
+                log.info("病害数据更新完成 - id: {}, key: {}, 更新结果: {}, value长度: {}",
+                        data.getId(),
+                        data.getKey(),
                         updateResult > 0 ? "成功" : "失败",
                         data.getValue() != null ? data.getValue().length() : 0);
             }
