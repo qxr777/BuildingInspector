@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.io.InputStream;
 import java.io.FileOutputStream;
@@ -1420,6 +1421,12 @@ public class ReportServiceImpl implements IReportService {
                                                         Map<Long, List<Disease>> diseaseMap, int level,
                                                         AtomicInteger chapterImageCounter, AtomicInteger chapter3TableCounter,
                                                         XmlCursor cursor, int baseHeadingLevel) throws Exception {
+        // 转换为 Map<id, BiObject>
+        Map<Long, BiObject> nodeMap = allNodes.stream()
+                .collect(Collectors.toMap(
+                        BiObject::getId,
+                        obj -> obj
+                ));
         // 写标题
         XWPFParagraph p;
         if (cursor != null) {
@@ -1460,6 +1467,52 @@ public class ReportServiceImpl implements IReportService {
 
         // 提前收集所有病害的图片书签信息
         Map<Long, List<String>> diseaseImageRefs = new HashMap<>(); // key: 病害ID, value: 图片书签列表
+
+        // 1. 查询所有组件
+        List<Long> componentIds = allNodeDiseases.stream()
+                .map(Disease::getComponentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<Component> components = componentService.selectComponentsByIds(componentIds);
+
+        Map<Long, Component> componentMap = components.stream()
+                .collect(Collectors.toMap(Component::getId, c -> c));
+
+        Map<Long, Integer> biObjectOrderIndex = new HashMap<>();
+        for (int i = 0; i < childComponents.size(); i++) {
+            biObjectOrderIndex.put(childComponents.get(i).getId(), i);
+        }
+
+        allNodeDiseases.sort((d1, d2) -> {
+
+            Long b1 = nodeMap.get(d1.getBiObjectId()).getParentId();
+            Long b2 = nodeMap.get(d2.getBiObjectId()).getParentId();
+
+            // -----------------------
+            // (1) 第一优先级：按 BiObject 顺序排
+            // -----------------------
+            Integer bo1 = biObjectOrderIndex.getOrDefault(b1, Integer.MAX_VALUE);
+            Integer bo2 = biObjectOrderIndex.getOrDefault(b2, Integer.MAX_VALUE);
+
+            if (!bo1.equals(bo2)) {
+                return bo1 - bo2;
+            }
+
+            // -----------------------
+            // (2) 第二优先级：同 BiObject 下，按 Component.code 排
+            // -----------------------
+            Component c1 = componentMap.get(d1.getComponentId());
+            Component c2 = componentMap.get(d2.getComponentId());
+
+            String code1 = (c1 != null ? c1.getCode() : "");
+            String code2 = (c2 != null ? c2.getCode() : "");
+
+            return compareCodes(code1, code2);
+        });
+
+
 
         for (Disease d : allNodeDiseases) {
             List<String> imageBookmarks = new ArrayList<>();
@@ -1539,6 +1592,11 @@ public class ReportServiceImpl implements IReportService {
 
             XWPFRun runItem = diseasePara.createRun();
             runItem.setFontSize(12);
+            if(component.getWeight().compareTo(BigDecimal.ZERO) == 0) {
+                runItem.setText(componentIndex + ") " + component.getName() + "：无此构件");
+                componentIndex++;
+                continue;
+            }
 
             // 生成该部件的病害小结
             if (componentDiseases.isEmpty()) {
@@ -1724,13 +1782,12 @@ public class ReportServiceImpl implements IReportService {
 
                     // 设置中英文字体和字号
                     setMixedFontFamily(cellR, 21);
-                    Component component = componentService.selectComponentById(d.getComponentId());
                     switch (i) {
                         case 0:
                             cellR.setText(String.valueOf(seqNum++));
                             break;
                         case 1:
-                            cellR.setText(component != null ? component.getName() : "/");
+                            cellR.setText(componentMap.get(d.getComponentId()).getName());
                             break;
                         case 2:
                             cellR.setText(d.getDiseaseType().getName() != null ? d.getDiseaseType().getName() : "/");
@@ -1807,6 +1864,7 @@ public class ReportServiceImpl implements IReportService {
         // 递归收集子节点的病害
         List<BiObject> children = allNodes.stream()
                 .filter(obj -> node.getId().equals(obj.getParentId()))
+                .sorted(Comparator.comparing(BiObject::getOrderNum))
                 .collect(Collectors.toList());
 
         for (BiObject child : children) {
@@ -5442,10 +5500,10 @@ public class ReportServiceImpl implements IReportService {
 
         // 为每个结构节点生成内容
         for (BiObject structureNode : structureNodes) {
+            XmlCursor structureCursor = cursor.newCursor();
             if ("附属设施".equals(structureNode.getName())) {
                 continue;
             }
-            XmlCursor structureCursor = cursor.newCursor();
 
             // 生成结构内容，从第2层开始（跳过桥名层级）
             writeBiObjectTreeToWordForSingleBridge(document, structureNode, allObjects, bridgeDiseaseMap, 2
@@ -5672,4 +5730,37 @@ public class ReportServiceImpl implements IReportService {
 
         return table.toString();
     }
+
+    public static int compareCodes(String c1, String c2) {
+        String[] p1 = c1.split("-");
+        String[] p2 = c2.split("-");
+
+        int len = Math.min(p1.length, p2.length);
+
+        for (int i = 0; i < len; i++) {
+            String s1 = p1[i];
+            String s2 = p2[i];
+
+            boolean isNum1 = s1.matches("\\d+");
+            boolean isNum2 = s2.matches("\\d+");
+
+            if (isNum1 && isNum2) {
+                // 都是数字：按数值排序
+                int n1 = Integer.parseInt(s1);
+                int n2 = Integer.parseInt(s2);
+                if (n1 != n2) return n1 - n2;
+            } else if (!isNum1 && !isNum2) {
+                // 都是字母：按字典序
+                int cmp = s1.compareToIgnoreCase(s2);
+                if (cmp != 0) return cmp;
+            } else {
+                // 一个数字一个字母：数字优先
+                return isNum1 ? -1 : 1;
+            }
+        }
+
+        // 比较长度，例如 1-2 < 1-2-1
+        return p1.length - p2.length;
+    }
+
 }
