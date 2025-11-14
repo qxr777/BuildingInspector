@@ -13,6 +13,7 @@ import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
+import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseAnalysis;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseType;
@@ -52,6 +53,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Async;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
+
+import javax.annotation.Resource;
 
 /**
  * 检测报告Service业务层处理
@@ -103,6 +106,9 @@ public class ReportServiceImpl implements IReportService {
     @Autowired
     private DiseaseComparisonService diseaseComparisonService;
 
+    @Resource
+    private IDiseaseService diseaseService;
+
 
     @Value("${springAi_Rag.endpoint}")
     private String SpringAiUrl;
@@ -129,6 +135,9 @@ public class ReportServiceImpl implements IReportService {
 
     @Autowired
     private RegularInspectionService regularInspectionService;
+
+    @Resource
+    private IBiTemplateObjectService biTemplateObjectService;
 
     /**
      * 查询检测报告
@@ -4546,7 +4555,7 @@ public class ReportServiceImpl implements IReportService {
 
             BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
             if (ObjectUtils.isNotEmpty(biEvaluation)) {
-                replaceText(document, "${4-1-7-1-evaluationLevel}", String.valueOf(biEvaluation.getSystemLevel()));
+                replaceText(document, "${4-1-7-1-evaluationLevel}", String.valueOf(biEvaluation.getSystemLevel()) + "类");
             }
             // 清空第十章病害汇总缓存
             testConclusionService.clearDiseaseSummaryCache();
@@ -4786,79 +4795,6 @@ public class ReportServiceImpl implements IReportService {
 //        }
     }
 
-    /**
-     * 生成并插入第七章成因分析内容（支持自定义占位符）
-     * 新方法，避免硬编码
-     *
-     * @param combinations              构件病害组合列表
-     * @param building                  建筑物信息
-     * @param project                   项目信息
-     * @param biObject                  建筑物对象
-     * @param document                  Word文档
-     * @param superstructurePlaceholder 上部结构占位符
-     * @param substructurePlaceholder   下部结构占位符
-     * @param deckSystemPlaceholder     桥面系占位符
-     */
-    private void generateAndInsertChapter7AnalysisWithCustomPlaceholders(
-            List<ComponentDiseaseType> combinations, Building building, Project project,
-            BiObject biObject, XWPFDocument document,
-            String superstructurePlaceholder, String substructurePlaceholder, String deckSystemPlaceholder) {
-        try {
-            // 收集所有构件ID
-            Set<Long> componentIds = combinations.stream()
-                    .map(ComponentDiseaseType::getComponentId)
-                    .collect(Collectors.toSet());
-
-            // 批量查询构件信息
-            List<BiObject> components = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(componentIds));
-            Map<Long, BiObject> componentMap = components.stream()
-                    .collect(Collectors.toMap(BiObject::getId, component -> component));
-
-            // 批量获取结构分类信息
-            Map<Long, String> componentStructureTypeMap = batchGetStructureTypes(components);
-
-            // 收集所有病害类型ID并批量查询
-            Set<Long> diseaseTypeIds = combinations.stream()
-                    .map(ComponentDiseaseType::getDiseaseTypeId)
-                    .collect(Collectors.toSet());
-            List<DiseaseType> diseaseTypes = diseaseTypeMapper.selectDiseaseTypeListByIds(new ArrayList<>(diseaseTypeIds));
-            Map<Long, DiseaseType> diseaseTypeMap = diseaseTypes.stream()
-                    .collect(Collectors.toMap(DiseaseType::getId, diseaseType -> diseaseType));
-
-            // 按结构分类分组
-            Map<String, List<ComponentDiseaseAnalysis>> structureGroups = new LinkedHashMap<>();
-            structureGroups.put("superstructure", new ArrayList<>());
-            structureGroups.put("substructure", new ArrayList<>());
-            structureGroups.put("deckSystem", new ArrayList<>());
-
-            for (ComponentDiseaseType combination : combinations) {
-                BiObject component = componentMap.get(combination.getComponentId());
-                if (component == null) continue;
-
-                String structureType = componentStructureTypeMap.get(component.getId());
-                if (structureType == null) continue;
-
-                DiseaseType diseaseType = diseaseTypeMap.get(combination.getDiseaseTypeId());
-                if (diseaseType == null) continue;
-
-                ComponentDiseaseAnalysis analysis = new ComponentDiseaseAnalysis();
-                analysis.setComponentName(component.getName());
-                analysis.setDiseaseTypeName(diseaseType.getName());
-                // 注意：DiseaseType当前没有cause字段，病害成因需要从其他地方获取或手动填写
-
-                structureGroups.get(structureType).add(analysis);
-            }
-
-            // 使用传入的自定义占位符替换内容
-            generateStructureAnalysisContent(structureGroups.get("superstructure"), document, superstructurePlaceholder);
-            generateStructureAnalysisContent(structureGroups.get("substructure"), document, substructurePlaceholder);
-            generateStructureAnalysisContent(structureGroups.get("deckSystem"), document, deckSystemPlaceholder);
-
-        } catch (Exception e) {
-            log.error("生成病害成因分析内容失败", e);
-            throw new RuntimeException("生成病害成因分析内容失败", e);
-        }
-    }
 
     /**
      * 设置段落为单倍行距（用于表格单元格）
@@ -5071,7 +5007,7 @@ public class ReportServiceImpl implements IReportService {
                             // 解析病害数据
                             List<ComponentDiseaseType> combinations = parseChapter7Json(value);
                             if (!combinations.isEmpty()) {
-                                // 生成重点关注病害内容（包含表格和成因分析）
+                                // 生成重点关注病害内容（包含文字和成因分析）
                                 generateSingleBridgeFocusOnDiseases(document, combinations, building, project, biObject);
                                 log.info("单桥病害分析生成完成");
                             } else {
@@ -5172,30 +5108,30 @@ public class ReportServiceImpl implements IReportService {
         try {
             StringBuilder content = new StringBuilder();
 
-            // 1. 生成病害汇总表
-            List<Map<String, Object>> tableData = generateChapter7TableData(combinations, building, project, biObject);
-            if (!tableData.isEmpty()) {
-                content.append("表4-1 重点关注病害汇总表\n");
-                content.append(generateTableContent(tableData));
-                content.append("\n\n");
-            }
+            // 1. 得到病害
+            // 提取所有构件ID
+            List<Long> componentIds = combinations.stream()
+                    .map(ComponentDiseaseType::getComponentId)
+                    .distinct()
+                    .collect(Collectors.toList());
 
-            // 2. 生成主要病害成因分析
-            content.append("主要病害成因分析：\n\n");
+            // 批量查询病害数据
+            List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
+                    componentIds, building.getId(), project.getYear());
 
-            // 按结构分类生成成因分析
-            Map<String, List<ComponentDiseaseType>> structureGroups = groupByStructureType(combinations);
-
+            // 2. 生成主要病害的描述和成因分析
             int index = 1;
-            for (Map.Entry<String, List<ComponentDiseaseType>> entry : structureGroups.entrySet()) {
-                String structureType = entry.getKey();
-                List<ComponentDiseaseType> structureCombinations = entry.getValue();
-
-                content.append(String.format("（%d）%s\n", index++, structureType));
-
-                // 生成该结构类型的病害分析
-                String analysis = generateStructureAnalysisText(structureCombinations, building, project, biObject);
-                content.append(analysis).append("\n\n");
+            for (Disease disease : allDiseases) {
+                BiObject tempBiObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+                content.append(index).append(")");
+                content.append(tempBiObject.getName());
+                content.append(disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
+                content.append("\n");
+                content.append("成因分析：\n");
+                disease.setBuildingId(building.getId());
+                content.append(getDiseaseCause(disease));
+                content.append("\n");
+                index++;
             }
 
             // 替换占位符
@@ -5729,6 +5665,24 @@ public class ReportServiceImpl implements IReportService {
         }
 
         return table.toString();
+    }
+
+    /**
+     * 对于单个病害 生成 成因分析
+     */
+    private String getDiseaseCause(Disease disease) {
+        CauseQuery causeQuery = new CauseQuery();
+        Building building = buildingService.selectBuildingById(disease.getBuildingId());
+        BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+        BiObject biObject_building = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+        BiTemplateObject biTemplateObject = biTemplateObjectService.selectBiTemplateObjectById(biObject_building.getTemplateObjectId());
+        causeQuery.setTemplate(biTemplateObject.getName());
+        causeQuery.setObject(biObject.getName());
+        causeQuery.setParentObject(biObject.getParentName());
+        causeQuery.setDescription(disease.getDescription());
+        causeQuery.setPosition(disease.getPosition());
+        causeQuery.setType(disease.getType());
+        return diseaseService.getCauseAnalysis(causeQuery);
     }
 
     public static int compareCodes(String c1, String c2) {

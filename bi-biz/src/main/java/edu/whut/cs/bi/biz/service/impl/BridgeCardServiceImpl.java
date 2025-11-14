@@ -122,7 +122,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                     String propertyName = prop.getName();
                     String placeholder = "${" + propertyName + "}";
                     String value = prop.getValue() != null ? prop.getValue() : "";
-                    replaceTextInParagraphs(document.getParagraphs(), placeholder, value, "正文文本，本次指向桥梁概况");
+                    replaceTextInParagraphs(document.getParagraphs(), placeholder, value, "正文文本，本次指向桥梁概况", 12);
                 }
             }
             // 替换 无效的 占位符。
@@ -144,7 +144,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     private void replaceTextInParagraphs(List<XWPFParagraph> paragraphs,
                                          String oldText,
                                          String newText,
-                                         String location) {
+                                         String location, double fontSize) {
         for (XWPFParagraph p : paragraphs) {
             // 1. 拼完整文本
             StringBuilder full = new StringBuilder();
@@ -155,17 +155,21 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             String raw = full.toString();
             if (!raw.contains(oldText)) continue;
 
+            // 删除前留一个样式样本
+            ReportRunsStyle runsStyle = null;
             // 2. 删除旧 run
             for (int i = p.getRuns().size() - 1; i >= 0; i--) {
+                if (i == p.getRuns().size() - 1) {
+                    runsStyle = ReportRunsStyle.snapshot(p.getRuns().get(i));
+                }
                 p.removeRun(i);
             }
 
             // 3. 一次性写入新文本（支持换行）
             String replaced = raw.replace(oldText, newText);
             XWPFRun cleanRun = p.createRun();
-            // 把第一个原 run 的样式克隆过来
-            if (p.getRuns().size() > 1) {
-                cloneStyle(cleanRun, p.getRuns().get(0));
+            if (runsStyle != null) {
+                runsStyle.apply(cleanRun);
             }
             setTextWithLineBreaks(cleanRun, replaced);
 
@@ -173,7 +177,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         }
     }
 
-    /* 可选：把源 run 的字体、大小、粗体、颜色等拷过来 */
+    /* 可选：把源 run 的字体、粗体、颜色等拷过来 */
     private void cloneStyle(XWPFRun target, XWPFRun source) {
         target.setFontFamily(source.getFontFamily());
         target.setFontSize(source.getFontSizeAsDouble());
@@ -293,6 +297,10 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             if (prop.getName().equals("是否公铁两用桥梁")) {
                 String curValue = prop.getValue();
                 prop.setValue(curValue.equals("否") ? "公路" : "公铁两用桥");
+            }
+            if (prop.getName().equals("跨径组合")) {
+                String curValue = prop.getValue();
+                prop.setValue(curValue.replace('*', 'x'));
             }
         }
     }

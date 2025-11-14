@@ -550,7 +550,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             if (ht == null) {
                 ht = trPr.addNewTrHeight();
             }
-            ht.setHRule(STHeightRule.EXACT);   // 固定高度
+            ht.setHRule(STHeightRule.AT_LEAST);   // 最小高度 ， 保证数据能撑开。
             ht.setVal(BigInteger.valueOf(twips));
             for (XWPFTableCell cell : row.getTableCells()) {
                 CTTcPr tcPr = cell.getCTTc().getTcPr();

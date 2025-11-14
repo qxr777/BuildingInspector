@@ -335,7 +335,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
                     ? trPr.getTrHeightArray(0)
                     : trPr.addNewTrHeight();
             ht.setVal(BigInteger.valueOf(twips));
-            ht.setHRule(STHeightRule.EXACT);                // 关键：固定高度
+            ht.setHRule(STHeightRule.AT_LEAST);                // 关键：11.12 修改 最小高度 。
         }
     }
 
