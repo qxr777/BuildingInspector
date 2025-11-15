@@ -1621,13 +1621,23 @@ public class ReportServiceImpl implements IReportService {
                             .replace("\n", "")
                             .replace("\r", "")
                             .replaceAll("\\d+）", "");
+
+                    if(componentDiseaseSummary.startsWith(component.getName() + "：")) {
+                        componentDiseaseSummary = componentDiseaseSummary.substring(component.getName().length() + 1);
+                    }
+
                     runItem.setText(componentIndex + ") " + component.getName() + "：" + componentDiseaseSummary);
+
+                    if(componentDiseaseSummary.contains("cm")) {
+                        runItem.setColor("FF0000");
+                    }
 
                     // 缓存病害汇总到第十章服务，供后续复用
                     testConclusionService.cacheDiseaseSummary(component.getId(), componentDiseaseSummary);
                 } catch (Exception e) {
                     componentDiseaseSummary = "由于ai服务暂不稳定，该构件病害小结生成失败。";
                     runItem.setText(componentIndex + ") " + component.getName() + "：" + componentDiseaseSummary);
+                    runItem.setColor("FF0000");
                     log.error("外观检测 ai 生成小结 失败，继续生成");
                 }
             }
