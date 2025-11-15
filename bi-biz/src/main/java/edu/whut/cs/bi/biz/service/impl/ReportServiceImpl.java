@@ -15,6 +15,7 @@ import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
+import edu.whut.cs.bi.biz.domain.enums.SingleReportMainDiseaseSummaryList;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseAnalysis;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseType;
 import edu.whut.cs.bi.biz.domain.vo.Disease2ReportSummaryAiVO;
@@ -1522,7 +1523,6 @@ public class ReportServiceImpl implements IReportService {
         });
 
 
-
         for (Disease d : allNodeDiseases) {
             List<String> imageBookmarks = new ArrayList<>();
             List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
@@ -1601,7 +1601,7 @@ public class ReportServiceImpl implements IReportService {
 
             XWPFRun runItem = diseasePara.createRun();
             runItem.setFontSize(12);
-            if(component.getWeight().compareTo(BigDecimal.ZERO) == 0) {
+            if (component.getWeight().compareTo(BigDecimal.ZERO) == 0) {
                 runItem.setText(componentIndex + ") " + component.getName() + "：无此构件");
                 componentIndex++;
                 continue;
@@ -5001,7 +5001,7 @@ public class ReportServiceImpl implements IReportService {
                 if (type == 0) {
                     // 文本类型
                     // 检查是否是病害选择字段，需要特殊处理
-                    if (key != null && key.contains("chapter-4-1-7-diseases")) {
+                    if (key != null && key.contains("chapter-4-1-6-diseases")) {
                         try {
                             log.info("开始处理单桥病害数据，key: {}, value: {}", key, value);
                             // 解析病害数据
@@ -5012,11 +5012,11 @@ public class ReportServiceImpl implements IReportService {
                                 log.info("单桥病害分析生成完成");
                             } else {
                                 log.warn("病害数据解析为空");
-                                replaceText(document, "${chapter-4-1-7-focusOnDiseases}", "无重点关注病害");
+                                replaceText(document, "${chapter-4-1-6-focusOnDiseases}", "无重点关注病害");
                             }
                         } catch (Exception e) {
                             log.error("处理单桥病害数据出错: key={}, value={}, error={}", key, value, e.getMessage(), e);
-                            replaceText(document, "${chapter-4-1-7-focusOnDiseases}", "【病害数据处理失败，请联系管理员】");
+                            replaceText(document, "${chapter-4-1-6-focusOnDiseases}", "【病害数据处理失败，请联系管理员】");
                         }
                     } else {
                         // 普通文本字段 - 直接替换
@@ -5120,18 +5120,31 @@ public class ReportServiceImpl implements IReportService {
                     componentIds, building.getId(), project.getYear());
 
             // 2. 生成主要病害的描述和成因分析
+            // 按照biObjectId 分类 ， 同时按照 diseaseTypeId 分组。
+            // 分组逻辑
+            Map<Long, Map<Long, List<Disease>>> groupedMap = allDiseases.stream()
+                    .collect(Collectors.groupingBy(
+                            Disease::getBiObjectId,
+                            Collectors.groupingBy(Disease::getDiseaseTypeId)
+                    ));
             int index = 1;
-            for (Disease disease : allDiseases) {
-                BiObject tempBiObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
-                content.append(index).append(")");
-                content.append(tempBiObject.getName());
-                content.append(disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
-                content.append("\n");
-                content.append("成因分析：\n");
-                disease.setBuildingId(building.getId());
-                content.append(getDiseaseCause(disease));
-                content.append("\n");
-                index++;
+            for (Long biObjectId : groupedMap.keySet()) {
+                Map<Long, List<Disease>> diseaseMap = groupedMap.get(biObjectId);
+                BiObject tempBiObject = biObjectMapper.selectBiObjectById(biObjectId);
+                for (Long diseaseTypeId : diseaseMap.keySet()) {
+                    List<Disease> diseases = diseaseMap.get(diseaseTypeId);
+                    Disease disease = diseases.get(0);
+                    content.append(index).append(")");
+                    content.append(tempBiObject.getName());
+                    content.append(disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
+                    content.append("\n");
+                    content.append("成因分析：\n");
+                    disease.setBuildingId(building.getId());
+                    content.append(getDiseaseCause(disease));
+                    content.append("\n");
+                    index++;
+                }
+
             }
 
             // 替换占位符
@@ -5144,63 +5157,32 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 生成单桥主要病害内容（新格式）
+     * 生成单桥主要病害内容
      */
     private void generateSingleBridgeMainDiseases(XWPFDocument document, Building building, Project project, Task task) {
         try {
-            // 查询病害数据
-            Disease queryParam = new Disease();
-            queryParam.setBuildingId(building.getId());
-            queryParam.setProjectId(project.getId());
-            List<Disease> diseases = diseaseMapper.selectDiseaseList(queryParam);
-
-            if (diseases == null || diseases.isEmpty()) {
-                replaceText(document, "${chapter-4-1-7-2-mainDiseases}", "经检查，该桥无明显病害。");
-                return;
-            }
-
-            // 按结构类型分组病害
-            Map<String, List<Disease>> structureGroups = groupDiseasesByStructure(diseases);
+            // 11.14 修改 ， 使用病害小结的缓存。
 
             StringBuilder content = new StringBuilder();
             int structureIndex = 1;
+            Map<Long, String> summaryCache = testConclusionService.getSummaryCache();
+            List<Long> biObjectIdList = summaryCache.keySet().stream().toList();
+            Map<String, List<Long>> parentObjectName2IdList = biObjectIdList.stream().collect(Collectors.groupingBy(a -> biObjectMapper.selectBiObjectById(a).getParentName()));
+            for (String structureName : SingleReportMainDiseaseSummaryList.getAllStructureList()) {
 
-            for (Map.Entry<String, List<Disease>> entry : structureGroups.entrySet()) {
-                String structureType = entry.getKey();
-                List<Disease> structureDiseases = entry.getValue();
-
-                if (structureDiseases.isEmpty()) continue;
-
-                content.append(String.format("%d、%s：\n", structureIndex++, structureType));
-
-                // 使用AI一次性生成该结构类型的所有病害描述
-                try {
-                    log.debug("为结构类型 {} 调用AI生成病害描述，病害数量: {}", structureType, structureDiseases.size());
-
-                    String aiDescription = getDiseaseSummary(structureDiseases);
-                    if (aiDescription != null && !aiDescription.trim().isEmpty()) {
-                        // 记录AI原始输出用于调试
-                        log.debug("AI原始输出: {}", aiDescription);
-
-                        // 清理和标准化AI生成的内容
-                        String cleanedDescription = cleanAndStandardizeStructureAiDescription(aiDescription, structureType);
-
-                        // 记录清理后的输出用于调试
-                        log.debug("清理后输出: {}", cleanedDescription);
-
-                        content.append(cleanedDescription);
-                    } else {
-                        // AI生成失败时的备用逻辑
-                        log.warn("AI生成结构 {} 的病害描述为空，使用备用逻辑", structureType);
-                        content.append(generateFallbackStructureDescription(structureDiseases));
-                    }
-                } catch (Exception e) {
-                    log.error("AI生成结构 {} 的病害描述失败，使用备用逻辑: {}", structureType, e.getMessage());
-                    content.append(generateFallbackStructureDescription(structureDiseases));
+                if (!parentObjectName2IdList.containsKey(structureName)) {
+                    // 如果当前 结构 没有存放 病害小结 ， 跳过。
+                    continue;
                 }
-                content.append("\n");
-            }
+                content.append(String.format("%d、%s：\n", structureIndex++, structureName));
+                List<Long> curObjectIdList = parentObjectName2IdList.get(structureName);
+                int pointNum = 1;
+                for (Long objectId : curObjectIdList) {
+                    String diseaseSummary = summaryCache.get(objectId);
+                    content.append(String.format("%d)%s\n", pointNum++, diseaseSummary));
+                }
 
+            }
             replaceText(document, "${chapter-4-1-7-2-mainDiseases}", content.toString().trim());
 
         } catch (Exception e) {

@@ -170,7 +170,7 @@ public class TestConclusionServiceImpl implements TestConclusionService {
                         .collect(Collectors.toList());
 
                 for (BiObject secondNode : secondLevelNodes) {
-                    if(("附属设施").equals(secondNode.getName())) {
+                    if (("附属设施").equals(secondNode.getName())) {
                         continue;
                     }
                     writeBridgeStructureTree(document, secondNode, allNodes, cursor, level + 1, bridgeName);
@@ -335,5 +335,10 @@ public class TestConclusionServiceImpl implements TestConclusionService {
     public void clearDiseaseSummaryCache() {
         diseaseSummaryCache.clear();
         log.info("清空病害汇总缓存");
+    }
+
+    @Override
+    public Map<Long, String> getSummaryCache() {
+        return this.diseaseSummaryCache;
     }
 }

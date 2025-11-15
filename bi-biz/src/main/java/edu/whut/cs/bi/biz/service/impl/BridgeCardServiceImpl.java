@@ -300,7 +300,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             }
             if (prop.getName().equals("跨径组合")) {
                 String curValue = prop.getValue();
-                prop.setValue(curValue.replace('*', 'x'));
+                prop.setValue(curValue.replace('*', '×'));
             }
         }
     }

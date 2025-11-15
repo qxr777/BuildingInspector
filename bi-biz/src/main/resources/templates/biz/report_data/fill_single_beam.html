@@ -379,8 +379,8 @@
                                                 <div class="form-group">
                                                     <label class="control-label">技术建议:</label>
                                                     <textarea class="form-control"
-                                                              name="dataValues[chapter-4-1-8-4-technicalAdvice]"
-                                                              data-original-key="chapter-4-1-8-4-technicalAdvice"
+                                                              name="dataValues[chapter-4-1-7-4-technicalAdvice]"
+                                                              data-original-key="chapter-4-1-7-4-technicalAdvice"
                                                               rows="10"
                                                               placeholder="请填写针对本次检测的技术建议，包括维修养护建议、注意事项等"></textarea>
                                                 </div>
@@ -585,7 +585,7 @@
         }
 
         // 特殊处理病害选择器显示
-        var diseaseValue = $('input[data-original-key="${chapter-4-1-7-diseases}"]').val();
+        var diseaseValue = $('input[data-original-key="${chapter-4-1-6-diseases}"]').val();
         console.log('加载病害数据 - diseaseValue:', diseaseValue);
         console.log('加载病害数据 - diseaseValue type:', typeof diseaseValue);
         if (diseaseValue) {
@@ -629,7 +629,7 @@
             var value = $(this).val();
 
             // 检查是否是病害选择相关的字段
-            if (key && key.includes('chapter-4-1-7-diseases')) {
+            if (key && key.includes('chapter-4-1-6-diseases')) {
                 console.log('处理病害选择字段:', key, '值:', value);
 
                 // 第一次添加病害数据时，先加一个空值，让Spring认为是数组
