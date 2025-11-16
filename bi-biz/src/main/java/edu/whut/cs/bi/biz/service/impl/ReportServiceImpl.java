@@ -1715,8 +1715,16 @@ public class ReportServiceImpl implements IReportService {
             String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
 
             // 修改列宽比例
-            Double[] columnWidthRatios = {0.08, 0.18, 0.14, 0.08, 0.26, 0.10, 0.08, 0.08};
-            int totalWidth = 9534;
+            int[] columnWidths = {
+                    567,   // 序号 1 cm
+                    992,   // 缺损位置 1.75 cm
+                    1134,  // 缺损类型 2 cm
+                    709,   // 数量 1.25 cm
+                    3680,  // 病害描述 6.49 cm
+                    1031,  // 评定类别 1.82 cm
+                    737,   // 发展趋势 1.3 cm
+                    1072   // 照片 1.89 cm
+            };
 
             CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
             tblLayout.setType(STTblLayoutType.FIXED);
@@ -1751,7 +1759,7 @@ public class ReportServiceImpl implements IReportService {
                 }
 
                 // 计算每列的实际宽度
-                int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                int columnWidth = columnWidths[i];
                 CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                 tcW.setW(BigInteger.valueOf(columnWidth));
                 tcW.setType(STTblWidth.DXA);
@@ -1780,7 +1788,7 @@ public class ReportServiceImpl implements IReportService {
                     // 设置单元格宽度与表头一致
                     CTTc cttc = cell.getCTTc();
                     CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
-                    int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                    int columnWidth = columnWidths[i];
                     CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                     tcW.setW(BigInteger.valueOf(columnWidth));
                     tcW.setType(STTblWidth.DXA);
