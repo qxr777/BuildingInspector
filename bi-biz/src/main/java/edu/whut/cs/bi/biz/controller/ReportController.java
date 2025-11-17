@@ -691,6 +691,14 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("报告正在生成中，请稍后再试");
             }
 
+            // 检查生成中的报告数量
+            Report queryReport = new Report();
+            queryReport.setStatus(2);
+            List<Report> generatingReports = reportService.selectReportList(queryReport);
+            if (generatingReports.size() >= 8) {
+                return AjaxResult.error("并行生成报告数量达到上限，请稍后重试");
+            }
+
             if (report.getMinioId() != null) {
                 fileMapServiceImpl.deleteFileMapById(report.getMinioId());
             }

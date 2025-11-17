@@ -668,7 +668,15 @@ public class ReadFileServiceImpl implements ReadFileService {
                 return;
             }
 
-            String code = photoName.substring(4, dotIndex);
+            int lastUnderlineIndex = photoName.lastIndexOf("_");
+            // 校验：_ 必须在后缀前，且 _ 后面有有效内容（避免如 "IMG_.JPG" 这种无效格式）
+            if (lastUnderlineIndex == -1 || lastUnderlineIndex >= dotIndex - 1) {
+                unmatchedPhotos.add(photoName); // 无 _ 或 _ 位置非法，不匹配
+                return;
+            }
+
+
+            String code = photoName.substring(lastUnderlineIndex + 1, dotIndex);
             Long diseaseId = imgToDiseaseMap.get(code);
 
             if (diseaseId != null) {
