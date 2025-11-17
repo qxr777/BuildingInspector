@@ -101,7 +101,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             // 处理 特殊字段
             processSpecialProp(building, properties, templateType, task);
             // 处理图片
-            processImageAttachments(document, building.getId());
+            processImageAttachments(document, building.getId(), templateType);
             // 将属性替换占位符
             replacePlaceholdersInTables(document, properties);
             // 如果是单桥模板 ， 需要 顺带 处理 桥梁概况自动 生成的 文本
@@ -334,7 +334,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     /**
      * 处理图片附件
      */
-    private void processImageAttachments(XWPFDocument document, Long buildingId) {
+    private void processImageAttachments(XWPFDocument document, Long buildingId, ReportTemplateTypes templateType) {
         attachmentService.getAttachmentList(buildingId).stream()
                 .map(attachment -> {
                     FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
@@ -346,7 +346,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                 .forEach(fileMap -> {
                     if (fileMap != null) {
                         byte[] file = fileMapService.handleFileDownloadByNewName(fileMap.getNewName());
-                        insertImageIntoTables(document, file, fileMap.getOldName());
+                        insertImageIntoTables(document, file, fileMap.getOldName(), templateType);
                     }
                 });
     }
@@ -354,12 +354,16 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     /**
      * 在表格中插入图片
      */
-    private void insertImageIntoTables(XWPFDocument document, byte[] imageData, String imageName) {
+    private void insertImageIntoTables(XWPFDocument document, byte[] imageData, String imageName, ReportTemplateTypes templateType) {
         for (XWPFTable table : document.getTables()) {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
-                        insertImage(paragraph, imageData, imageName);
+                        if (ReportTemplateTypes.isSigleBridge(templateType.getType())) {
+                            singleBridgeCardInsertImage(paragraph, imageData, imageName);
+                        } else {
+                            insertImage(paragraph, imageData, imageName);
+                        }
                     }
                 }
             }
@@ -474,6 +478,54 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             // 设置字体为宋体小五
             newRun.setFontFamily("宋体");
             newRun.setFontSize(9);
+        }
+    }
+
+    /**
+     * 插入图片的方法
+     */
+    private void singleBridgeCardInsertImage(XWPFParagraph paragraph, byte[] imageData, String name) {
+        try {
+            // 解析图片名称
+            String[] parts = name.split("_");
+            if (parts.length < 2) {
+                return; // 名称格式不正确，直接返回
+            }
+            String type = parts[1]; // front 或 side
+            String placeholder = "";
+
+            // 根据前缀和类型确定占位符
+            if ("newfront".equals(type)) {
+                placeholder = "${桥梁正面照}";
+            } else if ("newside".equals(type)) {
+                placeholder = "${桥梁立面照}";
+            }
+            // 如果没有找到匹配的占位符，直接返回
+            if (placeholder.isEmpty()) {
+                return;
+            }
+            // 如果段落包含对应的图片占位符
+            String text = paragraph.getText();
+            if (text.contains(placeholder)) {
+                // 清除段落中的所有runs
+                for (int i = paragraph.getRuns().size() - 1; i >= 0; i--) {
+                    paragraph.removeRun(i);
+                }
+                // 转换为EMU单位（1厘米 = 360000 EMU）
+                int widthEMU = 4 * 360000; // 4厘米
+                int heightEMU = 3 * 360000; // 3厘米
+
+                // 创建新的run并插入图片
+                XWPFRun run = paragraph.createRun();
+                run.addPicture(
+                        new ByteArrayInputStream(imageData),
+                        XWPFDocument.PICTURE_TYPE_JPEG,
+                        "bridge.jpg",
+                        widthEMU,
+                        heightEMU);
+            }
+        } catch (Exception e) {
+            log.error("插入图片失败", e);
         }
     }
 
