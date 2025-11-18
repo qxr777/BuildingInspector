@@ -275,15 +275,23 @@ public class TaskController extends BaseController {
                 if (biObject != null) {
                     acestorsIdArray = biObject.getAncestors().split(",");
                 }
-                // 第二层 object
+                Building building = buildingMapper.selectBuildingById(disease.getBuildingId());
+                BiObject buildingObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                boolean isFixedBridge = buildingObject.getAncestors().length() >= 2 ? true : false;
+                /**
+                 * 11.18 修改 从上到下 找节点 需要判断是否是组合桥。
+                 */
+                // 第二层 object 部位
                 BiObject partLocationObject = null;
-                // 第三层 object
+                // 第三层 object 部件
                 BiObject nextPartLocationObject = null;
                 if (acestorsIdArray != null && acestorsIdArray.length >= 4) {
+                    int partLocationObjectIndex = isFixedBridge ? 3 : 2;
+                    int nextPartLocationObjectIndex = isFixedBridge ? 4 : 3;
                     // 第二层 object
-                    partLocationObject = biObjectMapper.selectBiObjectById(Long.valueOf(acestorsIdArray[2]));
+                    partLocationObject = biObjectMapper.selectBiObjectById(Long.valueOf(acestorsIdArray[partLocationObjectIndex]));
                     // 第三层 object
-                    nextPartLocationObject = biObjectMapper.selectBiObjectById(Long.valueOf(acestorsIdArray[3]));
+                    nextPartLocationObject = biObjectMapper.selectBiObjectById(Long.valueOf(acestorsIdArray[nextPartLocationObjectIndex]));
                 }
                 // 部位 - 对应 模板 的第二层（第一层是桥名） ，如上部结构
                 String partLocation = "";
