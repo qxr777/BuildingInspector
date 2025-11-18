@@ -129,9 +129,17 @@ public class BiObjectController extends BaseController {
      */
     @RequiresPermissions("biz:object:edit")
     @GetMapping("/edit/{id}")
-    public String edit(@PathVariable("id") Long id, ModelMap mmap) {
+    public String edit(@PathVariable("id") Long id, 
+                      @RequestParam(value = "rootObjectId", required = false) Long rootObjectId,
+                      ModelMap mmap) {
         BiObject biObject = biObjectService.selectBiObjectById(id);
         mmap.put("biObject", biObject);
+        
+        // 直接使用传递过来的rootObjectId
+        if (rootObjectId != null) {
+            mmap.put("rootObjectId", rootObjectId);
+        }
+        
         return prefix + "/edit";
     }
 
