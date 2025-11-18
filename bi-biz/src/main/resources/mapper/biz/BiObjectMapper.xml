@@ -133,7 +133,7 @@
         FROM bi_object o
                  LEFT JOIN bi_template_object tobj ON o.template_object_id = tobj.id
                  JOIN id_tree t ON o.id = t.id
-        ORDER BY o.parent_id, o.order_num
+        ORDER BY o.id
     </select>
 
 
