@@ -331,7 +331,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
         BiObject rootNode = selectBiObjectById(rootId);
         if (rootNode != null) {
             // 查询所有子节点
-            list.addAll(biObjectMapper.selectChildrenByIdRemoveLeaf(rootId));
+            list.addAll(biObjectMapper.selectChildrenByIdRemoveLeafNew(rootId));
         }
         return list;
     }
