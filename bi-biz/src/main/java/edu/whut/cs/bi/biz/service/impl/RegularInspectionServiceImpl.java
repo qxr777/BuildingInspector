@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.enums.ArchBridgeRecordTableComponentList;
 import edu.whut.cs.bi.biz.domain.enums.BeamBridgeRecordTableComponentList;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
@@ -846,7 +847,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
     @Override
     public void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task, Project project, ReportTemplateTypes templateType) {
-        if (null != templateType && templateType.getType().equals(ReportTemplateTypes.BEAM_BRIDGE.getType())) {
+        if (null != templateType && ReportTemplateTypes.isSigleBridge(templateType.getType())) {
             // 拿到 建筑 部件树 的根节点 。
             BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
             if (rootObject == null) {
@@ -890,8 +891,14 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             // 批量查询所有构件的病害类型
             Map<Long, String> componentDiseaseTypesMap = batchGetComponentDiseaseTypes(allLevel3Ids, building.getId(), project.getId(), allObjects);
 
+            List<String> recordComponentNameList = null;
             // 使用 enum 中的 list 查询固定格式 的 表格cell 应该填入的值。
-            List<String> recordComponentNameList = BeamBridgeRecordTableComponentList.getComponentNameList();
+            if (templateType.getType().equals(ReportTemplateTypes.BEAM_BRIDGE.getType())) {
+                recordComponentNameList = BeamBridgeRecordTableComponentList.getComponentNameList();
+            } else if (templateType.getType().equals(ReportTemplateTypes.ARCH_BRIDGE.getType())) {
+                recordComponentNameList = ArchBridgeRecordTableComponentList.getComponentNameList();
+            }
+
             // 表格 固定 名称 对应  biObject id
             Map<String, Long> idMap = new HashMap<>();
             for (String s : recordComponentNameList) {
@@ -929,7 +936,6 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             // 将表格中的占位符 替换。
             replacePlaceholdersInTables(document, properties);
             //！！！ 注意 ， 这里考虑到 基本卡片的 最后 清除了 所有表格中的占位符 ，所以这里没有再次清除。
-
         }
     }
 

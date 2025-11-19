@@ -162,8 +162,8 @@
                         // 状态为3（锁定），显示灰色禁用按钮
                         actions.push('<a class="btn btn-default btn-xs disabled" href="javascript:void(0)"><i class="fa fa-edit"></i>编辑</a> ');
                     } else {
-                        // 状态不是3，显示正常可点击按钮
-                        actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                        // 状态不是3，显示正常可点击按钮，传递rootObjectId参数
+                        actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="editWithRootId(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                     }
                     return actions.join('');
                 }
@@ -307,6 +307,12 @@
             // 非锁定状态，启用一键修正权重按钮
             $('#correctWeightsBtn').removeClass('disabled').attr('onclick', 'correctWeights()');
         }
+    }
+
+    // 自定义编辑方法，传递rootObjectId参数
+    function editWithRootId(id) {
+        var url = prefix + '/edit/' + id + '?rootObjectId=' + rootObjectId;
+        $.modal.open("修改对象", url);
     }
 
     // 锁定/解锁对象

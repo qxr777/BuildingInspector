@@ -756,11 +756,24 @@ public class BiObjectServiceImpl implements IBiObjectService {
         }
         updateCount += biObjectMapper.updateBiObjects(allObjects);
 
-        // 3. 获取所有第3层部件
+        // 3. 获取所有第3层部件（相对于rootObjectId）
         List<BiObject> thirdLevelObjects = allObjects.stream()
                 .filter(obj -> {
                     String[] ancestors = obj.getAncestors().split(",");
-                    return ancestors.length == 3; // 第3层部件的祖先数量为3（0,1,2）
+                    // 找到rootObjectId在ancestors中的位置
+                    int rootIndex = -1;
+                    for (int i = 0; i < ancestors.length; i++) {
+                        if (ancestors[i].equals(String.valueOf(rootObjectId))) {
+                            rootIndex = i;
+                            break;
+                        }
+                    }
+                    // 如果找到了rootObjectId，计算相对层级
+                    // 第3层意味着在rootObjectId之后有1个祖先节点
+                    if (rootIndex >= 0) {
+                        return ancestors.length - rootIndex == 2;
+                    }
+                    return false;
                 })
                 .collect(Collectors.toList());
 
@@ -812,18 +825,42 @@ public class BiObjectServiceImpl implements IBiObjectService {
         }
         log.info("获取到 {} 个非叶子节点", allNodes.size());
 
-        // 2. 筛选出第三层和第四层节点
+        // 2. 筛选出第三层和第四层节点（相对于rootObjectId）
         List<BiObject> thirdLevelNodes = allNodes.stream()
                 .filter(node -> {
                     String[] ancestors = node.getAncestors().split(",");
-                    return ancestors.length == 3; // 第三层节点的祖先数量为3（0,x,x）
+                    // 找到rootObjectId在ancestors中的位置
+                    int rootIndex = -1;
+                    for (int i = 0; i < ancestors.length; i++) {
+                        if (ancestors[i].equals(String.valueOf(rootObjectId))) {
+                            rootIndex = i;
+                            break;
+                        }
+                    }
+                    // 第三层意味着在rootObjectId之后有2个祖先节点
+                    if (rootIndex >= 0) {
+                        return ancestors.length - rootIndex == 3;
+                    }
+                    return false;
                 })
                 .toList();
 
         List<BiObject> fourthLevelNodes = allNodes.stream()
                 .filter(node -> {
                     String[] ancestors = node.getAncestors().split(",");
-                    return ancestors.length == 4; // 第四层节点的祖先数量为4（0,x,x,x）
+                    // 找到rootObjectId在ancestors中的位置
+                    int rootIndex = -1;
+                    for (int i = 0; i < ancestors.length; i++) {
+                        if (ancestors[i].equals(String.valueOf(rootObjectId))) {
+                            rootIndex = i;
+                            break;
+                        }
+                    }
+                    // 第四层意味着在rootObjectId之后有3个祖先节点
+                    if (rootIndex >= 0) {
+                        return ancestors.length - rootIndex == 4;
+                    }
+                    return false;
                 })
                 .toList();
 

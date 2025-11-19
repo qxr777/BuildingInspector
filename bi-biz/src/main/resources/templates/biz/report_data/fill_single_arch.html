@@ -76,13 +76,11 @@
                             <ul class="nav nav-tabs" id="reportTabs">
                                 <li class="active"><a href="#tab_1" data-toggle="tab">4.1.1 桥梁概况</a></li>
                                 <li><a href="#tab_2" data-toggle="tab">4.1.2 外观检测</a></li>
-                                <li><a href="#tab_3" data-toggle="tab">4.1.3 与上次对比</a></li>
-                                <li><a href="#tab_4" data-toggle="tab">4.1.4 碳化深度</a></li>
-                                <li><a href="#tab_5" data-toggle="tab">4.1.5 技术状况评定</a></li>
-                                <li><a href="#tab_6" data-toggle="tab">4.1.6 近年对比</a></li>
-                                <li><a href="#tab_7" data-toggle="tab">4.1.7 病害分析</a></li>
-                                <li><a href="#tab_8" data-toggle="tab">4.1.8 结论与建议</a></li>
-                                <li><a href="#tab_9" data-toggle="tab">4.1.9 附表</a></li>
+                                <li><a href="#tab_5" data-toggle="tab">4.1.3 技术状况评定</a></li>
+                                <li><a href="#tab_6" data-toggle="tab">4.1.4 近年对比</a></li>
+                                <li><a href="#tab_7" data-toggle="tab">4.1.5 病害分析</a></li>
+                                <li><a href="#tab_8" data-toggle="tab">4.1.6 结论与建议</a></li>
+                                <li><a href="#tab_9" data-toggle="tab">4.1.7 附表</a></li>
                             </ul>
                         </div>
 
@@ -104,14 +102,10 @@
                                         </div>
 
                                         <!-- 桥梁概况文字 -->
-                                        <div class="form-group">
-                                            <label class="control-label">桥梁概况描述（可选）:</label>
-                                            <textarea class="form-control"
-                                                      name="dataValues[chapter-4-1-1-overviewOfBridge]"
-                                                      data-original-key="chapter-4-1-1-overviewOfBridge"
-                                                      rows="8"
-                                                      placeholder="可选填写桥梁的基本信息、位置、跨径、结构形式、建设时间等"></textarea>
-                                            <small class="text-muted">此字段为可选填写</small>
+                                        <div class="alert alert-info alert-custom">
+                                            <i class="fa fa-info-circle"></i>
+                                            <strong>桥梁概况文本说明：</strong>
+                                            系统会自动从数据库获取桥梁的基本信息，无需手动填写。
                                         </div>
 
 
@@ -144,77 +138,45 @@
                                 </div>
                             </div>
 
-                            <!-- Tab3: 4.1.3 与上一次检查结果变化情况 -->
-                            <div class="tab-pane" id="tab_3">
-                                <div class="alert alert-warning alert-custom">
-                                    <h4><i class="fa fa-info-circle"></i> 此章节功能可根据需求进一步开发</h4>
-                                    <p><strong>章节名称：</strong>4.1.3 与上一次检查结果变化情况</p>
-                                    <p><strong>当前处理方式：</strong></p>
-                                    <ul>
-                                        <li>Word模板中会保留此章节的标题和表格框架</li>
-                                        <li>生成报告后，请下载Word文档，手工填写表格内容</li>
-                                    </ul>
-                                    <p><strong>表格框架示例：</strong></p>
-                                    <table class="table table-bordered" style="max-width: 600px;">
-                                        <thead>
-                                        <tr class="active">
-                                            <th>检查项目</th>
-                                            <th>上次结果</th>
-                                            <th>本次结果</th>
-                                            <th>变化情况</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        <tr>
-                                            <td colspan="4" class="text-center text-muted">
-                                                （请在下载后的Word文档中填写）
-                                            </td>
-                                        </tr>
-                                        </tbody>
-                                    </table>
-                                    <p class="text-info"><i class="fa fa-lightbulb-o"></i> <strong>未来计划：</strong>系统将自动对比历史检测数据，自动生成变化情况分析。
-                                    </p>
-                                </div>
-                            </div>
+                            <!--                            &lt;!&ndash; Tab3: 4.1.3 与上一次检查结果变化情况 &ndash;&gt;-->
+                            <!--                            <div class="tab-pane" id="tab_3">-->
+                            <!--                                <div class="alert alert-warning alert-custom">-->
+                            <!--                                    <h4><i class="fa fa-info-circle"></i> 此章节功能可根据需求进一步开发</h4>-->
+                            <!--                                    <p><strong>章节名称：</strong>4.1.3 与上一次检查结果变化情况</p>-->
+                            <!--                                    <p><strong>当前处理方式：</strong></p>-->
+                            <!--                                    <ul>-->
+                            <!--                                        <li>Word模板中会保留此章节的标题和表格框架</li>-->
+                            <!--                                        <li>生成报告后，请下载Word文档，手工填写表格内容</li>-->
+                            <!--                                    </ul>-->
+                            <!--                                    <p><strong>表格框架示例：</strong></p>-->
+                            <!--                                    <table class="table table-bordered" style="max-width: 600px;">-->
+                            <!--                                        <thead>-->
+                            <!--                                        <tr class="active">-->
+                            <!--                                            <th>检查项目</th>-->
+                            <!--                                            <th>上次结果</th>-->
+                            <!--                                            <th>本次结果</th>-->
+                            <!--                                            <th>变化情况</th>-->
+                            <!--                                        </tr>-->
+                            <!--                                        </thead>-->
+                            <!--                                        <tbody>-->
+                            <!--                                        <tr>-->
+                            <!--                                            <td colspan="4" class="text-center text-muted">-->
+                            <!--                                                （请在下载后的Word文档中填写）-->
+                            <!--                                            </td>-->
+                            <!--                                        </tr>-->
+                            <!--                                        </tbody>-->
+                            <!--                                    </table>-->
+                            <!--                                    <p class="text-info"><i class="fa fa-lightbulb-o"></i> <strong>未来计划：</strong>系统将自动对比历史检测数据，自动生成变化情况分析。-->
+                            <!--                                    </p>-->
+                            <!--                                </div>-->
+                            <!--                            </div>-->
 
-                            <!-- Tab4: 4.1.4 碳化深度及锈蚀电位状况 -->
-                            <div class="tab-pane" id="tab_4">
-                                <div class="alert alert-warning alert-custom">
-                                    <h4><i class="fa fa-info-circle"></i> 此章节功能可根据需求进一步开发</h4>
-                                    <p><strong>章节名称：</strong>4.1.4 碳化深度及锈蚀电位状况</p>
-                                    <p><strong>当前处理方式：</strong></p>
-                                    <ul>
-                                        <li>Word模板中会保留此章节的标题和表格框架</li>
-                                        <li>生成报告后，请下载Word文档，手工填写检测数据</li>
-                                    </ul>
-                                    <p><strong>表格框架示例：</strong></p>
-                                    <table class="table table-bordered" style="max-width: 600px;">
-                                        <thead>
-                                        <tr class="active">
-                                            <th>检测位置</th>
-                                            <th>碳化深度(mm)</th>
-                                            <th>锈蚀电位(mV)</th>
-                                            <th>评价</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        <tr>
-                                            <td colspan="4" class="text-center text-muted">
-                                                （请在下载后的Word文档中填写）
-                                            </td>
-                                        </tr>
-                                        </tbody>
-                                    </table>
-                                    <p class="text-info"><i class="fa fa-lightbulb-o"></i> <strong>未来计划：</strong>对接检测设备数据，自动生成碳化深度和锈蚀电位检测结果。
-                                    </p>
-                                </div>
-                            </div>
 
-                            <!-- Tab5: 4.1.5 技术状况评定 -->
+                            <!-- Tab5: 4.1.3 技术状况评定 -->
                             <div class="tab-pane" id="tab_5">
                                 <div class="alert alert-success alert-custom">
                                     <h4><i class="fa fa-check-circle"></i> 此章节由系统自动生成</h4>
-                                    <p><strong>章节名称：</strong>4.1.5 技术状况评定</p>
+                                    <p><strong>章节名称：</strong>4.1.3 技术状况评定</p>
                                     <p><strong>生成内容：</strong></p>
                                     <ul>
                                         <li>依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）</li>
@@ -226,11 +188,11 @@
                                 </div>
                             </div>
 
-                            <!-- Tab6: 4.1.6 近年评定结果对比 -->
+                            <!-- Tab6: 4.1.4 近年评定结果对比 -->
                             <div class="tab-pane" id="tab_6">
                                 <div class="alert alert-success alert-custom">
                                     <h4><i class="fa fa-check-circle"></i> 此章节由系统自动生成</h4>
-                                    <p><strong>章节名称：</strong>4.1.6 近年评定结果对比</p>
+                                    <p><strong>章节名称：</strong>4.1.4 近年评定结果对比</p>
                                     <p><strong>生成内容：</strong></p>
                                     <ul>
                                         <li>自动查询历史评定数据</li>
@@ -242,11 +204,11 @@
                                 </div>
                             </div>
 
-                            <!-- Tab7: 4.1.7 重点关注病害及主要病害成因分析 -->
+                            <!-- Tab7: 4.1.5 重点关注病害及主要病害成因分析 -->
                             <div class="tab-pane" id="tab_7">
                                 <div class="panel panel-default">
                                     <div class="panel-heading">
-                                        <h4 class="panel-title">4.1.7 重点关注病害及主要病害成因分析</h4>
+                                        <h4 class="panel-title">4.1.5 重点关注病害及主要病害成因分析</h4>
                                     </div>
                                     <div class="panel-body">
                                         <div class="alert alert-info">
@@ -293,17 +255,17 @@
                                 </div>
                             </div>
 
-                            <!-- Tab8: 4.1.8 结论与建议 -->
+                            <!-- Tab8: 4.1.6 结论与建议 -->
                             <div class="tab-pane" id="tab_8">
                                 <div class="panel-group" id="accordion_conclusion">
 
-                                    <!-- 4.1.8.1 检测结论 - 自动生成 -->
+                                    <!-- 4.1.6.1 检测结论 - 自动生成 -->
                                     <div class="panel panel-default">
                                         <div class="panel-heading">
                                             <h4 class="panel-title">
                                                 <a data-toggle="collapse" data-parent="#accordion_conclusion"
                                                    href="#collapse_8_1">
-                                                    <i class="fa fa-chevron-down"></i> 4.1.8.1 检测结论（自动生成）
+                                                    <i class="fa fa-chevron-down"></i> 4.1.6.1 检测结论（自动生成）
                                                 </a>
                                             </h4>
                                         </div>
@@ -317,13 +279,13 @@
                                         </div>
                                     </div>
 
-                                    <!-- 4.1.8.2 主要病害 - 下载后填写 -->
+                                    <!-- 4.1.6.2 主要病害 - 下载后填写 -->
                                     <div class="panel panel-default">
                                         <div class="panel-heading">
                                             <h4 class="panel-title">
                                                 <a data-toggle="collapse" data-parent="#accordion_conclusion"
                                                    href="#collapse_8_2">
-                                                    <i class="fa fa-chevron-right"></i> 4.1.8.2 主要病害（下载后填写）
+                                                    <i class="fa fa-chevron-right"></i> 4.1.6.2 主要病害
                                                 </a>
                                             </h4>
                                         </div>
@@ -331,32 +293,13 @@
                                             <div class="panel-body">
                                                 <div class="alert alert-warning">
                                                     <p><i class="fa fa-info-circle"></i>
-                                                        此部分会在Word中保留框架，请根据4.1.7的病害分析内容手工填写主要病害摘要。
+                                                        主要病害会使用ai大模型统计主要病害，仍需要核对内容。
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <!-- 4.1.8.3 碳化深度与锈蚀电位状况 - 下载后填写 -->
-                                    <div class="panel panel-default">
-                                        <div class="panel-heading">
-                                            <h4 class="panel-title">
-                                                <a data-toggle="collapse" data-parent="#accordion_conclusion"
-                                                   href="#collapse_8_3">
-                                                    <i class="fa fa-chevron-right"></i> 4.1.8.3 碳化深度与锈蚀电位状况（下载后填写）
-                                                </a>
-                                            </h4>
-                                        </div>
-                                        <div id="collapse_8_3" class="panel-collapse collapse">
-                                            <div class="panel-body">
-                                                <div class="alert alert-warning">
-                                                    <p><i class="fa fa-info-circle"></i>
-                                                        此部分会在Word中保留框架，请根据4.1.4的检测结果手工填写结论。</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                     <!-- 4.1.8.4 技术建议 - 用户填写 -->
                                     <div class="panel panel-default">
@@ -364,7 +307,7 @@
                                             <h4 class="panel-title">
                                                 <a data-toggle="collapse" data-parent="#accordion_conclusion"
                                                    href="#collapse_8_4">
-                                                    <i class="fa fa-chevron-right"></i> 4.1.8.4 技术建议（必填）
+                                                    <i class="fa fa-chevron-right"></i> 4.1.6.3 技术建议（必填）
                                                 </a>
                                             </h4>
                                         </div>
@@ -373,8 +316,8 @@
                                                 <div class="form-group">
                                                     <label class="control-label">技术建议:</label>
                                                     <textarea class="form-control"
-                                                              name="dataValues[chapter-4-1-8-4-technicalAdvice]"
-                                                              data-original-key="chapter-4-1-8-4-technicalAdvice"
+                                                              name="dataValues[chapter-4-1-7-4-technicalAdvice]"
+                                                              data-original-key="chapter-4-1-7-4-technicalAdvice"
                                                               rows="10"
                                                               placeholder="请填写针对本次检测的技术建议，包括维修养护建议、注意事项等"></textarea>
                                                 </div>
@@ -394,19 +337,16 @@
                                 </div>
                             </div>
 
-                            <!-- Tab9: 4.1.9 附表 -->
+                            <!-- Tab9: 4.1.7 附表 -->
                             <div class="tab-pane" id="tab_9">
                                 <div class="alert alert-warning alert-custom">
-                                    <h4><i class="fa fa-info-circle"></i> 此章节功能可根据需求进一步开发</h4>
-                                    <p><strong>章节名称：</strong>4.1.9 附表</p>
+                                    <p><strong>章节名称：</strong>4.1.7 附表</p>
                                     <p><strong>内容：</strong>桥梁基本状况卡片</p>
                                     <p><strong>当前处理方式：</strong></p>
                                     <ul>
-                                        <li>Word模板中会保留此章节的标题</li>
-                                        <li>生成报告后，请下载Word文档，手工填写桥梁基本状况卡片内容</li>
+                                        <li>Word模板中会根据后端导入的EXCEL桥梁基本卡片数据，填入对应的表格</li>
+                                        <li>生成报告后，请核对并完善桥梁基本状况卡片内容</li>
                                     </ul>
-                                    <p class="text-info"><i class="fa fa-lightbulb-o"></i> <strong>未来计划：</strong>系统将自动生成桥梁基本状况卡片。
-                                    </p>
                                 </div>
                             </div>
 
@@ -580,7 +520,7 @@
         }
 
         // 特殊处理病害选择器显示
-        var diseaseValue = $('input[data-original-key="${chapter-4-1-7-diseases}"]').val();
+        var diseaseValue = $('input[data-original-key="${chapter-4-1-6-diseases}"]').val();
         console.log('加载病害数据 - diseaseValue:', diseaseValue);
         console.log('加载病害数据 - diseaseValue type:', typeof diseaseValue);
         if (diseaseValue) {
@@ -624,7 +564,7 @@
             var value = $(this).val();
 
             // 检查是否是病害选择相关的字段
-            if (key && key.includes('chapter-4-1-7-diseases')) {
+            if (key && key.includes('chapter-4-1-6-diseases')) {
                 console.log('处理病害选择字段:', key, '值:', value);
 
                 // 第一次添加病害数据时，先加一个空值，让Spring认为是数组
