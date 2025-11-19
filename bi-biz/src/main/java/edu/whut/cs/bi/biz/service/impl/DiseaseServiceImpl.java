@@ -195,6 +195,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 ds.setComponent(component);
             }
 
+            BiObject biObject = biObjectMapper.selectBiObjectById(ds.getBiObjectId());
+            ds.setBindBiObjectName(biObject.getName());
+
             DiseaseDetail diseaseDetail = new DiseaseDetail();
             diseaseDetail.setDiseaseId(ds.getId());
             List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);

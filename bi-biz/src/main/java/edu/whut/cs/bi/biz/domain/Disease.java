@@ -84,6 +84,9 @@ public class Disease extends BaseEntity {
     /** 构件名称 （支持自定义） */
     private String biObjectName;
 
+    /** 绑定的部件名 */
+    private String bindBiObjectName;
+
     /** 关联项目 */
     private Project project;
     private Long projectId;
