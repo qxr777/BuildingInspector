@@ -540,9 +540,12 @@
         $('#position').on('change', function () {
             var selectedText = $(this).find('option:selected').text().trim();
             if (selectedText === "其他" || selectedText === "其它") {
-                $('#customPosition').show().attr('required', true).val(customPosition);
-            } else {
-                $('#customPosition').hide().removeAttr('required').val('');
+                // 如果自定义输入已有值，优先保留；否则尝试使用病害已有的 position 值或全局 customPosition
+                var existingVal = $('#customPosition').val();
+                if (!existingVal) {
+                    existingVal = (disease && disease.position) ? disease.position : (typeof customPosition !== 'undefined' ? customPosition : '');
+                }
+                $('#customPosition').show().attr('required', true).val(existingVal);
             }
         });
 

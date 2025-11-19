@@ -163,6 +163,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setProjectId(task.getProjectId());
                         disease.setBiObjectName(component_3);
                         disease.setTaskId(taskId);
+                        disease.setParticipateAssess("1");
                         disease.setBiObjectId(biObject4.getId());
                         disease.setNature("非结构病害");
                         disease.setDevelopmentTrend("新增");
@@ -336,7 +337,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                             diseaseNumber = diseaseNumber.substring(0, diseaseNumber.length() - 1); // 数字部分
                         } else {
                             // 纯数字的情况：单位为空
-                            units = "";
+                            units = "处";
                         }
 
                         String length = getCellValueAsString(row.getCell(7));
@@ -372,6 +373,7 @@ public class ReadFileServiceImpl implements ReadFileService {
 
                         Disease disease = new Disease();
                         disease.setPosition(position);
+                        disease.setParticipateAssess("1");
                         disease.setDescription(diseaseDescription);
                         if (scale == null || scale.equals("/") || scale.equals("")) {
                             disease.setLevel(1);
