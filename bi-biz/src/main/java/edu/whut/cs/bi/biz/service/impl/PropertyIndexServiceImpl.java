@@ -168,7 +168,9 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
                     Building bd = buildingService.selectBuildingById(buildingId);
                     Long oldRootId = bd.getRootPropertyId();
                     if (oldRootId != null) {
-                        propertyService.deletePropertyById(oldRootId);
+                        Property property = propertyService.selectPropertyById(oldRootId);
+                        if (property != null)
+                            propertyService.deletePropertyById(oldRootId);
                     }
 
                     // 构造根节点
