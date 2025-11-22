@@ -73,9 +73,13 @@
                    th:if="${building}">
                     <i class="fa fa-remove"></i> 删除
                 </a>
+                <a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyWord()"
+                   shiro:hasPermission="biz:property:import">
+                    <i class="fa fa-upload"></i>导入word桥梁卡
+                </a>
                 <a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="importPropertyExcel()"
                    shiro:hasPermission="biz:property:import">
-                    <i class="fa fa-upload"></i>导入桥梁卡
+                    <i class="fa fa-upload"></i>导入excel桥梁卡
                 </a>
                 <a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="downLoadWord()"
                    shiro:hasPermission="biz:property:export"

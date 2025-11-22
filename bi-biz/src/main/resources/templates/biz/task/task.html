@@ -61,6 +61,7 @@
                             <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
                                     class="fa fa-refresh"></i>&nbsp;重置</a>
                         </li>
+
                     </ul>
                 </div>
             </form>
@@ -158,6 +159,10 @@
                     formatter: function(value, row, index) {
                         return $.table.selectDictLabel(taskTypeDatas, value);
                     }
+                },
+                {
+                    field: 'evaluationResult',
+                    title: '评定等级'
                 },
                 {
                     field: 'updateBy',
