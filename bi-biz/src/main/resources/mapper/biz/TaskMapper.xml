@@ -24,6 +24,7 @@
             <result property="rootPropertyId" column="root_property_id"/>
             <result property="area" column="building_area"/>
             <result property="line" column="building_line"/>
+            <result property="parentName" column="building_parent_name"/>
         </association>
 
         <!-- 关联项目对象 -->
@@ -56,6 +57,7 @@
             b.root_property_id as root_property_id,
             b.area as building_area,
             b.line as building_line,
+            pb.name as building_parent_name,
             <!-- 项目表字段 -->
             p.id as project_id,
             p.name as project_name,
@@ -66,6 +68,9 @@
         from bi_task t
         left join bi_building b on t.building_id = b.id
         left join bi_project p on t.project_id = p.id
+        left join bi_object o on b.root_object_id = o.id
+        left join bi_object po on o.parent_id = po.id
+        left join bi_building pb on po.id = pb.root_object_id
     </sql>
 
 

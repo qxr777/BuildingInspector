@@ -5434,29 +5434,34 @@ public class ReportServiceImpl implements IReportService {
                 .filter(obj -> biObject.getId().equals(obj.getParentId()))
                 .collect(Collectors.toList());
 
-        // 为每个结构节点生成内容
+        // 先删除占位符段落（在插入内容之前删除，避免索引错位）
+        // 找到占位符段落在body中的实际位置
+        int placeholderIndex = -1;
+        for (int i = 0; i < document.getBodyElements().size(); i++) {
+            if (document.getBodyElements().get(i) instanceof XWPFParagraph) {
+                XWPFParagraph p = (XWPFParagraph) document.getBodyElements().get(i);
+                if (p == placeholderParagraph) {
+                    placeholderIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // 删除占位符段落
+        if (placeholderIndex >= 0) {
+            document.removeBodyElement(placeholderIndex);
+            log.info("已删除占位符段落，索引: {}", placeholderIndex);
+        }
+
+        // 为每个结构节点生成内容（在删除占位符后，cursor仍然指向正确的位置）
         for (BiObject structureNode : structureNodes) {
-            XmlCursor structureCursor = cursor.newCursor();
             if ("附属设施".equals(structureNode.getName())) {
                 continue;
             }
 
             // 生成结构内容，从第2层开始（跳过桥名层级）
             writeBiObjectTreeToWordForSingleBridge(document, structureNode, allObjects, bridgeDiseaseMap, 2
-                    , imageCounter, tableCounter, structureCursor, 2);
-        }
-
-        // 删除占位符段落 - 改进的删除逻辑，确保完全删除
-        // 先删除所有runs
-        while (placeholderParagraph.getRuns().size() > 0) {
-            placeholderParagraph.removeRun(0);
-        }
-        // 然后删除整个段落
-        for (int i = 0; i < document.getParagraphs().size(); i++) {
-            if (document.getParagraphs().get(i) == placeholderParagraph) {
-                document.removeBodyElement(i);
-                break;
-            }
+                    , imageCounter, tableCounter, cursor, 2);
         }
     }
 
