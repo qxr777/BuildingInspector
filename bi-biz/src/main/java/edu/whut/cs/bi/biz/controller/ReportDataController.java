@@ -147,15 +147,15 @@ public class ReportDataController extends BaseController {
             logger.info("dataKeys数量: {}", dataKeys != null ? dataKeys.length : 0);
             logger.info("dataValues数量: {}", dataValues != null ? dataValues.length : 0);
             logger.info("dataTypes数量: {}", dataTypes != null ? dataTypes.length : 0);
-            
+
             if (dataKeys != null) {
                 for (int i = 0; i < dataKeys.length; i++) {
                     String key = dataKeys[i];
                     String value = dataValues != null && i < dataValues.length ? dataValues[i] : "null";
                     Integer type = dataTypes != null && i < dataTypes.length ? dataTypes[i] : null;
-                    
+
                     if (key != null && key.contains("diseases")) {
-                        logger.info("病害数据 - 索引: {}, key: {}, value长度: {}, type: {}", 
+                        logger.info("病害数据 - 索引: {}, key: {}, value长度: {}, type: {}",
                                 i, key, value != null ? value.length() : 0, type);
                         logger.info("病害数据内容: {}", value);
                     }
@@ -196,7 +196,7 @@ public class ReportDataController extends BaseController {
             for (int i = 0; i < dataKeys.length; i++) {
                 String key = dataKeys[i];
                 Integer type = dataTypes[i];
-                
+
                 // 跳过空的key（前端为了防止Spring分割而添加的占位符）
                 if (key == null || key.trim().isEmpty()) {
                     continue;
@@ -319,6 +319,17 @@ public class ReportDataController extends BaseController {
         Report report = reportService.selectReportById(id);
         mmap.put("report", report);
         return "biz/report_data/fill_single_arch";
+    }
+
+    /**
+     * 跳转到单桥梁桥报告数据填充页面
+     */
+    @RequiresPermissions("biz:report:edit")
+    @GetMapping("/fill_single_beam_level1/{id}")
+    public String fillSingleBeamLevel1(@PathVariable("id") Long id, ModelMap mmap) {
+        Report report = reportService.selectReportById(id);
+        mmap.put("report", report);
+        return "biz/report_data/fill_single_beam_level1";
     }
 
 } 

@@ -140,6 +140,9 @@ public class ReportServiceImpl implements IReportService {
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
 
+    @Resource
+    private Report1LevelSingleBridgeService report1LevelSingleBridgeService;
+
     /**
      * 查询检测报告
      *
@@ -297,10 +300,18 @@ public class ReportServiceImpl implements IReportService {
         if (report != null && report.getReportTemplateId() != null) {
             try {
                 ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
-                if (template != null && template.getName() != null && template.getName().contains("单桥")) {
-                    log.info("检测到单桥模板：{}，使用单桥生成逻辑", template.getName());
+                ReportTemplateTypes templateType = null; // 默认
+                if (template != null) {
+                    templateType = ReportTemplateTypes.getEnumByDesc(template.getName());
+                }
+                if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
+                    log.info("检测到二级单桥模板：{}，使用二级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
-                    return generateSingleBridgeReportDocument(report, task, ReportTemplateTypes.getEnumByDesc(template.getName()));
+                    return generateSingleBridgeReportDocument(report, task, templateType);
+                } else if (template != null && templateType != null && ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
+                    log.info("检测到一级单桥模板：{}，使用一级单桥生成逻辑", template.getName());
+                    // 添加 桥梁模板类型 参数。
+                    return report1LevelSingleBridgeService.generateReportDocument(report, task, templateType);
                 }
             } catch (Exception e) {
                 log.error("获取模板信息失败，使用默认生成逻辑", e);
@@ -1622,13 +1633,13 @@ public class ReportServiceImpl implements IReportService {
                             .replace("\r", "")
                             .replaceAll("\\d+）", "");
 
-                    if(componentDiseaseSummary.startsWith(component.getName() + "：")) {
+                    if (componentDiseaseSummary.startsWith(component.getName() + "：")) {
                         componentDiseaseSummary = componentDiseaseSummary.substring(component.getName().length() + 1);
                     }
 
                     runItem.setText(componentIndex + ") " + component.getName() + "：" + componentDiseaseSummary);
 
-                    if(componentDiseaseSummary.contains("cm")) {
+                    if (componentDiseaseSummary.contains("cm")) {
                         runItem.setColor("FF0000");
                     }
 
