@@ -7,7 +7,6 @@ import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.ConditionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
-import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +16,6 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.ParseException;
@@ -847,7 +845,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
     @Override
     public void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task, Project project, ReportTemplateTypes templateType) {
-        if (null != templateType && ReportTemplateTypes.isSigleBridge(templateType.getType())) {
+        if (null != templateType && (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType()) || ReportTemplateTypes.is1LevelSigleBridge(templateType.getType()))) {
             // 拿到 建筑 部件树 的根节点 。
             BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
             if (rootObject == null) {
@@ -893,9 +891,9 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
             List<String> recordComponentNameList = null;
             // 使用 enum 中的 list 查询固定格式 的 表格cell 应该填入的值。
-            if (templateType.getType().equals(ReportTemplateTypes.BEAM_BRIDGE.getType())) {
+            if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE.getType()) || templateType.getType().equals(ReportTemplateTypes.LEVEL_1_BEAM_BRIDGE.getType())) {
                 recordComponentNameList = BeamBridgeRecordTableComponentList.getComponentNameList();
-            } else if (templateType.getType().equals(ReportTemplateTypes.ARCH_BRIDGE.getType())) {
+            } else if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_ARCH_BRIDGE.getType())) {
                 recordComponentNameList = ArchBridgeRecordTableComponentList.getComponentNameList();
             }
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
 <head>
-    <th:block th:include="include :: header('检测报告列表')" />
+    <th:block th:include="include :: header('检测报告列表')"/>
 </head>
 <body class="gray-bg">
 <div class="container-div">
@@ -25,8 +25,10 @@
                             </select>
                         </li>
                         <li>
-                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
-                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
+                                    class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
+                                    class="fa fa-refresh"></i>&nbsp;重置</a>
                         </li>
                     </ul>
                 </div>
@@ -40,7 +42,8 @@
             <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="biz:report:edit">
                 <i class="fa fa-edit"></i> 修改
             </a>
-            <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:report:remove">
+            <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()"
+               shiro:hasPermission="biz:report:remove">
                 <i class="fa fa-remove"></i> 删除
             </a>
             <a class="btn btn-info single disabled" onclick="cloneReport()" shiro:hasPermission="biz:report:add">
@@ -55,7 +58,7 @@
         </div>
     </div>
 </div>
-<th:block th:include="include :: footer" />
+<th:block th:include="include :: footer"/>
 <script th:inline="javascript">
     var editFlag = [[${@permission.hasPermi('biz:report:edit')}]];
     var removeFlag = [[${@permission.hasPermi('biz:report:remove')}]];
@@ -64,7 +67,7 @@
     var downloadFlag = [[${@permission.hasPermi('biz:report:edit')}]];
     var prefix = ctx + "biz/report";
 
-    $(function() {
+    $(function () {
         var options = {
             url: prefix + "/list",
             createUrl: prefix + "/add",
@@ -121,34 +124,39 @@
             url: prefix + '/getTemplateInfo/' + id,
             type: 'GET',
             dataType: 'json',
-            success: function(result) {
+            success: function (result) {
                 var url = prefix + '/fill/' + id;
                 var tabTitle = "报告模板填充";
-                
+
                 if (result.code === 0 && result.data && result.data.templateName) {
                     var templateName = result.data.templateName;
-                    
+
                     // 单桥模板判断（梁桥）
-                    if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("梁桥") !== -1) {
+                    if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("梁桥") !== -1 && templateName.indexOf("二级") !== -1) {
                         url = ctx + "biz/report_data/fill_single_beam/" + id;
-                        tabTitle = "单桥梁桥报告填充";
+                        tabTitle = "二级单桥梁桥报告填充";
                     }
                     // 单桥模板判断（拱桥）
-                    else if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("拱桥") !== -1) {
+                    else if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("拱桥") !== -1 && templateName.indexOf("二级") !== -1) {
                         url = ctx + "biz/report_data/fill_single_arch/" + id;
-                        tabTitle = "单桥拱桥报告填充";
+                        tabTitle = "二级单桥拱桥报告填充";
+                    }
+                    // 单桥模板判断（一级梁桥）
+                    else if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("梁桥") !== -1 && templateName.indexOf("一级") !== -1) {
+                        url = ctx + "biz/report_data/fill_single_beam_level1/" + id;
+                        tabTitle = "一级单桥梁桥报告填充";
                     }
                 }
-                
+
                 $.modal.openTab(tabTitle, url);
             },
-            error: function() {
+            error: function () {
                 // 如果获取模板信息失败，使用默认的组合桥模板
                 $.modal.openTab("报告模板填充", prefix + '/fill/' + id);
             }
         });
     }
-    
+
     /* 兼容旧版本的fill函数 */
     function fill(id) {
         fillReport(id, '');
@@ -194,8 +202,8 @@
 
     // 生成报告
     function generateReport(id) {
-        $.modal.confirm("确认要生成该报告吗？", function() {
-            $.operate.post(prefix + "/generate/" + id, function(result) {
+        $.modal.confirm("确认要生成该报告吗？", function () {
+            $.operate.post(prefix + "/generate/" + id, function (result) {
                 if (result.code == 0) {
                     $.modal.msgSuccess(result.msg);
                     $.table.refresh();
@@ -210,6 +218,7 @@
     function downloadReport(id) {
         window.location.href = prefix + "/download/" + id;
     }
+
     // 克隆报告
     function cloneReport() {
         var rows = $.table.selectColumns("id");
@@ -221,12 +230,12 @@
             $.modal.alertWarning("只能选择一条记录进行克隆");
             return;
         }
-        $.modal.confirm("确认要克隆选中的报告吗？", function() {
+        $.modal.confirm("确认要克隆选中的报告吗？", function () {
             $.ajax({
                 url: prefix + "/clone/" + rows[0],
                 type: "post",
                 dataType: "json",
-                success: function(result) {
+                success: function (result) {
                     if (result.code == web_status.SUCCESS) {
                         $.modal.msgSuccess("克隆成功");
                         $.table.refresh();
@@ -234,7 +243,7 @@
                         $.modal.alertError(result.msg);
                     }
                 },
-                error: function(xhr, status, error) {
+                error: function (xhr, status, error) {
                     $.modal.alertError("克隆失败：" + error);
                 }
             });
