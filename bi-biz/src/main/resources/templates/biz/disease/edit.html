@@ -29,15 +29,10 @@
                         <input
                                 class="form-control"
                                 type="text"
-                                name="biObjectName"
-                                th:value="*{biObject.name}"
+                                name="bindBiObjectName"
+                                th:value="*{bindBiObjectName}"
                                 readonly
                                 required
-                        />
-                        <input
-                                type="hidden"
-                                name="biObjectId"
-                                th:value="${biObject.id}"
                         />
                     </div>
                 </div>

@@ -21,6 +21,7 @@ import edu.whut.cs.bi.biz.domain.temp.DiseaseReport;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
@@ -147,7 +148,8 @@ public class DiseaseServiceImpl implements IDiseaseService {
         Component component = componentService.selectComponentById(componentId);
         disease.setComponent(component);
         disease.setBiObject(biObject);
-
+        BiObject biObjectParent = biObjectMapper.selectBiObjectById(biObject.getParentId());
+        disease.setBindBiObjectName(biObjectParent.getName() + "——" + biObject.getName());
         disease.setBiObjectName(component.getName().split("#")[1]);
         DiseaseDetail diseaseDetail = new DiseaseDetail();
         diseaseDetail.setDiseaseId(id);
