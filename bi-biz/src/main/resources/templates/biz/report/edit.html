@@ -23,21 +23,20 @@
             </div>
         </div>
         <div class="form-group">
-            <label class="col-sm-3 control-label is-required">任务：</label>
-            <div class="col-sm-8">
-                <select id="taskIds" class="form-control select2-hidden-accessible" required>
-                    <option value="">请选择任务</option>
-                </select>
-                <input type="hidden" name="taskIds" id="taskIdsInput" th:value="${report.taskIds}">
-            </div>
-        </div>
-        <div class="form-group">
             <label class="col-sm-3 control-label is-required">报告模板：</label>
             <div class="col-sm-8">
-                <select name="reportTemplateId" class="form-control" required>
+                <select id="reportTemplateId" name="reportTemplateId" class="form-control" required disabled>
                     <option value="">请选择报告模板</option>
                     <option th:each="template : ${templates}" th:text="${template.name}" th:value="${template.id}" th:selected="${template.id == report.reportTemplateId}"></option>
                 </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-3 control-label is-required">任务：</label>
+            <div class="col-sm-8">
+                <select id="taskIds" class="form-control select2-hidden-accessible" required>
+                </select>
+                <input type="hidden" name="taskIds" id="taskIdsInput" th:value="${report.taskIds}">
             </div>
         </div>
         <div class="form-group">
@@ -72,6 +71,7 @@
     var taskIds = [[${report.taskIds}]];
     var reviewerId = [[${report.reviewerId}]];
     var approverId = [[${report.approverId}]];
+    var reportTemplateId = [[${report.reportTemplateId}]];
 
     $(function() {
         // 初始化Select2控件
@@ -92,19 +92,29 @@
                 loadUsers(projectId);
             } else {
                 // 清空任务列表和用户列表
-                $("#taskIds").html('<option value="">请先选择项目</option>');
+                $("#taskIds").html('');
                 $("#taskIdsInput").val(""); // 清空隐藏字段
                 $("#reviewerId").html('<option value="">请先选择项目</option>');
                 $("#approverId").html('<option value="">请先选择项目</option>');
             }
         });
 
+        // 报告模板初始化：根据当前模板名称设置任务选择框的单选/多选状态
+        var currentTemplateName = $("#reportTemplateId option:selected").text();
+        if (currentTemplateName && currentTemplateName.indexOf("单桥") === -1) {
+            $("#taskIds").attr("multiple", true);
+        }
+
         // 任务选择事件
         $("#taskIds").on("change", function() {
-            var selectedTask = $(this).val();
-            if (selectedTask) {
-                // 将选中的任务ID设置到隐藏字段
-                $("#taskIdsInput").val(selectedTask);
+            var selectedTasks = $(this).val();
+            if (selectedTasks) {
+                // 如果是多选，selectedTasks是数组，用逗号拼接；单选则是字符串
+                if (Array.isArray(selectedTasks)) {
+                    $("#taskIdsInput").val(selectedTasks.join(","));
+                } else {
+                    $("#taskIdsInput").val(selectedTasks);
+                }
             } else {
                 $("#taskIdsInput").val("");
             }
@@ -144,23 +154,30 @@
             dataType: "json",
             success: function(result) {
                 if (result && result.length > 0) {
-                    var html = '<option value="">请选择任务</option>';
+                    var html = '';
                     var taskIdsArray = [];
 
-                    // 将taskIds字符串转换为数组，只取第一个值
+                    // 将taskIds字符串转换为数组
                     if (taskIds) {
-                        taskIdsArray = taskIds.split(",");
+                        taskIdsArray = taskIds.toString().split(",");
                     }
 
                     $.each(result, function(i, task) {
-                        var buildingName = task.building ? task.building.name : '未知桥梁';
+                        var buildingName = task.building ? task.building.line + " - " + task.building.name : '未知桥梁';
+                        // 如果有父桥名称，则显示父桥名称+桥梁名称
+                        if (task.building && task.building.parentName) {
+                            buildingName = task.building.parentName + " - " + buildingName;
+                        }
                         var selected = taskIdsArray.includes(task.id.toString()) ? 'selected' : '';
                         html += '<option value="' + task.id + '" ' + selected + '>' + buildingName + '</option>';
                     });
                     $("#taskIds").html(html);
 
-                    // 初始化时触发一次change事件，确保隐藏字段值正确
-                    $("#taskIds").trigger("change");
+                    // 重新初始化select2以应用multiple属性
+                    $("#taskIds").select2("destroy").select2({ width: "100%" });
+                    
+                    // 回显选中的任务
+                    $("#taskIds").val(taskIdsArray).trigger("change");
                 } else {
                     $("#taskIds").html('<option value="">该项目下暂无任务</option>');
                 }

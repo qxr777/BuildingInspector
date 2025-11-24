@@ -44,8 +44,11 @@ public class Disease extends BaseEntity {
     /** 单位 */
     private String units;
 
-    /** 病害类型 */
+    /** 缺损类型 */
     private String type;
+
+    /** 病害类型 */
+    private String bindType;
 
     /** 病害性质（结构病害 / 非结构病害） */
     private String nature;
@@ -83,6 +86,9 @@ public class Disease extends BaseEntity {
 
     /** 构件名称 （支持自定义） */
     private String biObjectName;
+
+    /** 绑定的部件名 */
+    private String bindBiObjectName;
 
     /** 关联项目 */
     private Project project;

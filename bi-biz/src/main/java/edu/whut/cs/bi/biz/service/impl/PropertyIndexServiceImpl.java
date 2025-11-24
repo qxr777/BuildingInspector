@@ -168,7 +168,9 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
                     Building bd = buildingService.selectBuildingById(buildingId);
                     Long oldRootId = bd.getRootPropertyId();
                     if (oldRootId != null) {
-                        propertyService.deletePropertyById(oldRootId);
+                        Property property = propertyService.selectPropertyById(oldRootId);
+                        if (property != null)
+                            propertyService.deletePropertyById(oldRootId);
                     }
 
                     // 构造根节点
@@ -448,7 +450,9 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
             // 4. 删除原有属性树（与原逻辑一致）
             Long oldRootId = bd.getRootPropertyId();
             if (oldRootId != null && oldRootId != 0) {
-                propertyService.deletePropertyById(oldRootId);
+                Property property = propertyService.selectPropertyById(oldRootId);
+                if (property != null)
+                    propertyService.deletePropertyById(oldRootId);
             }
 
             // 5. 构造根节点

@@ -4,6 +4,8 @@ import edu.whut.cs.bi.biz.domain.Task;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 
+import java.util.Map;
+
 /**
  * @Author:wanzheng
  * @Date:2025/9/16 22:13
@@ -16,8 +18,8 @@ public interface TestConclusionService {
      *
      * @param document        Word文档
      * @param targetParagraph 目标段落（占位符段落）
-     * @param task           任务信息
-     * @param bridgeName     桥梁名称
+     * @param task            任务信息
+     * @param bridgeName      桥梁名称
      */
     void handleTestConclusion(XWPFDocument document, XWPFParagraph targetParagraph,
                               Task task, String bridgeName);
@@ -27,8 +29,8 @@ public interface TestConclusionService {
      *
      * @param document        Word文档
      * @param targetParagraph 目标段落（占位符段落）
-     * @param task           任务信息
-     * @param bridgeName     桥梁名称
+     * @param task            任务信息
+     * @param bridgeName      桥梁名称
      */
     void handleTestConclusionBridge(XWPFDocument document, XWPFParagraph targetParagraph,
                                     Task task, String bridgeName);
@@ -42,4 +44,11 @@ public interface TestConclusionService {
      * 清空病害汇总缓存
      */
     void clearDiseaseSummaryCache();
+
+    /**
+     * 2025 11.14
+     * 单桥模板 的 新要求 ， 主要病害使用 缓存的外观检测的病害小结拼接。
+     */
+    Map<Long, String> getSummaryCache();
+
 }

@@ -3,10 +3,7 @@ package edu.whut.cs.bi.biz.domain.enums;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * 定期检查 记录表 的构件字段，要求固定格式。
- */
-public enum BeamBridgeRecordTableComponentList {
+public enum ArchBridgeRecordTableComponentList {
     COMPONENT_1("桥面铺装", 1),
     COMPONENT_2("伸缩缝装置", 2),
     COMPONENT_3("排水系统", 3),
@@ -14,8 +11,8 @@ public enum BeamBridgeRecordTableComponentList {
     COMPONENT_5("栏杆、护栏", 5),
     COMPONENT_6("照明、标志", 6),
     COMPONENT_7("路桥连接处", 7),
-    COMPONENT_8("上部承重构件", 8),
-    COMPONENT_9("上部一般构件", 9),
+    COMPONENT_8("主拱圈", 8),
+    COMPONENT_9("拱上结构", 9),
     COMPONENT_10("桥墩", 10),
     COMPONENT_11("桥台", 11),
     COMPONENT_12("翼墙、耳墙", 12),
@@ -32,10 +29,10 @@ public enum BeamBridgeRecordTableComponentList {
     // index 表示 构件的顺序 ，从 1开始 ， 1 的 类型的占位符 为 ${类型1}
 
     public static List<String> getComponentNameList() {
-        return Arrays.stream(BeamBridgeRecordTableComponentList.values()).map(a -> a.getComponentName()).toList();
+        return Arrays.stream(ArchBridgeRecordTableComponentList.values()).map(a -> a.getComponentName()).toList();
     }
 
-    BeamBridgeRecordTableComponentList(String componentName, Integer index) {
+    ArchBridgeRecordTableComponentList(String componentName, Integer index) {
         ComponentName = componentName;
         this.index = index;
     }

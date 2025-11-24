@@ -152,6 +152,14 @@
                     visible: false
                 },
                 {
+                    field: 'bindBiObjectName',
+                    title: '绑定的构件',
+                    visible: false,
+                    formatter: function (value, row) {
+                        return value || '-';
+                    }
+                },
+                {
                     field: 'component.name',
                     title: '构件名称',
                     formatter: function (value, row) {
@@ -166,8 +174,15 @@
                     }
                 },
                 {
-                    field: 'type',
+                    field: 'bindType',
                     title: '病害类型',
+                    formatter: function (value) {
+                        return value || '-';
+                    }
+                },
+                {
+                    field: 'type',
+                    title: '缺损类型',
                     formatter: function (value) {
                         return value || '-';
                     }

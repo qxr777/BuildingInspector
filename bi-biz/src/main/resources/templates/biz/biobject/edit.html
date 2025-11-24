@@ -60,16 +60,32 @@
         focusCleanup: true
     });
 
+    // 从后端获取rootObjectId（如果没有则从ancestors中提取）
+    var rootObjectId = [[${rootObjectId}]];
+
     $(document).ready(function() {
         // 获取ancestors字段
         var ancestors = $("#ancestors").val();
         var countInput = $("#count");
 
-        // 判断是否是第4层部件（ancestors中有4个元素，如"0,1,2,3"）
+        // 判断是否是第4层部件（相对于rootObjectId）
         var isFourthLevel = false;
-        if (ancestors) {
+        if (ancestors && rootObjectId) {
             var ancestorArray = ancestors.split(",");
-            isFourthLevel = ancestorArray.length === 4;
+            
+            // 找到rootObjectId在ancestors中的位置
+            var rootIndex = -1;
+            for (var i = 0; i < ancestorArray.length; i++) {
+                if (ancestorArray[i] === String(rootObjectId)) {
+                    rootIndex = i;
+                    break;
+                }
+            }
+            
+            // 计算相对层级：第4层意味着在rootObjectId之后有3个祖先节点
+            if (rootIndex >= 0) {
+                isFourthLevel = (ancestorArray.length - rootIndex) === 3;
+            }
         }
 
         // 如果不是第4层部件，则设置构件数量为只读

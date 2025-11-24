@@ -40,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static com.ruoyi.common.utils.ShiroUtils.getSysUser;
@@ -862,5 +863,45 @@ public class ApiController {
     @PostMapping("/batchImportPropertyData")
     public AjaxResult batchImportPropertyData(MultipartFile file) {
         return AjaxResult.success(propertyIndexService.batchImportPropertyData(file));
+    }
+
+    // 线程池配置（核心线程数、最大线程数、队列容量可根据服务器配置调整）
+    private final ExecutorService executorService = new ThreadPoolExecutor(
+            8, // 核心线程数
+            16, // 最大线程数
+            60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(1000), // 任务队列容量
+            new ThreadFactory() {
+                private int count = 0;
+                @Override
+                public Thread newThread(Runnable r) {
+                    return new Thread(r, "excel-import-thread-" + (++count));
+                }
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy() // 队列满时，主线程兜底执行（避免任务丢失）
+    );
+
+    @Resource
+    private TaskMapper taskMapper;
+
+    @PostMapping("/updateDiseaseData")
+    public AjaxResult updateDiseaseData() {
+        Task task = new Task();
+        task.setType(0);
+        List<Task> tasks = taskMapper.selectTaskList(task, null);
+
+        tasks.forEach(t -> {
+            Disease query = new Disease();
+            query.setTaskId(t.getId());
+            List<Disease> diseases = diseaseMapper.selectDiseaseList(query);
+            diseases.forEach(d -> {
+                d.setParticipateAssess("1");
+                d.setUpdateTime(new Date());
+                diseaseMapper.updateDisease(d);
+            });
+        });
+
+//        CompletableFuture.allOf(collect.toArray(new CompletableFuture[0])).join();
+        return AjaxResult.success();
     }
 }

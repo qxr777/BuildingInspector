@@ -163,6 +163,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setProjectId(task.getProjectId());
                         disease.setBiObjectName(component_3);
                         disease.setTaskId(taskId);
+                        disease.setParticipateAssess("1");
                         disease.setBiObjectId(biObject4.getId());
                         disease.setNature("非结构病害");
                         disease.setDevelopmentTrend("新增");
@@ -336,7 +337,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                             diseaseNumber = diseaseNumber.substring(0, diseaseNumber.length() - 1); // 数字部分
                         } else {
                             // 纯数字的情况：单位为空
-                            units = "";
+                            units = "处";
                         }
 
                         String length = getCellValueAsString(row.getCell(7));
@@ -372,6 +373,7 @@ public class ReadFileServiceImpl implements ReadFileService {
 
                         Disease disease = new Disease();
                         disease.setPosition(position);
+                        disease.setParticipateAssess("1");
                         disease.setDescription(diseaseDescription);
                         if (scale == null || scale.equals("/") || scale.equals("")) {
                             disease.setLevel(1);
@@ -415,7 +417,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setComponentId(component.getId());
                         disease.setBuildingId(building.getId());
                         disease.setProjectId(task.getProjectId());
-                        disease.setBiObjectName(component_3);
+                        disease.setBiObjectName(biObject4.getName());
                         disease.setBiObjectId(biObject4.getId());
                         disease.setDescription(diseaseDescription);
                         disease.setTaskId(taskId);
@@ -668,7 +670,15 @@ public class ReadFileServiceImpl implements ReadFileService {
                 return;
             }
 
-            String code = photoName.substring(4, dotIndex);
+            int lastUnderlineIndex = photoName.lastIndexOf("_");
+            // 校验：_ 必须在后缀前，且 _ 后面有有效内容（避免如 "IMG_.JPG" 这种无效格式）
+            if (lastUnderlineIndex == -1 || lastUnderlineIndex >= dotIndex - 1) {
+                unmatchedPhotos.add(photoName); // 无 _ 或 _ 位置非法，不匹配
+                return;
+            }
+
+
+            String code = photoName.substring(lastUnderlineIndex + 1, dotIndex);
             Long diseaseId = imgToDiseaseMap.get(code);
 
             if (diseaseId != null) {

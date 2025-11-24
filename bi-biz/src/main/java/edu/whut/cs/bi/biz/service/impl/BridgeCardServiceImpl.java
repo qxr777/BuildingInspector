@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.text.SimpleDateFormat;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -101,17 +100,18 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             // 处理 特殊字段
             processSpecialProp(building, properties, templateType, task);
             // 处理图片
-            processImageAttachments(document, building.getId());
+            processImageAttachments(document, building.getId(), templateType);
             // 将属性替换占位符
             replacePlaceholdersInTables(document, properties);
             // 如果是单桥模板 ， 需要 顺带 处理 桥梁概况自动 生成的 文本
-            if (templateType != null && ReportTemplateTypes.isSigleBridge(templateType.getType())) {
+            if (templateType != null && (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType()) || ReportTemplateTypes.is1LevelSigleBridge(templateType.getType()))) {
                 // 处理特殊的 概况上部结构  字段。
                 Property propertyOverviewUpperStructure = new Property();
                 propertyOverviewUpperStructure.setName("概况上部结构");
-                if (templateType.getType().equals(ReportTemplateTypes.ARCH_BRIDGE.getType())) {
+                if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_ARCH_BRIDGE.getType())) {
                     propertyOverviewUpperStructure.setValue(properties.stream().filter(a -> a.getName().equals("拱桥主桥上部构造结构形式")).map(a -> a.getValue()).toList().get(0));
-                } else if (templateType.getType().equals(ReportTemplateTypes.BEAM_BRIDGE.getType())) {
+                } else if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE.getType())
+                        || templateType.getType().equals(ReportTemplateTypes.LEVEL_1_BEAM_BRIDGE.getType())) {
                     propertyOverviewUpperStructure.setValue(properties.stream().filter(a -> a.getName().equals("梁桥主桥上部构造结构形式")).map(a -> a.getValue()).toList().get(0));
                 } else {
                     propertyOverviewUpperStructure.setValue("");
@@ -241,20 +241,22 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         propertyGenerateDate.setValue(simpleDateFormat.format(date));
         properties.add(propertyGenerateDate);
         // 如果是单桥 判断结构体系
-        if (templateType != null && !templateType.equals(ReportTemplateTypes.COMBINED_BRIDGE)) {
+        if (templateType != null && (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType()) || ReportTemplateTypes.is1LevelSigleBridge(templateType.getType()))) {
             Property propertyStructure = new Property();
-            String value = templateType.getDesc();
-            propertyStructure.setValue(value);
+            String[] value = templateType.getDesc();
+            propertyStructure.setValue(value[0]);
             propertyStructure.setName("结构体系");
 
             // 主梁 或 主拱圈 需要根据桥梁类型填写
             String mainBridgeUpperStructureForm = properties.stream().filter(a -> a.getName().equals("主桥上部构造结构形式")).map(a -> a.getValue()).toList().get(0);
             Property propertyMainBridgeUpperStructureForm = new Property();
             propertyMainBridgeUpperStructureForm.setValue(mainBridgeUpperStructureForm);
-            if (templateType.equals(ReportTemplateTypes.BEAM_BRIDGE)) {
+            if (templateType.equals(ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE)) {
                 propertyMainBridgeUpperStructureForm.setName("梁桥主桥上部构造结构形式");
-            } else if (templateType.equals(ReportTemplateTypes.ARCH_BRIDGE)) {
+            } else if (templateType.equals(ReportTemplateTypes.LEVEL_2_ARCH_BRIDGE)) {
                 propertyMainBridgeUpperStructureForm.setName("拱桥主桥上部构造结构形式");
+            } else if (templateType.equals(ReportTemplateTypes.LEVEL_1_BEAM_BRIDGE)) {
+                propertyMainBridgeUpperStructureForm.setName("梁桥主桥上部构造结构形式");
             }
             properties.add(propertyStructure);
             properties.add(propertyMainBridgeUpperStructureForm);
@@ -300,7 +302,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             }
             if (prop.getName().equals("跨径组合")) {
                 String curValue = prop.getValue();
-                prop.setValue(curValue.replace('*', 'x'));
+                prop.setValue(curValue.replace('*', '×'));
             }
         }
     }
@@ -334,32 +336,85 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     /**
      * 处理图片附件
      */
-    private void processImageAttachments(XWPFDocument document, Long buildingId) {
-        attachmentService.getAttachmentList(buildingId).stream()
-                .map(attachment -> {
-                    FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
-                    if (fileMap != null) {
-                        fileMap.setOldName(attachment.getName());
-                    }
-                    return fileMap;
-                })
-                .forEach(fileMap -> {
-                    if (fileMap != null) {
-                        byte[] file = fileMapService.handleFileDownloadByNewName(fileMap.getNewName());
-                        insertImageIntoTables(document, file, fileMap.getOldName());
-                    }
-                });
+    private void processImageAttachments(XWPFDocument document, Long buildingId, ReportTemplateTypes templateType) {
+        if (ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
+            // 1. 预先拆分成两个列表
+            List<FileMap> newFrontList = new ArrayList<>();
+            List<FileMap> newSideList = new ArrayList<>();
+            attachmentService.getAttachmentList(buildingId).stream()
+                    .map(att -> {
+                        FileMap fm = fileMapService.selectFileMapById(att.getMinioId());
+                        if (fm != null) {
+                            fm.setOldName(att.getName());   // 把原始文件名带下来
+                        }
+                        return fm;
+                    })
+                    .filter(Objects::nonNull)
+                    .forEach(fm -> {
+                        String[] parts = fm.getOldName().split("_");
+                        if (parts.length >= 2) {
+                            String type = parts[1].toLowerCase();
+                            if ("newfront".equals(type)) {
+                                newFrontList.add(fm);
+                            } else if ("newside".equals(type)) {
+                                newSideList.add(fm);
+                            }
+                        }
+                    });
+
+            for (int i = 0; i < newFrontList.size(); i++) {
+                insertImageIntoTables(document, fileMapService.handleFileDownloadByNewName(newFrontList.get(i).getNewName()), "${桥梁正面照" + i + "}");
+            }
+            for (int i = 0; i < newSideList.size(); i++) {
+                insertImageIntoTables(document, fileMapService.handleFileDownloadByNewName(newSideList.get(i).getNewName()), "${桥梁立面照" + i + "}");
+            }
+        } else {
+            attachmentService.getAttachmentList(buildingId).stream()
+                    .map(attachment -> {
+                        FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
+                        if (fileMap != null) {
+                            fileMap.setOldName(attachment.getName());
+                        }
+                        return fileMap;
+                    })
+                    .forEach(fileMap -> {
+                        if (fileMap != null) {
+                            byte[] file = fileMapService.handleFileDownloadByNewName(fileMap.getNewName());
+                            insertImageIntoTables(document, file, fileMap.getOldName(), templateType);
+                        }
+                    });
+        }
     }
 
     /**
      * 在表格中插入图片
      */
-    private void insertImageIntoTables(XWPFDocument document, byte[] imageData, String imageName) {
+    private void insertImageIntoTables(XWPFDocument document, byte[] imageData, String imageName, ReportTemplateTypes templateType) {
         for (XWPFTable table : document.getTables()) {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
-                        insertImage(paragraph, imageData, imageName);
+                        if (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
+                            singleBridgeCardInsertImage(paragraph, imageData, imageName);
+                        } else {
+                            insertImage(paragraph, imageData, imageName);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 一级桥单桥 基本卡片 的照片
+     * 在表格中插入图片
+     */
+    private void insertImageIntoTables(XWPFDocument document, byte[] imageData, String placeHolder) {
+        for (XWPFTable table : document.getTables()) {
+            for (XWPFTableRow row : table.getRows()) {
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                        insertImageByPlaceHolder(paragraph, imageData, placeHolder);
                     }
                 }
             }
@@ -474,6 +529,87 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             // 设置字体为宋体小五
             newRun.setFontFamily("宋体");
             newRun.setFontSize(9);
+        }
+    }
+
+    /**
+     * 插入图片的方法
+     */
+    private void singleBridgeCardInsertImage(XWPFParagraph paragraph, byte[] imageData, String name) {
+        try {
+            // 解析图片名称
+            String[] parts = name.split("_");
+            if (parts.length < 2) {
+                return; // 名称格式不正确，直接返回
+            }
+            String type = parts[1]; // front 或 side
+            String placeholder = "";
+
+            // 根据前缀和类型确定占位符
+            if ("newfront".equals(type)) {
+                placeholder = "${桥梁正面照}";
+            } else if ("newside".equals(type)) {
+                placeholder = "${桥梁立面照}";
+            }
+            // 如果没有找到匹配的占位符，直接返回
+            if (placeholder.isEmpty()) {
+                return;
+            }
+            // 如果段落包含对应的图片占位符
+            String text = paragraph.getText();
+            if (text.contains(placeholder)) {
+                // 清除段落中的所有runs
+                for (int i = paragraph.getRuns().size() - 1; i >= 0; i--) {
+                    paragraph.removeRun(i);
+                }
+                // 转换为EMU单位（1厘米 = 360000 EMU）
+                int widthEMU = 4 * 360000; // 4厘米
+                int heightEMU = 3 * 360000; // 3厘米
+
+                // 创建新的run并插入图片
+                XWPFRun run = paragraph.createRun();
+                run.addPicture(
+                        new ByteArrayInputStream(imageData),
+                        XWPFDocument.PICTURE_TYPE_JPEG,
+                        "bridge.jpg",
+                        widthEMU,
+                        heightEMU);
+            }
+        } catch (Exception e) {
+            log.error("插入图片失败", e);
+        }
+    }
+
+    /**
+     * 插入图片的方法
+     */
+    private void insertImageByPlaceHolder(XWPFParagraph paragraph, byte[] imageData, String placeHolder) {
+        try {
+            // 如果没有找到匹配的占位符，直接返回
+            if (placeHolder.isEmpty()) {
+                return;
+            }
+            // 如果段落包含对应的图片占位符
+            String text = paragraph.getText();
+            if (text.contains(placeHolder)) {
+                // 清除段落中的所有runs
+                for (int i = paragraph.getRuns().size() - 1; i >= 0; i--) {
+                    paragraph.removeRun(i);
+                }
+                // 转换为EMU单位（1厘米 = 360000 EMU）
+                int widthEMU = 4 * 360000; // 4厘米
+                int heightEMU = 3 * 360000; // 3厘米
+                // 创建新的run并插入图片
+                XWPFRun run = paragraph.createRun();
+                run.addPicture(
+                        new ByteArrayInputStream(imageData),
+                        XWPFDocument.PICTURE_TYPE_JPEG,
+                        "bridge.jpg",
+                        widthEMU,
+                        heightEMU);
+            }
+        } catch (Exception e) {
+            log.error("插入图片失败", e);
         }
     }
 

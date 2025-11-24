@@ -61,6 +61,7 @@
                             <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
                                     class="fa fa-refresh"></i>&nbsp;重置</a>
                         </li>
+
                     </ul>
                 </div>
             </form>
@@ -160,6 +161,10 @@
                     }
                 },
                 {
+                    field: 'evaluationResult',
+                    title: '评定等级'
+                },
+                {
                     field: 'updateBy',
                     title: '更新用户',
                     visible: false
@@ -203,28 +208,68 @@
                     var status = result.data;
                     if (status == "3") {
                         // 状态为3，继续原来的评定流程
-                        $.modal.loading("正在计算评定结果，请稍候...");
+                        performEvaluation(taskId, rootObjectId, buildingName);
+                    } else {
+                        // 状态不是3，先执行修正权重和锁定操作，统一显示"正在计算评定结果"
+                        var loadingIndex = $.modal.loading("正在计算评定结果，请稍候...");
+
+                        // 第一步：修正权重
                         $.ajax({
-                            type: "GET",
-                            url: evaluationPrefix + "/calculate/" + taskId + "/" + rootObjectId,
-                            success: function(result) {
-                                $.modal.closeLoading();
-                                if (result.code == 0) {
-                                    var url = evaluationPrefix + "/detail/" + taskId + "?buildingName=" + encodeURIComponent(buildingName);
-                                    $.modal.openTab("技术状况评定", url);
+                            type: "POST",
+                            url: ctx + "biz/biobject/correctWeights",
+                            data: {
+                                "rootObjectId": rootObjectId
+                            },
+                            success: function(correctResult) {
+                                if (correctResult.code == 0) {
+                                    // 第二步：锁定对象（设置状态为3）
+                                    $.ajax({
+                                        type: "POST",
+                                        url: ctx + "biz/biobject/edit",
+                                        data: {
+                                            "id": rootObjectId,
+                                            "status": "3"
+                                        },
+                                        success: function(lockResult) {
+                                            if (lockResult.code == 0) {
+                                                // 第三步：继续原来的评定流程
+                                                $.ajax({
+                                                    type: "GET",
+                                                    url: evaluationPrefix + "/calculate/" + taskId + "/" + rootObjectId,
+                                                    success: function(result) {
+                                                        $.modal.closeLoading(loadingIndex);
+                                                        if (result.code == 0) {
+                                                            var url = evaluationPrefix + "/detail/" + taskId + "?buildingName=" + encodeURIComponent(buildingName);
+                                                            $.modal.openTab("技术状况评定", url);
+                                                        } else {
+                                                            $.modal.alertError(result.msg);
+                                                        }
+                                                    },
+                                                    error: function() {
+                                                        $.modal.closeLoading(loadingIndex);
+                                                        $.modal.alertError("系统错误");
+                                                    }
+                                                });
+                                            } else {
+                                                $.modal.closeLoading(loadingIndex);
+                                                $.modal.alertError("锁定失败：" + lockResult.msg);
+                                            }
+                                        },
+                                        error: function() {
+                                            $.modal.closeLoading(loadingIndex);
+                                            $.modal.alertError("锁定失败，请稍后重试");
+                                        }
+                                    });
                                 } else {
-                                    $.modal.alertError(result.msg);
+                                    $.modal.closeLoading(loadingIndex);
+                                    $.modal.alertError("修正权重失败：" + correctResult.msg);
                                 }
                             },
                             error: function() {
-                                $.modal.closeLoading();
-                                $.modal.alertError("系统错误");
+                                $.modal.closeLoading(loadingIndex);
+                                $.modal.alertError("修正权重失败，请稍后重试");
                             }
                         });
-                    } else {
-                        // 状态不是3，跳转到object.html页面
-                        var url = ctx + "biz/biobject?rootObjectId=" + rootObjectId;
-                        $.modal.openTab("部件维护", url);
                     }
                 } else {
                     $.modal.alertError(result.msg || "获取对象状态失败");
@@ -232,6 +277,28 @@
             },
             error: function() {
                 $.modal.alertError("获取对象状态失败");
+            }
+        });
+    }
+
+    // 执行评定流程
+    function performEvaluation(taskId, rootObjectId, buildingName) {
+        $.modal.loading("正在计算评定结果，请稍候...");
+        $.ajax({
+            type: "GET",
+            url: evaluationPrefix + "/calculate/" + taskId + "/" + rootObjectId,
+            success: function(result) {
+                $.modal.closeLoading();
+                if (result.code == 0) {
+                    var url = evaluationPrefix + "/detail/" + taskId + "?buildingName=" + encodeURIComponent(buildingName);
+                    $.modal.openTab("技术状况评定", url);
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            },
+            error: function() {
+                $.modal.closeLoading();
+                $.modal.alertError("系统错误");
             }
         });
     }

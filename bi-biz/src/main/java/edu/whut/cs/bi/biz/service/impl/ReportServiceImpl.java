@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.io.InputStream;
 import java.io.FileOutputStream;
@@ -14,6 +15,7 @@ import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
+import edu.whut.cs.bi.biz.domain.enums.SingleReportMainDiseaseSummaryList;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseAnalysis;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseType;
 import edu.whut.cs.bi.biz.domain.vo.Disease2ReportSummaryAiVO;
@@ -137,6 +139,9 @@ public class ReportServiceImpl implements IReportService {
 
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
+
+    @Resource
+    private Report1LevelSingleBridgeService report1LevelSingleBridgeService;
 
     /**
      * 查询检测报告
@@ -295,10 +300,18 @@ public class ReportServiceImpl implements IReportService {
         if (report != null && report.getReportTemplateId() != null) {
             try {
                 ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
-                if (template != null && template.getName() != null && template.getName().contains("单桥")) {
-                    log.info("检测到单桥模板：{}，使用单桥生成逻辑", template.getName());
+                ReportTemplateTypes templateType = null; // 默认
+                if (template != null) {
+                    templateType = ReportTemplateTypes.getEnumByDesc(template.getName());
+                }
+                if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
+                    log.info("检测到二级单桥模板：{}，使用二级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
-                    return generateSingleBridgeReportDocument(report, task, ReportTemplateTypes.getEnumByDesc(template.getName()));
+                    return generateSingleBridgeReportDocument(report, task, templateType);
+                } else if (template != null && templateType != null && ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
+                    log.info("检测到一级单桥模板：{}，使用一级单桥生成逻辑", template.getName());
+                    // 添加 桥梁模板类型 参数。
+                    return report1LevelSingleBridgeService.generateReportDocument(report, task, templateType);
                 }
             } catch (Exception e) {
                 log.error("获取模板信息失败，使用默认生成逻辑", e);
@@ -1429,6 +1442,12 @@ public class ReportServiceImpl implements IReportService {
                                                         Map<Long, List<Disease>> diseaseMap, int level,
                                                         AtomicInteger chapterImageCounter, AtomicInteger chapter3TableCounter,
                                                         XmlCursor cursor, int baseHeadingLevel) throws Exception {
+        // 转换为 Map<id, BiObject>
+        Map<Long, BiObject> nodeMap = allNodes.stream()
+                .collect(Collectors.toMap(
+                        BiObject::getId,
+                        obj -> obj
+                ));
         // 写标题
         XWPFParagraph p;
         if (cursor != null) {
@@ -1469,6 +1488,51 @@ public class ReportServiceImpl implements IReportService {
 
         // 提前收集所有病害的图片书签信息
         Map<Long, List<String>> diseaseImageRefs = new HashMap<>(); // key: 病害ID, value: 图片书签列表
+
+        // 1. 查询所有组件
+        List<Long> componentIds = allNodeDiseases.stream()
+                .map(Disease::getComponentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<Component> components = componentService.selectComponentsByIds(componentIds);
+
+        Map<Long, Component> componentMap = components.stream()
+                .collect(Collectors.toMap(Component::getId, c -> c));
+
+        Map<Long, Integer> biObjectOrderIndex = new HashMap<>();
+        for (int i = 0; i < childComponents.size(); i++) {
+            biObjectOrderIndex.put(childComponents.get(i).getId(), i);
+        }
+
+        allNodeDiseases.sort((d1, d2) -> {
+
+            Long b1 = nodeMap.get(d1.getBiObjectId()).getParentId();
+            Long b2 = nodeMap.get(d2.getBiObjectId()).getParentId();
+
+            // -----------------------
+            // (1) 第一优先级：按 BiObject 顺序排
+            // -----------------------
+            Integer bo1 = biObjectOrderIndex.getOrDefault(b1, Integer.MAX_VALUE);
+            Integer bo2 = biObjectOrderIndex.getOrDefault(b2, Integer.MAX_VALUE);
+
+            if (!bo1.equals(bo2)) {
+                return bo1 - bo2;
+            }
+
+            // -----------------------
+            // (2) 第二优先级：同 BiObject 下，按 Component.code 排
+            // -----------------------
+            Component c1 = componentMap.get(d1.getComponentId());
+            Component c2 = componentMap.get(d2.getComponentId());
+
+            String code1 = (c1 != null ? c1.getCode() : "");
+            String code2 = (c2 != null ? c2.getCode() : "");
+
+            return compareCodes(code1, code2);
+        });
+
 
         for (Disease d : allNodeDiseases) {
             List<String> imageBookmarks = new ArrayList<>();
@@ -1548,6 +1612,11 @@ public class ReportServiceImpl implements IReportService {
 
             XWPFRun runItem = diseasePara.createRun();
             runItem.setFontSize(12);
+            if (component.getWeight().compareTo(BigDecimal.ZERO) == 0) {
+                runItem.setText(componentIndex + ") " + component.getName() + "：无此构件");
+                componentIndex++;
+                continue;
+            }
 
             // 生成该部件的病害小结
             if (componentDiseases.isEmpty()) {
@@ -1563,13 +1632,23 @@ public class ReportServiceImpl implements IReportService {
                             .replace("\n", "")
                             .replace("\r", "")
                             .replaceAll("\\d+）", "");
+
+                    if (componentDiseaseSummary.startsWith(component.getName() + "：")) {
+                        componentDiseaseSummary = componentDiseaseSummary.substring(component.getName().length() + 1);
+                    }
+
                     runItem.setText(componentIndex + ") " + component.getName() + "：" + componentDiseaseSummary);
+
+                    if (componentDiseaseSummary.contains("cm")) {
+                        runItem.setColor("FF0000");
+                    }
 
                     // 缓存病害汇总到第十章服务，供后续复用
                     testConclusionService.cacheDiseaseSummary(component.getId(), componentDiseaseSummary);
                 } catch (Exception e) {
                     componentDiseaseSummary = "由于ai服务暂不稳定，该构件病害小结生成失败。";
                     runItem.setText(componentIndex + ") " + component.getName() + "：" + componentDiseaseSummary);
+                    runItem.setColor("FF0000");
                     log.error("外观检测 ai 生成小结 失败，继续生成");
                 }
             }
@@ -1647,8 +1726,16 @@ public class ReportServiceImpl implements IReportService {
             String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
 
             // 修改列宽比例
-            Double[] columnWidthRatios = {0.08, 0.18, 0.14, 0.08, 0.26, 0.10, 0.08, 0.08};
-            int totalWidth = 9534;
+            int[] columnWidths = {
+                    567,   // 序号 1 cm
+                    992,   // 缺损位置 1.75 cm
+                    1134,  // 缺损类型 2 cm
+                    709,   // 数量 1.25 cm
+                    3680,  // 病害描述 6.49 cm
+                    1031,  // 评定类别 1.82 cm
+                    737,   // 发展趋势 1.3 cm
+                    1072   // 照片 1.89 cm
+            };
 
             CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
             tblLayout.setType(STTblLayoutType.FIXED);
@@ -1683,7 +1770,7 @@ public class ReportServiceImpl implements IReportService {
                 }
 
                 // 计算每列的实际宽度
-                int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                int columnWidth = columnWidths[i];
                 CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                 tcW.setW(BigInteger.valueOf(columnWidth));
                 tcW.setType(STTblWidth.DXA);
@@ -1712,7 +1799,7 @@ public class ReportServiceImpl implements IReportService {
                     // 设置单元格宽度与表头一致
                     CTTc cttc = cell.getCTTc();
                     CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
-                    int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                    int columnWidth = columnWidths[i];
                     CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                     tcW.setW(BigInteger.valueOf(columnWidth));
                     tcW.setType(STTblWidth.DXA);
@@ -1733,13 +1820,12 @@ public class ReportServiceImpl implements IReportService {
 
                     // 设置中英文字体和字号
                     setMixedFontFamily(cellR, 21);
-                    Component component = componentService.selectComponentById(d.getComponentId());
                     switch (i) {
                         case 0:
                             cellR.setText(String.valueOf(seqNum++));
                             break;
                         case 1:
-                            cellR.setText(component != null ? component.getName() : "/");
+                            cellR.setText(componentMap.get(d.getComponentId()).getName());
                             break;
                         case 2:
                             cellR.setText(d.getDiseaseType().getName() != null ? d.getDiseaseType().getName() : "/");
@@ -1816,6 +1902,7 @@ public class ReportServiceImpl implements IReportService {
         // 递归收集子节点的病害
         List<BiObject> children = allNodes.stream()
                 .filter(obj -> node.getId().equals(obj.getParentId()))
+                .sorted(Comparator.comparing(BiObject::getOrderNum))
                 .collect(Collectors.toList());
 
         for (BiObject child : children) {
@@ -4943,7 +5030,7 @@ public class ReportServiceImpl implements IReportService {
                 if (type == 0) {
                     // 文本类型
                     // 检查是否是病害选择字段，需要特殊处理
-                    if (key != null && key.contains("chapter-4-1-7-diseases")) {
+                    if (key != null && key.contains("chapter-4-1-6-diseases")) {
                         try {
                             log.info("开始处理单桥病害数据，key: {}, value: {}", key, value);
                             // 解析病害数据
@@ -4954,11 +5041,11 @@ public class ReportServiceImpl implements IReportService {
                                 log.info("单桥病害分析生成完成");
                             } else {
                                 log.warn("病害数据解析为空");
-                                replaceText(document, "${chapter-4-1-7-focusOnDiseases}", "无重点关注病害");
+                                replaceText(document, "${chapter-4-1-6-focusOnDiseases}", "无重点关注病害");
                             }
                         } catch (Exception e) {
                             log.error("处理单桥病害数据出错: key={}, value={}, error={}", key, value, e.getMessage(), e);
-                            replaceText(document, "${chapter-4-1-7-focusOnDiseases}", "【病害数据处理失败，请联系管理员】");
+                            replaceText(document, "${chapter-4-1-6-focusOnDiseases}", "【病害数据处理失败，请联系管理员】");
                         }
                     } else {
                         // 普通文本字段 - 直接替换
@@ -5062,18 +5149,31 @@ public class ReportServiceImpl implements IReportService {
                     componentIds, building.getId(), project.getYear());
 
             // 2. 生成主要病害的描述和成因分析
+            // 按照biObjectId 分类 ， 同时按照 diseaseTypeId 分组。
+            // 分组逻辑
+            Map<Long, Map<Long, List<Disease>>> groupedMap = allDiseases.stream()
+                    .collect(Collectors.groupingBy(
+                            Disease::getBiObjectId,
+                            Collectors.groupingBy(Disease::getDiseaseTypeId)
+                    ));
             int index = 1;
-            for (Disease disease : allDiseases) {
-                BiObject tempBiObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
-                content.append(index).append(")");
-                content.append(tempBiObject.getName());
-                content.append(disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
-                content.append("\n");
-                content.append("成因分析：\n");
-                disease.setBuildingId(building.getId());
-                content.append(getDiseaseCause(disease));
-                content.append("\n");
-                index++;
+            for (Long biObjectId : groupedMap.keySet()) {
+                Map<Long, List<Disease>> diseaseMap = groupedMap.get(biObjectId);
+                BiObject tempBiObject = biObjectMapper.selectBiObjectById(biObjectId);
+                for (Long diseaseTypeId : diseaseMap.keySet()) {
+                    List<Disease> diseases = diseaseMap.get(diseaseTypeId);
+                    Disease disease = diseases.get(0);
+                    content.append(index).append(")");
+                    content.append(tempBiObject.getName());
+                    content.append(disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
+                    content.append("\n");
+                    content.append("成因分析：\n");
+                    disease.setBuildingId(building.getId());
+                    content.append(getDiseaseCause(disease));
+                    content.append("\n");
+                    index++;
+                }
+
             }
 
             // 替换占位符
@@ -5086,63 +5186,32 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 生成单桥主要病害内容（新格式）
+     * 生成单桥主要病害内容
      */
     private void generateSingleBridgeMainDiseases(XWPFDocument document, Building building, Project project, Task task) {
         try {
-            // 查询病害数据
-            Disease queryParam = new Disease();
-            queryParam.setBuildingId(building.getId());
-            queryParam.setProjectId(project.getId());
-            List<Disease> diseases = diseaseMapper.selectDiseaseList(queryParam);
-
-            if (diseases == null || diseases.isEmpty()) {
-                replaceText(document, "${chapter-4-1-7-2-mainDiseases}", "经检查，该桥无明显病害。");
-                return;
-            }
-
-            // 按结构类型分组病害
-            Map<String, List<Disease>> structureGroups = groupDiseasesByStructure(diseases);
+            // 11.14 修改 ， 使用病害小结的缓存。
 
             StringBuilder content = new StringBuilder();
             int structureIndex = 1;
+            Map<Long, String> summaryCache = testConclusionService.getSummaryCache();
+            List<Long> biObjectIdList = summaryCache.keySet().stream().toList();
+            Map<String, List<Long>> parentObjectName2IdList = biObjectIdList.stream().collect(Collectors.groupingBy(a -> biObjectMapper.selectBiObjectById(a).getParentName()));
+            for (String structureName : SingleReportMainDiseaseSummaryList.getAllStructureList()) {
 
-            for (Map.Entry<String, List<Disease>> entry : structureGroups.entrySet()) {
-                String structureType = entry.getKey();
-                List<Disease> structureDiseases = entry.getValue();
-
-                if (structureDiseases.isEmpty()) continue;
-
-                content.append(String.format("%d、%s：\n", structureIndex++, structureType));
-
-                // 使用AI一次性生成该结构类型的所有病害描述
-                try {
-                    log.debug("为结构类型 {} 调用AI生成病害描述，病害数量: {}", structureType, structureDiseases.size());
-
-                    String aiDescription = getDiseaseSummary(structureDiseases);
-                    if (aiDescription != null && !aiDescription.trim().isEmpty()) {
-                        // 记录AI原始输出用于调试
-                        log.debug("AI原始输出: {}", aiDescription);
-
-                        // 清理和标准化AI生成的内容
-                        String cleanedDescription = cleanAndStandardizeStructureAiDescription(aiDescription, structureType);
-
-                        // 记录清理后的输出用于调试
-                        log.debug("清理后输出: {}", cleanedDescription);
-
-                        content.append(cleanedDescription);
-                    } else {
-                        // AI生成失败时的备用逻辑
-                        log.warn("AI生成结构 {} 的病害描述为空，使用备用逻辑", structureType);
-                        content.append(generateFallbackStructureDescription(structureDiseases));
-                    }
-                } catch (Exception e) {
-                    log.error("AI生成结构 {} 的病害描述失败，使用备用逻辑: {}", structureType, e.getMessage());
-                    content.append(generateFallbackStructureDescription(structureDiseases));
+                if (!parentObjectName2IdList.containsKey(structureName)) {
+                    // 如果当前 结构 没有存放 病害小结 ， 跳过。
+                    continue;
                 }
-                content.append("\n");
-            }
+                content.append(String.format("%d、%s：\n", structureIndex++, structureName));
+                List<Long> curObjectIdList = parentObjectName2IdList.get(structureName);
+                int pointNum = 1;
+                for (Long objectId : curObjectIdList) {
+                    String diseaseSummary = summaryCache.get(objectId);
+                    content.append(String.format("%d)%s\n", pointNum++, diseaseSummary));
+                }
 
+            }
             replaceText(document, "${chapter-4-1-7-2-mainDiseases}", content.toString().trim());
 
         } catch (Exception e) {
@@ -5376,29 +5445,34 @@ public class ReportServiceImpl implements IReportService {
                 .filter(obj -> biObject.getId().equals(obj.getParentId()))
                 .collect(Collectors.toList());
 
-        // 为每个结构节点生成内容
+        // 先删除占位符段落（在插入内容之前删除，避免索引错位）
+        // 找到占位符段落在body中的实际位置
+        int placeholderIndex = -1;
+        for (int i = 0; i < document.getBodyElements().size(); i++) {
+            if (document.getBodyElements().get(i) instanceof XWPFParagraph) {
+                XWPFParagraph p = (XWPFParagraph) document.getBodyElements().get(i);
+                if (p == placeholderParagraph) {
+                    placeholderIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // 删除占位符段落
+        if (placeholderIndex >= 0) {
+            document.removeBodyElement(placeholderIndex);
+            log.info("已删除占位符段落，索引: {}", placeholderIndex);
+        }
+
+        // 为每个结构节点生成内容（在删除占位符后，cursor仍然指向正确的位置）
         for (BiObject structureNode : structureNodes) {
             if ("附属设施".equals(structureNode.getName())) {
                 continue;
             }
-            XmlCursor structureCursor = cursor.newCursor();
 
             // 生成结构内容，从第2层开始（跳过桥名层级）
             writeBiObjectTreeToWordForSingleBridge(document, structureNode, allObjects, bridgeDiseaseMap, 2
-                    , imageCounter, tableCounter, structureCursor, 2);
-        }
-
-        // 删除占位符段落 - 改进的删除逻辑，确保完全删除
-        // 先删除所有runs
-        while (placeholderParagraph.getRuns().size() > 0) {
-            placeholderParagraph.removeRun(0);
-        }
-        // 然后删除整个段落
-        for (int i = 0; i < document.getParagraphs().size(); i++) {
-            if (document.getParagraphs().get(i) == placeholderParagraph) {
-                document.removeBodyElement(i);
-                break;
-            }
+                    , imageCounter, tableCounter, cursor, 2);
         }
     }
 
@@ -5626,4 +5700,37 @@ public class ReportServiceImpl implements IReportService {
         causeQuery.setType(disease.getType());
         return diseaseService.getCauseAnalysis(causeQuery);
     }
+
+    public static int compareCodes(String c1, String c2) {
+        String[] p1 = c1.split("-");
+        String[] p2 = c2.split("-");
+
+        int len = Math.min(p1.length, p2.length);
+
+        for (int i = 0; i < len; i++) {
+            String s1 = p1[i];
+            String s2 = p2[i];
+
+            boolean isNum1 = s1.matches("\\d+");
+            boolean isNum2 = s2.matches("\\d+");
+
+            if (isNum1 && isNum2) {
+                // 都是数字：按数值排序
+                int n1 = Integer.parseInt(s1);
+                int n2 = Integer.parseInt(s2);
+                if (n1 != n2) return n1 - n2;
+            } else if (!isNum1 && !isNum2) {
+                // 都是字母：按字典序
+                int cmp = s1.compareToIgnoreCase(s2);
+                if (cmp != 0) return cmp;
+            } else {
+                // 一个数字一个字母：数字优先
+                return isNum1 ? -1 : 1;
+            }
+        }
+
+        // 比较长度，例如 1-2 < 1-2-1
+        return p1.length - p2.length;
+    }
+
 }

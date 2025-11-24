@@ -116,6 +116,14 @@ public class TaskServiceImpl implements ITaskService {
             }
         }
 
+        tasks.forEach(t -> {
+            BiEvaluation biEvaluation = evaluationService.selectBiEvaluationByTaskId(t.getId());
+            if (biEvaluation != null) {
+                t.setEvaluationResult(biEvaluation.getSystemLevel());
+            }
+        });
+
+
         return tasks;
     }
 

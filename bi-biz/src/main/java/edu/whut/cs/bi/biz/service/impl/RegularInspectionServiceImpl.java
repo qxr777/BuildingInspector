@@ -1,12 +1,12 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.enums.ArchBridgeRecordTableComponentList;
 import edu.whut.cs.bi.biz.domain.enums.BeamBridgeRecordTableComponentList;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.ConditionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
-import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -552,6 +552,50 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
     }
 
     /**
+     * 批量查询 biObject 的权重
+     */
+    private Map<Long, BigDecimal> batchGetObjectsWeight(List<Long> componentIds, Long buildingId, Long projectId, Task task) {
+        Map<Long, BigDecimal> resultMap = new HashMap<>();
+        try {
+            if (componentIds.isEmpty()) {
+                return resultMap;
+            }
+
+            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+            if (biEvaluation == null) {
+                log.warn("未找到任务的评定结果: taskId={}", task.getId());
+            }
+            // 创建查询条件
+            Condition queryParam = new Condition();
+            queryParam.setBiEvaluationId(biEvaluation.getId());
+
+            // 查询所有构件的评分
+            List<Condition> allConditions = conditionMapper.selectConditionList(queryParam);
+
+            // 按构件ID分组
+            Map<Long, List<Condition>> conditionsByComponent = allConditions.stream()
+                    .filter(c -> c.getBiObjectId() != null)
+                    .collect(Collectors.groupingBy(Condition::getBiObjectId));
+
+            // 为每个构件获取评分
+            for (Long componentId : componentIds) {
+                List<Condition> conditions = conditionsByComponent.get(componentId);
+                if (conditions != null && !conditions.isEmpty()) {
+                    // 取第一个评分
+                    Condition firstCondition = conditions.get(0);
+                    if (firstCondition.getScore() != null) {
+                        resultMap.put(componentId, firstCondition.getBiObject().getWeight());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("批量获取构件评分失败: error={}", e.getMessage(), e);
+        }
+
+        return resultMap;
+    }
+
+    /**
      * 批量获取构件病害类型
      * 将第四层节点的病害类型汇总到第三层节点
      *
@@ -801,7 +845,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
     @Override
     public void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task, Project project, ReportTemplateTypes templateType) {
-        if (null != templateType && templateType.getType().equals(ReportTemplateTypes.BEAM_BRIDGE.getType())) {
+        if (null != templateType && (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType()) || ReportTemplateTypes.is1LevelSigleBridge(templateType.getType()))) {
             // 拿到 建筑 部件树 的根节点 。
             BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
             if (rootObject == null) {
@@ -838,15 +882,22 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                     level2ForLevel3Map.put(level3Object.getId(), level2Object);
                 }
             }
-
+            //批量查询所有构件的权重
+            Map<Long, BigDecimal> componentWeightMap = batchGetObjectsWeight(allLevel3Ids, building.getId(), project.getId(), task);
             // 批量查询所有构件的评分
             Map<Long, String> componentScoreMap = batchGetComponentScores(allLevel3Ids, building.getId(), project.getId(), task);
             // 批量查询所有构件的病害类型
             Map<Long, String> componentDiseaseTypesMap = batchGetComponentDiseaseTypes(allLevel3Ids, building.getId(), project.getId(), allObjects);
 
+            List<String> recordComponentNameList = null;
             // 使用 enum 中的 list 查询固定格式 的 表格cell 应该填入的值。
-            List<String> recordComponentNameList = BeamBridgeRecordTableComponentList.getComponentNameList();
-            // 表格 固定 名称 对应 对 biObject id
+            if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE.getType()) || templateType.getType().equals(ReportTemplateTypes.LEVEL_1_BEAM_BRIDGE.getType())) {
+                recordComponentNameList = BeamBridgeRecordTableComponentList.getComponentNameList();
+            } else if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_ARCH_BRIDGE.getType())) {
+                recordComponentNameList = ArchBridgeRecordTableComponentList.getComponentNameList();
+            }
+
+            // 表格 固定 名称 对应  biObject id
             Map<String, Long> idMap = new HashMap<>();
             for (String s : recordComponentNameList) {
                 idMap.put(s, null);
@@ -861,8 +912,12 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             for (int i = 1; i <= recordComponentNameList.size(); i++) {
                 String name = recordComponentNameList.get(i - 1);
                 Long objectId = idMap.get(name);
-                String scoreStr = null == objectId ? "0" : componentScoreMap.get(objectId);
-                String typeStr = null == objectId ? "" : componentDiseaseTypesMap.get(objectId);
+                String scoreStr = "/";
+                String typeStr = "/";
+                if (null != objectId) {
+                    scoreStr = componentWeightMap.get(objectId).compareTo(BigDecimal.ZERO) == 0 ? "/" : componentScoreMap.get(objectId);
+                    typeStr = componentWeightMap.get(objectId).compareTo(BigDecimal.ZERO) == 0 ? "/" : componentDiseaseTypesMap.get(objectId);
+                }
                 Property propertyScore = new Property();
                 propertyScore.setName("评分" + i);
                 propertyScore.setValue(scoreStr);
@@ -879,7 +934,6 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             // 将表格中的占位符 替换。
             replacePlaceholdersInTables(document, properties);
             //！！！ 注意 ， 这里考虑到 基本卡片的 最后 清除了 所有表格中的占位符 ，所以这里没有再次清除。
-
         }
     }
 
