@@ -23,7 +23,7 @@
             <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px">
                     <label class="col-sm-4 control-label is-required"
-                    >构件名称：</label
+                    >部件名称：</label
                     >
                     <div class="col-sm-8">
                         <input
@@ -73,35 +73,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="col-sm-4">
-                <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-4 control-label is-required">病害分组：</label>
-                    <div class="col-sm-8">
-                        <select class="form-control select2" name="diseaseGroupName" id="diseaseGroupName"
-                                required>
-                            <option value="">请选择病害分组</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mb-4">
-            <div class="col-sm-4">
-                <div class="form-group" style="margin-bottom: 20px">
-                    <label class="col-sm-4 control-label">位置序号：</label>
-                    <div class="col-sm-8">
-                        <input
-                                class="form-control"
-                                type="text"
-                                name="positionNumber"
-                                th:field="*{positionNumber}"
-                                id="positionNumber"
-                                placeholder="第x号"
-                        />
-                    </div>
-                </div>
-            </div>
             <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px">
                     <label class="col-sm-4 control-label">构件编码：</label>
@@ -116,6 +87,20 @@
                     </div>
                 </div>
             </div>
+        </div>
+        <div class="row mb-4">
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label is-required">病害分组：</label>
+                    <div class="col-sm-8">
+                        <select class="form-control select2" name="diseaseGroupName" id="diseaseGroupName"
+                                required>
+                            <option value="">请选择病害分组</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-sm-4">
                 <div class="form-group" style="margin-bottom: 20px">
                     <label class="col-sm-4 control-label is-required"
@@ -166,6 +151,21 @@
                                 th:value="${customPosition}"
                                 placeholder="请输入自定义病害位置"
                                 style="display: none"
+                        />
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group" style="margin-bottom: 20px">
+                    <label class="col-sm-4 control-label">位置序号：</label>
+                    <div class="col-sm-8">
+                        <input
+                                class="form-control"
+                                type="text"
+                                name="positionNumber"
+                                th:field="*{positionNumber}"
+                                id="positionNumber"
+                                placeholder="第x号"
                         />
                     </div>
                 </div>
