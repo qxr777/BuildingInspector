@@ -174,8 +174,15 @@
                     }
                 },
                 {
-                    field: 'type',
+                    field: 'bindType',
                     title: '病害类型',
+                    formatter: function (value) {
+                        return value || '-';
+                    }
+                },
+                {
+                    field: 'type',
+                    title: '缺损类型',
                     formatter: function (value) {
                         return value || '-';
                     }

@@ -823,7 +823,6 @@ public class DiseaseController extends BaseController {
         mmap.put("biObject", biObject);
         if (biObject.getName().equals("其他")) {
             String customPosition = disease.getPosition();
-            disease.setPosition(String.valueOf(customPosition));
             mmap.put("customPosition", customPosition);
         }
 

@@ -417,7 +417,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         disease.setComponentId(component.getId());
                         disease.setBuildingId(building.getId());
                         disease.setProjectId(task.getProjectId());
-                        disease.setBiObjectName(component_3);
+                        disease.setBiObjectName(biObject4.getName());
                         disease.setBiObjectId(biObject4.getId());
                         disease.setDescription(diseaseDescription);
                         disease.setTaskId(taskId);

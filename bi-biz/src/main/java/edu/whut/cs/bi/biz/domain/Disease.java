@@ -44,8 +44,11 @@ public class Disease extends BaseEntity {
     /** 单位 */
     private String units;
 
-    /** 病害类型 */
+    /** 缺损类型 */
     private String type;
+
+    /** 病害类型 */
+    private String bindType;
 
     /** 病害性质（结构病害 / 非结构病害） */
     private String nature;

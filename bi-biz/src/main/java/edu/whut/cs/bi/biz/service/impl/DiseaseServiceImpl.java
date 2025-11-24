@@ -136,13 +136,19 @@ public class DiseaseServiceImpl implements IDiseaseService {
         // 关联查询其它属性
         Long componentId = disease.getComponentId();
         Long biObjectId = disease.getBiObjectId();
-        if (biObjectId != null) {
-            disease.setBiObject(biObjectMapper.selectBiObjectById(biObjectId));
-        }
-        if (componentId != null) {
-            disease.setComponent(componentService.selectComponentById(componentId));
-        }
 
+        if (biObjectId == null) {
+            throw new RuntimeException("biObjectId不存在！");
+        }
+        BiObject biObject = biObjectMapper.selectBiObjectById(biObjectId);
+        if (componentId == null) {
+            throw new RuntimeException("componentId不存在！");
+        }
+        Component component = componentService.selectComponentById(componentId);
+        disease.setComponent(component);
+        disease.setBiObject(biObject);
+
+        disease.setBiObjectName(component.getName().split("#")[1]);
         DiseaseDetail diseaseDetail = new DiseaseDetail();
         diseaseDetail.setDiseaseId(id);
         List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
@@ -197,6 +203,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
             BiObject biObject = biObjectMapper.selectBiObjectById(ds.getBiObjectId());
             ds.setBindBiObjectName(biObject.getName());
+
+            // 病害类型
+            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(ds.getDiseaseTypeId());
+            ds.setBindType(diseaseType.getName());
 
             DiseaseDetail diseaseDetail = new DiseaseDetail();
             diseaseDetail.setDiseaseId(ds.getId());
