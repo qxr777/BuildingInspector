@@ -22,6 +22,7 @@ import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import net.coobird.thumbnailator.Thumbnails;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
@@ -763,14 +764,80 @@ public class DiseaseServiceImpl implements IDiseaseService {
     public void handleDiseaseAttachment(MultipartFile[] files, Long id, int type) {
         if (files == null) return;
         Arrays.stream(files).forEach(e -> {
-            FileMap fileMap = fileMapService.handleFileUpload(e);
+            // 原始图片
+            FileMap originalFileMap = fileMapService.handleFileUpload(e);
             Attachment attachment = new Attachment();
-            attachment.setMinioId(Long.valueOf(fileMap.getId()));
-            attachment.setName("disease_" + fileMap.getOldName());
+            try {
+                // 缩略图
+                MultipartFile thumbnailFile = null;
+                thumbnailFile = createThumbnail(e, 0.8f,0.7f);
+                FileMap thumbnailFileMap = fileMapService.handleFileUpload(thumbnailFile);
+                attachment.setThumbMinioId(Long.valueOf(thumbnailFileMap.getId()));
+            } catch (Exception ex) {
+                log.error("转化缩略图异常！" + e.toString());
+//                throw new RuntimeException("转化缩略图异常！");
+            }
+            attachment.setMinioId(Long.valueOf(originalFileMap.getId()));
+            attachment.setName("disease_" + originalFileMap.getOldName());
             attachment.setSubjectId(id);
             attachment.setType(type);
+
             attachmentService.insertAttachment(attachment);
         });
+    }
+
+    /**
+     * 将 MultipartFile 类型的图片缩放为指定尺寸，并返回新的 MultipartFile 对象。
+     * 所有操作均在内存中完成，不产生临时文件。
+     *
+     * @param originalFile 原始的 MultipartFile 图片
+     * @param quality  缩略图质量
+     * @return 缩放后的 MultipartFile 图片
+     * @throws IOException 如果处理过程中发生 I/O 错误
+     */
+    public static MultipartFile createThumbnail(MultipartFile originalFile, float scale, float quality) throws IOException {
+        // 1. 检查输入文件是否为空
+        if (originalFile.isEmpty()) {
+            throw new IllegalArgumentException("原始文件不能为空");
+        }
+
+        // 2. 从原始文件获取输入流
+        try (InputStream inputStream = originalFile.getInputStream()) {
+            // 3. 创建一个字节数组输出流，用于接收 Thumbnails 处理后的图片数据
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            // 4. 使用 Thumbnails 进行缩放，并将结果写入到 ByteArrayOutputStream
+            Thumbnails.of(inputStream)
+                    .scale(scale)
+                    .outputQuality(quality)
+                    .outputFormat(getFileExtension(originalFile.getOriginalFilename())) // 根据原始文件名推断输出格式
+                    .toOutputStream(outputStream); // 将缩放后的图片写入输出流
+
+            // 5. 从 ByteArrayOutputStream 中获取字节数组
+            byte[] thumbnailBytes = outputStream.toByteArray();
+
+            // 6. 使用 MockMultipartFile 构建一个新的 MultipartFile 对象
+            // 参数分别为：文件名、原始文件名、ContentType、字节数组
+            return new MockMultipartFile(
+                    originalFile.getOriginalFilename() + "_thumbnail",
+                    originalFile.getOriginalFilename(),
+                    originalFile.getContentType(),
+                    thumbnailBytes
+            );
+        }
+    }
+
+    /**
+     * 从文件名中获取文件扩展名（不包含点）
+     *
+     * @param fileName 文件名
+     * @return 文件扩展名，如 "jpg", "png"
+     */
+    private static String getFileExtension(String fileName) {
+        if (fileName == null || fileName.lastIndexOf('.') == -1) {
+            return "jpg"; // 默认格式
+        }
+        return fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
     }
 
     /**
