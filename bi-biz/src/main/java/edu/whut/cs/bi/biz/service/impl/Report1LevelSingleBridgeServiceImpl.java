@@ -562,7 +562,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
         for (Disease d : nodeDiseases) {
             List<String> imageBookmarks = new ArrayList<>();
-            List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+            List<Map<String, Object>> images = ReportGenerateTools.getDiseaseImage(d.getId());
             if (images != null) {
                 for (Map<String, Object> img : images) {
                     if (Boolean.TRUE.equals(img.get("isImage"))) {
@@ -1391,7 +1391,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
         // 逐个处理每个病害的图片
         for (Disease d : diseases) {
-            List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+            List<Map<String, Object>> images = ReportGenerateTools.getDiseaseImage(d.getId());
             if (images == null || images.isEmpty()) {
                 continue;
             }
