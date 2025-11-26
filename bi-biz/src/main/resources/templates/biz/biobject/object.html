@@ -104,9 +104,20 @@
                     align: 'left'
                 },
                 {
-                    field: 'orderNum',
-                    title: '显示顺序',
-                    align: 'left'
+                    title: '操作',
+                    align: 'center',
+                    formatter: function(value, row, index) {
+                        var actions = [];
+                        // 使用全局变量判断根节点状态
+                        if (rootObjectStatus === "3") {
+                            // 状态为3（锁定），显示灰色禁用按钮
+                            actions.push('<a class="btn btn-default btn-xs disabled" href="javascript:void(0)"><i class="fa fa-edit"></i>编辑</a> ');
+                        } else {
+                            // 状态不是3，显示正常可点击按钮，传递rootObjectId参数
+                            actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="editWithRootId(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                        }
+                        return actions.join('');
+                    }
                 },
                 {
                     field: 'status',
@@ -131,7 +142,32 @@
                     title: '构件数量',
                     align: 'left',
                     formatter: function(value, row, index) {
-                        if (value > 0) {
+                        // 判断是否是第4层节点（可以编辑构件数量）
+                        var isFourthLevel = false;
+                        if (row.ancestors && rootObjectId) {
+                            var ancestorArray = row.ancestors.split(",");
+                            
+                            // 找到rootObjectId在ancestors中的位置
+                            var rootIndex = -1;
+                            for (var i = 0; i < ancestorArray.length; i++) {
+                                if (ancestorArray[i] === String(rootObjectId)) {
+                                    rootIndex = i;
+                                    break;
+                                }
+                            }
+                            
+                            // 第4层意味着在rootObjectId之后有3个祖先节点
+                            if (rootIndex >= 0) {
+                                isFourthLevel = (ancestorArray.length - rootIndex) === 3;
+                            }
+                        }
+                        
+                        // 如果value不为null且不为0，则显示
+                        if (value != null && value != 0) {
+                            // 如果不是第4层，显示为红色
+                            if (!isFourthLevel) {
+                                return '<span style="color: red;">' + value + '</span>';
+                            }
                             return value;
                         }
                         return '';
@@ -150,26 +186,7 @@
             ]
         };
 
-        // 如果用户有编辑权限，添加操作列
-        if (editFlag !== 'hidden') {
-            options.columns.push({
-                title: '操作',
-                align: 'center',
-                formatter: function(value, row, index) {
-                    var actions = [];
-                    // 使用全局变量判断根节点状态
-                    if (rootObjectStatus === "3") {
-                        // 状态为3（锁定），显示灰色禁用按钮
-                        actions.push('<a class="btn btn-default btn-xs disabled" href="javascript:void(0)"><i class="fa fa-edit"></i>编辑</a> ');
-                    } else {
-                        // 状态不是3，显示正常可点击按钮，传递rootObjectId参数
-                        actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="editWithRootId(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-                    }
-                    return actions.join('');
-                }
-            });
-        }
-
+        // 移除了原来在columns外部添加操作列的代码
         $.treeTable.init(options);
     });
 

@@ -125,42 +125,66 @@ public class BiObjectServiceImpl implements IBiObjectService {
         BiObject oldBiObject = biObjectMapper.selectBiObjectById(biObject.getId());
         biObject.setUpdateTime(DateUtils.getNowDate());
         biObject.setUpdateBy(ShiroUtils.getLoginName());
+        
+        // 先更新当前节点
+        int result = biObjectMapper.updateBiObject(biObject);
+        
         // 处理构件数量变更传播
         if (!"其他".equals(biObject.getName()) && oldBiObject != null && biObject.getCount() != null &&
                 !biObject.getCount().equals(oldBiObject.getCount())) {
-            // 计算构件数量变化量
-            if (oldBiObject.getCount() == null) {
-                oldBiObject.setCount(0);
+            // 从当前节点的父节点开始向上更新
+            if (oldBiObject.getParentId() != null && oldBiObject.getParentId() != 0L) {
+                updateParentCountRecursively(oldBiObject.getParentId());
             }
-            int deltaCount = biObject.getCount() - oldBiObject.getCount();
+        }
+        
+        return result;
+    }
 
-            // 如果有变化且不是根节点，则向上传播变更
-            if (deltaCount != 0 && oldBiObject.getParentId() != 0L) {
-                // 获取祖先节点列表（不包括根节点0）
-                String ancestors = oldBiObject.getAncestors();
-                if (ancestors != null && !ancestors.isEmpty()) {
-                    String[] ancestorIds = ancestors.split(",");
-                    List<Long> ancestorIdList = IntStream.range(0, ancestorIds.length)
-                            .skip(2)
-                            .mapToObj(i -> ancestorIds[i])
-                            .map(id -> {
-                                try {
-                                    return Long.parseLong(id);
-                                } catch (NumberFormatException e) {
-                                    return null;
-                                }
-                            })
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
-
-                    // 如果有祖先节点，则批量更新它们的构件数量
-                    if (!ancestorIdList.isEmpty()) {
-                        biObjectMapper.updateAncestorsCount(ancestorIdList, deltaCount, ShiroUtils.getLoginName());
+    /**
+     * 递归向上更新父节点的数量
+     * 通过重新累加所有同级节点的数量来更新父节点，确保数据准确性
+     *
+     * @param parentId 父节点ID
+     */
+    private void updateParentCountRecursively(Long parentId) {
+        if (parentId == null || parentId == 0L) {
+            return; // 到达根节点，停止递归
+        }
+        
+        // 1. 查询所有同级节点（相同parentId的节点）
+        BiObject query = new BiObject();
+        query.setParentId(parentId);
+        List<BiObject> siblings = biObjectMapper.selectBiObjectList(query);
+        
+        // 2. 累加所有非停用节点的数量
+        int totalCount = 0;
+        if (siblings != null) {
+            for (BiObject sibling : siblings) {
+                // 排除停用节点（status = "1"）
+                if (!"1".equals(sibling.getStatus())) {
+                    Integer count = sibling.getCount();
+                    if (count != null) {
+                        totalCount += count;
                     }
                 }
             }
         }
-        return biObjectMapper.updateBiObject(biObject);
+        
+        // 3. 更新父节点的数量
+        BiObject parent = biObjectMapper.selectBiObjectById(parentId);
+        if (parent != null) {
+            parent.setCount(totalCount);
+            parent.setUpdateTime(DateUtils.getNowDate());
+            parent.setUpdateBy(ShiroUtils.getLoginName());
+            biObjectMapper.updateBiObject(parent);
+            
+            log.info("更新节点ID: {}, 名称: {}, 新数量: {} (通过累加同级节点计算)", 
+                    parentId, parent.getName(), totalCount);
+            
+            // 4. 递归更新上一层父节点
+            updateParentCountRecursively(parent.getParentId());
+        }
     }
 
     /**
