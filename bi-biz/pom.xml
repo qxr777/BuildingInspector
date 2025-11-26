@@ -129,6 +129,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
+
+        <!--Thumbnails 工具类-->
+        <dependency>
+            <groupId>net.coobird</groupId>
+            <artifactId>thumbnailator</artifactId>
+            <version>0.4.20</version> <!-- 最新版本可到 Maven 中央仓库查询 -->
+        </dependency>
     </dependencies>
 
 

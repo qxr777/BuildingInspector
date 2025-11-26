@@ -1,11 +1,17 @@
 package edu.whut.cs.bi.biz.utils;
 
+import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.IFileMapService;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.*;
+import org.jetbrains.annotations.NotNull;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -13,7 +19,10 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -25,15 +34,27 @@ public class ReportGenerateTools {
     @Autowired
     private MinioConfig minioConfigAutoWired;
 
+    @Autowired
+    private AttachmentService attachmentServiceAutoWired;
+
+    @Autowired
+    private IFileMapService fileMapServiceAutoWired;
+
     private static MinioClient minioClient;
 
     private static MinioConfig minioConfig;
+
+    private static AttachmentService attachmentService;
+
+    private static IFileMapService fileMapService;
 
     @PostConstruct
     public void init() {
         // 静态变量初始化后注入。
         minioClient = minioClientAutoWired;
         minioConfig = minioConfigAutoWired;
+        attachmentService = attachmentServiceAutoWired;
+        fileMapService = fileMapServiceAutoWired;
     }
 
     /**
@@ -532,5 +553,40 @@ public class ReportGenerateTools {
             }
         }
         return null;
+    }
+
+    @NotNull
+    public static List<Map<String, Object>> getDiseaseImage(Long id) {
+        List<Attachment> attachments = attachmentService.getAttachmentList(id).stream().filter(e -> e.getName().startsWith("disease")).toList();
+
+        // 转换为需要的格式
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Attachment attachment : attachments) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", attachment.getId());
+            map.put("fileName", attachment.getName().split("_")[1]);
+            FileMap fileMap = fileMapService.selectFileMapById(attachment.getThumbMinioId() == null ? attachment.getMinioId() : attachment.getThumbMinioId());
+            if (fileMap == null) continue;
+            String s = fileMap.getNewName();
+            map.put("url", minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + s.substring(0, 2) + "/" + s);
+            // 根据文件后缀判断是否为图片
+            map.put("isImage", isImageFile(attachment.getName()));
+            map.put("type", attachment.getType());
+            result.add(map);
+        }
+        return result;
+    }
+
+    // 判断文件是否为图片的辅助方法
+    public static boolean isImageFile(String fileName) {
+        if (StringUtils.isBlank(fileName)) {
+            return false;
+        }
+        String extension = fileName.toLowerCase();
+        return extension.endsWith(".jpg") ||
+                extension.endsWith(".jpeg") ||
+                extension.endsWith(".png") ||
+                extension.endsWith(".gif") ||
+                extension.endsWith(".bmp");
     }
 }
