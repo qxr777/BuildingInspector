@@ -21,6 +21,8 @@ import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import io.minio.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -122,7 +124,15 @@ public class FileMapServiceImpl implements IFileMapService {
             return 0;
         }
         String[] fileIds = Convert.toStrArray(ids);
-        for (String idStr : fileIds) {
+        String[] filteredFileIds = Arrays.stream(fileIds)
+                .filter(Objects::nonNull) // 先过滤 null 引用，避免空指针
+                .filter(str -> !"null".equalsIgnoreCase(str)) // 忽略大小写过滤 "null" 字符串
+                .filter(str -> !str.trim().isEmpty())
+                .toArray(String[]::new);
+        for (String idStr : filteredFileIds) {
+            if (idStr == null || idStr.isEmpty() || "null".equals(idStr)) {
+                continue;
+            }
             Long id = Long.valueOf(idStr);
             FileMap fileMap = fileMapMapper.selectFileMapById(id);
             if (fileMap != null) {
@@ -138,7 +148,10 @@ public class FileMapServiceImpl implements IFileMapService {
                 }
             }
         }
-        return fileMapMapper.deleteFileMapByIds(List.of(fileIds));
+        if(filteredFileIds.length == 0){
+            return 0;
+        }
+        return fileMapMapper.deleteFileMapByIds(List.of(filteredFileIds));
     }
 
     /**
