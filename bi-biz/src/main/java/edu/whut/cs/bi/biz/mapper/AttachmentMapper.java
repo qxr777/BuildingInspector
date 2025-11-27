@@ -22,6 +22,8 @@ public interface AttachmentMapper {
 
     public String[] selectMinioIdsByIds(String[] ids);
 
+    public String[] selectThumbMinioIdsByIds(String[] ids);
+
     public int insert(Attachment attachment);
 
     public int update(Attachment attachment);

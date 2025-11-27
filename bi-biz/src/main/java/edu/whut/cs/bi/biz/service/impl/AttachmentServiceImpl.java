@@ -84,7 +84,9 @@ public class AttachmentServiceImpl  implements AttachmentService {
             return 0;
         }
         String[] FileMapIds = attachmentMapper.selectMinioIdsByIds(Convert.toStrArray(ids));
+        String[] thumbMinioIdsByIds = attachmentMapper.selectThumbMinioIdsByIds(Convert.toStrArray(ids));
         fileMapService.deleteFileMapByIds(String.join(",",FileMapIds));
+        fileMapService.deleteFileMapByIds(String.join(",",thumbMinioIdsByIds));
         return attachmentMapper.deleteByIds(Convert.toStrArray(ids));
     }
 

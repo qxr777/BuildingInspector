@@ -553,6 +553,10 @@ public class FileMapController extends BaseController {
                 .collect(Collectors.joining(","));
         attachmentMapper.deleteByIds(Convert.toStrArray(idsStr));
         fileMapService.deleteFileMapByIds(ids.stream().map(e -> e.toString()).collect(Collectors.joining(",")));
+        String thumbIds = attachment.stream().filter(e -> e.getThumbMinioId() != null && e.getThumbMinioId() != 0)
+                .map(e -> e.getThumbMinioId().toString())
+                .collect(Collectors.joining(","));
+        fileMapService.deleteFileMapByIds(thumbIds);
 
         return toAjax(true);
     }

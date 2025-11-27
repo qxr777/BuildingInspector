@@ -45,7 +45,13 @@
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
+    </select>
 
+    <select id="selectThumbMinioIdsByIds" parameterType="String">
+        select CAST(thumb_minio_id AS CHAR) from bi_attachment where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
     </select>
 
     <select id="selectBySubjectIds" parameterType="java.util.List" resultMap="AttachmentResult">

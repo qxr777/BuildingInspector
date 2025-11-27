@@ -35,6 +35,7 @@ import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
 
 import static com.ruoyi.common.utils.PageUtils.startPage;
+import static edu.whut.cs.bi.biz.utils.ThumbPhotoUtils.createThumbnail;
 
 /**
  * 文件管理Service业务层处理
@@ -57,10 +58,11 @@ public class FileMapServiceImpl implements IFileMapService {
     @Resource
     private AttachmentService attachmentService;
 
-    @Resource
-    private IBiObjectService biObjectService;
     @Autowired
     private BiObjectMapper biObjectMapper;
+
+    @Resource
+    private IFileMapService fileMapService;
 
     /**
      * 查询文件管理
@@ -527,8 +529,9 @@ public class FileMapServiceImpl implements IFileMapService {
                 extension.endsWith(".jpeg") ||
                 extension.endsWith(".png") ||
                 extension.endsWith(".gif") ||
-                extension.endsWith(".bmp");
+                extension.endsWith(".webp");
     }
+
     @Override
     public void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type, List<String> informations) {
         if(files == null){
@@ -541,6 +544,18 @@ public class FileMapServiceImpl implements IFileMapService {
             
             FileMap fileMap = handleFileUpload(file);
             Attachment attachment = new Attachment();
+
+            try {
+                // 缩略图
+                MultipartFile thumbnailFile = null;
+                thumbnailFile = createThumbnail(file, 1024,768, 0.5f);
+                FileMap thumbnailFileMap = fileMapService.handleFileUpload(thumbnailFile);
+                attachment.setThumbMinioId(Long.valueOf(thumbnailFileMap.getId()));
+            } catch (Exception ex) {
+                log.error("转化缩略图异常！" + ex.toString());
+//                throw new RuntimeException("转化缩略图异常！");
+            }
+
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setName("biObject_"+fileMap.getOldName());
             attachment.setSubjectId(biObjectId);
