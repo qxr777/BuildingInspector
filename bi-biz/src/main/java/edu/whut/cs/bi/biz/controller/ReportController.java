@@ -676,7 +676,7 @@ public class ReportController extends BaseController {
      * 生成报告
      */
     @RequiresPermissions("biz:report:edit")
-    @Log(title = "检测报告", businessType = BusinessType.UPDATE)
+    @Log(title = "检测报告", businessType = BusinessType.GENCODE)
     @PostMapping("/generate/{id}")
     @ResponseBody
     public AjaxResult generate(@PathVariable("id") Long id) {

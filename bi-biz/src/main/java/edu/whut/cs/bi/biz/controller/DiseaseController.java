@@ -1074,6 +1074,7 @@ public class DiseaseController extends BaseController {
     }
 
     @RequiresPermissions("biz:disease:add")
+    @Log(title = "病害", businessType = BusinessType.IMPORT)
     @PostMapping("/upload/diseaseHistoryExcel")
     @ResponseBody
     public AjaxResult diseaseHistoryExcel(@RequestParam("file") MultipartFile file, @RequestParam("taskId") Long taskId) {
