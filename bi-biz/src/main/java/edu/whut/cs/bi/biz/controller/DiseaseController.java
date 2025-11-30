@@ -914,7 +914,7 @@ public class DiseaseController extends BaseController {
             disease.setAttachmentCount(files.length + existingIdSet.size());
         }
 
-        return toAjax(diseaseService.updateDisease(disease));
+        return toAjax(diseaseService.newUpdateDisease(disease));
     }
 
     /**

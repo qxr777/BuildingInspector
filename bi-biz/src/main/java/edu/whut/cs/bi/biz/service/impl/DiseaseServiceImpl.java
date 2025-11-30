@@ -644,6 +644,72 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
+     * 修改病害
+     *
+     * @param disease 病害
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int newUpdateDisease(Disease disease) {
+        Disease old = diseaseMapper.selectDiseaseById(disease.getId());
+        if (old.getDiseaseTypeId().equals(disease.getDiseaseTypeId())) {
+            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
+            if (!diseaseType.getName().equals("其他")) {
+                disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
+            }
+        }
+
+        disease.setUpdateTime(DateUtils.getNowDate());
+
+        // 判断是否是换绑
+        Component oldComponent = componentService.selectComponentById(old.getComponentId());
+        if (!Objects.equals(old.getBiObjectId(), disease.getBiObjectId()) || !Objects.equals(oldComponent.getCode(), disease.getComponent().getCode())) {
+            // 换绑了
+            // 更新部件信息
+            // 查询数据库，判断是不是已存在对应部件
+            Component select = new Component();
+            select.setName(disease.getComponent().getCode() + "#" + disease.getBiObjectName());
+            select.setCode(disease.getComponent().getCode());
+            select.setBiObjectId(disease.getBiObjectId());
+            Component selectedComponent = componentMapper.selectComponent(select);
+            if (selectedComponent == null) {
+                oldComponent.setCode(disease.getComponent().getCode());
+                oldComponent.setName(disease.getComponent().getCode() + "#" + old.getBiObjectName());
+                oldComponent.setUpdateTime(DateUtils.getNowDate());
+                oldComponent.setUpdateBy(ShiroUtils.getLoginName());
+                oldComponent.setBiObjectId(disease.getBiObjectId());
+                componentService.updateComponent(oldComponent);
+            } else {
+                disease.setComponentId(selectedComponent.getId());
+            }
+        }
+
+        // 删除病害详情
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
+
+        // 新增病害详情
+        List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+        if (CollUtil.isNotEmpty(diseaseDetails)) {
+            diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+            diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        }
+
+        String imgNoExp = disease.getImgNoExp();
+        if (imgNoExp != null && !imgNoExp.trim().equals("")) {
+            try {
+                String[] split = imgNoExp.split("、");
+                disease.setImgNoExp(ReadFileServiceImpl.convertToDbFormat(Arrays.asList(split)));
+            } catch (Exception e) {
+                log.error("图片编号格式错误：{}", imgNoExp);
+                throw new RuntimeException("图片编号格式错误：" + imgNoExp);
+            }
+        }
+
+        return diseaseMapper.updateDisease(disease);
+    }
+
+    /**
      * 批量删除病害
      *
      * @param ids 需要删除的病害主键
