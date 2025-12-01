@@ -770,7 +770,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             try {
                 // 缩略图
                 MultipartFile thumbnailFile = null;
-                thumbnailFile = createThumbnail(e, 0.8f,0.7f);
+                thumbnailFile = createThumbnail(e, 0.25f,0.5f);
                 FileMap thumbnailFileMap = fileMapService.handleFileUpload(thumbnailFile);
                 attachment.setThumbMinioId(Long.valueOf(thumbnailFileMap.getId()));
             } catch (Exception ex) {
