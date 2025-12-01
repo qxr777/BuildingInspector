@@ -241,6 +241,14 @@
                     }
                 },
                 {
+                    field: 'participateAssess',
+                    title: '参与评定',
+                    visible: false,
+                    formatter: function (value) {
+                        return value == 1 ? '是' : '否';
+                    }
+                },
+                {
                     field: 'attachmentCount',
                     title: '附件数量',
                     formatter: function (value) {
