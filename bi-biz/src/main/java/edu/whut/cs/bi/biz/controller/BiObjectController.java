@@ -183,6 +183,22 @@ public class BiObjectController extends BaseController {
     }
 
     /**
+     * 选择对象树
+     */
+    @GetMapping(value = {"/selectObjectTree-disease/{id}", "/selectObjectTree-disease/"})
+    public String selectObjectTreeDisease(@PathVariable(value = "id", required = false) Long id,
+                                   @RequestParam(value = "rootObjectId", required = false) Long rootObjectId,
+                                   ModelMap mmap) {
+        if (StringUtils.isNotNull(id)) {
+            mmap.put("biObject", biObjectService.selectBiObjectById(id));
+        }
+        if (rootObjectId != null) {
+            mmap.put("rootObjectId", rootObjectId);
+        }
+        return prefix + "/treeDisease";
+    }
+
+    /**
      * 加载对象树列表
      */
     @GetMapping("/treeData")

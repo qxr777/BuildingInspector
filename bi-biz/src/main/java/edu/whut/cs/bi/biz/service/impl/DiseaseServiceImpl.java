@@ -12,7 +12,6 @@ import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysDictDataService;
-import com.ruoyi.system.service.ISysDictTypeService;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
@@ -21,8 +20,6 @@ import edu.whut.cs.bi.biz.domain.temp.DiseaseReport;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import lombok.extern.slf4j.Slf4j;
-import lombok.val;
-import net.coobird.thumbnailator.Thumbnails;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
@@ -49,10 +46,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import java.util.StringJoiner;
+
+import static edu.whut.cs.bi.biz.utils.ThumbPhotoUtils.createThumbnail;
 
 
 /**
@@ -119,12 +116,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     private ISysDictDataService sysDictDataService;
 
     @Resource
-    private ISysDictTypeService sysDictTypeService;
-
-    @Resource
     private IPropertyService propertyService;
-    @Autowired
-    private FileMapServiceImpl fileMapServiceImpl;
 
     /**
      * 查询病害
@@ -652,6 +644,72 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
+     * 修改病害
+     *
+     * @param disease 病害
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int newUpdateDisease(Disease disease) {
+        Disease old = diseaseMapper.selectDiseaseById(disease.getId());
+        if (old.getDiseaseTypeId().equals(disease.getDiseaseTypeId())) {
+            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
+            if (!diseaseType.getName().equals("其他")) {
+                disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
+            }
+        }
+
+        disease.setUpdateTime(DateUtils.getNowDate());
+
+        // 判断是否是换绑
+        Component oldComponent = componentService.selectComponentById(old.getComponentId());
+        if (!Objects.equals(old.getBiObjectId(), disease.getBiObjectId()) || !Objects.equals(oldComponent.getCode(), disease.getComponent().getCode())) {
+            // 换绑了
+            // 更新部件信息
+            // 查询数据库，判断是不是已存在对应部件
+            Component select = new Component();
+            select.setName(disease.getComponent().getCode() + "#" + disease.getBiObjectName());
+            select.setCode(disease.getComponent().getCode());
+            select.setBiObjectId(disease.getBiObjectId());
+            Component selectedComponent = componentMapper.selectComponent(select);
+            if (selectedComponent == null) {
+                oldComponent.setCode(disease.getComponent().getCode());
+                oldComponent.setName(disease.getComponent().getCode() + "#" + old.getBiObjectName());
+                oldComponent.setUpdateTime(DateUtils.getNowDate());
+                oldComponent.setUpdateBy(ShiroUtils.getLoginName());
+                oldComponent.setBiObjectId(disease.getBiObjectId());
+                componentService.updateComponent(oldComponent);
+            } else {
+                disease.setComponentId(selectedComponent.getId());
+            }
+        }
+
+        // 删除病害详情
+        diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
+
+        // 新增病害详情
+        List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
+        if (CollUtil.isNotEmpty(diseaseDetails)) {
+            diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+            diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        }
+
+        String imgNoExp = disease.getImgNoExp();
+        if (imgNoExp != null && !imgNoExp.trim().equals("")) {
+            try {
+                String[] split = imgNoExp.split("、");
+                disease.setImgNoExp(ReadFileServiceImpl.convertToDbFormat(Arrays.asList(split)));
+            } catch (Exception e) {
+                log.error("图片编号格式错误：{}", imgNoExp);
+                throw new RuntimeException("图片编号格式错误：" + imgNoExp);
+            }
+        }
+
+        return diseaseMapper.updateDisease(disease);
+    }
+
+    /**
      * 批量删除病害
      *
      * @param ids 需要删除的病害主键
@@ -770,11 +828,11 @@ public class DiseaseServiceImpl implements IDiseaseService {
             try {
                 // 缩略图
                 MultipartFile thumbnailFile = null;
-                thumbnailFile = createThumbnail(e, 0.25f,0.5f);
+                thumbnailFile = createThumbnail(e, 1024,768, 0.5f);
                 FileMap thumbnailFileMap = fileMapService.handleFileUpload(thumbnailFile);
                 attachment.setThumbMinioId(Long.valueOf(thumbnailFileMap.getId()));
             } catch (Exception ex) {
-                log.error("转化缩略图异常！" + e.toString());
+                log.error("转化缩略图异常！" + ex.toString());
 //                throw new RuntimeException("转化缩略图异常！");
             }
             attachment.setMinioId(Long.valueOf(originalFileMap.getId()));
@@ -786,59 +844,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         });
     }
 
-    /**
-     * 将 MultipartFile 类型的图片缩放为指定尺寸，并返回新的 MultipartFile 对象。
-     * 所有操作均在内存中完成，不产生临时文件。
-     *
-     * @param originalFile 原始的 MultipartFile 图片
-     * @param quality  缩略图质量
-     * @return 缩放后的 MultipartFile 图片
-     * @throws IOException 如果处理过程中发生 I/O 错误
-     */
-    public static MultipartFile createThumbnail(MultipartFile originalFile, float scale, float quality) throws IOException {
-        // 1. 检查输入文件是否为空
-        if (originalFile.isEmpty()) {
-            throw new IllegalArgumentException("原始文件不能为空");
-        }
 
-        // 2. 从原始文件获取输入流
-        try (InputStream inputStream = originalFile.getInputStream()) {
-            // 3. 创建一个字节数组输出流，用于接收 Thumbnails 处理后的图片数据
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-
-            // 4. 使用 Thumbnails 进行缩放，并将结果写入到 ByteArrayOutputStream
-            Thumbnails.of(inputStream)
-                    .scale(scale)
-                    .outputQuality(quality)
-                    .outputFormat(getFileExtension(originalFile.getOriginalFilename())) // 根据原始文件名推断输出格式
-                    .toOutputStream(outputStream); // 将缩放后的图片写入输出流
-
-            // 5. 从 ByteArrayOutputStream 中获取字节数组
-            byte[] thumbnailBytes = outputStream.toByteArray();
-
-            // 6. 使用 MockMultipartFile 构建一个新的 MultipartFile 对象
-            // 参数分别为：文件名、原始文件名、ContentType、字节数组
-            return new MockMultipartFile(
-                    originalFile.getOriginalFilename() + "_thumbnail",
-                    originalFile.getOriginalFilename(),
-                    originalFile.getContentType(),
-                    thumbnailBytes
-            );
-        }
-    }
-
-    /**
-     * 从文件名中获取文件扩展名（不包含点）
-     *
-     * @param fileName 文件名
-     * @return 文件扩展名，如 "jpg", "png"
-     */
-    private static String getFileExtension(String fileName) {
-        if (fileName == null || fileName.lastIndexOf('.') == -1) {
-            return "jpg"; // 默认格式
-        }
-        return fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
-    }
 
     /**
      * 处理病害附件(入参是文件）
@@ -850,9 +856,19 @@ public class DiseaseServiceImpl implements IDiseaseService {
         if (files == null || files.isEmpty()) return;
 
         files.stream().filter(Objects::nonNull).forEach(file -> {
-            FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(file, file.getName(), ShiroUtils.getLoginName());
+            FileMap fileMap = fileMapService.handleFileUploadFromFile(file, file.getName(), ShiroUtils.getLoginName());
 
             Attachment attachment = new Attachment();
+            try {
+                // 缩略图
+                File thumbnailFile = createThumbnail(file, 1024,768, 0.5f);
+                FileMap thumbnailFileMap = fileMapService.handleFileUploadFromFile(thumbnailFile, file.getName(), ShiroUtils.getLoginName());
+                attachment.setThumbMinioId(Long.valueOf(thumbnailFileMap.getId()));
+            } catch (Exception ex) {
+                log.error("转化缩略图异常！" + ex.toString());
+//                throw new RuntimeException("转化缩略图异常！");
+            }
+
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setName("disease_" + fileMap.getOldName());
             attachment.setSubjectId(id);

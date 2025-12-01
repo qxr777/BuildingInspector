@@ -71,6 +71,14 @@ public interface IDiseaseService {
     public int updateDisease(Disease disease);
 
     /**
+     * 修改病害
+     *
+     * @param disease 病害
+     * @return 结果
+     */
+    public int newUpdateDisease(Disease disease);
+
+    /**
      * 批量删除病害
      *
      * @param ids 需要删除的病害主键集合

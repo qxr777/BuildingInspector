@@ -21,6 +21,8 @@ import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import io.minio.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,6 +37,7 @@ import javax.annotation.Resource;
 import javax.servlet.ServletOutputStream;
 
 import static com.ruoyi.common.utils.PageUtils.startPage;
+import static edu.whut.cs.bi.biz.utils.ThumbPhotoUtils.createThumbnail;
 
 /**
  * 文件管理Service业务层处理
@@ -57,10 +60,11 @@ public class FileMapServiceImpl implements IFileMapService {
     @Resource
     private AttachmentService attachmentService;
 
-    @Resource
-    private IBiObjectService biObjectService;
     @Autowired
     private BiObjectMapper biObjectMapper;
+
+    @Resource
+    private IFileMapService fileMapService;
 
     /**
      * 查询文件管理
@@ -120,7 +124,15 @@ public class FileMapServiceImpl implements IFileMapService {
             return 0;
         }
         String[] fileIds = Convert.toStrArray(ids);
-        for (String idStr : fileIds) {
+        String[] filteredFileIds = Arrays.stream(fileIds)
+                .filter(Objects::nonNull) // 先过滤 null 引用，避免空指针
+                .filter(str -> !"null".equalsIgnoreCase(str)) // 忽略大小写过滤 "null" 字符串
+                .filter(str -> !str.trim().isEmpty())
+                .toArray(String[]::new);
+        for (String idStr : filteredFileIds) {
+            if (idStr == null || idStr.isEmpty() || "null".equals(idStr)) {
+                continue;
+            }
             Long id = Long.valueOf(idStr);
             FileMap fileMap = fileMapMapper.selectFileMapById(id);
             if (fileMap != null) {
@@ -136,7 +148,10 @@ public class FileMapServiceImpl implements IFileMapService {
                 }
             }
         }
-        return fileMapMapper.deleteFileMapByIds(List.of(fileIds));
+        if(filteredFileIds.length == 0){
+            return 0;
+        }
+        return fileMapMapper.deleteFileMapByIds(List.of(filteredFileIds));
     }
 
     /**
@@ -527,8 +542,9 @@ public class FileMapServiceImpl implements IFileMapService {
                 extension.endsWith(".jpeg") ||
                 extension.endsWith(".png") ||
                 extension.endsWith(".gif") ||
-                extension.endsWith(".bmp");
+                extension.endsWith(".webp");
     }
+
     @Override
     public void handleBiObjectAttachment(MultipartFile[] files, Long biObjectId, int type, List<String> informations) {
         if(files == null){
@@ -541,6 +557,18 @@ public class FileMapServiceImpl implements IFileMapService {
             
             FileMap fileMap = handleFileUpload(file);
             Attachment attachment = new Attachment();
+
+            try {
+                // 缩略图
+                MultipartFile thumbnailFile = null;
+                thumbnailFile = createThumbnail(file, 1024,768, 0.5f);
+                FileMap thumbnailFileMap = fileMapService.handleFileUpload(thumbnailFile);
+                attachment.setThumbMinioId(Long.valueOf(thumbnailFileMap.getId()));
+            } catch (Exception ex) {
+                log.error("转化缩略图异常！" + ex.toString());
+//                throw new RuntimeException("转化缩略图异常！");
+            }
+
             attachment.setMinioId(Long.valueOf(fileMap.getId()));
             attachment.setName("biObject_"+fileMap.getOldName());
             attachment.setSubjectId(biObjectId);

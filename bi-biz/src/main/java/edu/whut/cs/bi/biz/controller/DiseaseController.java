@@ -51,6 +51,8 @@ import javax.validation.Valid;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -502,10 +504,12 @@ public class DiseaseController extends BaseController {
     @Log(title = "病害", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(Disease disease, HttpServletResponse response) throws IOException {
-        List<Disease> list = diseaseService.selectDiseaseListForTask(disease);
+        List<Disease> originList = diseaseService.selectDiseaseListForTask(disease);
+        Map<String, List<Disease>> mapByObjectName = originList.stream().collect(Collectors.groupingBy(Disease::getBiObjectName));
+        List<Disease> list = new ArrayList<>();
+        mapByObjectName.values().forEach(list::addAll);
         // -------------------------- 步骤1：生成Excel（关联001/002图片名） --------------------------
         //  创建Excel工作簿
-
         // 用于记录图片序号（全局连续：001、002、003...）
         int photoSerialNum = 1;
         // 存储“图片序号→图片URL”的映射（后续下载用）
@@ -517,7 +521,8 @@ public class DiseaseController extends BaseController {
 
         //  创建表头
         Row headerRow = sheet.createRow(0);
-        String[] headers = {"构件编号", "缺损类型", "构件", "缺损位置", "病害描述", "标度", "长度(m)", "宽度(m)", "缝宽(mm)", "高度/深度(m)", "面积(㎡)", "照片名称", "发展趋势", "备注", "病害数量"};
+//        String[] headers = {"构件编号", "缺损类型", "构件", "缺损位置", "病害描述", "标度", "长度(m)", "宽度(m)", "缝宽(mm)", "高度/深度(m)", "面积(㎡)", "照片名称", "发展趋势", "备注", "病害数量"};
+        String[] headers = {"构件编号", "缺损类型", "构件", "缺损位置", "病害描述", "标度", "长度(m)", "宽度(m)", "缝宽(mm)", "高度/深度(m)", "面积(㎡)", "照片名称", "备注", "病害数量"};
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(headers[i]);
@@ -546,14 +551,14 @@ public class DiseaseController extends BaseController {
             row.createCell(4).setCellValue(item.getDescription());
             // 标度
             row.createCell(5).setCellValue(item.getLevel());
-            //发展趋势。
-            row.createCell(12).setCellValue(item.getDevelopmentTrend());
+//            //发展趋势。
+//            row.createCell(12).setCellValue(item.getDevelopmentTrend());
             //备注
             if (item.getRemark() != null) {
-                row.createCell(13).setCellValue(item.getRemark());
+                row.createCell(12).setCellValue(item.getRemark());
             }
             // 病害数量
-            row.createCell(14).setCellValue(item.getQuantity());
+            row.createCell(13).setCellValue(item.getQuantity());
             int detail_length = detailList.size();
             if (detail_length == 1) {
                 DiseaseDetail detail = detailList.get(0);
@@ -561,36 +566,53 @@ public class DiseaseController extends BaseController {
                 if (detail.getLength1() != null) {
                     row.createCell(6).setCellValue(detail.getLength1().toPlainString());
                 } else if (detail.getLengthRangeStart() != null && detail.getLengthRangeEnd() != null) {
-                    row.createCell(6).setCellValue(detail.getLengthRangeStart().toPlainString() + "-" + detail.getLengthRangeEnd().toPlainString());
+//                    row.createCell(6).setCellValue(detail.getLengthRangeStart().toPlainString() + "-" + detail.getLengthRangeEnd().toPlainString());
+                    row.createCell(6).setCellValue(detail.getLengthRangeStart().add(detail.getLengthRangeEnd()).divide(BigDecimal.valueOf(2)).toPlainString());
                 }
                 //宽度
                 if (detail.getWidth() != null) {
                     row.createCell(7).setCellValue(detail.getWidth().toPlainString());
                 } else if (detail.getWidthRangeStart() != null && detail.getWidthRangeEnd() != null) {
-                    row.createCell(7).setCellValue(detail.getWidthRangeStart().toPlainString() + "-" + detail.getWidthRangeEnd().toPlainString());
+//                    row.createCell(7).setCellValue(detail.getWidthRangeStart().toPlainString() + "-" + detail.getWidthRangeEnd().toPlainString());
+                    row.createCell(7).setCellValue(detail.getWidthRangeStart().add(detail.getWidthRangeEnd()).divide(BigDecimal.valueOf(2)).toPlainString());
 
                 }
                 //缝宽
                 if (detail.getCrackWidth() != null) {
                     row.createCell(8).setCellValue(detail.getCrackWidth().toPlainString());
                 } else if (detail.getCrackWidthRangeStart() != null && detail.getCrackWidthRangeEnd() != null) {
-                    row.createCell(8).setCellValue(detail.getCrackWidthRangeStart().toPlainString() + "-" + detail.getCrackWidthRangeEnd().toPlainString());
+//                    row.createCell(8).setCellValue(detail.getCrackWidthRangeStart().toPlainString() + "-" + detail.getCrackWidthRangeEnd().toPlainString());
+                    row.createCell(8).setCellValue(detail.getCrackWidthRangeStart().add(detail.getCrackWidthRangeEnd()).divide(BigDecimal.valueOf(2)).toPlainString());
                 }
                 //高度深度
                 if (detail.getHeightDepth() != null) {
                     row.createCell(9).setCellValue(detail.getHeightDepth().toPlainString());
                 } else if (detail.getHeightDepthRangeStart() != null && detail.getHeightDepthRangeEnd() != null) {
-                    row.createCell(9).setCellValue(detail.getHeightDepthRangeStart().toPlainString() + "-" + detail.getHeightDepthRangeEnd().toPlainString());
+//                    row.createCell(9).setCellValue(detail.getHeightDepthRangeStart().toPlainString() + "-" + detail.getHeightDepthRangeEnd().toPlainString());
+                    row.createCell(9).setCellValue(detail.getHeightDepthRangeStart().add(detail.getHeightDepthRangeEnd()).divide(BigDecimal.valueOf(2)).toPlainString());
                 }
                 //面积
                 // 判断 是否 是 均值。
                 if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
                     if (detail.getAreaIdentifier() != null && detail.getAreaIdentifier().equals(AreaIdentifierEnums.AVERAGE.getCode())) {
-                        row.createCell(10).setCellValue("S均:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+//                        row.createCell(10).setCellValue("S均:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+                        BigDecimal sTarget = detail.getAreaLength().multiply(detail.getAreaWidth());
+                        sTarget = sTarget.multiply(BigDecimal.valueOf(item.getQuantity()));
+                        MathContext mc = new MathContext(4, RoundingMode.HALF_UP); // 4位有效数字，四舍五入
+                        sTarget = sTarget.round(mc);
+                        row.createCell(10).setCellValue(sTarget.toPlainString());
                     } else if (detail.getAreaIdentifier() != null && detail.getAreaIdentifier().equals(AreaIdentifierEnums.COUNT.getCode())) {
-                        row.createCell(10).setCellValue("S总:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+//                        row.createCell(10).setCellValue("S总:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+                        BigDecimal sTarget = detail.getAreaLength().multiply(detail.getAreaWidth());
+                        MathContext mc = new MathContext(4, RoundingMode.HALF_UP); // 4位有效数字，四舍五入
+                        sTarget = sTarget.round(mc);
+                        row.createCell(10).setCellValue(sTarget.toPlainString());
                     } else {
-                        row.createCell(10).setCellValue("S均:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+//                        row.createCell(10).setCellValue("S均:" + detail.getAreaLength().toPlainString() + "x" + detail.getAreaWidth().toPlainString());
+                        BigDecimal sTarget = detail.getAreaLength().multiply(detail.getAreaWidth());
+                        MathContext mc = new MathContext(4, RoundingMode.HALF_UP); // 4位有效数字，四舍五入
+                        sTarget = sTarget.round(mc);
+                        row.createCell(10).setCellValue(sTarget.toPlainString());
                     }
                 }
             } else if (detail_length > 1) {
@@ -600,28 +622,32 @@ public class DiseaseController extends BaseController {
                     List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getLength1).toList();
                     BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
                     BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
-                    row.createCell(6).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+//                    row.createCell(6).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                    row.createCell(6).setCellValue(min.add(max).divide(BigDecimal.valueOf(2)).toPlainString());
                 }
                 //宽度
                 if (detail.getWidth() != null) {
                     List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getWidth).toList();
                     BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
                     BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
-                    row.createCell(7).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+//                    row.createCell(7).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                    row.createCell(7).setCellValue(min.add(max).divide(BigDecimal.valueOf(2)).toPlainString());
                 }
                 //缝宽
                 if (detail.getCrackWidth() != null) {
                     List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getCrackWidth).toList();
                     BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
                     BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
-                    row.createCell(8).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+//                    row.createCell(8).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                    row.createCell(8).setCellValue(min.add(max).divide(BigDecimal.valueOf(2)).toPlainString());
                 }
                 //高度深度
                 if (detail.getHeightDepth() != null) {
                     List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getHeightDepth).toList();
                     BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
                     BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
-                    row.createCell(9).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+//                    row.createCell(9).setCellValue(min.toPlainString() + "-" + max.toPlainString());
+                    row.createCell(9).setCellValue(min.add(max).divide(BigDecimal.valueOf(2)).toPlainString());
                 }
                 //面积
                 if (detail.getAreaWidth() != null && detail.getAreaLength() != null) {
@@ -631,7 +657,10 @@ public class DiseaseController extends BaseController {
                     for (int index = 0; index < detail_length; index++) {
                         count.add(areaWidthList.get(index).multiply(areaLengthList.get(index)));
                     }
-                    row.createCell(10).setCellValue("S总:" + count.toPlainString());
+//                    row.createCell(10).setCellValue("S总:" + count.toPlainString());
+                    MathContext mc = new MathContext(4, RoundingMode.HALF_UP);
+                    count = count.round(mc);
+                    row.createCell(10).setCellValue(count.toPlainString());
                 }
 
             }
@@ -649,7 +678,7 @@ public class DiseaseController extends BaseController {
                     // 记录URL（后续下载用）
                     allPhotoUrls.add(imgUrl);
                     // 拼接图片名到Excel单元格（多个图片用逗号分隔）
-                    if (photoNames.length() > 0) photoNames.append(", ");
+                    if (photoNames.length() > 0) photoNames.append(",");
                     photoNames.append(photoFileName);
                     // 序号自增（下一张图用）
                     photoSerialNum++;
@@ -885,7 +914,7 @@ public class DiseaseController extends BaseController {
             disease.setAttachmentCount(files.length + existingIdSet.size());
         }
 
-        return toAjax(diseaseService.updateDisease(disease));
+        return toAjax(diseaseService.newUpdateDisease(disease));
     }
 
     /**
@@ -1045,6 +1074,7 @@ public class DiseaseController extends BaseController {
     }
 
     @RequiresPermissions("biz:disease:add")
+    @Log(title = "病害", businessType = BusinessType.IMPORT)
     @PostMapping("/upload/diseaseHistoryExcel")
     @ResponseBody
     public AjaxResult diseaseHistoryExcel(@RequestParam("file") MultipartFile file, @RequestParam("taskId") Long taskId) {
