@@ -9,6 +9,7 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
 import com.ruoyi.system.service.ISysDictDataService;
 import com.ruoyi.system.service.ISysUserService;
@@ -27,17 +28,30 @@ import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.ReadFileServiceImpl;
+import edu.whut.cs.bi.biz.utils.ThumbPhotoUtils;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
+import io.minio.errors.*;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
+import net.coobird.thumbnailator.geometry.Positions;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
@@ -76,6 +90,9 @@ public class ApiController {
     private FileMapController fileMapController;
 
     @Resource
+    private IFileMapService fileMapService;
+
+    @Resource
     private ISysUserService userService;
 
     @Resource
@@ -108,6 +125,15 @@ public class ApiController {
     @Autowired
     private ISysDictDataService dictDataService;
 
+    @Autowired
+    private AttachmentService attachmentService;
+
+    @Autowired
+    @Qualifier("thumbPhotoExecutor")
+    private Executor thumbPhotoExecutor;
+
+    @Autowired
+    private MinioClient minioClient;
 
     /**
      * 无权限访问
@@ -865,43 +891,126 @@ public class ApiController {
         return AjaxResult.success(propertyIndexService.batchImportPropertyData(file));
     }
 
-    // 线程池配置（核心线程数、最大线程数、队列容量可根据服务器配置调整）
-    private final ExecutorService executorService = new ThreadPoolExecutor(
-            8, // 核心线程数
-            16, // 最大线程数
-            60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(1000), // 任务队列容量
-            new ThreadFactory() {
-                private int count = 0;
-                @Override
-                public Thread newThread(Runnable r) {
-                    return new Thread(r, "excel-import-thread-" + (++count));
-                }
-            },
-            new ThreadPoolExecutor.CallerRunsPolicy() // 队列满时，主线程兜底执行（避免任务丢失）
-    );
+    int BATCH_SIZE = 50;
 
-    @Resource
-    private TaskMapper taskMapper;
+    @PostMapping("/addThumbPhoto")
+    public AjaxResult addThumbPhoto() {
+        // 获取所有需要处理的附件
+        List<Attachment> attachmentList = attachmentService.getAttachmentList();
 
-    @PostMapping("/updateDiseaseData")
-    public AjaxResult updateDiseaseData() {
-        Task task = new Task();
-        task.setType(0);
-        List<Task> tasks = taskMapper.selectTaskList(task, null);
+        if (attachmentList.isEmpty()) {
+            return AjaxResult.success("没有需要处理的附件");
+        }
 
-        tasks.forEach(t -> {
-            Disease query = new Disease();
-            query.setTaskId(t.getId());
-            List<Disease> diseases = diseaseMapper.selectDiseaseList(query);
-            diseases.forEach(d -> {
-                d.setParticipateAssess("1");
-                d.setUpdateTime(new Date());
-                diseaseMapper.updateDisease(d);
-            });
-        });
+        // 分批次处理
+        List<List<Attachment>> batches = splitIntoBatches(attachmentList, BATCH_SIZE);
 
-//        CompletableFuture.allOf(collect.toArray(new CompletableFuture[0])).join();
-        return AjaxResult.success();
+        // 用于存储异步任务
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (List<Attachment> batch : batches) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                processBatch(batch);
+            }, thumbPhotoExecutor);
+            futures.add(future);
+        }
+
+        // 等待所有任务完成
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            log.error("处理缩略图任务时发生异常", e);
+            return AjaxResult.error("处理过程中发生异常");
+        }
+
+        return AjaxResult.success("缩略图生成完成，共处理" + attachmentList.size() + "个附件");
+    }
+
+    /**
+     * 处理单个批次的附件
+     */
+    private void processBatch(List<Attachment> batch) {
+        for (Attachment attachment : batch) {
+            try {
+                processSingleAttachment(attachment);
+            } catch (Exception e) {
+                log.error("处理附件失败：attachmentId={}", attachment.getId(), e);
+            }
+        }
+    }
+
+    /**
+     * 处理单个附件的缩略图生成
+     */
+    private void processSingleAttachment(Attachment attachment) {
+        Long thumbMinioId = attachment.getThumbMinioId();
+        if (thumbMinioId != null) {
+            return;
+        }
+
+        Long minioId = attachment.getMinioId();
+        FileMap fileMap = fileMapService.selectFileMapById(minioId);
+
+        if (fileMap != null) {
+            try {
+                String newName = fileMap.getNewName();
+                MultipartFile thumbnail = createThumbnail(newName, fileMap.getOldName(), 200, 200, 0.9f);
+
+                // 保存缩略图并更新附件信息
+                FileMap thumbFileMap = fileMapService.handleFileUpload(thumbnail);
+                attachment.setThumbMinioId(Long.valueOf(thumbFileMap.getId()));
+                attachmentService.updateAttachment(attachment);
+
+                log.info("成功生成缩略图：fileId={}, thumbId={}", fileMap.getId(), thumbFileMap.getId());
+
+            } catch (Exception e) {
+                log.error("生成缩略图失败：fileId={}", fileMap.getId(), e);
+            }
+        }
+    }
+
+    /**
+     * 将列表拆分成多个批次
+     */
+    private List<List<Attachment>> splitIntoBatches(List<Attachment> list, int batchSize) {
+        List<List<Attachment>> batches = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, list.size());
+            batches.add(list.subList(i, end));
+        }
+        return batches;
+    }
+
+    /**
+     * 生成缩略图（原有方法保持不变）
+     */
+    public MultipartFile createThumbnail(String newName, String originalName, int width, int height, float quality) throws Exception {
+        if (StringUtils.isEmpty(newName)) {
+            throw new IllegalArgumentException("名称不能为空");
+        }
+
+        try (InputStream inputStream = minioClient.getObject(GetObjectArgs.builder()
+                .bucket(minioConfig.getBucketName())
+                .object(newName.substring(0, 2) + "/" + newName)
+                .build())) {
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            Thumbnails.of(inputStream)
+                    .size(width, height)
+                    .crop(Positions.CENTER)
+                    .outputQuality(quality)
+                    .outputFormat("jpg")
+                    .toOutputStream(outputStream);
+
+            byte[] thumbnailBytes = outputStream.toByteArray();
+
+            return new MockMultipartFile(
+                    originalName + "_thumbnail",
+                    originalName + "_thumbnail.jpg",
+                    "image/jpeg",
+                    thumbnailBytes
+            );
+        }
     }
 }

@@ -1,16 +1,21 @@
 package edu.whut.cs.bi.biz.utils;
 
+import com.ruoyi.common.utils.StringUtils;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
 public class ThumbPhotoUtils {
+
     /**
      * 将 MultipartFile 类型的图片缩放为指定尺寸，并返回新的 MultipartFile 对象。
      * 所有操作均在内存中完成，不产生临时文件。
@@ -52,6 +57,8 @@ public class ThumbPhotoUtils {
             );
         }
     }
+
+
 
     // 指定压缩尺寸和质量，输入输出均为File
     public static File createThumbnail(File originalFile, int width, int height, float quality) throws IOException {

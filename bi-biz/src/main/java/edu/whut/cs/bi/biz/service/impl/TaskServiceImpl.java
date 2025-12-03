@@ -74,7 +74,11 @@ public class TaskServiceImpl implements ITaskService {
     public Task selectTaskById(Long id) {
         Task task = taskMapper.selectTaskById(id);
         if (ObjUtil.isNotEmpty(task)) {
-            task.setBuilding(buildingMapper.selectBuildingById(task.getBuildingId()));
+            try {
+                task.setBuilding(buildingMapper.selectBuildingById(task.getBuildingId()));
+            } catch (Exception e) {
+                throw new RuntimeException("桥梁已经被删除！");
+            }
         }
         return task;
     }

@@ -41,6 +41,32 @@ public class AsyncConfig {
     }
 
     /**
+     * 配置线程池
+     */
+    @Bean(name = "thumbPhotoExecutor")
+    public Executor thumbPhotoExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        // 核心线程数设置为CPU核心数
+        executor.setCorePoolSize(Runtime.getRuntime().availableProcessors());
+        // 最大线程数
+        executor.setMaxPoolSize(Runtime.getRuntime().availableProcessors() * 2);
+        // 队列大小
+        executor.setQueueCapacity(50);
+        // 线程前缀名
+        executor.setThreadNamePrefix("thumbPhoto-async-");
+        // 拒绝策略
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        // 等待所有任务完成后再关闭线程池
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        // 等待时间
+        executor.setAwaitTerminationSeconds(60);
+        // 初始化
+        executor.initialize();
+        return executor;
+    }
+
+
+    /**
      * 配置报告生成线程池
      */
     @Bean(name = "reportTaskExecutor")

@@ -27,6 +27,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -322,27 +323,17 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
         return true;
     }
 
-    // 线程池配置（核心线程数、最大线程数、队列容量可根据服务器配置调整）
-    private final ExecutorService executorService = new ThreadPoolExecutor(
-            8, // 核心线程数
-            16, // 最大线程数
-            60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(1000), // 任务队列容量
-            new ThreadFactory() {
-                private int count = 0;
-                @Override
-                public Thread newThread(Runnable r) {
-                    return new Thread(r, "excel-import-thread-" + (++count));
-                }
-            },
-            new ThreadPoolExecutor.CallerRunsPolicy() // 队列满时，主线程兜底执行（避免任务丢失）
-    );
 
     // 线程安全的未匹配桥梁列表（CopyOnWriteArrayList适合读多写少场景）
     private final CopyOnWriteArrayList<String> unmatchedBuildings = new CopyOnWriteArrayList<>();
 
+    @Resource
+    @Qualifier("reportTaskExecutor")
+    private Executor executorService;
+
     @Override
     public List<String> batchImportPropertyData(MultipartFile file) {
+
         // 清空上次导入的未匹配数据
         unmatchedBuildings.clear();
         List<Building> allBuildings = buildingService.selectBuildingList(new Building());
@@ -380,18 +371,6 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
 
         } catch (IOException e) {
             throw new ServiceException("导入数据错误：" + e.getMessage());
-        } finally {
-            // 关闭线程池（避免资源泄漏）
-            executorService.shutdown();
-            try {
-                // 等待60秒，若仍未关闭则强制终止
-                if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                    executorService.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                executorService.shutdownNow();
-                Thread.currentThread().interrupt(); // 恢复中断状态
-            }
         }
 
         // 返回未匹配的桥梁列表（转成ArrayList方便前端处理）
@@ -403,7 +382,6 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
      * @param row 数据行
      * @param titleRow 表头行
      */
-    @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void processSingleRow(List<Building> allBuildings, Row row, Row titleRow) {
         try {
