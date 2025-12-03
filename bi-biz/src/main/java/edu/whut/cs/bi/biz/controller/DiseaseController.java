@@ -504,6 +504,7 @@ public class DiseaseController extends BaseController {
     @Log(title = "病害", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(Disease disease, HttpServletResponse response) throws IOException {
+        disease.setTaskId(null);// 因为前端传递的 病害有些 taskId 错乱 ，暂时使用 projectId 和 buildingId 查询。
         List<Disease> originList = diseaseService.selectDiseaseListForTask(disease);
         Map<String, List<Disease>> mapByObjectName = originList.stream().collect(Collectors.groupingBy(Disease::getBiObjectName));
         List<Disease> list = new ArrayList<>();
@@ -526,6 +527,8 @@ public class DiseaseController extends BaseController {
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(headers[i]);
+            // 12.1 修改 ， 设置 每一列的自动宽度。
+            sheet.autoSizeColumn(i);
         }
 
         // 填充数据
@@ -692,9 +695,9 @@ public class DiseaseController extends BaseController {
         for (int i = 0; i < headers.length; i++) {
             // 先自动计算宽度
             sheet.autoSizeColumn(i);
-            // 额外增加 10 个字符的宽度（避免内容紧贴边框）
-            int currentWidth = sheet.getColumnWidth(i);
-            sheet.setColumnWidth(i, currentWidth + 10 * 256); // 256是POI中一个字符的基准宽度
+//            // 额外增加 10 个字符的宽度（避免内容紧贴边框）
+//            int currentWidth = sheet.getColumnWidth(i);
+//            sheet.setColumnWidth(i, currentWidth + 10 * 256); // 256是POI中一个字符的基准宽度
         }
         workbook.write(excelBaos); // Excel写入字节流
         // 关闭资源
