@@ -25,6 +25,7 @@ import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.Convert2VO;
 import edu.whut.cs.bi.biz.utils.DiseaseComparisonTableUtils;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -49,6 +50,7 @@ import org.apache.poi.xwpf.usermodel.*;
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -142,6 +144,11 @@ public class ReportServiceImpl implements IReportService {
 
     @Resource
     private Report1LevelSingleBridgeService report1LevelSingleBridgeService;
+
+    @Resource
+    private ReadFileService readFileService;
+    @Autowired
+    private AttachmentService attachmentService;
 
     /**
      * 查询检测报告
@@ -305,10 +312,38 @@ public class ReportServiceImpl implements IReportService {
                     templateType = ReportTemplateTypes.getEnumByDesc(template.getName());
                 }
                 if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
+                    // 等待所有任务完成
+                    Disease disease = new Disease();
+                    disease.setProjectId(report.getProjectId());
+                    disease.setBuildingId(task.getBuildingId());
+                    List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+                    List<Long> list = diseases.stream().map(Disease::getId).toList();
+                    List<Attachment> attachmentBySubjects = attachmentService.getAttachmentBySubjectIds(list);
+                    List<CompletableFuture<Void>> futures = readFileService.addThumbPhoto(attachmentBySubjects);
+                    try {
+                        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                    } catch (Exception e) {
+                        log.error("处理缩略图任务时发生异常", e);
+                    }
+                    log.info("缩略图生成完成，共处理" + attachmentBySubjects.size() + "个附件");
                     log.info("检测到二级单桥模板：{}，使用二级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
                     return generateSingleBridgeReportDocument(report, task, templateType);
                 } else if (template != null && templateType != null && ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
+                    // 等待所有任务完成
+                    Disease disease = new Disease();
+                    disease.setProjectId(report.getProjectId());
+                    disease.setBuildingId(task.getBuildingId());
+                    List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
+                    List<Long> list = diseases.stream().map(Disease::getId).toList();
+                    List<Attachment> attachmentBySubjects = attachmentService.getAttachmentBySubjectIds(list);
+                    List<CompletableFuture<Void>> futures = readFileService.addThumbPhoto(attachmentBySubjects);
+                    try {
+                        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                    } catch (Exception e) {
+                        log.error("处理缩略图任务时发生异常", e);
+                    }
+                    log.info("缩略图生成完成，共处理" + attachmentBySubjects.size() + "个附件");
                     log.info("检测到一级单桥模板：{}，使用一级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
                     return report1LevelSingleBridgeService.generateReportDocument(report, task, templateType);
@@ -1101,7 +1136,7 @@ public class ReportServiceImpl implements IReportService {
 
         for (Disease d : nodeDiseases) {
             List<String> imageBookmarks = new ArrayList<>();
-            List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+            List<Map<String, Object>> images = ReportGenerateTools.getDiseaseImage(d.getId());
             if (images != null) {
                 for (Map<String, Object> img : images) {
                     if (Boolean.TRUE.equals(img.get("isImage"))) {
@@ -1536,7 +1571,7 @@ public class ReportServiceImpl implements IReportService {
 
         for (Disease d : allNodeDiseases) {
             List<String> imageBookmarks = new ArrayList<>();
-            List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+            List<Map<String, Object>> images = ReportGenerateTools.getDiseaseImage(d.getId());
             if (images != null) {
                 for (Map<String, Object> img : images) {
                     if (Boolean.TRUE.equals(img.get("isImage"))) {
@@ -2182,7 +2217,7 @@ public class ReportServiceImpl implements IReportService {
 
         // 逐个处理每个病害的图片
         for (Disease d : diseases) {
-            List<Map<String, Object>> images = diseaseController.getDiseaseImage(d.getId());
+            List<Map<String, Object>> images = ReportGenerateTools.getDiseaseImage(d.getId());
             if (images == null || images.isEmpty()) {
                 continue;
             }
@@ -5457,7 +5492,7 @@ public class ReportServiceImpl implements IReportService {
                 }
             }
         }
-        
+
         // 删除占位符段落
         if (placeholderIndex >= 0) {
             document.removeBodyElement(placeholderIndex);

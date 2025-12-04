@@ -113,7 +113,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                 List<BiObject> threeBiObjects = biObjectMapper.selectBiObjectAndChildrenThreeLevel(building.getRootObjectId());
                 List<BiObject> allBiObjects = biObjectMapper.selectBiObjectAndChildren(building.getRootObjectId());
 
-                addCBMSComponent(sheet, threeBiObjects, allBiObjects,  componentMap);
+                addCBMSComponent(sheet, threeBiObjects, allBiObjects, componentMap);
 
                 components = componentService.selectComponentList(new Component());
                 Map<String, List<Component>> newComponentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
@@ -332,7 +332,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                 List<BiObject> threeBiObjects = biObjectMapper.selectBiObjectAndChildrenThreeLevel(building.getRootObjectId());
                 List<BiObject> allBiObjects = biObjectMapper.selectBiObjectAndChildren(building.getRootObjectId());
 
-                addComponent(sheet, threeBiObjects, allBiObjects,  componentMap);
+                addComponent(sheet, threeBiObjects, allBiObjects, componentMap);
 
                 components = componentService.selectComponentList(new Component());
                 Map<String, List<Component>> newComponentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
@@ -387,7 +387,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         if (biObject3 == null) {
                             biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
                             if (biObject3 == null)
-                                throw new RuntimeException("第"+(finalI +1)+"行数据未找到对应的部件：" + component_3);
+                                throw new RuntimeException("第" + (finalI + 1) + "行数据未找到对应的部件：" + component_3);
                         }
                         BiObject finalBiObject = biObject3;
                         BiObject biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals(component_4))
@@ -396,7 +396,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                         if (biObject4 == null) {
                             biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals("其他")).findFirst().orElse(null);
                             if (biObject4 == null)
-                                throw new RuntimeException("第"+(finalI +1)+"行数据未找到对应的部件：" + component_4);
+                                throw new RuntimeException("第" + (finalI + 1) + "行数据未找到对应的部件：" + component_4);
                         }
 
                         List<Component> componentList = newComponentMap.get(position);
@@ -418,7 +418,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                             try {
                                 disease.setQuantity((int) Double.parseDouble(diseaseNumber));
                             } catch (Exception e) {
-                                throw new RuntimeException("第"+(finalI +1)+"行数据的数量：" + diseaseNumber + "不规范！");
+                                throw new RuntimeException("第" + (finalI + 1) + "行数据的数量：" + diseaseNumber + "不规范！");
                             }
 
                         }
@@ -476,7 +476,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                                 try {
                                     decimal = new BigDecimal(length);
                                 } catch (Exception e) {
-                                    log.error("第"+(finalI +1)+"行数据转换长度出错length: ", length);
+                                    log.error("第" + (finalI + 1) + "行数据转换长度出错length: ", length);
                                 }
                                 if (lengthUnits.equals("m")) {
                                     diseaseDetail.setLength1(decimal);
@@ -526,6 +526,7 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     /**
      * 将photoName分割为字符串列表
+     *
      * @param photoName 原始字符串（如"1982、1983"或"1982~1985"）
      * @return 分割后的列表，若输入为空则返回空列表
      */
@@ -545,7 +546,7 @@ public class ReadFileServiceImpl implements ReadFileService {
         // 2. 再判断是否包含波浪线分隔符
         else if (trimmedPhotoName.contains(SEPARATOR_TILDE)) {
             String[] parts = trimmedPhotoName.split(SEPARATOR_TILDE);
-            for (int i = Integer.valueOf(parts[0]);i <= Integer.valueOf(parts[1]);i++) {
+            for (int i = Integer.valueOf(parts[0]); i <= Integer.valueOf(parts[1]); i++) {
                 result.add(String.valueOf(i));
             }
         }
@@ -561,6 +562,7 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     /**
      * 将分割后的列表转为数据库支持的格式（示例：转为JSON字符串，适配MySQL的JSON类型）
+     *
      * @param photoList 分割后的列表
      * @return JSON格式字符串（如["1982","1983"]）
      */
@@ -599,7 +601,7 @@ public class ReadFileServiceImpl implements ReadFileService {
             try {
                 component_4 = splitPosition[1];
             } catch (Exception e) {
-                throw new RuntimeException("第"+(i+1)+"行数据，病害位置格式错误（应为'code#xx'格式)：" + position + "，或者是excel文件格式错误，缺失部件列。");
+                throw new RuntimeException("第" + (i + 1) + "行数据，病害位置格式错误（应为'code#xx'格式)：" + position + "，或者是excel文件格式错误，缺失部件列。");
             }
 
             BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
@@ -607,7 +609,7 @@ public class ReadFileServiceImpl implements ReadFileService {
             if (biObject3 == null) {
                 biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
                 if (biObject3 == null)
-                    throw new RuntimeException("第"+(i+1)+"行数据未找到对应的部件：" + component_3);
+                    throw new RuntimeException("第" + (i + 1) + "行数据未找到对应的部件：" + component_3);
             }
 
             BiObject finalBiObject = biObject3;
@@ -653,7 +655,7 @@ public class ReadFileServiceImpl implements ReadFileService {
         // 防止
         Task task = taskService.selectTaskById(taskId);
 
-        Disease disease =  new Disease();
+        Disease disease = new Disease();
         disease.setBuildingId(task.getBuildingId());
         disease.setProjectId(task.getProjectId());
         List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
@@ -665,7 +667,8 @@ public class ReadFileServiceImpl implements ReadFileService {
                 .filter(dd -> dd.getImgNoExp() != null && !dd.getImgNoExp().trim().isEmpty())
                 .flatMap(d -> {
                     try {
-                        List<String> imgs = mapper.readValue(d.getImgNoExp(), new TypeReference<List<String>>() {});
+                        List<String> imgs = mapper.readValue(d.getImgNoExp(), new TypeReference<List<String>>() {
+                        });
                         return imgs.stream()
                                 .filter(img -> img != null && !img.trim().isEmpty())
                                 .map(img -> new AbstractMap.SimpleEntry<>(img.trim(), d.getId()));
@@ -764,7 +767,7 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     @Override
     @Transactional
-    public void ReadBuildingFile(MultipartFile file, Long projectId)  {
+    public void ReadBuildingFile(MultipartFile file, Long projectId) {
         List<Long> buildingList = new ArrayList<>();
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
@@ -780,7 +783,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                     String type = getCellValueAsString(row.getCell(1));
                     String fatherBuilding = getCellValueAsString(row.getCell(2));
                     String area = getCellValueAsString(row.getCell(3));
-                    String line =  getCellValueAsString(row.getCell(4));
+                    String line = getCellValueAsString(row.getCell(4));
                     String template = getCellValueAsString(row.getCell(5));
 
                     Building building = new Building();
@@ -791,7 +794,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                     sysDictData.setDictLabel(area);
                     List<SysDictData> areaCode = sysDictDataService.selectDictDataList(sysDictData);
                     if (areaCode == null || CollUtil.isEmpty(areaCode)) {
-                        throw new RuntimeException("请检查字典数据: " +  area);
+                        throw new RuntimeException("请检查字典数据: " + area);
                     }
                     building.setArea(String.valueOf(areaCode.get(0).getDictValue()));
 
@@ -799,7 +802,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                     sysDictData.setDictLabel(line);
                     List<SysDictData> lineCode = sysDictDataService.selectDictDataList(sysDictData);
                     if (lineCode == null || CollUtil.isEmpty(lineCode)) {
-                        throw new RuntimeException("请检查字典数据: " +  line);
+                        throw new RuntimeException("请检查字典数据: " + line);
                     }
                     building.setLine(String.valueOf(lineCode.get(0).getDictValue()));
 
@@ -868,7 +871,7 @@ public class ReadFileServiceImpl implements ReadFileService {
     int BATCH_SIZE = 50;
 
     @Override
-    public void addThumbPhoto(List<Attachment> attachmentList) {
+    public List<CompletableFuture<Void>> addThumbPhoto(List<Attachment> attachmentList) {
         if (attachmentList.isEmpty()) {
             log.info("没有需要处理的附件");
         }
@@ -886,14 +889,7 @@ public class ReadFileServiceImpl implements ReadFileService {
             futures.add(future);
         }
 
-        // 等待所有任务完成
-        try {
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        } catch (Exception e) {
-            log.error("处理缩略图任务时发生异常", e);
-        }
-
-        log.info("缩略图生成完成，共处理" + attachmentList.size() + "个附件");
+        return futures;
     }
 
     /**

@@ -4,6 +4,7 @@ import edu.whut.cs.bi.biz.domain.Attachment;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface ReadFileService {
 
@@ -40,5 +41,5 @@ public interface ReadFileService {
      *
      * @param attachmentList
      */
-    void addThumbPhoto(List<Attachment> attachmentList);
+    List<CompletableFuture<Void>> addThumbPhoto(List<Attachment> attachmentList);
 }
