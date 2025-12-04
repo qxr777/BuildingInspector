@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service;
 
+import edu.whut.cs.bi.biz.domain.Attachment;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -33,4 +34,11 @@ public interface ReadFileService {
      * @param file
      */
     void ReadBuildingFile(MultipartFile file, Long projectId);
+
+    /**
+     * 匹配生成缩略图
+     *
+     * @param attachmentList
+     */
+    void addThumbPhoto(List<Attachment> attachmentList);
 }

@@ -90,9 +90,6 @@ public class ApiController {
     private FileMapController fileMapController;
 
     @Resource
-    private IFileMapService fileMapService;
-
-    @Resource
     private ISysUserService userService;
 
     @Resource
@@ -124,16 +121,6 @@ public class ApiController {
 
     @Autowired
     private ISysDictDataService dictDataService;
-
-    @Autowired
-    private AttachmentService attachmentService;
-
-    @Autowired
-    @Qualifier("thumbPhotoExecutor")
-    private Executor thumbPhotoExecutor;
-
-    @Autowired
-    private MinioClient minioClient;
 
     /**
      * 无权限访问
@@ -891,126 +878,5 @@ public class ApiController {
         return AjaxResult.success(propertyIndexService.batchImportPropertyData(file));
     }
 
-    int BATCH_SIZE = 50;
 
-    @PostMapping("/addThumbPhoto")
-    public AjaxResult addThumbPhoto() {
-        // 获取所有需要处理的附件
-        List<Attachment> attachmentList = attachmentService.getAttachmentList();
-
-        if (attachmentList.isEmpty()) {
-            return AjaxResult.success("没有需要处理的附件");
-        }
-
-        // 分批次处理
-        List<List<Attachment>> batches = splitIntoBatches(attachmentList, BATCH_SIZE);
-
-        // 用于存储异步任务
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-        for (List<Attachment> batch : batches) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                processBatch(batch);
-            }, thumbPhotoExecutor);
-            futures.add(future);
-        }
-
-        // 等待所有任务完成
-        try {
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        } catch (Exception e) {
-            log.error("处理缩略图任务时发生异常", e);
-            return AjaxResult.error("处理过程中发生异常");
-        }
-
-        return AjaxResult.success("缩略图生成完成，共处理" + attachmentList.size() + "个附件");
-    }
-
-    /**
-     * 处理单个批次的附件
-     */
-    private void processBatch(List<Attachment> batch) {
-        for (Attachment attachment : batch) {
-            try {
-                processSingleAttachment(attachment);
-            } catch (Exception e) {
-                log.error("处理附件失败：attachmentId={}", attachment.getId(), e);
-            }
-        }
-    }
-
-    /**
-     * 处理单个附件的缩略图生成
-     */
-    private void processSingleAttachment(Attachment attachment) {
-        Long thumbMinioId = attachment.getThumbMinioId();
-        if (thumbMinioId != null) {
-            return;
-        }
-
-        Long minioId = attachment.getMinioId();
-        FileMap fileMap = fileMapService.selectFileMapById(minioId);
-
-        if (fileMap != null) {
-            try {
-                String newName = fileMap.getNewName();
-                MultipartFile thumbnail = createThumbnail(newName, fileMap.getOldName(), 200, 200, 0.9f);
-
-                // 保存缩略图并更新附件信息
-                FileMap thumbFileMap = fileMapService.handleFileUpload(thumbnail);
-                attachment.setThumbMinioId(Long.valueOf(thumbFileMap.getId()));
-                attachmentService.updateAttachment(attachment);
-
-                log.info("成功生成缩略图：fileId={}, thumbId={}", fileMap.getId(), thumbFileMap.getId());
-
-            } catch (Exception e) {
-                log.error("生成缩略图失败：fileId={}", fileMap.getId(), e);
-            }
-        }
-    }
-
-    /**
-     * 将列表拆分成多个批次
-     */
-    private List<List<Attachment>> splitIntoBatches(List<Attachment> list, int batchSize) {
-        List<List<Attachment>> batches = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += batchSize) {
-            int end = Math.min(i + batchSize, list.size());
-            batches.add(list.subList(i, end));
-        }
-        return batches;
-    }
-
-    /**
-     * 生成缩略图（原有方法保持不变）
-     */
-    public MultipartFile createThumbnail(String newName, String originalName, int width, int height, float quality) throws Exception {
-        if (StringUtils.isEmpty(newName)) {
-            throw new IllegalArgumentException("名称不能为空");
-        }
-
-        try (InputStream inputStream = minioClient.getObject(GetObjectArgs.builder()
-                .bucket(minioConfig.getBucketName())
-                .object(newName.substring(0, 2) + "/" + newName)
-                .build())) {
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-
-            Thumbnails.of(inputStream)
-                    .size(width, height)
-                    .crop(Positions.CENTER)
-                    .outputQuality(quality)
-                    .outputFormat("jpg")
-                    .toOutputStream(outputStream);
-
-            byte[] thumbnailBytes = outputStream.toByteArray();
-
-            return new MockMultipartFile(
-                    originalName + "_thumbnail",
-                    originalName + "_thumbnail.jpg",
-                    "image/jpeg",
-                    thumbnailBytes
-            );
-        }
-    }
 }

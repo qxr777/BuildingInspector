@@ -5,27 +5,41 @@ import cn.hutool.core.collection.ConcurrentHashSet;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysDictDataService;
+import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
+import net.coobird.thumbnailator.geometry.Positions;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -62,6 +76,22 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     @Resource
     private IDiseaseService diseaseService;
+
+    @Autowired
+    private AttachmentService attachmentService;
+
+    @Autowired
+    @Qualifier("thumbPhotoExecutor")
+    private Executor thumbPhotoExecutor;
+
+    @Autowired
+    private MinioClient minioClient;
+
+    @Autowired
+    private MinioConfig minioConfig;
+
+    @Resource
+    private IFileMapService fileMapService;
 
     @Override
     public void readCBMSDiseaseExcel(MultipartFile file, Long taskId) {
@@ -832,4 +862,123 @@ public class ReadFileServiceImpl implements ReadFileService {
 //            taskService.batchInsertTasks(projectId, buildingList);
     }
 
+
+    int BATCH_SIZE = 50;
+
+    @Override
+    public void addThumbPhoto(List<Attachment> attachmentList) {
+        if (attachmentList.isEmpty()) {
+            log.info("没有需要处理的附件");
+        }
+
+        // 分批次处理
+        List<List<Attachment>> batches = splitIntoBatches(attachmentList, BATCH_SIZE);
+
+        // 用于存储异步任务
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (List<Attachment> batch : batches) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                processBatch(batch);
+            }, thumbPhotoExecutor);
+            futures.add(future);
+        }
+
+        // 等待所有任务完成
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            log.error("处理缩略图任务时发生异常", e);
+        }
+
+        log.info("缩略图生成完成，共处理" + attachmentList.size() + "个附件");
+    }
+
+    /**
+     * 处理单个批次的附件
+     */
+    private void processBatch(List<Attachment> batch) {
+        for (Attachment attachment : batch) {
+            try {
+                processSingleAttachment(attachment);
+            } catch (Exception e) {
+                log.error("处理附件失败：attachmentId={}", attachment.getId(), e);
+            }
+        }
+    }
+
+    /**
+     * 处理单个附件的缩略图生成
+     */
+    private void processSingleAttachment(Attachment attachment) {
+        Long thumbMinioId = attachment.getThumbMinioId();
+        if (thumbMinioId != null) {
+            return;
+        }
+
+        Long minioId = attachment.getMinioId();
+        FileMap fileMap = fileMapService.selectFileMapById(minioId);
+
+        if (fileMap != null) {
+            try {
+                String newName = fileMap.getNewName();
+                MultipartFile thumbnail = createThumbnail(newName, fileMap.getOldName(), 200, 200, 0.9f);
+
+                // 保存缩略图并更新附件信息
+                FileMap thumbFileMap = fileMapService.handleFileUpload(thumbnail);
+                attachment.setThumbMinioId(Long.valueOf(thumbFileMap.getId()));
+                attachmentService.updateAttachment(attachment);
+
+                log.info("成功生成缩略图：fileId={}, thumbId={}", fileMap.getId(), thumbFileMap.getId());
+
+            } catch (Exception e) {
+                log.error("生成缩略图失败：fileId={}", fileMap.getId(), e);
+            }
+        }
+    }
+
+    /**
+     * 将列表拆分成多个批次
+     */
+    private List<List<Attachment>> splitIntoBatches(List<Attachment> list, int batchSize) {
+        List<List<Attachment>> batches = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, list.size());
+            batches.add(list.subList(i, end));
+        }
+        return batches;
+    }
+
+    /**
+     * 生成缩略图（原有方法保持不变）
+     */
+    public MultipartFile createThumbnail(String newName, String originalName, int width, int height, float quality) throws Exception {
+        if (StringUtils.isEmpty(newName)) {
+            throw new IllegalArgumentException("名称不能为空");
+        }
+
+        try (InputStream inputStream = minioClient.getObject(GetObjectArgs.builder()
+                .bucket(minioConfig.getBucketName())
+                .object(newName.substring(0, 2) + "/" + newName)
+                .build())) {
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            Thumbnails.of(inputStream)
+                    .size(width, height)
+                    .crop(Positions.CENTER)
+                    .outputQuality(quality)
+                    .outputFormat("jpg")
+                    .toOutputStream(outputStream);
+
+            byte[] thumbnailBytes = outputStream.toByteArray();
+
+            return new MockMultipartFile(
+                    originalName + "_thumbnail",
+                    originalName + "_thumbnail.jpg",
+                    "image/jpeg",
+                    thumbnailBytes
+            );
+        }
+    }
 }
