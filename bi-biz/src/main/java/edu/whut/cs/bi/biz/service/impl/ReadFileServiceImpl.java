@@ -33,6 +33,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -922,7 +924,7 @@ public class ReadFileServiceImpl implements ReadFileService {
         if (fileMap != null) {
             try {
                 String newName = fileMap.getNewName();
-                MultipartFile thumbnail = createThumbnail(newName, fileMap.getOldName(), 200, 200, 0.9f);
+                MultipartFile thumbnail = createThumbnail(newName, fileMap.getOldName(), 1024, 768, 0.5f);
 
                 // 保存缩略图并更新附件信息
                 FileMap thumbFileMap = fileMapService.handleFileUpload(thumbnail);
@@ -962,12 +964,22 @@ public class ReadFileServiceImpl implements ReadFileService {
                 .object(newName.substring(0, 2) + "/" + newName)
                 .build())) {
 
+            // 获取原图尺寸
+            BufferedImage originalImage = ImageIO.read(inputStream);
+            int originalWidth = originalImage.getWidth();
+            int originalHeight = originalImage.getHeight();
+
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-            Thumbnails.of(inputStream)
-                    .size(width, height)
-                    .crop(Positions.CENTER)
-                    .outputQuality(quality)
+            // 判断是否为768*1024尺寸，若是则保持原尺寸，否则按指定尺寸调整
+            Thumbnails.Builder<BufferedImage> thumbnailBuilder = Thumbnails.of(originalImage);
+            if (originalWidth == 768 && originalHeight == 1024) {
+                thumbnailBuilder.size(originalWidth, originalHeight);
+            } else {
+                thumbnailBuilder.size(width, height).crop(Positions.CENTER);
+            }
+
+            thumbnailBuilder.outputQuality(quality)
                     .outputFormat("jpg")
                     .toOutputStream(outputStream);
 
