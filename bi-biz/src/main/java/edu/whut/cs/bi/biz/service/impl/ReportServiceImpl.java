@@ -635,6 +635,10 @@ public class ReportServiceImpl implements IReportService {
             updateReport.setStatus(3);
             updateReport.setUpdateBy(ShiroUtils.getLoginName());
             updateReport.setUpdateTime(new Date());
+            // 2025 12.5 更新
+            // 失败时设置 remark 为 错误原因 ， 在鼠标悬停时显示。
+            String errorReason = e.getMessage();
+            updateReport.setRemark("生成报告失败，原因：" + errorReason);
             reportMapper.updateReport(updateReport);
         }
     }
