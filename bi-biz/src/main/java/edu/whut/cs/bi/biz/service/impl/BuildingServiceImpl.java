@@ -187,7 +187,8 @@ public class BuildingServiceImpl implements IBuildingService {
         query.setArea(building.getArea());
         query.setLine(building.getLine());
         List<Building> buildings = this.selectBuildingList(query);
-        if (CollUtil.isNotEmpty(buildings)) {
+        List<Long> queryIds = buildings.stream().map(Building::getId).filter(id -> !id.equals(building.getId())).toList();
+        if (CollUtil.isNotEmpty(queryIds)) {
             log.error("该片区线路桥梁已存在");
             throw new RuntimeException("该片区线路桥梁已存在");
         }
