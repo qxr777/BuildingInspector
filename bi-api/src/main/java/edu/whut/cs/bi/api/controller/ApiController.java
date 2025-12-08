@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.api.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -121,6 +122,8 @@ public class ApiController {
 
     @Autowired
     private ISysDictDataService dictDataService;
+    @Autowired
+    private AttachmentService attachmentService;
 
     /**
      * 无权限访问
@@ -878,5 +881,26 @@ public class ApiController {
         return AjaxResult.success(propertyIndexService.batchImportPropertyData(file));
     }
 
+    @PostMapping("/addThumbPhoto")
+    public AjaxResult addThumbPhoto(Long taskId) {
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null)
+            return AjaxResult.error("任务不存在");
 
+        Disease query = new Disease();
+        query.setBuildingId(task.getBuildingId());
+        query.setProjectId(task.getProjectId());
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(query);
+        if (CollUtil.isEmpty(diseases))
+            return AjaxResult.success();
+
+        // 获取 Attachments
+        List<Long> subjectIds = diseases.stream().map(Disease::getId).toList();
+        List<Attachment> attachmentBySubjects = attachmentService.getAttachmentBySubjectIds(subjectIds);
+        List<CompletableFuture<Void>> completableFutures = readFileService.addThumbPhoto(attachmentBySubjects);
+        // 等待所有缩略图生成完成
+        CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0])).join();
+
+        return AjaxResult.success();
+    }
 }
