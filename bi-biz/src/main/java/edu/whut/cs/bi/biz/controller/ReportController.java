@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.service.*;
@@ -102,6 +103,8 @@ public class ReportController extends BaseController {
     private FileMapServiceImpl fileMapServiceImpl;
     @Autowired
     private MinioClient minioClient;
+    @Autowired
+    private IBiEvaluationService biEvaluationService;
 
     @RequiresPermissions("biz:report:view")
     @GetMapping()
@@ -708,11 +711,28 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("报告未关联任务");
             }
 
+            // 12.9新增 判断是否存在 新版桥梁属性卡 和 评定结果。
             // 只取第一个任务ID
             Long taskId = Long.parseLong(taskIdsStr.split(",")[0]);
             Task task = taskService.selectTaskById(taskId);
             if (task == null) {
                 return AjaxResult.error("任务不存在");
+            }
+            if (task.getBuilding().getRootPropertyId() == null) {
+                return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
+            }
+            Property property = new Property();
+            property.setId(task.getBuilding().getRootPropertyId());
+            List<Property> properties = propertyService.selectPropertyList(property);
+            if (properties == null || properties.isEmpty()) {
+                return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
+            }
+            if (!isContainsNewBasicInfoCardProperty(properties)) {
+                return AjaxResult.error("该桥梁的桥梁信息卡片需要更新，请使用Excel尝试导入");
+            }
+            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(taskId);
+            if (biEvaluation == null || biEvaluation.getSystemLevel() == null) {
+                return AjaxResult.error("该任务未进行评定，请评定后再生成报告");
             }
 
             // 异步生成报告
@@ -723,6 +743,13 @@ public class ReportController extends BaseController {
             logger.error("生成报告失败", e);
             return AjaxResult.error("生成报告失败：" + e.getMessage());
         }
+    }
+
+    private boolean isContainsNewBasicInfoCardProperty(List<Property> properties) {
+        Optional<Property> isNewProperty = properties.stream().filter(a -> a.getName().equals(ReportConstants.BRIDGE_BASIC_INFO_NEW_PROPERTY_NAME)).findFirst();
+        if (isNewProperty.isPresent()) {
+            return true;
+        } else return false;
     }
 
     /**
