@@ -658,7 +658,9 @@ public class DiseaseController extends BaseController {
                     List<BigDecimal> areaWidthList = detailList.stream().map(DiseaseDetail::getAreaWidth).toList();
                     List<BigDecimal> areaLengthList = detailList.stream().map(DiseaseDetail::getAreaLength).toList();
                     for (int index = 0; index < detail_length; index++) {
-                        count.add(areaWidthList.get(index).multiply(areaLengthList.get(index)));
+                        if (areaLengthList.get(index) != null) {
+                            count.add(areaWidthList.get(index).multiply(areaLengthList.get(index)));
+                        }
                     }
 //                    row.createCell(10).setCellValue("S总:" + count.toPlainString());
                     MathContext mc = new MathContext(4, RoundingMode.HALF_UP);
