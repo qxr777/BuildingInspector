@@ -730,7 +730,10 @@
         var rootObjectId = "";
         if (ancestors) {
             var ancestorArray = ancestors.split(",");
-            rootObjectId = ancestorArray[1]; // 获取第二个值（索引为1）
+            if (ancestorArray.length > 4)
+                rootObjectId = ancestorArray[2]
+            else
+                rootObjectId = ancestorArray[1]; // 获取第二个值（索引为1）
         }
 
         var url = ctx + "biz/biobject" + "/selectObjectTree-disease/" + (treeId > 0 ? treeId : "") + "?rootObjectId=" + rootObjectId;
