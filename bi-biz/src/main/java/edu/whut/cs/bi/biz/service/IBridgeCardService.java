@@ -28,5 +28,5 @@ public interface IBridgeCardService {
      * @param document Word文档
      * @param building 建筑物ID
      */
-    void processBridgeCardData(XWPFDocument document, Building building, ReportTemplateTypes templateType, Task task);
+    void processBridgeCardData(XWPFDocument document, Building building, ReportTemplateTypes templateType, Integer minSystemLevel);
 }

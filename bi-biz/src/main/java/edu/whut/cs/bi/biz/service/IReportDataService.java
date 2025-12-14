@@ -104,10 +104,10 @@ public interface IReportDataService {
     public int saveReportDataBatch(Long reportId, List<ReportData> dataList);
 
     /**
-     * 获取构件病害数据（用于病害选择器）
+     * 获取构件病害数据（用于病害选择器）- 支持多任务
      *
-     * @param report 报告ID
-     * @return 构件病害数据列表
+     * @param report 报告对象
+     * @return Map结构，key为taskId，value包含buildingName和diseases列表
      */
-    public List<Map<String, Object>> getDiseaseComponentData(Report report);
+    public Map<Long, Map<String, Object>> getDiseaseComponentData(Report report);
 } 

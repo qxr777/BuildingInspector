@@ -89,6 +89,11 @@ public interface TaskMapper
     List<Task> selectTaskByIds(@Param("ids") String ids);
 
     /**
+     * 通过ids批量查询任务列表（包含Building信息）
+     */
+    List<Task> selectTaskListByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 通过桥梁id删除任务
      */
     int deleteTaskByBuildingId(@Param("buildingId") Long buildingId);

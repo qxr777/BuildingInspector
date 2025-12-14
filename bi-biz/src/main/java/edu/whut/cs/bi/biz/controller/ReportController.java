@@ -712,31 +712,85 @@ public class ReportController extends BaseController {
             }
 
             // 12.9新增 判断是否存在 新版桥梁属性卡 和 评定结果。
-            // 只取第一个任务ID
-            Long taskId = Long.parseLong(taskIdsStr.split(",")[0]);
-            Task task = taskService.selectTaskById(taskId);
-            if (task == null) {
-                return AjaxResult.error("任务不存在");
-            }
-            if (task.getBuilding().getRootPropertyId() == null) {
-                return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
-            }
-            Property property = new Property();
-            property.setId(task.getBuilding().getRootPropertyId());
-            List<Property> properties = propertyService.selectPropertyList(property);
-            if (properties == null || properties.isEmpty()) {
-                return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
-            }
-            if (!isContainsNewBasicInfoCardProperty(properties)) {
-                return AjaxResult.error("该桥梁的桥梁信息卡片需要更新，请使用Excel尝试导入");
-            }
-            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(taskId);
-            if (biEvaluation == null || biEvaluation.getSystemLevel() == null) {
-                return AjaxResult.error("该任务未进行评定，请评定后再生成报告");
+            // 解析所有任务ID
+            String[] taskIdArray = taskIdsStr.split(",");
+            List<Long> taskIds = new ArrayList<>();
+            for (String taskIdStr : taskIdArray) {
+                try {
+                    taskIds.add(Long.parseLong(taskIdStr.trim()));
+                } catch (NumberFormatException e) {
+                    return AjaxResult.error("任务ID格式错误：" + taskIdStr);
+                }
             }
 
+            // 批量查询任务列表（包含Building信息）
+            List<Task> tasks = taskService.selectTaskListByIds(taskIds);
+
+            // 验证任务数量是否与请求的ID数量匹配
+            if (tasks.size() != taskIds.size()) {
+                return AjaxResult.error("部分任务不存在");
+            }
+
+            if(tasks.size() == 1) {
+                Task task = tasks.get(0);
+                if (task.getBuilding().getRootPropertyId() == null) {
+                    return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
+                }
+                Property property = new Property();
+                property.setId(task.getBuilding().getRootPropertyId());
+                List<Property> properties = propertyService.selectPropertyList(property);
+                if (properties == null || properties.isEmpty()) {
+                    return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
+                }
+                if (!isContainsNewBasicInfoCardProperty(properties)) {
+                    return AjaxResult.error("该桥梁的桥梁信息卡片需要更新，请使用Excel尝试导入");
+                }
+                BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                if (biEvaluation == null || biEvaluation.getSystemLevel() == null) {
+                    return AjaxResult.error("该任务未进行评定，请评定后再生成报告");
+                }
+
+                if (tasks.isEmpty()) {
+                    return AjaxResult.error("未找到有效任务");
+                }
+            }
+
+            // 验证所有任务是否属于同一组合桥下的子桥
+            Long rootParentId = null;
+            Set<Long> parentObjectIds = new HashSet<>();
+            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+            if(template.getName().contains("斜拉桥、悬索桥通用")) {
+                for (Task task : tasks) {
+                    Building building = task.getBuilding();
+                    if (building == null) {
+                        return AjaxResult.error("任务关联的建筑不存在：任务ID " + task.getId());
+                    }
+
+                    // 查询建筑的根对象
+                    if (building.getRootObjectId() == null) {
+                        return AjaxResult.error("建筑未关联根对象：" + building.getName());
+                    }
+
+                    BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                    if (rootObject == null) {
+                        return AjaxResult.error("建筑的根对象不存在：" + building.getName());
+                    }
+
+                    // 检查是否为子桥（parentId不为0）
+                    if (rootObject.getParentId() == null || rootObject.getParentId() == 0) {
+                        return AjaxResult.error("请选择组合桥的桥幅，建筑【" + building.getName() + "】不是组合桥桥幅");
+                    }
+                    rootParentId = rootObject.getParentId();
+                    parentObjectIds.add(rootObject.getParentId());
+                }
+            }
+
+            // 验证所有子桥的parentId是否相同
+            if (parentObjectIds.size() > 1) {
+                return AjaxResult.error("请选择同一个组合桥下的子桥任务");
+            }
             // 异步生成报告
-            reportServiceImpl.generateReportDocumentAsync(report, task);
+            reportServiceImpl.generateReportDocumentAsync(report, tasks, rootParentId,template);
 
             return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
         } catch (Exception e) {

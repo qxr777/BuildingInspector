@@ -236,7 +236,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             // 4. 处理桥梁基本状况卡片数据 和 桥梁概况 数据
             // 11.11  修改 ， 处理桥梁状况卡片 时 顺带 处理 桥梁概况数据。
             try {
-                bridgeCardService.processBridgeCardData(document, building, templateType, task);
+                BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                bridgeCardService.processBridgeCardData(document, building, templateType, biEvaluation.getSystemLevel());
                 log.info("桥梁基本状况卡片处理完成");
             } catch (Exception e) {
                 log.error("处理桥梁基本状况卡片出错: error={}", e.getMessage(), e);
@@ -1362,7 +1363,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     List<Integer> diseaseTypeIds = entry.getValue();
 
                     for (Integer diseaseTypeId : diseaseTypeIds) {
-                        combinations.add(new ComponentDiseaseType(componentId, diseaseTypeId.longValue()));
+                        combinations.add(new ComponentDiseaseType(null,componentId, diseaseTypeId.longValue()));
                     }
                 }
             }
@@ -1909,9 +1910,13 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 log.warn("未找到检测结论占位符: {}", key);
                 return;
             }
-
+            List<Task> tasks = new ArrayList<>();
+            tasks.add(task);
+            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+            Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
+            biEvaluationMap.put(biEvaluation.getTaskId(), biEvaluation);
             // 调用检测结论服务处理检测结论
-            testConclusionService.handleTestConclusion(document, targetParagraph, task, bridgeName);
+            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName,biEvaluationMap,biEvaluation.getSystemLevel());
 
             log.info("检测结论处理完成");
 
@@ -1939,9 +1944,10 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 log.warn("未找到检测结论桥梁详情占位符: {}", key);
                 return;
             }
-
+            List<Task> tasks = new ArrayList<>();
+            tasks.add(task);
             // 调用检测结论服务处理检测结论桥梁详情
-            testConclusionService.handleTestConclusionBridge(document, targetParagraph, task, bridgeName);
+            testConclusionService.handleTestConclusionBridge(document, targetParagraph, tasks);
 
             log.info("检测结论桥梁详情处理完成");
 

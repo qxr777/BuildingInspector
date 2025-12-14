@@ -53,8 +53,8 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
     private IPropertyService propertyService;
 
     @Override
-    public void generateRegularInspectionTable(XWPFDocument document, String placeholder, Building building, Task task, Project project) throws Exception {
-        log.info("开始生成定期检查记录表, placeholder: {}, buildingId: {}, taskId: {}, projectId: {}", placeholder, building.getId(), task.getId(), project.getId());
+    public void generateRegularInspectionTable(XWPFDocument document, String placeholder, List<Task> tasks) throws Exception {
+        log.info("开始生成定期检查记录表, placeholder: {}", placeholder);
 
         // 查找占位符位置
         XWPFParagraph targetParagraph = findParagraphByPlaceholder(document, placeholder);
@@ -63,36 +63,48 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             return;
         }
 
-        // 获取插入位置的游标
-        XmlCursor cursor = targetParagraph.getCTP().newCursor();
+        for (Task task : tasks) {
+            Building building = task.getBuilding();
+            Project project = task.getProject();
 
-        // 获取桥梁结构树
-        BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
-        if (rootObject == null) {
-            log.warn("未找到桥梁结构树: rootObjectId={}", building.getRootObjectId());
-            return;
+            if (building == null) {
+                log.warn("任务未关联建筑物: taskId={}", task.getId());
+                continue;
+            }
+            if (project == null) {
+                log.warn("任务未关联项目: taskId={}", task.getId());
+                continue;
+            }
+            // 获取插入位置的游标
+            XmlCursor cursor = targetParagraph.getCTP().newCursor();
+
+            // 获取桥梁结构树
+            BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+            if (rootObject == null) {
+                log.warn("未找到桥梁结构树: rootObjectId={}", building.getRootObjectId());
+                return;
+            }
+
+            // 获取所有子节点
+            List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootObject.getId());
+
+            // 创建表格计数器
+            AtomicInteger chapter11TableCounter = new AtomicInteger(1);
+
+            // 创建表格标题，使用WordFieldUtils
+            String tableTitle = building.getName() + " 定期检查记录表";
+            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, tableTitle, cursor, 11, chapter11TableCounter);
+
+            // 创建表格
+            XWPFTable table = document.insertNewTbl(cursor);
+            cursor.toNextToken();
+
+            // 设置表格样式
+            setTableStyle(table);
+
+            // 创建表格内容
+            createTableContent(table, building, project, task, rootObject, allObjects);
         }
-
-        // 获取所有子节点
-        List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootObject.getId());
-
-        // 创建表格计数器
-        AtomicInteger chapter11TableCounter = new AtomicInteger(1);
-
-        // 创建表格标题，使用WordFieldUtils
-        String tableTitle = building.getName() + " 定期检查记录表";
-        String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, tableTitle, cursor, 11, chapter11TableCounter);
-
-        // 创建表格
-        XWPFTable table = document.insertNewTbl(cursor);
-        cursor.toNextToken();
-
-        // 设置表格样式
-        setTableStyle(table);
-
-        // 创建表格内容
-        createTableContent(table, building, project, task, rootObject, allObjects);
-
         // 清除原占位符段落
         clearParagraph(targetParagraph);
 
@@ -138,7 +150,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
     private void createTableContent(XWPFTable table, Building building, Project project, Task task,
                                     BiObject rootObject, List<BiObject> allObjects) {
         // 创建表头部分
-        createTableHeader(table, building, project, task);
+        createTableHeader(table, building);
 
         // 创建表格主体部分
         createTableBody(table, rootObject, allObjects, building.getId(), project.getId(), task);
@@ -191,7 +203,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
     /**
      * 创建表格头部
      */
-    private void createTableHeader(XWPFTable table, Building building, Project project, Task task) {
+    private void createTableHeader(XWPFTable table, Building building) {
         // 统一使用11列布局的宽度配置，保证所有行宽度一致
         int[] columnWidths = {8, 8, 8, 8, 8, 8, 8, 8, 8, 16, 20}; // 总和为100
         int totalWidth = 9500; // 总宽度

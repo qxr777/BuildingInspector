@@ -697,34 +697,14 @@
                 <h4 class="modal-title" id="diseaseSelectModalLabel">选择病害</h4>
             </div>
             <div class="modal-body">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="form-group">
-                            <label>搜索过滤:</label>
-                            <input type="text" class="form-control" id="diseaseSearchInput" placeholder="输入构件名称或病害类型进行搜索">
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="panel panel-default">
-                            <div class="panel-heading">
-                                <div class="checkbox">
-                                    <label>
-                                        <input type="checkbox" id="selectAllDiseases"> 全选/全不选
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="panel-body" style="max-height: 400px; overflow-y: auto;">
-                                <div id="diseaseSelectionList">
-                                    <!-- 动态加载病害选择列表 -->
-                                    <div class="text-center">
-                                        <i class="fa fa-spinner fa-spin"></i> 正在加载数据...
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- 任务Tab导航 -->
+                <ul class="nav nav-tabs" id="diseaseTaskTabs" role="tablist" style="margin-bottom: 15px;">
+                    <!-- 动态生成任务Tab -->
+                </ul>
+                
+                <!-- Tab内容区 -->
+                <div class="tab-content" id="diseaseTaskTabContent">
+                    <!-- 动态生成每个任务的病害选择内容 -->
                 </div>
             </div>
             <div class="modal-footer">
@@ -741,7 +721,7 @@
     var prefix = ctx + "biz/report_data";
     var reportId = /*[[${report.id}]]*/ '';
     var currentSelectorType = ''; // 当前选择器类型：focus-diseases 或 cause-analysis
-    var diseaseComponentData = []; // 存储构件病害数据
+    var diseaseComponentData = {}; // 存储构件病害数据，格式：{taskId: {taskId, buildingName, diseases: []}}
 
     $(function() {
         // 初始化文件上传控件
@@ -1215,19 +1195,19 @@
         $('#diseaseSelectModalLabel').text(title);
 
         // 检查数据是否已加载（缓存）
-        if (diseaseComponentData.length > 0) {
+        if (Object.keys(diseaseComponentData).length > 0) {
             // 数据已缓存，直接渲染选择列表
             console.log('使用缓存的病害构件数据');
-            renderDiseaseSelectionList();
+            renderDiseaseSelectionTabs();
         } else {
             // 第一次点击，需要加载数据
             console.log('第一次打开选择器，开始加载病害构件数据...');
-            $('#diseaseSelectionList').html('<div class="text-center"><i class="fa fa-spinner fa-spin"></i> 正在加载数据...</div>');
+            $('#diseaseTaskTabContent').html('<div class="text-center" style="padding: 50px;"><i class="fa fa-spinner fa-spin"></i> 正在加载数据...</div>');
 
             // 加载数据并缓存
             loadDiseaseComponentDataWithCallback(function() {
                 // 加载成功后渲染列表
-                renderDiseaseSelectionList();
+                renderDiseaseSelectionTabs();
             });
         }
 
@@ -1238,7 +1218,7 @@
     // 加载构件病害数据（带回调函数）
     function loadDiseaseComponentDataWithCallback(successCallback) {
         // 如果数据已加载，直接执行回调
-        if (diseaseComponentData.length > 0) {
+        if (Object.keys(diseaseComponentData).length > 0) {
             console.log('数据已缓存，直接执行回调');
             if (successCallback) successCallback();
             return;
@@ -1256,18 +1236,19 @@
             success: function(result) {
                 if (result.code == 0 && result.data) {
                     diseaseComponentData = result.data;
-                    console.log('病害构件数据加载成功，共 ' + diseaseComponentData.length + ' 条记录');
+                    var taskCount = Object.keys(diseaseComponentData).length;
+                    console.log('病害构件数据加载成功，共 ' + taskCount + ' 个任务');
 
                     // 执行成功回调
                     if (successCallback) successCallback();
                 } else {
                     console.error('加载病害构件数据失败：' + (result.msg || '未知错误'));
-                    $('#diseaseSelectionList').html('<div class="text-center text-danger">加载数据失败：' + (result.msg || '未知错误') + '</div>');
+                    $('#diseaseTaskTabContent').html('<div class="text-center text-danger">加载数据失败：' + (result.msg || '未知错误') + '</div>');
                 }
             },
             error: function() {
                 console.error('加载病害构件数据失败，网络错误');
-                $('#diseaseSelectionList').html('<div class="text-center text-danger">加载数据失败，请重试</div>');
+                $('#diseaseTaskTabContent').html('<div class="text-center text-danger">加载数据失败，请重试</div>');
             }
         });
     }
@@ -1277,15 +1258,77 @@
         loadDiseaseComponentDataWithCallback();
     }
 
-    // 渲染病害选择列表
-    function renderDiseaseSelectionList() {
+    // 渲染病害选择Tab页签和内容
+    function renderDiseaseSelectionTabs() {
+        if (!diseaseComponentData || Object.keys(diseaseComponentData).length === 0) {
+            $('#diseaseTaskTabs').html('');
+            $('#diseaseTaskTabContent').html('<div class="text-center text-muted" style="padding: 50px;">暂无数据</div>');
+            return;
+        }
+
+        var tabsHtml = '';
+        var contentHtml = '';
+        var isFirst = true;
+
+        // 遍历所有任务
+        for (var taskId in diseaseComponentData) {
+            var taskData = diseaseComponentData[taskId];
+            var buildingName = taskData.buildingName || '未命名桥梁';
+            var diseases = taskData.diseases || [];
+
+            // 生成Tab标签
+            tabsHtml += '<li role="presentation" class="' + (isFirst ? 'active' : '') + '">';
+            tabsHtml += '<a href="#task-' + taskId + '" data-toggle="tab">' + buildingName + '</a>';
+            tabsHtml += '</li>';
+
+            // 生成Tab内容
+            contentHtml += '<div role="tabpanel" class="tab-pane ' + (isFirst ? 'active' : '') + '" id="task-' + taskId + '">';
+            contentHtml += renderDiseaseListForTask(taskId, buildingName, diseases);
+            contentHtml += '</div>';
+
+            isFirst = false;
+        }
+
+        $('#diseaseTaskTabs').html(tabsHtml);
+        $('#diseaseTaskTabContent').html(contentHtml);
+
+        // 绑定事件
+        bindDiseaseSelectionEvents();
+    }
+
+    // 为单个任务渲染病害列表
+    function renderDiseaseListForTask(taskId, buildingName, diseases) {
         var html = '';
 
-        if (diseaseComponentData && diseaseComponentData.length > 0) {
+        // 搜索过滤框
+        html += '<div class="row" style="margin-top: 15px;">';
+        html += '<div class="col-md-12">';
+        html += '<div class="form-group">';
+        html += '<label>搜索过滤:</label>';
+        html += '<input type="text" class="form-control disease-search-input" data-task-id="' + taskId + '" placeholder="输入构件名称或病害类型进行搜索">';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        // 病害列表容器
+        html += '<div class="row">';
+        html += '<div class="col-md-12">';
+        html += '<div class="panel panel-default">';
+        html += '<div class="panel-heading">';
+        html += '<div class="checkbox">';
+        html += '<label>';
+        html += '<input type="checkbox" class="select-all-diseases" data-task-id="' + taskId + '"> 全选/全不选';
+        html += '</label>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="panel-body" style="max-height: 400px; overflow-y: auto;">';
+        html += '<div class="disease-selection-list" data-task-id="' + taskId + '">';
+
+        if (diseases && diseases.length > 0) {
             // 获取当前已选择的数据
             var currentValue = $('#' + currentSelectorType + '-value').val();
-            var selectedData = [];
-            if (currentValue && currentValue.trim() !== '' && currentValue !== '[]') {
+            var selectedData = {};
+            if (currentValue && currentValue.trim() !== '' && currentValue !== '{}') {
                 try {
                     selectedData = JSON.parse(currentValue);
                     console.log('解析已选择数据:', selectedData);
@@ -1294,10 +1337,13 @@
                 }
             }
 
-            // 创建已选择数据的映射，便于快速查找
+            // 获取该任务的已选择数据
+            var taskSelections = selectedData[taskId] || [];
+            
+            // 创建已选择数据的映射
             var selectedMap = {};
-            for (var i = 0; i < selectedData.length; i++) {
-                var item = selectedData[i];
+            for (var i = 0; i < taskSelections.length; i++) {
+                var item = taskSelections[i];
                 for (var componentId in item) {
                     var diseaseTypeIds = item[componentId];
                     if (!selectedMap[componentId]) {
@@ -1309,12 +1355,10 @@
                 }
             }
 
-            console.log('选择状态映射:', selectedMap);
-
             // 按构件分组渲染
             var componentGroups = {};
-            for (var i = 0; i < diseaseComponentData.length; i++) {
-                var item = diseaseComponentData[i];
+            for (var i = 0; i < diseases.length; i++) {
+                var item = diseases[i];
                 var componentId = item.componentId;
                 var componentName = item.componentName;
 
@@ -1344,6 +1388,7 @@
                     html += '<div class="checkbox" style="margin-left: 20px;">';
                     html += '<label>';
                     html += '<input type="checkbox" class="disease-checkbox" ';
+                    html += 'data-task-id="' + taskId + '" ';
                     html += 'data-component-id="' + componentId + '" ';
                     html += 'data-component-name="' + group.name + '" ';
                     html += 'data-disease-type-id="' + disease.diseaseTypeId + '" ';
@@ -1358,27 +1403,34 @@
                 html += '</div>';
             }
         } else {
-            html = '<div class="text-center text-muted">暂无数据</div>';
+            html += '<div class="text-center text-muted">该任务暂无病害数据</div>';
         }
 
-        $('#diseaseSelectionList').html(html);
+        html += '</div>'; // disease-selection-list
+        html += '</div>'; // panel-body
+        html += '</div>'; // panel
+        html += '</div>'; // col-md-12
+        html += '</div>'; // row
 
-        // 绑定事件
-        bindDiseaseSelectionEvents();
+        return html;
     }
 
     // 绑定病害选择事件
     function bindDiseaseSelectionEvents() {
-        // 全选/全不选事件
-        $('#selectAllDiseases').off('change').on('change', function() {
+        // 全选/全不选事件（为每个任务Tab独立绑定）
+        $('.select-all-diseases').off('change').on('change', function() {
+            var taskId = $(this).data('task-id');
             var isChecked = $(this).prop('checked');
-            $('.disease-checkbox').prop('checked', isChecked);
+            $('.disease-checkbox[data-task-id="' + taskId + '"]').prop('checked', isChecked);
         });
 
-        // 搜索过滤事件
-        $('#diseaseSearchInput').off('input').on('input', function() {
+        // 搜索过滤事件（为每个任务Tab独立绑定）
+        $('.disease-search-input').off('input').on('input', function() {
+            var taskId = $(this).data('task-id');
             var searchText = $(this).val().toLowerCase();
-            $('.component-group').each(function() {
+            var $listContainer = $('.disease-selection-list[data-task-id="' + taskId + '"]');
+            
+            $listContainer.find('.component-group').each(function() {
                 var $group = $(this);
                 var hasMatch = false;
 
@@ -1409,42 +1461,45 @@
 
     // 确认病害选择
     function confirmDiseaseSelection() {
-        var selectedItems = [];
-        var componentMap = {}; // 用于按构件ID分组
+        var allTaskSelections = {}; // 格式：{taskId: [{componentId: [diseaseTypeIds]}]}
 
-        // 收集选中的项目
-        $('.disease-checkbox:checked').each(function() {
-            var componentId = $(this).data('component-id');
-            var diseaseTypeId = $(this).data('disease-type-id');
+        // 遍历所有任务的选择列表
+        $('.disease-selection-list').each(function() {
+            var taskId = $(this).data('task-id');
+            var componentMap = {}; // 用于按构件ID分组
 
-            console.log('选中项目:', componentId, diseaseTypeId);
+            // 收集该任务的选中项目
+            $(this).find('.disease-checkbox:checked').each(function() {
+                var componentId = $(this).data('component-id');
+                var diseaseTypeId = $(this).data('disease-type-id');
 
-            if (!componentMap[componentId]) {
-                componentMap[componentId] = [];
+                if (!componentMap[componentId]) {
+                    componentMap[componentId] = [];
+                }
+                componentMap[componentId].push(parseInt(diseaseTypeId));
+            });
+
+            // 转换为数组格式
+            var taskSelections = [];
+            for (var componentId in componentMap) {
+                var item = {};
+                item[parseInt(componentId)] = componentMap[componentId];
+                taskSelections.push(item);
             }
-            componentMap[componentId].push(parseInt(diseaseTypeId)); // 确保是数字类型
+
+            // 只保存有选择的任务
+            if (taskSelections.length > 0) {
+                allTaskSelections[taskId] = taskSelections;
+            }
         });
 
-        console.log('构件分组映射:', componentMap);
-
-        // 转换为所需的JSON格式：List<HashMap<Long,List<Long>>>
-        for (var componentId in componentMap) {
-            var item = {};
-            item[parseInt(componentId)] = componentMap[componentId]; // 确保key是数字
-            selectedItems.push(item);
-        }
-
-        console.log('最终选择数据:', selectedItems);
+        console.log('所有任务的选择数据:', allTaskSelections);
 
         // 更新隐藏字段
-        var jsonValue = JSON.stringify(selectedItems);
+        var jsonValue = JSON.stringify(allTaskSelections);
         console.log('JSON字符串:', jsonValue);
-        console.log('隐藏字段ID:', currentSelectorType + '-value');
 
         var $hiddenField = $('#' + currentSelectorType + '-value');
-        console.log('找到隐藏字段:', $hiddenField.length > 0);
-        console.log('隐藏字段的data-original-key:', $hiddenField.data('original-key'));
-
         $hiddenField.val(jsonValue);
 
         // 更新显示字段
@@ -1459,17 +1514,20 @@
         var value = $('#' + selectorType + '-value').val();
         var displayText = '';
 
-        if (value && value.trim() !== '' && value !== '[]') {
+        if (value && value.trim() !== '' && value !== '{}') {
             try {
                 var selectedData = JSON.parse(value);
                 var totalCount = 0;
 
-                // 计算总选择数量
-                for (var i = 0; i < selectedData.length; i++) {
-                    var item = selectedData[i];
-                    for (var componentId in item) {
-                        var diseaseTypeIds = item[componentId];
-                        totalCount += diseaseTypeIds.length;
+                // 计算总选择数量（遍历所有任务）
+                for (var taskId in selectedData) {
+                    var taskSelections = selectedData[taskId];
+                    for (var i = 0; i < taskSelections.length; i++) {
+                        var item = taskSelections[i];
+                        for (var componentId in item) {
+                            var diseaseTypeIds = item[componentId];
+                            totalCount += diseaseTypeIds.length;
+                        }
                     }
                 }
 
