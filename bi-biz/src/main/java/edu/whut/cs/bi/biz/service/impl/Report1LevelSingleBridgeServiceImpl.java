@@ -754,6 +754,10 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
                 // 防止内容换行（可选）
                 tcPr.addNewNoWrap();
+                // 垂直居中 12.16 修改
+                if (!tcPr.isSetVAlign()) {
+                    tcPr.addNewVAlign().setVal(STVerticalJc.CENTER);
+                }
             }
 
             // 设置标题行在跨页时重复显示
@@ -780,6 +784,13 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     XWPFParagraph cellP = cell.getParagraphs().get(0);
                     ReportGenerateTools.setSingleLineSpacing(cellP);  // 设置单倍行距
                     cellP.setAlignment(ParagraphAlignment.CENTER);
+
+                    // 垂直居中 12.16修改。
+                    CTTcPr curTcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr()
+                            : cell.getCTTc().addNewTcPr();
+                    if (!curTcPr.isSetVAlign()) {
+                        curTcPr.addNewVAlign().setVal(STVerticalJc.CENTER);
+                    }
 
                     // 设置文本内容
                     XWPFRun cellR = cellP.createRun();
