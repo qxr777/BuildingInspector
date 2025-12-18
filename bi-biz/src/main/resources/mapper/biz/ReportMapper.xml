@@ -37,26 +37,57 @@
         <include refid="selectReportVo"/>
         <where>
             r.flag = 0
-            <if test="name != null and name != ''">
-                AND r.name like concat('%', #{name}, '%')
+            <!-- 普通用户权限控制：只能看到自己创建、审核、批准的报告，或者有权限的项目的报告 -->
+            <if test="currentUserId != null">
+                AND (
+                    r.create_by = #{currentUserId}
+                    OR r.reviewer_id = #{currentUserId}
+                    OR r.approver_id = #{currentUserId}
+                    OR EXISTS (
+                        SELECT 1 FROM bi_project p
+                        INNER JOIN bi_project_user pu ON p.id = pu.project_id
+                        WHERE p.id = r.project_id
+                        AND pu.user_id = #{currentUserId}
+                        AND p.del_flag = '0'
+                    )
+                )
             </if>
-            <if test="status != null">
-                AND r.status = #{status}
+            <!-- 部门管理员权限控制：通过项目的部门ID过滤 -->
+            <if test="selectDeptId != null">
+                AND EXISTS (
+                    SELECT 1 FROM bi_project p
+                    WHERE p.id = r.project_id
+                    AND (
+                        p.dept_id = #{selectDeptId}
+                        OR p.owner_dept_id = #{selectDeptId}
+                        <if test="parentDeptId != null">
+                            OR p.dept_id = #{parentDeptId}
+                            OR p.owner_dept_id = #{parentDeptId}
+                        </if>
+                    )
+                    AND p.del_flag = '0'
+                )
             </if>
-            <if test="reviewerId != null">
-                AND r.reviewer_id = #{reviewerId}
+            <if test="report.name != null and report.name != ''">
+                AND r.name like concat('%', #{report.name}, '%')
             </if>
-            <if test="approverId != null">
-                AND r.approver_id = #{approverId}
+            <if test="report.status != null">
+                AND r.status = #{report.status}
             </if>
-            <if test="reportTemplateId != null">
-                AND r.report_template_id = #{reportTemplateId}
+            <if test="report.reviewerId != null">
+                AND r.reviewer_id = #{report.reviewerId}
             </if>
-            <if test="projectId != null">
-                AND r.project_id = #{projectId}
+            <if test="report.approverId != null">
+                AND r.approver_id = #{report.approverId}
             </if>
-            <if test="taskIds != null and taskIds != ''">
-                AND r.task_ids = #{taskIds}
+            <if test="report.reportTemplateId != null">
+                AND r.report_template_id = #{report.reportTemplateId}
+            </if>
+            <if test="report.projectId != null">
+                AND r.project_id = #{report.projectId}
+            </if>
+            <if test="report.taskIds != null and report.taskIds != ''">
+                AND r.task_ids = #{report.taskIds}
             </if>
         </where>
     </select>

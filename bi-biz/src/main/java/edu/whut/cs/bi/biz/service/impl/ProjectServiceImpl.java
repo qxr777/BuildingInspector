@@ -103,7 +103,7 @@ public class ProjectServiceImpl implements IProjectService {
             // 部门管理员
             if (select.equals("department")) {
 
-                // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
+                // 当前登录用户所属Department与bi_project表中owner_dept_id 或 dept_id一致的所有业务实体
                 project.setSelectDeptId(sysUser.getDeptId());
                 project.setParentDeptId(curSysDept.getParentId());
 
@@ -468,19 +468,25 @@ public class ProjectServiceImpl implements IProjectService {
         List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
         SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
 
-        // 检查用户是否有admin角色
-        boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role));
-
+        // 检查用户是否有管理员角色
+        boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role) || "system_admin".equals(role) || "business_admin".equals(role));
+        // 查询部门 - 设置父部门
+        SysDept curSysDept = deptService.selectDeptById(sysUser.getDeptId());
         List<Project> projects = null;
         if (isAdmin) {
             // 超级管理员, 所有数据都能看到
             projects = projectMapper.selectProjectList(project, null, null);
         } else {
-            //查询部门所有的项目
-            project.setSelectDeptId(sysUser.getDeptId());
-            projects = projectMapper.selectProjectList(project, null, null);
+            if(roles.stream().anyMatch(role -> "department_business_admin".equals(role))) {
+                // 部门管理员
+                // 当前登录用户所属Department与bi_project表中ower_dept_id 或 dept_id一致的所有业务实体
+                project.setSelectDeptId(sysUser.getDeptId());
+                project.setParentDeptId(curSysDept.getParentId());
+                projects = projectMapper.selectProjectList(project, null, null);
+            }else {
+                projects = projectMapper.selectProjectList(project, currentUserId, null);
+            }
         }
-
         return projects;
     }
 }

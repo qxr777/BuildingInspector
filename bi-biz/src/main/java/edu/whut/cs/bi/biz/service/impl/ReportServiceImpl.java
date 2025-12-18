@@ -41,8 +41,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.core.domain.entity.SysDept;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.system.mapper.SysUserMapper;
+import com.ruoyi.system.service.ISysDeptService;
 import org.springframework.web.client.RestTemplate;
 
 import io.minio.MinioClient;
@@ -114,6 +119,11 @@ public class ReportServiceImpl implements IReportService {
     @Resource
     private IDiseaseService diseaseService;
 
+    @Autowired
+    private SysUserMapper sysUserMapper;
+
+    @Autowired
+    private ISysDeptService deptService;
 
     @Value("${springAi_Rag.endpoint}")
     private String SpringAiUrl;
@@ -171,7 +181,33 @@ public class ReportServiceImpl implements IReportService {
      */
     @Override
     public List<Report> selectReportList(Report report) {
-        return reportMapper.selectReportList(report);
+        Long currentUserId = ShiroUtils.getUserId();
+        List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
+        SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
+
+        // 检查用户是否有管理员角色
+        boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role) || "system_admin".equals(role) || "business_admin".equals(role));
+
+        List<Report> reports = null;
+        if (isAdmin) {
+            // 超级管理员, 所有数据都能看到
+            PageUtils.startPage();
+            reports = reportMapper.selectReportList(report, null, null, null);
+        } else {
+            if(roles.stream().anyMatch(role -> "department_business_admin".equals(role))) {
+                // 部门管理员
+                // 查询部门 - 设置父部门
+                SysDept curSysDept = deptService.selectDeptById(sysUser.getDeptId());
+                // 当前登录用户所属Department与报告关联项目的owner_dept_id或dept_id一致的所有业务实体
+                PageUtils.startPage();
+                reports = reportMapper.selectReportList(report, null, sysUser.getDeptId(), curSysDept.getParentId());
+            } else {
+                // 普通用户：只能看到自己创建、审核、批准的报告，或参与项目的报告
+                PageUtils.startPage();
+                reports = reportMapper.selectReportList(report, currentUserId, null, null);
+            }
+        }
+        return reports;
     }
 
     /**

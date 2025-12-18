@@ -17,6 +17,7 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.ReportServiceImpl;
@@ -60,6 +61,9 @@ public class ReportController extends BaseController {
 
     @Autowired
     private IReportService reportService;
+
+    @Autowired
+    private ReportMapper reportMapper;
 
     @Autowired
     private IReportTemplateService reportTemplateService;
@@ -697,7 +701,7 @@ public class ReportController extends BaseController {
             // 检查生成中的报告数量
             Report queryReport = new Report();
             queryReport.setStatus(2);
-            List<Report> generatingReports = reportService.selectReportList(queryReport);
+            List<Report> generatingReports = reportMapper.selectReportList(queryReport,null,null,null);
             if (generatingReports.size() >= 8) {
                 return AjaxResult.error("并行生成报告数量达到上限，请稍后重试");
             }
