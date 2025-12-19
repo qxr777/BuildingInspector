@@ -899,7 +899,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
     public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
         // 瘦身
-        List<Disease2ReportSummaryAiVO> less = Convert2VO.copyList(diseases, Disease2ReportSummaryAiVO.class);
+        List<Disease2ReportSummaryAiVO> less = Disease2ReportSummaryAiVO.convert(diseases);
         // 序列化为JSON字符串
         ObjectMapper mapper = new ObjectMapper();
         String diseasesJson = mapper.writeValueAsString(less);
@@ -1374,7 +1374,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     List<Integer> diseaseTypeIds = entry.getValue();
 
                     for (Integer diseaseTypeId : diseaseTypeIds) {
-                        combinations.add(new ComponentDiseaseType(null,componentId, diseaseTypeId.longValue()));
+                        combinations.add(new ComponentDiseaseType(null, componentId, diseaseTypeId.longValue()));
                     }
                 }
             }
@@ -1927,7 +1927,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
             biEvaluationMap.put(biEvaluation.getTaskId(), biEvaluation);
             // 调用检测结论服务处理检测结论
-            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName,biEvaluationMap,biEvaluation.getSystemLevel());
+            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName, biEvaluationMap, biEvaluation.getSystemLevel());
 
             log.info("检测结论处理完成");
 

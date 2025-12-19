@@ -336,11 +336,11 @@ public class ReportServiceImpl implements IReportService {
      * 生成报告文档
      *
      * @param report 报告ID
-     * @param tasks   建筑物ID
+     * @param tasks  建筑物ID
      * @return 生成的文件路径
      */
     @Override
-    public String generateReportDocument(Report report, List<Task> tasks,Long rootParentId,ReportTemplate template) {
+    public String generateReportDocument(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
         // 判断是否为单桥模板（根据模板名称判断）
         if (report != null && report.getReportTemplateId() != null) {
             try {
@@ -489,7 +489,7 @@ public class ReportServiceImpl implements IReportService {
             testConclusionService.clearDiseaseSummaryCache();
 
             // 处理第三章外观检测结果
-            processChapter3(document, tasks ,rootParentId);
+            processChapter3(document, tasks, rootParentId);
             Integer minSystemLevel = null;
             Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
             // 处理第八章评定结果（不依赖ReportData）
@@ -533,7 +533,7 @@ public class ReportServiceImpl implements IReportService {
 
             // 处理第十章检测结论（不依赖ReportData）
             try {
-                handleChapter10TestConclusion(document, "${chapter-10-testConclusion}", tasks, building.getName(),biEvaluationMap, minSystemLevel);
+                handleChapter10TestConclusion(document, "${chapter-10-testConclusion}", tasks, building.getName(), biEvaluationMap, minSystemLevel);
                 handleChapter10TestConclusionBridge(document, "${chapter-10-testConclusionBridge}", tasks);
             } catch (Exception e) {
                 log.error("处理第十章检测结论出错: error={}", e.getMessage());
@@ -642,7 +642,7 @@ public class ReportServiceImpl implements IReportService {
      * @param tasks  任务列表
      */
     @Async("reportTaskExecutor")
-    public void generateReportDocumentAsync(Report report, List<Task> tasks ,Long rootParentId,ReportTemplate template) {
+    public void generateReportDocumentAsync(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
         try {
             // 更新报告状态为生成中
             Report updateReport = new Report();
@@ -654,7 +654,7 @@ public class ReportServiceImpl implements IReportService {
 
             // 生成报告文档
             log.info("开始生成报告");
-            String minioId = generateReportDocument(report, tasks,rootParentId, template);
+            String minioId = generateReportDocument(report, tasks, rootParentId, template);
             log.info("生成报告结束");
 
             // 更新报告状态为已生成并保存MinioID
@@ -969,11 +969,11 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 处理第三章外观检测结果
      *
-     * @param document   Word文档
-     * @param tasks 建筑物信息
+     * @param document Word文档
+     * @param tasks    建筑物信息
      * @throws Exception 异常
      */
-    private void processChapter3(XWPFDocument document, List<Task> tasks ,Long rootParentId) throws Exception {
+    private void processChapter3(XWPFDocument document, List<Task> tasks, Long rootParentId) throws Exception {
 
 
         // 获取所有子部件
@@ -1068,7 +1068,7 @@ public class ReportServiceImpl implements IReportService {
     private void collectDiseases(BiObject node, List<BiObject> allNodes, List<Disease> properties,
                                  int level, Map<Long, List<Disease>> map) {
         // 找到当前节点所属的 level3 祖先（如自身就是 level3 则返回自身）
-        BiObject level3 = findLevel3Ancestor(node, allNodes ,level);
+        BiObject level3 = findLevel3Ancestor(node, allNodes, level);
 
         // 把当前节点的病害挂到 level3 名下
         List<Disease> self = properties.stream()
@@ -1088,7 +1088,7 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 找到第三层祖先节点
      */
-    private BiObject findLevel3Ancestor(BiObject node, List<BiObject> allNodes,int level) {
+    private BiObject findLevel3Ancestor(BiObject node, List<BiObject> allNodes, int level) {
         BiObject cur = node;
         int lv = getLevel(cur, allNodes);
         while (lv > level && cur.getParentId() != null) {
@@ -3384,7 +3384,7 @@ public class ReportServiceImpl implements IReportService {
 
     public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
         // 瘦身
-        List<Disease2ReportSummaryAiVO> less = Convert2VO.copyList(diseases, Disease2ReportSummaryAiVO.class);
+        List<Disease2ReportSummaryAiVO> less = Disease2ReportSummaryAiVO.convert(diseases);
         // 序列化为JSON字符串
         ObjectMapper mapper = new ObjectMapper();
         String diseasesJson = mapper.writeValueAsString(less);
@@ -3424,8 +3424,8 @@ public class ReportServiceImpl implements IReportService {
      * 为每个子桥生成病害对比表格
      *
      * @param document           Word文档
-     * @param biObjectMap         子桥列表
-     * @param tasks           建筑物信息
+     * @param biObjectMap        子桥列表
+     * @param tasks              建筑物信息
      * @param cursor             插入位置游标
      * @param chapterNum         章节号
      * @param startSubChapterNum 起始子章节号
@@ -3463,7 +3463,7 @@ public class ReportServiceImpl implements IReportService {
             run.setText("与上一次检查病害变化情况分析");
             run.setBold(false);
             run.setFontFamily("黑体");
-            
+
             log.info("已创建章节标题");
 
             // 完全模仿第八章的方式：在for循环中为每个task调用生成方法
@@ -3471,20 +3471,20 @@ public class ReportServiceImpl implements IReportService {
                 BiObject subBridge = biObjectMap.get(task.getBuilding().getRootObjectId());
                 Long projectId = task.getProjectId();
                 Building building = task.getBuilding();
-                
+
                 // 生成病害对比数据
                 List<DiseaseComparisonData> comparisonData = diseaseComparisonService.generateComparisonData(subBridge, projectId, building.getId());
 
                 if (!comparisonData.isEmpty()) {
                     // 为每个桥单独生成横向表格
-                    generateSingleDiseaseComparisonTable(document, titlePara, comparisonData, 
+                    generateSingleDiseaseComparisonTable(document, titlePara, comparisonData,
                             tableCounter, chapterNum, currentSubChapterNum, subBridge.getName());
-                    
+
                     currentSubChapterNum++;
                     log.info("已生成病害对比表格: {}", subBridge.getName());
                 }
             }
-            
+
         } catch (Exception e) {
             log.error("生成病害对比表格时发生错误", e);
         }
@@ -3494,9 +3494,9 @@ public class ReportServiceImpl implements IReportService {
      * 为单个桥生成病害对比表格（模仿generateEvaluationTableAfterParagraph的方式）
      */
     private void generateSingleDiseaseComparisonTable(XWPFDocument document, XWPFParagraph afterParagraph,
-                                                     List<DiseaseComparisonData> comparisonData,
-                                                     AtomicInteger tableCounter, Integer chapterNum, 
-                                                     Integer subChapterNum, String bridgeName) {
+                                                      List<DiseaseComparisonData> comparisonData,
+                                                      AtomicInteger tableCounter, Integer chapterNum,
+                                                      Integer subChapterNum, String bridgeName) {
         try {
             if (afterParagraph == null) {
                 log.warn("插入位置段落为null，无法生成表格");
@@ -3604,7 +3604,7 @@ public class ReportServiceImpl implements IReportService {
      * @param document Word文档
      * @param key      占位符key
      * @param value    JSON数据
-     * @param tasks 任务列表
+     * @param tasks    任务列表
      */
     private void handleChapter7DiseaseTable(XWPFDocument document, String key, String value, List<Task> tasks) {
         try {
@@ -3690,7 +3690,7 @@ public class ReportServiceImpl implements IReportService {
                     List<Integer> diseaseTypeIds = entry.getValue();
 
                     for (Integer diseaseTypeId : diseaseTypeIds) {
-                        combinations.add(new ComponentDiseaseType(null,componentId, diseaseTypeId.longValue()));
+                        combinations.add(new ComponentDiseaseType(null, componentId, diseaseTypeId.longValue()));
                     }
                 }
             }
@@ -3723,19 +3723,19 @@ public class ReportServiceImpl implements IReportService {
                     .collect(Collectors.groupingBy(ComponentDiseaseType::getTaskId));
 
             int index = 1;
-            
+
             // 遍历每个任务
             for (Task task : tasks) {
                 Long taskId = task.getId();
                 List<ComponentDiseaseType> taskCombs = taskCombinations.get(taskId);
-                
+
                 if (taskCombs == null || taskCombs.isEmpty()) {
                     continue;
                 }
 
                 Building building = task.getBuilding();
                 Project project = task.getProject();
-                
+
                 if (building == null || project == null) {
                     log.warn("任务{}的building或project为空，跳过", taskId);
                     continue;
@@ -4078,7 +4078,7 @@ public class ReportServiceImpl implements IReportService {
 
             // 按桥梁名+构件ID组合键分组，避免不同桥梁的相同构件被合并
             Map<String, List<ComponentDiseaseAnalysis>> componentGroups = analyses.stream()
-                    .collect(Collectors.groupingBy(analysis -> 
+                    .collect(Collectors.groupingBy(analysis ->
                             analysis.getBridgeName() + "_" + analysis.getComponentId()));
 
             // 按桥梁名和构件名排序，确保输出顺序稳定
@@ -4371,9 +4371,9 @@ public class ReportServiceImpl implements IReportService {
      *
      * @param document Word文档
      * @param key      占位符
-     * @param tasks 建筑物信息
+     * @param tasks    建筑物信息
      */
-    private Map<Long,BiEvaluation> handleChapter8EvaluationResults(XWPFDocument document, String key, List<Task> tasks,String parentBuildingName) {
+    private Map<Long, BiEvaluation> handleChapter8EvaluationResults(XWPFDocument document, String key, List<Task> tasks, String parentBuildingName) {
         try {
             log.info("开始处理第八章评定结果, key: {}", key);
             StringBuilder content = new StringBuilder();
@@ -4381,17 +4381,17 @@ public class ReportServiceImpl implements IReportService {
             content.append("依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，")
                     .append(parentBuildingName)
                     .append("的技术状况评定结果如下：\n");
-            Map<Long,BiEvaluation> biEvaluationMap= new HashMap<>();
+            Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
             Integer minSystemLevel = Integer.MAX_VALUE;
-            for (int i = 0;i<tasks.size();i++){
+            for (int i = 0; i < tasks.size(); i++) {
                 Task task = tasks.get(i);
                 BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
                 Building building = task.getBuilding();
                 String bridgeName = building != null ? building.getName() : "桥梁";
                 if (evaluation != null) {
-                    minSystemLevel = Math.min(minSystemLevel,evaluation.getSystemLevel());
-                    biEvaluationMap.put(task.getId(),evaluation);
-                    generateChapter8Content(evaluation, bridgeName,content);
+                    minSystemLevel = Math.min(minSystemLevel, evaluation.getSystemLevel());
+                    biEvaluationMap.put(task.getId(), evaluation);
+                    generateChapter8Content(evaluation, bridgeName, content);
                 } else {
                     log.warn("未找到任务的评定结果: taskId={}", task.getId());
                     content.append("未找到").append(bridgeName).append("的评定结果。\n");
@@ -4409,7 +4409,7 @@ public class ReportServiceImpl implements IReportService {
             XWPFParagraph chapter8Paragraph = insertChapter8Content(document, key, content.toString());
 
             // 调用专门的服务在四句话后生成表格（包含分页符、横向设置和表格）
-            for(Task task:tasks) {
+            for (Task task : tasks) {
                 Building building = task.getBuilding();
                 BiEvaluation evaluation = biEvaluationMap.get(task.getId());
                 String bridgeName = building != null ? building.getName() : "桥梁";
@@ -4713,7 +4713,7 @@ public class ReportServiceImpl implements IReportService {
      * @param key        占位符
      * @param bridgeName 桥梁名称
      */
-    private void handleChapter10TestConclusion(XWPFDocument document, String key, List<Task> tasks, String bridgeName,Map<Long, BiEvaluation> biEvaluationMap,Integer minSystemLevel) {
+    private void handleChapter10TestConclusion(XWPFDocument document, String key, List<Task> tasks, String bridgeName, Map<Long, BiEvaluation> biEvaluationMap, Integer minSystemLevel) {
         try {
             log.info("开始处理第十章检测结论, key: {}", key);
 
@@ -4725,7 +4725,7 @@ public class ReportServiceImpl implements IReportService {
             }
 
             // 调用检测结论服务处理检测结论
-            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName,biEvaluationMap, minSystemLevel);
+            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName, biEvaluationMap, minSystemLevel);
 
             log.info("第十章检测结论处理完成");
 
@@ -4738,9 +4738,9 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 处理第十章检测结论桥梁详情
      *
-     * @param document   Word文档
-     * @param key        占位符
-     * @param tasks       当前任务
+     * @param document Word文档
+     * @param key      占位符
+     * @param tasks    当前任务
      */
     private void handleChapter10TestConclusionBridge(XWPFDocument document, String key, List<Task> tasks) {
         try {

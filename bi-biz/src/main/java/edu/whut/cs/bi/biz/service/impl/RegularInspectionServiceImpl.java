@@ -1008,7 +1008,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             Date lastCheckDate = simpleDateFormat.parse(lastCheckDateStr);
             ZoneId zoneId = ZoneId.of("Asia/Shanghai");
             lastYear = lastCheckDate.toInstant().atZone(zoneId).toLocalDate().getYear();
-        } catch (ParseException e) {
+        } catch (Exception e) {
             log.error("处理 上次检查的年份 ，解析日期字符串出错。");
             lastYear = curYear + 10;
         }
