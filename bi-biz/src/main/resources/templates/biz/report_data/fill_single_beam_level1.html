@@ -95,7 +95,7 @@
                             <div class="tab-pane active" id="tab_1">
                                 <div class="panel panel-default">
                                     <div class="panel-heading">
-                                        <h4 class="panel-title">4.1.1 桥梁概况</h4>
+                                        <h4 class="panel-title">4.1.1 整体概况</h4>
                                     </div>
                                     <div class="panel-body">
                                         <!-- 桥梁概况照片说明 -->
@@ -113,8 +113,125 @@
 
                                     </div>
                                 </div>
+                                <!-- 设计要点 -->
+                                <div class="panel panel-default">
+                                    <div class="panel-heading" data-toggle="collapse" data-parent="#accordion"
+                                         href="#collapse2">
+                                        <h4 class="panel-title">
+                                            <a class="accordion-toggle">
+                                                <i class="fa fa-chevron-right"></i> 设计要点
+                                            </a>
+                                        </h4>
+                                    </div>
+                                    <div id="collapse2" class="panel-collapse collapse">
+                                        <div class="panel-body">
+                                            <div class="form-group">
+                                                <label class="control-label">设计要点:</label>
+                                                <textarea class="form-control" name="dataValues[designPoints]"
+                                                          data-original-key="designPoints" rows="5"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 主要材料 -->
+                                <div class="panel panel-default">
+                                    <div class="panel-heading" data-toggle="collapse" data-parent="#accordion"
+                                         href="#collapse3">
+                                        <h4 class="panel-title">
+                                            <a class="accordion-toggle">
+                                                <i class="fa fa-chevron-right"></i> 主要材料
+                                            </a>
+                                        </h4>
+                                    </div>
+                                    <div id="collapse3" class="panel-collapse collapse">
+                                        <div class="panel-body">
+                                            <div class="form-group">
+                                                <label class="control-label">主要材料:</label>
+                                                <textarea class="form-control" name="dataValues[mainMaterial]"
+                                                          data-original-key="mainMaterial" rows="5"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
+
+                                <!-- 技术标准 -->
+                                <div class="panel panel-default">
+                                    <div class="panel-heading" data-toggle="collapse" data-parent="#accordion"
+                                         href="#collapse4">
+                                        <h4 class="panel-title">
+                                            <a class="accordion-toggle">
+                                                <i class="fa fa-chevron-right"></i> 技术标准
+                                            </a>
+                                        </h4>
+                                    </div>
+                                    <div id="collapse4" class="panel-collapse collapse">
+                                        <div class="panel-body">
+                                            <div class="form-group">
+                                                <label class="control-label">技术标准:</label>
+                                                <textarea class="form-control" name="dataValues[standard]"
+                                                          data-original-key="standard" rows="5"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 历史检测情况 -->
+                                <div class="panel panel-default">
+                                    <div class="panel-heading" data-toggle="collapse" data-parent="#accordion"
+                                         href="#collapse5">
+                                        <h4 class="panel-title">
+                                            <a class="accordion-toggle">
+                                                <i class="fa fa-chevron-right"></i> 历史检测情况
+                                            </a>
+                                        </h4>
+                                    </div>
+                                    <div id="collapse5" class="panel-collapse collapse">
+                                        <div class="panel-body">
+                                            <div class="form-group">
+                                                <label class="control-label">历史检测情况:</label>
+                                                <textarea class="form-control"
+                                                          name="dataValues[historicalInspectionStatus]"
+                                                          data-original-key="historicalInspectionStatus"
+                                                          rows="5"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 历史维修情况 -->
+                                <div class="panel panel-default">
+                                    <div class="panel-heading" data-toggle="collapse" data-parent="#accordion"
+                                         href="#collapse6">
+                                        <h4 class="panel-title">
+                                            <a class="accordion-toggle">
+                                                <i class="fa fa-chevron-right"></i> 历史维修情况
+                                            </a>
+                                        </h4>
+                                    </div>
+                                    <div id="collapse6" class="panel-collapse collapse">
+                                        <div class="panel-body">
+                                            <div class="form-group">
+                                                <label class="control-label">历史维修情况:</label>
+                                                <textarea class="form-control"
+                                                          name="dataValues[historicalMaintenanceStatus]"
+                                                          data-original-key="historicalMaintenanceStatus"
+                                                          rows="5"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 保存按钮 -->
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_1')">
+                                            保存
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+
 
                             <!-- Tab2 外观检测结果 -->
                             <div class="tab-pane" id="tab_2">
