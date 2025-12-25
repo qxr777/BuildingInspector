@@ -402,9 +402,12 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
 //            }
             // 3. 查询桥梁（确保唯一匹配）
             Building bd = allBuildings.stream().filter(b ->
-                            b.getName().equals(buildingName) && b.getLine().equals(lineCode) && b.getStatus().equals("0"))
+                            b.getName().equals(buildingName) && b.getStatus().equals("0"))
                     .findFirst().orElse(null);
 
+//            Building bd = allBuildings.stream().filter(b ->
+//                            b.getName().equals(buildingName) && b.getLine().equals(lineCode) && b.getStatus().equals("0"))
+//                    .findFirst().orElse(null);
 //            Building queryBuilding = new Building();
 //            queryBuilding.setName(buildingName);
 //            queryBuilding.setLine(lineCode);
