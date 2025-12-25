@@ -115,4 +115,12 @@ public interface ITaskService
      * 通过项目id删除任务
      */
     int deleteTaskByProjectId(Long projectId);
+
+    /**
+     * 通过ids批量查询任务列表（包含Building信息）
+     *
+     * @param ids 任务ID列表
+     * @return 任务集合
+     */
+    List<Task> selectTaskListByIds(List<Long> ids);
 }

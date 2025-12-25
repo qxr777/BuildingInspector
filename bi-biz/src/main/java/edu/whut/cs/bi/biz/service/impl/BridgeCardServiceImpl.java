@@ -54,7 +54,6 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             Building building = buildingService.selectBuildingById(buildingId);
 
             // 处理桥梁卡片数据
-            // 这里 是 导出 word卡片 的接口，不是导出报告，因此 没有确定的task，传 null
 
             processBridgeCardData(document, building, templateType, null);
 
@@ -69,7 +68,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
      * 处理桥梁卡片表格数据替换
      */
     @Override
-    public void processBridgeCardData(XWPFDocument document, Building building, ReportTemplateTypes templateType, Task task) {
+    public void processBridgeCardData(XWPFDocument document, Building building, ReportTemplateTypes templateType, Integer minSystemLevel) {
         try {
             // 1. 获取建筑信息
             if (building == null) {
@@ -98,7 +97,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             // 改为excel导入 property
 
             // 处理 特殊字段
-            processSpecialProp(building, properties, templateType, task);
+            processSpecialProp(building, properties, templateType, minSystemLevel);
             // 处理图片
             processImageAttachments(document, building.getId(), templateType);
             // 将属性替换占位符
@@ -227,7 +226,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     /**
      * 处理 桥梁名称 和 功能类型 等特别字段。
      */
-    private void processSpecialProp(Building building, List<Property> properties, ReportTemplateTypes templateType, Task task) {
+    private void processSpecialProp(Building building, List<Property> properties, ReportTemplateTypes templateType, Integer minSystemLevel) {
         // 没有桥梁名称属性，从数据库拿
         Property propertyBuilding = new Property();
         propertyBuilding.setName("桥梁名称");
@@ -261,17 +260,15 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             properties.add(propertyStructure);
             properties.add(propertyMainBridgeUpperStructureForm);
         }
-        // task 可能为 null ， 这个方法 在 很多地方都引用了，有的没有task 信息。
-        if (task != null) {
+        if (minSystemLevel != null) {
             // 处理当前评定 等级 和 当前 处置建议 当前评定日期。
-            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
             Property propertyCurSysLevel = new Property();
             propertyCurSysLevel.setName("当前评定结果");
-            propertyCurSysLevel.setValue(biEvaluation.getSystemLevel() + "类");
+            propertyCurSysLevel.setValue(minSystemLevel + "类");
 
             Property propertyCurAdance = new Property();
             propertyCurAdance.setName("当前处治对策");
-            propertyCurAdance.setValue(DisposalSuggestionEnums.getContentByLevel(biEvaluation.getSystemLevel()));
+            propertyCurAdance.setValue(DisposalSuggestionEnums.getContentByLevel(minSystemLevel));
 
             simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             String dateStr = simpleDateFormat.format(date);

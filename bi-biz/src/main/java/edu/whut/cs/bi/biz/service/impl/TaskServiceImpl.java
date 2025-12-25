@@ -414,4 +414,18 @@ public class TaskServiceImpl implements ITaskService {
         return taskMapper.deleteTaskByProjectId(projectId);
     }
 
+    /**
+     * 通过ids批量查询任务列表（包含Building信息）
+     *
+     * @param ids 任务ID列表
+     * @return 任务集合
+     */
+    @Override
+    public List<Task> selectTaskListByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return taskMapper.selectTaskListByIds(ids);
+    }
+
 }

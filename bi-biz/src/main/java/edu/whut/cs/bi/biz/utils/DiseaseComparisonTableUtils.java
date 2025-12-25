@@ -316,9 +316,10 @@ public class DiseaseComparisonTableUtils {
             tblPr = table.getCTTbl().addNewTblPr();
         }
 
-        // 设置表格宽度
+        // 设置表格宽度 - 横向页面可用宽度更大
+        // 横向A4页面宽度约16838 twips，减去左右边距(1440*2)，可用宽度约13958 twips
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(10000));
+        tblWidth.setW(BigInteger.valueOf(13500)); // 使用更大的宽度适配横向页面
         tblWidth.setType(STTblWidth.DXA);
 
         // 设置表格边框
@@ -344,12 +345,26 @@ public class DiseaseComparisonTableUtils {
     }
 
     /**
-     * 设置列宽
+     * 设置列宽 - 适配横向页面
      */
     private static void setColumnWidths(XWPFTable table) {
-        // 列宽分配：桥梁名称(7%) 部位1(7%) 部位2(7%) 构件(7%) 病害种类(10%)
-        //          2023数量(5%) 2023程度(11%) 2024数量(5%) 2024程度(11%) 发展情况(18%) 备注(12%)
-        int[] colWidths = {700, 700, 700, 700, 1000, 500, 1100, 500, 1100, 1800, 1200};
+        // 列宽分配（单位：twips，1英寸=1440 twips）- 适用于横向页面
+        // 总宽度约13500 twips，11列合理分配
+        // 桥梁名称、部位1、部位2、构件、病害种类各约1000-1200
+        // 数量列较窄约600，程度列约1400，发展情况和备注较宽约1600-1800
+        int[] colWidths = {
+                1100,  // 列0: 桥梁名称
+                1000,  // 列1: 部位1
+                1000,  // 列2: 部位2
+                1000,  // 列3: 构件
+                1200,  // 列4: 病害种类
+                600,   // 列5: 2023数量
+                1400,  // 列6: 2023病害程度
+                600,   // 列7: 2024数量
+                1400,  // 列8: 2024病害程度
+                1800,  // 列9: 发展情况
+                1400   // 列10: 备注
+        };
 
         for (XWPFTableRow row : table.getRows()) {
             for (int i = 0; i < row.getTableCells().size() && i < colWidths.length; i++) {

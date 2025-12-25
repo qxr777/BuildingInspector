@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -531,7 +532,343 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
         if (tcPr == null) {
             tcPr = cell.getCTTc().addNewTcPr();
         }
-        CTVerticalJc vAlign = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
+            CTVerticalJc vAlign = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
         vAlign.setVal(STVerticalJc.CENTER);
+    }
+
+    /**
+     * 生成第九章比较分析表格（多桥版本）
+     */
+    @Override
+    public void generateMultiBridgeComparisonAnalysisTable(XWPFDocument document, XWPFParagraph targetParagraph,
+                                                          List<Task> currentYearTasks) {
+        try {
+            log.info("开始生成多桥比较分析表格，任务数量: {}", currentYearTasks.size());
+
+            if (targetParagraph == null) {
+                log.warn("目标段落为null，无法生成表格");
+                return;
+            }
+
+            // 1. 获取当前年份（所有task的年份相同）
+            Integer currentYear = currentYearTasks.get(0).getProject().getYear();
+            Integer previousYear = currentYear - 1;
+            log.info("当前年份: {}, 前一年: {}", currentYear, previousYear);
+
+            // 2. 为每个子桥查询前一年的任务和评定数据
+            List<BridgeEvaluationPair> bridgePairs = new ArrayList<>();
+            for (Task currentTask : currentYearTasks) {
+                Long buildingId = currentTask.getBuildingId();
+                String bridgeName = currentTask.getBuilding() != null 
+                    ? currentTask.getBuilding().getName() 
+                    : "未知桥梁";
+
+                log.info("处理子桥: {}, BuildingID: {}", bridgeName, buildingId);
+
+                // 查询该子桥的所有历史任务
+                Task queryTask = new Task();
+                queryTask.setBuildingId(buildingId);
+                List<Task> allTasks = taskMapper.selectTaskList(queryTask, null);
+
+                // 查找前一年的任务
+                Task previousTask = null;
+                for (Task task : allTasks) {
+                    if (task.getProject() != null && previousYear.equals(task.getProject().getYear())) {
+                        previousTask = task;
+                        log.info("找到前一年任务: 年份{}, 任务ID: {}", previousYear, task.getId());
+                        break;
+                    }
+                }
+
+                // 获取当前年评定数据
+                BiEvaluation currentEvaluation = biEvaluationService.selectBiEvaluationByTaskId(currentTask.getId());
+
+                // 获取前一年评定数据
+                BiEvaluation previousEvaluation = null;
+                if (previousTask != null) {
+                    previousEvaluation = biEvaluationService.selectBiEvaluationByTaskId(previousTask.getId());
+                }
+
+                // 如果前一年没有评定数据，尝试从Excel读取
+                if (previousEvaluation == null) {
+                    try {
+                        Building building = buildingService.selectBuildingById(buildingId);
+                        if (building != null && building.getRootPropertyId() != null) {
+                            Property property = propertyService.selectPropertyById(building.getRootPropertyId());
+                            List<Property> properties = propertyService.selectPropertyList(property);
+                            
+                            String lastCheckDateStr = properties.stream()
+                                .filter(a -> "最近评定日期".equals(a.getName()))
+                                .map(Property::getValue)
+                                .findFirst()
+                                .orElse(null);
+                                
+                            if (lastCheckDateStr != null && !lastCheckDateStr.isEmpty()) {
+                                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                                Date date = simpleDateFormat.parse(lastCheckDateStr);
+                                ZoneId zoneId = ZoneId.of("Asia/Shanghai");
+                                int lastCheckYear = date.toInstant().atZone(zoneId).toLocalDate().getYear();
+
+                                String lastSysLevelStr = properties.stream()
+                                    .filter(a -> "桥梁技术状况".equals(a.getName()))
+                                    .map(Property::getValue)
+                                    .findFirst()
+                                    .orElse(null);
+                                    
+                                previousEvaluation = new BiEvaluation();
+                                previousEvaluation.setSystemLevel(
+                                    lastSysLevelStr != null && lastSysLevelStr.length() >= 1 
+                                        ? lastSysLevelStr.charAt(0) - '0' 
+                                        : null);
+                                log.info("从Excel读取到前一年数据: 年份{}, 等级{}", lastCheckYear, previousEvaluation.getSystemLevel());
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn("从Excel读取历史数据失败: {}", e.getMessage());
+                    }
+                }
+
+                bridgePairs.add(new BridgeEvaluationPair(bridgeName, previousEvaluation, currentEvaluation));
+            }
+
+            // 3. 计算两年的总体技术状况等级（最差的）
+            Integer previousYearMinLevel = bridgePairs.stream()
+                .map(BridgeEvaluationPair::getPreviousEvaluation)
+                .filter(e -> e != null && e.getSystemLevel() != null)
+                .map(BiEvaluation::getSystemLevel)
+                .max(Integer::compareTo)
+                .orElse(null);
+
+            Integer currentYearMinLevel = bridgePairs.stream()
+                .map(BridgeEvaluationPair::getCurrentEvaluation)
+                .filter(e -> e != null && e.getSystemLevel() != null)
+                .map(BiEvaluation::getSystemLevel)
+                .max(Integer::compareTo)
+                .orElse(null);
+
+            log.info("前一年总体等级: {}, 当前年总体等级: {}", previousYearMinLevel, currentYearMinLevel);
+
+            // 4. 生成表格
+            createMultiBridgeComparisonTable(document, targetParagraph, bridgePairs, 
+                                            previousYear, currentYear,
+                                            previousYearMinLevel, currentYearMinLevel);
+
+            log.info("多桥比较分析表格生成完成");
+
+        } catch (Exception e) {
+            log.error("生成多桥比较分析表格失败", e);
+            throw new RuntimeException("生成多桥比较分析表格失败", e);
+        }
+    }
+
+    /**
+     * 创建多桥比较分析表格
+     */
+    private void createMultiBridgeComparisonTable(XWPFDocument document, XWPFParagraph targetParagraph,
+                                                 List<BridgeEvaluationPair> bridgePairs,
+                                                 Integer previousYear, Integer currentYear,
+                                                 Integer previousYearMinLevel, Integer currentYearMinLevel) {
+        try {
+            // 获取插入位置的游标
+            XmlCursor cursor = targetParagraph.getCTP().newCursor();
+
+            // 清空占位符段落的所有Run
+            while (targetParagraph.getRuns().size() > 0) {
+                targetParagraph.removeRun(0);
+            }
+
+            // 创建表格引用段落
+            XWPFParagraph tableRefPara;
+            if (cursor != null) {
+                tableRefPara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                tableRefPara = document.createParagraph();
+            }
+
+            // 设置1.5倍行距
+            CTPPr ppr1 = tableRefPara.getCTP().getPPr();
+            if (ppr1 == null) {
+                ppr1 = tableRefPara.getCTP().addNewPPr();
+            }
+            CTSpacing spacing = ppr1.isSetSpacing() ? ppr1.getSpacing() : ppr1.addNewSpacing();
+            spacing.setLine(BigInteger.valueOf(360));
+
+            // 创建第九章表格计数器
+            AtomicInteger chapter9TableCounter = new AtomicInteger(1);
+            String tableTitle = "近两次桥梁技术状况评分及评定等级对比分析表";
+
+            // 使用现有方法创建表格标题
+            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
+                    document, tableTitle, cursor, 9, chapter9TableCounter);
+
+            // 创建章节格式的表格引用域
+            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark,
+                    "对比分析详情见表", "所示。");
+
+            // 创建表格
+            int bridgeCount = bridgePairs.size();
+            XWPFTable table = document.insertNewTbl(cursor);
+
+            // 计算总行数：1表头 + 前一年N行 + 当前年N行
+            int totalRows = 1 + bridgeCount * 2;
+
+            // 确保表格有足够的行和列（8列）
+            while (table.getNumberOfRows() < totalRows) {
+                table.createRow();
+            }
+
+            // 确保每行有8列
+            for (int i = 0; i < totalRows; i++) {
+                XWPFTableRow row = table.getRow(i);
+                while (row.getTableCells().size() < 8) {
+                    row.createCell();
+                }
+            }
+
+            // 设置表格基本样式
+            setupTableBasicStyle(table);
+
+            // 设置列宽
+            setComparisonTableColumnWidths(table);
+
+            // 填充表头
+            fillComparisonTableHeader(table);
+
+            // 填充数据
+            int currentRow = 1;
+
+            // 填充前一年数据（所有子桥）
+            for (int i = 0; i < bridgeCount; i++) {
+                BridgeEvaluationPair pair = bridgePairs.get(i);
+                fillMultiBridgeDataRow(table.getRow(currentRow),
+                                      previousYear,
+                                      pair.getBridgeName(),
+                                      pair.getPreviousEvaluation(),
+                                      previousYearMinLevel,
+                                      i == 0,
+                                      bridgeCount);
+                currentRow++;
+            }
+
+            // 填充当前年数据（所有子桥）
+            for (int i = 0; i < bridgeCount; i++) {
+                BridgeEvaluationPair pair = bridgePairs.get(i);
+                fillMultiBridgeDataRow(table.getRow(currentRow),
+                                      currentYear,
+                                      pair.getBridgeName(),
+                                      pair.getCurrentEvaluation(),
+                                      currentYearMinLevel,
+                                      i == 0,
+                                      bridgeCount);
+                currentRow++;
+            }
+
+            // 合并单元格
+            // 合并年份列：前一年的N行，当前年的N行
+            mergeCellsVertically(table, 0, 1, 1 + bridgeCount - 1); // 前一年（行1到行N）
+            mergeCellsVertically(table, 0, 1 + bridgeCount, 1 + bridgeCount * 2 - 1); // 当前年（行N+1到行2N）
+
+            // 合并总体技术状况等级列
+            mergeCellsVertically(table, 7, 1, 1 + bridgeCount - 1); // 前一年
+            mergeCellsVertically(table, 7, 1 + bridgeCount, 1 + bridgeCount * 2 - 1); // 当前年
+
+            log.info("多桥比较分析表格创建完成，共{}行", totalRows);
+
+        } catch (Exception e) {
+            log.error("创建多桥比较分析表格失败", e);
+            throw e;
+        }
+    }
+
+    /**
+     * 填充多桥数据行
+     */
+    private void fillMultiBridgeDataRow(XWPFTableRow row, Integer year, String bridgeName,
+                                       BiEvaluation evaluation, Integer overallLevel,
+                                       boolean isFirstOfYear, int yearBridgeCount) {
+        String[] cellValues = new String[8];
+
+        // 年份（只在该年份第一行显示）
+        cellValues[0] = isFirstOfYear ? year.toString() + "年" : "";
+
+        // 桥梁名称
+        cellValues[1] = bridgeName;
+
+        // 评定数据
+        if (evaluation != null) {
+            cellValues[2] = evaluation.getSuperstructureScore() == null ? "/" : formatScore(evaluation.getSuperstructureScore());
+            cellValues[3] = evaluation.getSubstructureScore() == null ? "/" : formatScore(evaluation.getSubstructureScore());
+            cellValues[4] = evaluation.getDeckSystemScore() == null ? "/" : formatScore(evaluation.getDeckSystemScore());
+            cellValues[5] = evaluation.getSystemScore() == null ? "/" : formatScore(evaluation.getSystemScore());
+            cellValues[6] = evaluation.getSystemLevel() == null ? "/" : formatLevel(evaluation.getSystemLevel());
+        } else {
+            for (int i = 2; i < 7; i++) {
+                cellValues[i] = "/";
+            }
+        }
+
+        // 总体技术状况等级（只在该年份第一行显示）
+        cellValues[7] = isFirstOfYear ? (overallLevel == null ? "/" : formatLevel(overallLevel)) : "";
+
+        // 设置单元格内容
+        for (int i = 0; i < cellValues.length && i < row.getTableCells().size(); i++) {
+            XWPFTableCell cell = row.getCell(i);
+            setDataCellContent(cell, cellValues[i]);
+        }
+    }
+
+    /**
+     * 垂直合并单元格
+     */
+    private void mergeCellsVertically(XWPFTable table, int col, int fromRow, int toRow) {
+        try {
+            for (int rowIndex = fromRow; rowIndex <= toRow; rowIndex++) {
+                XWPFTableCell cell = table.getRow(rowIndex).getCell(col);
+                CTTcPr tcPr = cell.getCTTc().getTcPr();
+                if (tcPr == null) {
+                    tcPr = cell.getCTTc().addNewTcPr();
+                }
+
+                CTVMerge vMerge = tcPr.addNewVMerge();
+                if (rowIndex == fromRow) {
+                    // 第一个单元格：重新开始合并
+                    vMerge.setVal(STMerge.RESTART);
+                } else {
+                    // 后续单元格：继续合并
+                    vMerge.setVal(STMerge.CONTINUE);
+                }
+            }
+            log.debug("合并列{}，从行{}到行{}", col, fromRow, toRow);
+        } catch (Exception e) {
+            log.error("合并单元格失败: col={}, fromRow={}, toRow={}", col, fromRow, toRow, e);
+        }
+    }
+
+    /**
+     * 桥梁评定数据对
+     */
+    private static class BridgeEvaluationPair {
+        private String bridgeName;
+        private BiEvaluation previousEvaluation;
+        private BiEvaluation currentEvaluation;
+
+        public BridgeEvaluationPair(String bridgeName, BiEvaluation previousEvaluation, BiEvaluation currentEvaluation) {
+            this.bridgeName = bridgeName;
+            this.previousEvaluation = previousEvaluation;
+            this.currentEvaluation = currentEvaluation;
+        }
+
+        public String getBridgeName() {
+            return bridgeName;
+        }
+
+        public BiEvaluation getPreviousEvaluation() {
+            return previousEvaluation;
+        }
+
+        public BiEvaluation getCurrentEvaluation() {
+            return currentEvaluation;
+        }
     }
 }

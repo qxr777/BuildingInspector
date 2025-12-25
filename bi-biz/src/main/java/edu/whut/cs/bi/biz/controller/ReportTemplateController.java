@@ -130,7 +130,8 @@ public class ReportTemplateController extends BaseController {
         try {
             // 上传文件
             if (file != null && !file.isEmpty()) {
-                fileMapService.deleteFileMapById(reportTemplate.getMinioId());
+                // 不删除原模板文件，避免影响历史报告生成
+//                fileMapService.deleteFileMapById(reportTemplate.getMinioId());
                 FileMap fileMap = fileMapService.handleFileUpload((file));
                 String s = fileMap.getNewName();
                 String url = minioConfig.getUrl()+ "/"+minioConfig.getBucketName()+"/"+s.substring(0,2)+"/"+s;

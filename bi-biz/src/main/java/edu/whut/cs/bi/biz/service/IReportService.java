@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Report;
+import edu.whut.cs.bi.biz.domain.ReportTemplate;
 import edu.whut.cs.bi.biz.domain.Task;
 
 import javax.servlet.http.HttpServletResponse;
@@ -74,10 +75,10 @@ public interface IReportService {
    * 生成报告文档
    *
    * @param report 报告ID
-   * @param task 建筑物ID
+   * @param tasks 建筑物ID
    * @return 生成的文件路径
    */
-  public String generateReportDocument(Report report, Task task) ;
+  public String generateReportDocument(Report report, List<Task> tasks ,Long rootParentId, ReportTemplate template) ;
 
   /**
    * 调用后台 ai 模型获取报告中的病害 小结。

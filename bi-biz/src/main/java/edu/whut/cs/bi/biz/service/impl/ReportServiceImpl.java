@@ -27,6 +27,7 @@ import edu.whut.cs.bi.biz.utils.Convert2VO;
 import edu.whut.cs.bi.biz.utils.DiseaseComparisonTableUtils;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
@@ -40,8 +41,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.core.domain.entity.SysDept;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.system.mapper.SysUserMapper;
+import com.ruoyi.system.service.ISysDeptService;
 import org.springframework.web.client.RestTemplate;
 
 import io.minio.MinioClient;
@@ -52,6 +58,7 @@ import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Async;
@@ -112,6 +119,11 @@ public class ReportServiceImpl implements IReportService {
     @Resource
     private IDiseaseService diseaseService;
 
+    @Autowired
+    private SysUserMapper sysUserMapper;
+
+    @Autowired
+    private ISysDeptService deptService;
 
     @Value("${springAi_Rag.endpoint}")
     private String SpringAiUrl;
@@ -169,7 +181,33 @@ public class ReportServiceImpl implements IReportService {
      */
     @Override
     public List<Report> selectReportList(Report report) {
-        return reportMapper.selectReportList(report);
+        Long currentUserId = ShiroUtils.getUserId();
+        List<String> roles = sysUserMapper.selectUserRoleByUserId(currentUserId);
+        SysUser sysUser = sysUserMapper.selectUserById(currentUserId);
+
+        // 检查用户是否有管理员角色
+        boolean isAdmin = roles.stream().anyMatch(role -> "admin".equals(role) || "system_admin".equals(role) || "business_admin".equals(role));
+
+        List<Report> reports = null;
+        if (isAdmin) {
+            // 超级管理员, 所有数据都能看到
+            PageUtils.startPage();
+            reports = reportMapper.selectReportList(report, null, null, null);
+        } else {
+            if(roles.stream().anyMatch(role -> "department_business_admin".equals(role))) {
+                // 部门管理员
+                // 查询部门 - 设置父部门
+                SysDept curSysDept = deptService.selectDeptById(sysUser.getDeptId());
+                // 当前登录用户所属Department与报告关联项目的owner_dept_id或dept_id一致的所有业务实体
+                PageUtils.startPage();
+                reports = reportMapper.selectReportList(report, null, sysUser.getDeptId(), curSysDept.getParentId());
+            } else {
+                // 普通用户：只能看到自己创建、审核、批准的报告，或参与项目的报告
+                PageUtils.startPage();
+                reports = reportMapper.selectReportList(report, currentUserId, null, null);
+            }
+        }
+        return reports;
     }
 
     /**
@@ -298,21 +336,21 @@ public class ReportServiceImpl implements IReportService {
      * 生成报告文档
      *
      * @param report 报告ID
-     * @param task   建筑物ID
+     * @param tasks  建筑物ID
      * @return 生成的文件路径
      */
     @Override
-    public String generateReportDocument(Report report, Task task) {
+    public String generateReportDocument(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
         // 判断是否为单桥模板（根据模板名称判断）
         if (report != null && report.getReportTemplateId() != null) {
             try {
-                ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
                 ReportTemplateTypes templateType = null; // 默认
                 if (template != null) {
                     templateType = ReportTemplateTypes.getEnumByDesc(template.getName());
                 }
                 if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
                     // 等待所有任务完成
+                    Task task = tasks.get(0);
                     Disease disease = new Disease();
                     disease.setProjectId(report.getProjectId());
                     disease.setBuildingId(task.getBuildingId());
@@ -328,9 +366,10 @@ public class ReportServiceImpl implements IReportService {
                     log.info("缩略图生成完成，共处理" + attachmentBySubjects.size() + "个附件");
                     log.info("检测到二级单桥模板：{}，使用二级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
-                    return generateSingleBridgeReportDocument(report, task, templateType);
+                    return generateSingleBridgeReportDocument(report, tasks.get(0), templateType);
                 } else if (template != null && templateType != null && ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
                     // 等待所有任务完成
+                    Task task = tasks.get(0);
                     Disease disease = new Disease();
                     disease.setProjectId(report.getProjectId());
                     disease.setBuildingId(task.getBuildingId());
@@ -346,7 +385,7 @@ public class ReportServiceImpl implements IReportService {
                     log.info("缩略图生成完成，共处理" + attachmentBySubjects.size() + "个附件");
                     log.info("检测到一级单桥模板：{}，使用一级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
-                    return report1LevelSingleBridgeService.generateReportDocument(report, task, templateType);
+                    return report1LevelSingleBridgeService.generateReportDocument(report, tasks.get(0), templateType);
                 }
             } catch (Exception e) {
                 log.error("获取模板信息失败，使用默认生成逻辑", e);
@@ -355,8 +394,14 @@ public class ReportServiceImpl implements IReportService {
 
         // 原有的组合桥模板生成逻辑
         // 获取任务关联的建筑ID和项目ID
-        Long buildingId = task.getBuildingId();
-        Long projectId = task.getProjectId();
+        Building buildingQry = new Building();
+        buildingQry.setRootObjectId(rootParentId);
+        List<Building> buildings = buildingService.selectBuildingList(buildingQry);
+        if (CollectionUtils.isEmpty(buildings)) {
+            log.error("未找到组合桥的建筑物");
+            return null;
+        }
+        Building building = buildings.get(0);
         InputStream templateStream = null;
         FileOutputStream out = null;
         XWPFDocument document = null;
@@ -366,20 +411,6 @@ public class ReportServiceImpl implements IReportService {
             if (report == null) {
                 return null;
             }
-
-            // 查询建筑物信息
-            Building building;
-            if (buildingId != null) {
-                building = buildingService.selectBuildingById(buildingId);
-            } else {
-                return null;
-            }
-
-            if (building == null) {
-                log.info("未找到指定的建筑物");
-                return null;
-            }
-
             // 查询项目信息
             Project project = null;
             if (report.getProjectId() != null) {
@@ -388,7 +419,6 @@ public class ReportServiceImpl implements IReportService {
             log.info("project: {}", project);
 
             // 查询报告模板信息
-            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
             if (template == null || template.getMinioId() == null) {
                 return null;
             }
@@ -450,42 +480,51 @@ public class ReportServiceImpl implements IReportService {
             }
 
             // 处理桥梁图片
-            insertBridgeImages(document, buildingId);
+            insertBridgeImages(document, building.getId());
             log.info("桥梁照片处理结束");
 
-            // 处理桥梁卡片数据（使用抽象的公共服务）
-            try {
-                Map<String, Object> additionalData = new HashMap<>();
-                additionalData.put("report", report);
-                additionalData.put("project", project);
-                bridgeCardService.processBridgeCardData(document, building, ReportTemplateTypes.COMBINED_BRIDGE, task);
-                log.info("桥梁卡片数据处理完成");
-            } catch (Exception e) {
-                log.error("处理桥梁卡片数据失败", e);
-            }
 //            debugAllStyles(document);
 
             // 清空第十章病害汇总缓存，准备重新缓存第三章的结果
             testConclusionService.clearDiseaseSummaryCache();
 
             // 处理第三章外观检测结果
-            BiObject biObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
-            List<BiObject> biObjects = new ArrayList<>();
-            biObjects.add(biObject);
-            processChapter3(document, biObjects, building, projectId);
-
+            processChapter3(document, tasks, rootParentId);
+            Integer minSystemLevel = null;
+            Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
             // 处理第八章评定结果（不依赖ReportData）
             try {
-                handleChapter8EvaluationResults(document, "${chapter-8-evaluationResults}", building, task.getId());
+                biEvaluationMap = handleChapter8EvaluationResults(document, "${chapter-8-evaluationResults}", tasks, building.getName());
+                Optional<Integer> systemLevel = biEvaluationMap.values().stream()
+                        // 过滤掉null对象 + systemLevel为null的情况
+                        .filter(biEvaluation -> biEvaluation != null && biEvaluation.getSystemLevel() != null)
+                        // 提取systemLevel值
+                        .map(BiEvaluation::getSystemLevel)
+                        // 查找最小值
+                        .min(Integer::compareTo);
+                if (systemLevel.isPresent()) {
+                    minSystemLevel = systemLevel.get();
+                }
             } catch (Exception e) {
                 log.error("处理第八章评定结果出错: error={}", e.getMessage());
                 // 如果处理失败，降级为普通文本替换
                 replaceText(document, "${chapter-8-evaluationResults}", "评定结果数据获取失败");
             }
 
-            // 处理第九章比较分析（不依赖ReportData）
+            // 处理桥梁卡片数据（使用抽象的公共服务）
             try {
-                handleChapter9ComparisonAnalysis(document, "${chapter-9-comparativeAnalysisOfEvaluationResults}", task, building.getName(), false);
+                Map<String, Object> additionalData = new HashMap<>();
+                additionalData.put("report", report);
+                additionalData.put("project", project);
+                bridgeCardService.processBridgeCardData(document, building, ReportTemplateTypes.COMBINED_BRIDGE, minSystemLevel);
+                log.info("桥梁卡片数据处理完成");
+            } catch (Exception e) {
+                log.error("处理桥梁卡片数据失败", e);
+            }
+
+            // 处理第九章比较分析（多桥版本）
+            try {
+                handleChapter9ComparisonAnalysisForMultiBridge(document, "${chapter-9-comparativeAnalysisOfEvaluationResults}", tasks);
             } catch (Exception e) {
                 log.error("处理第九章比较分析出错: error={}", e.getMessage());
                 // 如果处理失败，降级为普通文本替换
@@ -494,8 +533,8 @@ public class ReportServiceImpl implements IReportService {
 
             // 处理第十章检测结论（不依赖ReportData）
             try {
-                handleChapter10TestConclusion(document, "${chapter-10-testConclusion}", task, building.getName());
-                handleChapter10TestConclusionBridge(document, "${chapter-10-testConclusionBridge}", task, building.getName());
+                handleChapter10TestConclusion(document, "${chapter-10-testConclusion}", tasks, building.getName(), biEvaluationMap, minSystemLevel);
+                handleChapter10TestConclusionBridge(document, "${chapter-10-testConclusionBridge}", tasks);
             } catch (Exception e) {
                 log.error("处理第十章检测结论出错: error={}", e.getMessage());
                 // 如果处理失败，降级为普通文本替换
@@ -506,8 +545,7 @@ public class ReportServiceImpl implements IReportService {
             // 处理第11章定期检查记录表占位符
             try {
                 // 调用定期检查记录表服务处理占位符
-                regularInspectionService.generateRegularInspectionTable(document, "${chapter-11-regularInspectionRecord}",
-                        building, task, project);
+                regularInspectionService.generateRegularInspectionTable(document, "${chapter-11-regularInspectionRecord}", tasks);
             } catch (Exception e) {
                 log.error("处理第11章定期检查记录表失败: error={}", e.getMessage(), e);
                 // 如果处理失败，降级为普通文本替换
@@ -538,7 +576,7 @@ public class ReportServiceImpl implements IReportService {
                         // 检查是否是第七章的特殊字段，需要生成表格
                         if (key.contains("${chapter-7-1-focusOnDiseases}") || key.contains("${chapter-7-2-analysisOfTheCausesOfMajorDiseases}")) {
                             try {
-                                handleChapter7DiseaseTable(document, key, value, building, project, biObject);
+                                handleChapter7DiseaseTable(document, key, value, tasks);
                             } catch (Exception e) {
                                 log.error("处理第七章病害表格出错: key={}, value={}, error={}", key, value, e.getMessage());
                                 // 如果处理失败，降级为普通文本替换
@@ -598,13 +636,13 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 异步生成报告文档
+     * 异步生成报告文档（支持多任务）
      *
-     * @param report 报告ID
-     * @param task   任务
+     * @param report 报告
+     * @param tasks  任务列表
      */
     @Async("reportTaskExecutor")
-    public void generateReportDocumentAsync(Report report, Task task) {
+    public void generateReportDocumentAsync(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
         try {
             // 更新报告状态为生成中
             Report updateReport = new Report();
@@ -616,7 +654,7 @@ public class ReportServiceImpl implements IReportService {
 
             // 生成报告文档
             log.info("开始生成报告");
-            String minioId = generateReportDocument(report, task);
+            String minioId = generateReportDocument(report, tasks, rootParentId, template);
             log.info("生成报告结束");
 
             // 更新报告状态为已生成并保存MinioID
@@ -931,15 +969,27 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 处理第三章外观检测结果
      *
-     * @param document   Word文档
-     * @param subBridges 建筑物信息
+     * @param document Word文档
+     * @param tasks    建筑物信息
      * @throws Exception 异常
      */
-    private void processChapter3(XWPFDocument document, List<BiObject> subBridges, Building building, Long projectId) throws Exception {
+    private void processChapter3(XWPFDocument document, List<Task> tasks, Long rootParentId) throws Exception {
 
 
         // 获取所有子部件
-        List<BiObject> allObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
+        List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootParentId);
+
+        List<BiObject> biObjects = biObjectMapper.selectBiObjectsByIds(
+                tasks.stream()
+                        .filter(t -> Objects.nonNull(t) && Objects.nonNull(t.getBuilding()) && Objects.nonNull(t.getBuilding().getRootObjectId()))
+                        .map(t -> t.getBuilding().getRootObjectId())
+                        .distinct()
+                        .collect(Collectors.toList())
+        );
+
+        Map<Long, BiObject> biObjectMap = biObjects.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(BiObject::getId, Function.identity(), (a, b) -> a));
 
         // 找到占位符所在的段落
         XWPFParagraph placeholderParagraph = null;
@@ -961,41 +1011,29 @@ public class ReportServiceImpl implements IReportService {
         XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
 
         // 为每个子桥生成章节
-        int chapterNum = 3; // 第三章
+        int chapterNum = 3;
         int subChapterNum = 1;
 
         AtomicInteger chapter3ImageCounter = new AtomicInteger(1);
         AtomicInteger chapter3TableCounter = new AtomicInteger(1);
 
         // 直接在文档中指定位置生成内容
-        for (BiObject subBridge : subBridges) {
+        for (Task task : tasks) {
             XmlCursor subCursor = cursor.newCursor();
-            // 查询子桥对应的building
-            Building buildingQuery = new Building();
-            buildingQuery.setRootObjectId(subBridge.getId());
-            List<Building> subBuildingList = buildingService.selectBuildingList(buildingQuery);
-            Building subBuilding = subBuildingList.isEmpty() ? null : subBuildingList.get(0);
-
+            Building subBuilding = task.getBuilding();
+            Long projectId = task.getProjectId();
             // 收集病害数据
             List<Disease> subBridgeDiseases;
-            if (subBuilding != null) {
-                // 获取子桥的所有病害
-                Disease queryParam = new Disease();
-                queryParam.setBuildingId(subBuilding.getId());
-                queryParam.setProjectId(projectId);
-                subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
-            } else {
-                // 如果找不到子桥对应的building，使用组合桥的病害
-                Disease queryParam = new Disease();
-                queryParam.setBuildingId(building.getId());
-                queryParam.setProjectId(projectId);
-                queryParam.setBiObjectId(subBridge.getId()); // 只获取与子桥关联的病害
-                subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
-            }
+            // 获取子桥的所有病害
+            Disease queryParam = new Disease();
+            queryParam.setBuildingId(subBuilding.getId());
+            queryParam.setProjectId(projectId);
+            subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
 
+            BiObject subBridge = biObjectMap.get(subBuilding.getRootObjectId());
             // 为每个子桥收集病害
             Map<Long, List<Disease>> bridgeDiseaseMap = new LinkedHashMap<>();
-            collectDiseases(subBridge, allObjects, subBridgeDiseases, 1, bridgeDiseaseMap);
+            collectDiseases(subBridge, allObjects, subBridgeDiseases, 4, bridgeDiseaseMap);
 
             // 在指定位置生成内容
             String prefix = chapterNum + "." + subChapterNum;
@@ -1008,7 +1046,7 @@ public class ReportServiceImpl implements IReportService {
         }
 
         // 为每个子桥生成病害对比表格
-        generateDiseaseComparisonTables(document, subBridges, building, projectId, cursor, chapterNum, subChapterNum, chapter3TableCounter);
+        generateDiseaseComparisonTables(document, biObjectMap, tasks, cursor, chapterNum, subChapterNum, chapter3TableCounter);
 
         // 删除占位符段落
         placeholderParagraph.removeRun(0); // 清除占位符文本
@@ -1030,7 +1068,7 @@ public class ReportServiceImpl implements IReportService {
     private void collectDiseases(BiObject node, List<BiObject> allNodes, List<Disease> properties,
                                  int level, Map<Long, List<Disease>> map) {
         // 找到当前节点所属的 level3 祖先（如自身就是 level3 则返回自身）
-        BiObject level3 = findLevel3Ancestor(node, allNodes);
+        BiObject level3 = findLevel3Ancestor(node, allNodes, level);
 
         // 把当前节点的病害挂到 level3 名下
         List<Disease> self = properties.stream()
@@ -1043,17 +1081,17 @@ public class ReportServiceImpl implements IReportService {
                 .filter(o -> node.getId().equals(o.getParentId()))
                 .collect(Collectors.toList());
         for (BiObject child : children) {
-            collectDiseases(child, allNodes, properties, level + 1, map);
+            collectDiseases(child, allNodes, properties, level, map);
         }
     }
 
     /**
      * 找到第三层祖先节点
      */
-    private BiObject findLevel3Ancestor(BiObject node, List<BiObject> allNodes) {
+    private BiObject findLevel3Ancestor(BiObject node, List<BiObject> allNodes, int level) {
         BiObject cur = node;
         int lv = getLevel(cur, allNodes);
-        while (lv > 3 && cur.getParentId() != null) {
+        while (lv > level && cur.getParentId() != null) {
             BiObject finalCur = cur;
             cur = allNodes.stream()
                     .filter(o -> o.getId().equals(finalCur.getParentId()))
@@ -1186,7 +1224,7 @@ public class ReportServiceImpl implements IReportService {
             log.info("开始生成病害小结");
             String diseaseString = "";
             try {
-                diseaseString = getDiseaseSummary(nodeDiseases);
+//                diseaseString = getDiseaseSummary(nodeDiseases);
             } catch (Exception e) {
                 log.error("ai小结病害失败，生成报告继续。");
             }
@@ -3346,7 +3384,7 @@ public class ReportServiceImpl implements IReportService {
 
     public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
         // 瘦身
-        List<Disease2ReportSummaryAiVO> less = Convert2VO.copyList(diseases, Disease2ReportSummaryAiVO.class);
+        List<Disease2ReportSummaryAiVO> less = Disease2ReportSummaryAiVO.convert(diseases);
         // 序列化为JSON字符串
         ObjectMapper mapper = new ObjectMapper();
         String diseasesJson = mapper.writeValueAsString(less);
@@ -3386,71 +3424,177 @@ public class ReportServiceImpl implements IReportService {
      * 为每个子桥生成病害对比表格
      *
      * @param document           Word文档
-     * @param subBridges         子桥列表
-     * @param building           建筑物信息
-     * @param projectId          项目ID
+     * @param biObjectMap        子桥列表
+     * @param tasks              建筑物信息
      * @param cursor             插入位置游标
      * @param chapterNum         章节号
      * @param startSubChapterNum 起始子章节号
      * @param tableCounter       表格计数器
      */
-    private void generateDiseaseComparisonTables(XWPFDocument document, List<BiObject> subBridges,
-                                                 Building building, Long projectId, XmlCursor cursor,
+    private void generateDiseaseComparisonTables(XWPFDocument document, Map<Long, BiObject> biObjectMap,
+                                                 List<Task> tasks, XmlCursor cursor,
                                                  Integer chapterNum, Integer startSubChapterNum,
                                                  AtomicInteger tableCounter) {
         try {
             int currentSubChapterNum = startSubChapterNum;
 
-            for (BiObject subBridge : subBridges) {
+            // 创建章节标题段落 - 使用与现有代码一致的方式
+            XWPFParagraph titlePara;
+            if (cursor != null) {
+                titlePara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                titlePara = document.createParagraph();
+            }
+
+            // 设置标题样式 - 使用第3级标题
+            titlePara.setStyle("3");
+            titlePara.setAlignment(ParagraphAlignment.LEFT);
+
+            // 设置缩进
+            CTPPr ppr = titlePara.getCTP().getPPr();
+            if (ppr == null) ppr = titlePara.getCTP().addNewPPr();
+            CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
+            ind.setFirstLine(BigInteger.valueOf(0));
+            ind.setLeft(BigInteger.valueOf(0));
+
+            // 创建标题运行
+            XWPFRun run = titlePara.createRun();
+            run.setText("与上一次检查病害变化情况分析");
+            run.setBold(false);
+            run.setFontFamily("黑体");
+
+            log.info("已创建章节标题");
+
+            // 完全模仿第八章的方式：在for循环中为每个task调用生成方法
+            for (Task task : tasks) {
+                BiObject subBridge = biObjectMap.get(task.getBuilding().getRootObjectId());
+                Long projectId = task.getProjectId();
+                Building building = task.getBuilding();
+
                 // 生成病害对比数据
                 List<DiseaseComparisonData> comparisonData = diseaseComparisonService.generateComparisonData(subBridge, projectId, building.getId());
 
                 if (!comparisonData.isEmpty()) {
-                    // 创建新的游标
-                    XmlCursor subCursor = cursor.newCursor();
-
-                    // 创建章节标题段落 - 使用与现有代码一致的方式
-                    XWPFParagraph p;
-                    if (subCursor != null) {
-                        p = document.insertNewParagraph(subCursor);
-                        subCursor.toNextToken();
-                    } else {
-                        p = document.createParagraph();
-                    }
-
-                    // 设置标题样式 - 使用第3级标题
-                    p.setStyle("3");
-                    p.setAlignment(ParagraphAlignment.LEFT);
-
-                    // 设置缩进 - 根据需要选择一种方式
-                    CTPPr ppr = p.getCTP().getPPr();
-                    if (ppr == null) ppr = p.getCTP().addNewPPr();
-                    CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
-                    ind.setFirstLine(BigInteger.valueOf(0));
-                    ind.setLeft(BigInteger.valueOf(0));
-
-                    // 创建标题运行
-                    XWPFRun run = p.createRun();
-                    run.setText("与上一次检查病害变化情况分析");
-                    run.setBold(false);
-                    run.setFontFamily("黑体");
-
-                    // 生成病害对比表格
-                    String tableBookmark = DiseaseComparisonTableUtils.createDiseaseComparisonTable(
-                            document,
-                            comparisonData,
-                            subCursor,
-                            tableCounter,
-                            chapterNum,
-                            currentSubChapterNum,
-                            subBridge.getName()
-                    );
+                    // 为每个桥单独生成横向表格
+                    generateSingleDiseaseComparisonTable(document, titlePara, comparisonData,
+                            tableCounter, chapterNum, currentSubChapterNum, subBridge.getName());
 
                     currentSubChapterNum++;
+                    log.info("已生成病害对比表格: {}", subBridge.getName());
                 }
             }
+
         } catch (Exception e) {
             log.error("生成病害对比表格时发生错误", e);
+        }
+    }
+
+    /**
+     * 为单个桥生成病害对比表格（模仿generateEvaluationTableAfterParagraph的方式）
+     */
+    private void generateSingleDiseaseComparisonTable(XWPFDocument document, XWPFParagraph afterParagraph,
+                                                      List<DiseaseComparisonData> comparisonData,
+                                                      AtomicInteger tableCounter, Integer chapterNum,
+                                                      Integer subChapterNum, String bridgeName) {
+        try {
+            if (afterParagraph == null) {
+                log.warn("插入位置段落为null，无法生成表格");
+                return;
+            }
+
+            // 步骤1：在标题段落后创建第一个分节符（结束当前分节）
+            CTP ctP = afterParagraph.getCTP();
+            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
+
+            // 如果已存在sectPr，先移除以避免冲突
+            if (pPr.isSetSectPr()) {
+                pPr.unsetSectPr();
+            }
+
+            // 创建分节符，使用NEXT_PAGE确保后续横向内容在新页面开始
+            CTSectPr sectPr = pPr.addNewSectPr();
+            CTSectType sectType = sectPr.addNewType();
+            sectType.setVal(STSectionMark.NEXT_PAGE);
+
+            log.info("在标题段落后添加了第一个分节符");
+
+            // 步骤2：在标题段落后立即创建横向分节符段落
+            XmlCursor cursor = afterParagraph.getCTP().newCursor();
+            cursor.toEndToken();
+            cursor.toNextToken();
+
+            // 在指定位置插入新段落
+            XWPFParagraph landscapeParagraph = document.insertNewParagraph(cursor);
+            landscapeParagraph.setAlignment(ParagraphAlignment.LEFT);
+
+            // 在新段落中设置横向分节符
+            CTP ctpLandscape = landscapeParagraph.getCTP();
+            CTPPr pPrLandscape = ctpLandscape.isSetPPr() ? ctpLandscape.getPPr() : ctpLandscape.addNewPPr();
+
+            // 创建分节符并设置横向
+            CTSectPr sectPrLandscape = pPrLandscape.addNewSectPr();
+
+            // 创建页尺寸对象并设置横向
+            CTPageSz pageSize = sectPrLandscape.addNewPgSz();
+            pageSize.setOrient(STPageOrientation.LANDSCAPE);
+            pageSize.setW(BigInteger.valueOf(16838)); // 设置页面宽度
+            pageSize.setH(BigInteger.valueOf(11906)); // 设置页面高度
+
+            // 设置适合横向布局的页边距
+            CTPageMar pgMar = sectPrLandscape.addNewPgMar();
+            pgMar.setTop(BigInteger.valueOf(1796)); // 3.17cm
+            pgMar.setBottom(BigInteger.valueOf(1423)); // 2.51cm
+            pgMar.setLeft(BigInteger.valueOf(1440)); // 2.54cm
+            pgMar.setRight(BigInteger.valueOf(1440)); // 2.54cm
+
+            log.info("在标题段落后添加了横向分节符");
+
+            // 步骤3：从横向分节符段落后获取cursor位置，创建表格
+            XmlCursor tableCursor = landscapeParagraph.getCTP().newCursor();
+
+            // 生成病害对比表格
+            String tableBookmark = DiseaseComparisonTableUtils.createDiseaseComparisonTable(
+                    document,
+                    comparisonData,
+                    tableCursor,
+                    tableCounter,
+                    chapterNum,
+                    subChapterNum,
+                    bridgeName
+            );
+
+            // 步骤4：在表格后创建纵向分节符，恢复纵向布局
+            XWPFParagraph sectionParagraph = document.createParagraph();
+            sectionParagraph.setAlignment(ParagraphAlignment.LEFT);
+
+            // 在新段落中设置纵向分节符
+            CTP ctpPortrait = sectionParagraph.getCTP();
+            CTPPr pPrPortrait = ctpPortrait.isSetPPr() ? ctpPortrait.getPPr() : ctpPortrait.addNewPPr();
+
+            // 创建分节符并设置纵向
+            CTSectPr sectPrPortrait = pPrPortrait.addNewSectPr();
+            CTSectType sectTypePortrait = sectPrPortrait.addNewType();
+            sectTypePortrait.setVal(STSectionMark.CONTINUOUS);
+
+            // 设置页面尺寸为纵向
+            CTPageSz pageSizePortrait = sectPrPortrait.addNewPgSz();
+            pageSizePortrait.setOrient(STPageOrientation.PORTRAIT);
+            pageSizePortrait.setW(BigInteger.valueOf(11906)); // 21.0cm
+            pageSizePortrait.setH(BigInteger.valueOf(16838)); // 29.7cm
+
+            // 设置纵向页边距
+            CTPageMar pgMarPortrait = sectPrPortrait.addNewPgMar();
+            pgMarPortrait.setTop(BigInteger.valueOf(1440)); // 2.51cm
+            pgMarPortrait.setBottom(BigInteger.valueOf(1440)); // 2.51cm
+            pgMarPortrait.setLeft(BigInteger.valueOf(1796)); // 2.54cm
+            pgMarPortrait.setRight(BigInteger.valueOf(1796)); // 2.54cm
+
+            log.info("在表格后设置了纵向分节符");
+
+        } catch (Exception e) {
+            log.error("生成单个病害对比表格失败", e);
+            throw e;
         }
     }
 
@@ -3460,14 +3604,13 @@ public class ReportServiceImpl implements IReportService {
      * @param document Word文档
      * @param key      占位符key
      * @param value    JSON数据
-     * @param building 建筑物信息
-     * @param project  项目信息
+     * @param tasks    任务列表
      */
-    private void handleChapter7DiseaseTable(XWPFDocument document, String key, String value, Building building, Project project, BiObject biObject) {
+    private void handleChapter7DiseaseTable(XWPFDocument document, String key, String value, List<Task> tasks) {
         try {
-            log.info("开始处理第七章病害表格, key: {}, value: {}", key, value);
+            log.info("开始处理第七章病害表格, key: {}, value: {}, tasks数量: {}", key, value, tasks.size());
 
-            // 解析JSON数据
+            // 解析JSON数据（新格式：{taskId: [{componentId: [diseaseTypeIds]}]}）
             List<ComponentDiseaseType> combinations = parseChapter7Json(value);
             if (combinations.isEmpty()) {
                 log.warn("第七章JSON数据为空或解析失败: {}", value);
@@ -3477,7 +3620,7 @@ public class ReportServiceImpl implements IReportService {
 
             if (key.contains("${chapter-7-1-focusOnDiseases}")) {
                 // 重点关注病害 - 生成表格
-                List<Map<String, Object>> tableData = generateChapter7TableData(combinations, building, project, biObject);
+                List<Map<String, Object>> tableData = generateChapter7TableData(combinations, tasks);
                 if (tableData.isEmpty()) {
                     log.warn("第七章表格数据为空");
                     replaceText(document, key, "无数据");
@@ -3489,7 +3632,7 @@ public class ReportServiceImpl implements IReportService {
                 log.info("第七章重点关注病害表格处理完成, 生成{}行数据", tableData.size());
             } else if (key.contains("${chapter-7-2-analysisOfTheCausesOfMajorDiseases}")) {
                 // 主要病害成因分析 - 按结构分类分别处理
-                generateAndInsertChapter7AnalysisContent(combinations, building, project, biObject, document);
+                generateAndInsertChapter7AnalysisContent(combinations, tasks, document);
                 log.info("第七章病害成因分析处理完成");
             }
 
@@ -3500,12 +3643,42 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 解析第七章JSON数据
+     * 解析第七章JSON数据（支持多任务）
      *
-     * @param jsonValue JSON字符串
-     * @return 构件病害类型组合列表
+     * @param jsonValue JSON字符串，格式：{taskId: [{componentId: [diseaseTypeIds]}]}
+     * @return 构件病害类型组合列表（包含taskId）
      */
     private List<ComponentDiseaseType> parseChapter7Json(String jsonValue) {
+        List<ComponentDiseaseType> combinations = new ArrayList<>();
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            // 解析新格式：{taskId: [{componentId: [diseaseTypeIds]}]}
+            Map<String, List<Map<String, List<Integer>>>> taskData = objectMapper.readValue(jsonValue, Map.class);
+
+            for (Map.Entry<String, List<Map<String, List<Integer>>>> taskEntry : taskData.entrySet()) {
+                Long taskId = Long.parseLong(taskEntry.getKey());
+                List<Map<String, List<Integer>>> taskSelections = taskEntry.getValue();
+
+                for (Map<String, List<Integer>> item : taskSelections) {
+                    for (Map.Entry<String, List<Integer>> entry : item.entrySet()) {
+                        Long componentId = Long.parseLong(entry.getKey());
+                        List<Integer> diseaseTypeIds = entry.getValue();
+
+                        for (Integer diseaseTypeId : diseaseTypeIds) {
+                            combinations.add(new ComponentDiseaseType(taskId, componentId, diseaseTypeId.longValue()));
+                        }
+                    }
+                }
+            }
+
+            log.info("解析JSON数据成功，共{}个构件病害类型组合", combinations.size());
+        } catch (Exception e) {
+            log.error("解析第七章JSON数据失败: {}", jsonValue, e);
+        }
+        return combinations;
+    }
+
+    private List<ComponentDiseaseType> parseChapter7JsonForSingleBridge(String jsonValue) {
         List<ComponentDiseaseType> combinations = new ArrayList<>();
         try {
             ObjectMapper objectMapper = new ObjectMapper();
@@ -3517,7 +3690,7 @@ public class ReportServiceImpl implements IReportService {
                     List<Integer> diseaseTypeIds = entry.getValue();
 
                     for (Integer diseaseTypeId : diseaseTypeIds) {
-                        combinations.add(new ComponentDiseaseType(componentId, diseaseTypeId.longValue()));
+                        combinations.add(new ComponentDiseaseType(null, componentId, diseaseTypeId.longValue()));
                     }
                 }
             }
@@ -3530,57 +3703,83 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 生成第七章表格数据
+     * 生成第七章表格数据（支持多任务）
      *
-     * @param combinations 构件病害类型组合
-     * @param building     建筑物信息
-     * @param project      项目信息
+     * @param combinations 构件病害类型组合（包含taskId）
+     * @param tasks        任务列表
      * @return 表格数据
      */
     private List<Map<String, Object>> generateChapter7TableData(List<ComponentDiseaseType> combinations,
-                                                                Building building, Project project, BiObject biObject) {
+                                                                List<Task> tasks) {
         List<Map<String, Object>> tableData = new ArrayList<>();
 
         try {
-            // 提取所有构件ID
-            List<Long> componentIds = combinations.stream()
-                    .map(ComponentDiseaseType::getComponentId)
-                    .distinct()
-                    .collect(Collectors.toList());
+            // 创建taskId到Task的映射
+            Map<Long, Task> taskMap = tasks.stream()
+                    .collect(Collectors.toMap(Task::getId, task -> task));
 
-            // 批量查询病害数据
-            List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
-                    componentIds, building.getId(), project.getYear());
+            // 按taskId分组处理
+            Map<Long, List<ComponentDiseaseType>> taskCombinations = combinations.stream()
+                    .collect(Collectors.groupingBy(ComponentDiseaseType::getTaskId));
 
-            // 按构件ID+病害类型ID分组
-            Map<String, List<Disease>> groupedDiseases = allDiseases.stream()
-                    .collect(Collectors.groupingBy(disease ->
-                            disease.getBiObjectId() + "_" + disease.getDiseaseTypeId()));
-
-            // 批量查询构件信息
-            List<BiObject> components = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(componentIds));
-            Map<Long, BiObject> componentMap = components.stream()
-                    .collect(Collectors.toMap(BiObject::getId, component -> component));
-
-            // 生成表格数据
             int index = 1;
-            for (ComponentDiseaseType combination : combinations) {
-                String key = combination.getComponentId() + "_" + combination.getDiseaseTypeId();
-                List<Disease> diseaseList = groupedDiseases.get(key);
 
-                if (diseaseList != null && !diseaseList.isEmpty()) {
-                    Disease firstDisease = diseaseList.get(0);
-                    BiObject component = componentMap.get(combination.getComponentId());
+            // 遍历每个任务
+            for (Task task : tasks) {
+                Long taskId = task.getId();
+                List<ComponentDiseaseType> taskCombs = taskCombinations.get(taskId);
 
-                    if (component != null && firstDisease.getDiseaseType() != null) {
-                        Map<String, Object> rowData = new HashMap<>();
-                        rowData.put("序号", index++);
-                        rowData.put("桥梁名称", biObject.getName());
-                        rowData.put("缺损位置", component.getName());
-                        rowData.put("缺损类型", firstDisease.getDiseaseType().getName());
-                        rowData.put("病害描述", generateDiseaseDescription(diseaseList));
+                if (taskCombs == null || taskCombs.isEmpty()) {
+                    continue;
+                }
 
-                        tableData.add(rowData);
+                Building building = task.getBuilding();
+                Project project = task.getProject();
+
+                if (building == null || project == null) {
+                    log.warn("任务{}的building或project为空，跳过", taskId);
+                    continue;
+                }
+
+                // 提取该任务的所有构件ID
+                List<Long> componentIds = taskCombs.stream()
+                        .map(ComponentDiseaseType::getComponentId)
+                        .distinct()
+                        .collect(Collectors.toList());
+
+                // 批量查询该任务的病害数据
+                List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
+                        componentIds, building.getId(), project.getYear());
+
+                // 按构件ID+病害类型ID分组
+                Map<String, List<Disease>> groupedDiseases = allDiseases.stream()
+                        .collect(Collectors.groupingBy(disease ->
+                                disease.getBiObjectId() + "_" + disease.getDiseaseTypeId()));
+
+                // 批量查询构件信息
+                List<BiObject> components = biObjectMapper.selectBiObjectsByIds(new ArrayList<>(componentIds));
+                Map<Long, BiObject> componentMap = components.stream()
+                        .collect(Collectors.toMap(BiObject::getId, component -> component));
+
+                // 生成该任务的表格数据
+                for (ComponentDiseaseType combination : taskCombs) {
+                    String key = combination.getComponentId() + "_" + combination.getDiseaseTypeId();
+                    List<Disease> diseaseList = groupedDiseases.get(key);
+
+                    if (diseaseList != null && !diseaseList.isEmpty()) {
+                        Disease firstDisease = diseaseList.get(0);
+                        BiObject component = componentMap.get(combination.getComponentId());
+
+                        if (component != null && firstDisease.getDiseaseType() != null) {
+                            Map<String, Object> rowData = new HashMap<>();
+                            rowData.put("序号", index++);
+                            rowData.put("桥梁名称", building.getName());
+                            rowData.put("缺损位置", component.getName());
+                            rowData.put("缺损类型", firstDisease.getDiseaseType().getName());
+                            rowData.put("病害描述", generateDiseaseDescription(diseaseList));
+
+                            tableData.add(rowData);
+                        }
                     }
                 }
             }
@@ -3779,16 +3978,18 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 生成并插入第七章病害成因分析内容
+     * 生成并插入第七章病害成因分析内容（支持多任务）
      *
-     * @param combinations 构件病害类型组合
-     * @param building     建筑物信息
-     * @param project      项目信息
-     * @param biObject     根对象
+     * @param combinations 构件病害类型组合（包含taskId）
+     * @param tasks        任务列表
      * @param document     Word文档
      */
-    private void generateAndInsertChapter7AnalysisContent(List<ComponentDiseaseType> combinations, Building building, Project project, BiObject biObject, XWPFDocument document) {
+    private void generateAndInsertChapter7AnalysisContent(List<ComponentDiseaseType> combinations, List<Task> tasks, XWPFDocument document) {
         try {
+            // 创建taskId到Task的映射
+            Map<Long, Task> taskMap = tasks.stream()
+                    .collect(Collectors.toMap(Task::getId, task -> task));
+
             // 收集所有构件ID
             Set<Long> componentIds = combinations.stream()
                     .map(ComponentDiseaseType::getComponentId)
@@ -3814,6 +4015,14 @@ public class ReportServiceImpl implements IReportService {
             Map<String, List<ComponentDiseaseAnalysis>> structureGroups = new LinkedHashMap<>();
 
             for (ComponentDiseaseType combination : combinations) {
+                // 根据taskId获取对应的Task和Building
+                Long taskId = combination.getTaskId();
+                Task task = taskMap.get(taskId);
+                if (task == null || task.getBuilding() == null) {
+                    log.warn("任务或建筑物不存在，跳过该组合。taskId: {}", taskId);
+                    continue;
+                }
+
                 BiObject component = componentMap.get(combination.getComponentId());
                 if (component == null) continue;
 
@@ -3831,7 +4040,7 @@ public class ReportServiceImpl implements IReportService {
                 ComponentDiseaseAnalysis analysis = new ComponentDiseaseAnalysis();
                 analysis.setComponentId(combination.getComponentId());
                 analysis.setComponentName(component.getName());
-                analysis.setBridgeName(biObject.getName());
+                analysis.setBridgeName(task.getBuilding().getName());
                 analysis.setDiseaseTypeId(combination.getDiseaseTypeId());
                 analysis.setDiseaseTypeName(diseaseType.getName());
                 analysis.setStructureType(structureType);
@@ -3841,9 +4050,10 @@ public class ReportServiceImpl implements IReportService {
             }
 
             // 为每个结构分类生成内容并替换对应占位符
-            generateStructureAnalysisContent(structureGroups.get("superstructure"), document, "${chapter-7-2-1-superstructure}");
-            generateStructureAnalysisContent(structureGroups.get("substructure"), document, "${chapter-7-2-2-substructure}");
+            // 从后往前插入，避免位置索引错位
             generateStructureAnalysisContent(structureGroups.get("deckSystem"), document, "${chapter-7-2-3-deckSystem}");
+            generateStructureAnalysisContent(structureGroups.get("substructure"), document, "${chapter-7-2-2-substructure}");
+            generateStructureAnalysisContent(structureGroups.get("superstructure"), document, "${chapter-7-2-1-superstructure}");
 
         } catch (Exception e) {
             log.error("生成第七章成因分析内容失败", e);
@@ -3866,17 +4076,28 @@ public class ReportServiceImpl implements IReportService {
 
             StringBuilder content = new StringBuilder();
 
-            // 按构件分组，合并同一构件的多个病害类型
-            Map<Long, List<ComponentDiseaseAnalysis>> componentGroups = analyses.stream()
-                    .collect(Collectors.groupingBy(ComponentDiseaseAnalysis::getComponentId));
+            // 按桥梁名+构件ID组合键分组，避免不同桥梁的相同构件被合并
+            Map<String, List<ComponentDiseaseAnalysis>> componentGroups = analyses.stream()
+                    .collect(Collectors.groupingBy(analysis ->
+                            analysis.getBridgeName() + "_" + analysis.getComponentId()));
+
+            // 按桥梁名和构件名排序，确保输出顺序稳定
+            List<Map.Entry<String, List<ComponentDiseaseAnalysis>>> sortedEntries = componentGroups.entrySet().stream()
+                    .sorted(Comparator.comparing(entry -> {
+                        ComponentDiseaseAnalysis first = entry.getValue().get(0);
+                        return first.getBridgeName() + first.getComponentName();
+                    }))
+                    .collect(Collectors.toList());
 
             int index = 1;
-            for (List<ComponentDiseaseAnalysis> componentAnalyses : componentGroups.values()) {
+            for (Map.Entry<String, List<ComponentDiseaseAnalysis>> entry : sortedEntries) {
+                List<ComponentDiseaseAnalysis> componentAnalyses = entry.getValue();
                 ComponentDiseaseAnalysis first = componentAnalyses.get(0);
 
                 // 生成标题：桥梁名 + 构件名 + 病害类型列表
                 String diseaseTypes = componentAnalyses.stream()
                         .map(ComponentDiseaseAnalysis::getDiseaseTypeName)
+                        .distinct()  // 去重，避免重复的病害类型名称
                         .collect(Collectors.joining("、"));
 
                 content.append(String.format("（%d）%s%s%s\n",
@@ -3885,6 +4106,7 @@ public class ReportServiceImpl implements IReportService {
                 // 生成成因分析
                 List<Long> diseaseTypeIds = componentAnalyses.stream()
                         .map(ComponentDiseaseAnalysis::getDiseaseTypeId)
+                        .distinct()  // 去重病害类型ID
                         .collect(Collectors.toList());
 
                 String causeAnalysis = getCauseAnalysis(first.getComponentId(), diseaseTypeIds);
@@ -4149,35 +4371,52 @@ public class ReportServiceImpl implements IReportService {
      *
      * @param document Word文档
      * @param key      占位符
-     * @param building 建筑物信息
-     * @param taskId   任务id
+     * @param tasks    建筑物信息
      */
-    private void handleChapter8EvaluationResults(XWPFDocument document, String key, Building building, Long taskId) {
+    private Map<Long, BiEvaluation> handleChapter8EvaluationResults(XWPFDocument document, String key, List<Task> tasks, String parentBuildingName) {
         try {
             log.info("开始处理第八章评定结果, key: {}", key);
+            StringBuilder content = new StringBuilder();
+            // 第一句话：依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，[桥梁名称]的技术状况评定结果如下：
+            content.append("依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，")
+                    .append(parentBuildingName)
+                    .append("的技术状况评定结果如下：\n");
+            Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
+            Integer minSystemLevel = Integer.MAX_VALUE;
+            for (int i = 0; i < tasks.size(); i++) {
+                Task task = tasks.get(i);
+                BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                Building building = task.getBuilding();
+                String bridgeName = building != null ? building.getName() : "桥梁";
+                if (evaluation != null) {
+                    minSystemLevel = Math.min(minSystemLevel, evaluation.getSystemLevel());
+                    biEvaluationMap.put(task.getId(), evaluation);
+                    generateChapter8Content(evaluation, bridgeName, content);
+                } else {
+                    log.warn("未找到任务的评定结果: taskId={}", task.getId());
+                    content.append("未找到").append(bridgeName).append("的评定结果。\n");
+                }
 
-            // 查询评定结果
-            BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(taskId);
-            if (evaluation == null) {
-                log.warn("未找到任务的评定结果: taskId={}", taskId);
-                replaceText(document, key, "未找到评定结果");
-                return;
             }
+            // 第三句话：全桥技术状况评定按照评定单元最低分进行评定，因此评定为x类。
+            content.append("全桥技术状况评定按照评定单元最低分进行评定，因此评定为")
+                    .append(minSystemLevel)
+                    .append("类。\n");
 
-            // 获取桥梁名称
-            String bridgeName = building != null && building.getName() != null ? building.getName() : "桥梁";
-
-            // 生成第八章内容
-            String chapter8Content = generateChapter8Content(evaluation, bridgeName);
-
+            // 第四句话：技术状况评定记录和具体评分见表10.1所示。
+            content.append("技术状况评定记录和具体评分见下表所示。");
             // 插入四句话到文档中
-            XWPFParagraph chapter8Paragraph = insertChapter8Content(document, key, chapter8Content);
+            XWPFParagraph chapter8Paragraph = insertChapter8Content(document, key, content.toString());
 
             // 调用专门的服务在四句话后生成表格（包含分页符、横向设置和表格）
-            evaluationTableService.generateEvaluationTableAfterParagraph(document, chapter8Paragraph, building, evaluation, bridgeName);
-
+            for (Task task : tasks) {
+                Building building = task.getBuilding();
+                BiEvaluation evaluation = biEvaluationMap.get(task.getId());
+                String bridgeName = building != null ? building.getName() : "桥梁";
+                evaluationTableService.generateEvaluationTableAfterParagraph(document, chapter8Paragraph, building, evaluation, bridgeName);
+            }
             log.info("第八章评定结果和表格处理完成");
-
+            return biEvaluationMap;
         } catch (Exception e) {
             log.error("处理第八章评定结果失败: key={}, error={}", key, e.getMessage(), e);
             throw e;
@@ -4278,16 +4517,10 @@ public class ReportServiceImpl implements IReportService {
      * @param bridgeName 桥梁名称
      * @return 第八章内容
      */
-    private String generateChapter8Content(BiEvaluation evaluation, String bridgeName) {
-        StringBuilder content = new StringBuilder();
-
-        // 第一句话：依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，[桥梁名称]的技术状况评定结果如下：
-        content.append("依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，")
-                .append(bridgeName)
-                .append("的技术状况评定结果如下：\n");
-
+    private String generateChapter8Content(BiEvaluation evaluation, String bridgeName, StringBuilder content) {
         // 第二句话：上部结构技术状况评分为xx分，等级为x类；下部结构技术状况评分为xx分，等级为x类；桥面系技术状况评分为xx分，等级为x类；全桥技术状况评分为xx分，评定为x类桥梁。
-        content.append("上部结构技术状况评分为")
+        content.append(bridgeName)
+                .append("上部结构技术状况评分为")
                 .append(formatScore(evaluation.getSuperstructureScore()))
                 .append("分，等级为")
                 .append(evaluation.getSuperstructureLevel())
@@ -4304,15 +4537,6 @@ public class ReportServiceImpl implements IReportService {
                 .append("分，评定为")
                 .append(evaluation.getSystemLevel())
                 .append("类桥梁。\n");
-
-        // 第三句话：全桥技术状况评定按照评定单元最低分进行评定，因此评定为x类。
-        content.append("全桥技术状况评定按照评定单元最低分进行评定，因此评定为")
-                .append(evaluation.getSystemLevel())
-                .append("类。\n");
-
-        // 第四句话：技术状况评定记录和具体评分见表10.1所示。
-        content.append("技术状况评定记录和具体评分见表10.1所示。");
-
         return content.toString();
     }
 
@@ -4444,16 +4668,54 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
+     * 处理第九章比较分析（多桥版本）
+     *
+     * @param document Word文档
+     * @param key      占位符
+     * @param tasks    任务列表（同一组合桥下的所有子桥）
+     */
+    private void handleChapter9ComparisonAnalysisForMultiBridge(XWPFDocument document, String key, List<Task> tasks) {
+        try {
+            log.info("开始处理第九章比较分析（多桥版本）, key: {}, 任务数量: {}", key, tasks.size());
+
+            // 查找占位符位置
+            XWPFParagraph targetParagraph = null;
+            List<XWPFParagraph> paragraphs = document.getParagraphs();
+
+            for (XWPFParagraph paragraph : paragraphs) {
+                String text = paragraph.getText();
+                if (text != null && text.contains(key)) {
+                    targetParagraph = paragraph;
+                    break;
+                }
+            }
+
+            if (targetParagraph == null) {
+                log.warn("未找到第九章占位符: {}", key);
+                return;
+            }
+
+            // 调用比较分析服务生成多桥表格
+            comparisonAnalysisService.generateMultiBridgeComparisonAnalysisTable(document, targetParagraph, tasks);
+
+            log.info("第九章比较分析（多桥版本）处理完成");
+
+        } catch (Exception e) {
+            log.error("处理第九章比较分析（多桥版本）失败: key={}, error={}", key, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
      * 处理第十章检测结论
      *
      * @param document   Word文档
      * @param key        占位符
-     * @param task       当前任务
      * @param bridgeName 桥梁名称
      */
-    private void handleChapter10TestConclusion(XWPFDocument document, String key, Task task, String bridgeName) {
+    private void handleChapter10TestConclusion(XWPFDocument document, String key, List<Task> tasks, String bridgeName, Map<Long, BiEvaluation> biEvaluationMap, Integer minSystemLevel) {
         try {
-            log.info("开始处理第十章检测结论, key: {}, taskId: {}", key, task.getId());
+            log.info("开始处理第十章检测结论, key: {}", key);
 
             // 查找占位符位置
             XWPFParagraph targetParagraph = findParagraphByPlaceholder(document, key);
@@ -4463,12 +4725,12 @@ public class ReportServiceImpl implements IReportService {
             }
 
             // 调用检测结论服务处理检测结论
-            testConclusionService.handleTestConclusion(document, targetParagraph, task, bridgeName);
+            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName, biEvaluationMap, minSystemLevel);
 
             log.info("第十章检测结论处理完成");
 
         } catch (Exception e) {
-            log.error("处理第十章检测结论失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            log.error("处理第十章检测结论失败: key={}, error={}", key, e.getMessage(), e);
             throw e;
         }
     }
@@ -4476,14 +4738,13 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 处理第十章检测结论桥梁详情
      *
-     * @param document   Word文档
-     * @param key        占位符
-     * @param task       当前任务
-     * @param bridgeName 桥梁名称
+     * @param document Word文档
+     * @param key      占位符
+     * @param tasks    当前任务
      */
-    private void handleChapter10TestConclusionBridge(XWPFDocument document, String key, Task task, String bridgeName) {
+    private void handleChapter10TestConclusionBridge(XWPFDocument document, String key, List<Task> tasks) {
         try {
-            log.info("开始处理第十章检测结论桥梁详情, key: {}, taskId: {}", key, task.getId());
+            log.info("开始处理第十章检测结论桥梁详情, key: {}", key);
 
             // 查找占位符位置
             XWPFParagraph targetParagraph = findParagraphByPlaceholder(document, key);
@@ -4493,12 +4754,12 @@ public class ReportServiceImpl implements IReportService {
             }
 
             // 调用检测结论服务处理检测结论桥梁详情
-            testConclusionService.handleTestConclusionBridge(document, targetParagraph, task, bridgeName);
+            testConclusionService.handleTestConclusionBridge(document, targetParagraph, tasks);
 
             log.info("第十章检测结论桥梁详情处理完成");
 
         } catch (Exception e) {
-            log.error("处理第十章检测结论桥梁详情失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            log.error("处理第十章检测结论桥梁详情失败: key={}, error={}", key, e.getMessage(), e);
             throw e;
         }
     }
@@ -4639,7 +4900,7 @@ public class ReportServiceImpl implements IReportService {
             // 4. 处理桥梁基本状况卡片数据 和 桥梁概况 数据
             // 11.11  修改 ， 处理桥梁状况卡片 时 顺带 处理 桥梁概况数据。
             try {
-                processBridgeBasicInfoCard(document, building, templateType, task);
+                processBridgeBasicInfoCard(document, building, templateType, biEvaluation.getSystemLevel());
                 log.info("桥梁基本状况卡片处理完成");
             } catch (Exception e) {
                 log.error("处理桥梁基本状况卡片出错: error={}", e.getMessage(), e);
@@ -4704,163 +4965,6 @@ public class ReportServiceImpl implements IReportService {
                 log.error("清理资源失败", e);
             }
         }
-    }
-
-    /**
-     * 处理图片占位符（支持自定义标题和章节号）
-     * 新方法，避免硬编码
-     *
-     * @param document      Word文档
-     * @param key           占位符
-     * @param value         图片ID（逗号分隔）
-     * @param building      建筑物信息
-     * @param titleText     图片标题（可为null）
-     * @param chapterNumber 章节号（可为null）
-     * @throws Exception 异常
-     */
-    private void handleImagePlaceholderWithCustomTitle(XWPFDocument document, String key, String value,
-                                                       Building building, String titleText, Integer chapterNumber) throws Exception {
-        if (value == null || value.isEmpty()) {
-            return;
-        }
-
-        // 检查是否有多个图片ID
-        String[] imageIds = value.split(",");
-        imageIds = Arrays.stream(imageIds)
-                .filter(id -> id != null && !id.trim().isEmpty())
-                .map(String::trim)
-                .toArray(String[]::new);
-
-        if (imageIds.length == 0) {
-            return;
-        }
-
-        // 判断是否为封面图片
-        boolean isCoverImage = "${cover-image}".equals(key);
-
-        if (imageIds.length == 1) {
-            // 单张图片
-            String imageId = imageIds[0];
-            FileMap fileMap = fileMapService.selectFileMapById(Long.valueOf(imageId));
-            if (fileMap != null) {
-                replaceImageInDocumentWithField(document, key, fileMap.getNewName(), titleText, chapterNumber, isCoverImage);
-            } else {
-                log.warn("未找到图片文件: imageId={}", imageId);
-            }
-        } else {
-            // 多张图片，创建表格展示
-            insertMultipleImagesTableWithField(document, key, imageIds, titleText, chapterNumber);
-        }
-    }
-
-    /**
-     * 处理第三章外观检测结果（支持自定义占位符）
-     * 新方法，避免硬编码
-     *
-     * @param document    Word文档
-     * @param subBridges  建筑物列表
-     * @param building    主建筑物
-     * @param projectId   项目ID
-     * @param placeholder 自定义占位符
-     * @throws Exception 异常
-     */
-    private void processChapter3WithCustomPlaceholder(XWPFDocument document, List<BiObject> subBridges,
-                                                      Building building, Long projectId, String placeholder) throws Exception {
-        // 获取所有子部件
-        List<BiObject> allObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
-
-        // 找到占位符所在的段落
-        XWPFParagraph placeholderParagraph = null;
-        for (int i = 0; i < document.getParagraphs().size(); i++) {
-            XWPFParagraph paragraph = document.getParagraphs().get(i);
-            if (paragraph.getText().contains(placeholder)) {
-                placeholderParagraph = paragraph;
-                break;
-            }
-        }
-
-        // 如果找不到占位符，直接返回
-        if (placeholderParagraph == null) {
-            log.warn("未找到占位符: {}", placeholder);
-            return;
-        }
-
-        // 获取占位符段落的XML游标
-        XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
-
-        // 为每个子桥生成章节
-        int chapterNum = 1; // 单桥模板使用第1章
-        int subChapterNum = 1;
-
-        AtomicInteger imageCounter = new AtomicInteger(1);
-        AtomicInteger tableCounter = new AtomicInteger(1);
-
-        // 直接在文档中指定位置生成内容
-        for (BiObject subBridge : subBridges) {
-            XmlCursor subCursor = cursor.newCursor();
-
-            // 查询子桥对应的building
-            Building buildingQuery = new Building();
-            buildingQuery.setRootObjectId(subBridge.getId());
-            List<Building> subBuildingList = buildingService.selectBuildingList(buildingQuery);
-            Building subBuilding = subBuildingList.isEmpty() ? null : subBuildingList.get(0);
-
-            // 收集病害数据
-            List<Disease> subBridgeDiseases;
-            if (subBuilding != null) {
-                Disease queryParam = new Disease();
-                queryParam.setBuildingId(subBuilding.getId());
-                queryParam.setProjectId(projectId);
-                subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
-            } else {
-                Disease queryParam = new Disease();
-                queryParam.setBuildingId(building.getId());
-                queryParam.setProjectId(projectId);
-                queryParam.setBiObjectId(subBridge.getId());
-                subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
-            }
-
-            // 为每个子桥收集病害
-            Map<Long, List<Disease>> bridgeDiseaseMap = new LinkedHashMap<>();
-            collectDiseases(subBridge, allObjects, subBridgeDiseases, 1, bridgeDiseaseMap);
-
-            // 在指定位置生成内容
-            String prefix = chapterNum + "." + subChapterNum;
-
-            // 生成病害树结构内容
-            writeBiObjectTreeToWord(document, subBridge, allObjects,
-                    bridgeDiseaseMap, prefix, 1, imageCounter, tableCounter, subCursor, 2);
-
-            subChapterNum++;
-        }
-
-        // 为每个子桥生成病害对比表格
-        generateDiseaseComparisonTables(document, subBridges, building, projectId, cursor, chapterNum, subChapterNum, tableCounter);
-
-        // 删除占位符段落
-        placeholderParagraph.removeRun(0); // 清除占位符文本
-        if (placeholderParagraph.getRuns().size() == 0) {
-            // 如果段落为空，找到它的索引并删除
-            for (int i = 0; i < document.getParagraphs().size(); i++) {
-                if (document.getParagraphs().get(i) == placeholderParagraph) {
-                    document.removeBodyElement(i);
-                    break;
-                }
-            }
-        }
-
-//        // 删除占位符段落
-//        if (placeholderParagraph.getRuns().size() > 0) {
-//            placeholderParagraph.removeRun(0);
-//        }
-//        if (placeholderParagraph.getRuns().size() == 0) {
-//            for (int i = 0; i < document.getParagraphs().size(); i++) {
-//                if (document.getParagraphs().get(i) == placeholderParagraph) {
-//                    document.removeBodyElement(i);
-//                    break;
-//                }
-//            }
-//        }
     }
 
 
@@ -5073,7 +5177,7 @@ public class ReportServiceImpl implements IReportService {
                         try {
                             log.info("开始处理单桥病害数据，key: {}, value: {}", key, value);
                             // 解析病害数据
-                            List<ComponentDiseaseType> combinations = parseChapter7Json(value);
+                            List<ComponentDiseaseType> combinations = parseChapter7JsonForSingleBridge(value);
                             if (!combinations.isEmpty()) {
                                 // 生成重点关注病害内容（包含文字和成因分析）
                                 generateSingleBridgeFocusOnDiseases(document, combinations, building, project, biObject);
@@ -5157,10 +5261,10 @@ public class ReportServiceImpl implements IReportService {
     /**
      * 处理桥梁基本状况卡片数据
      */
-    private void processBridgeBasicInfoCard(XWPFDocument document, Building building, ReportTemplateTypes templateType, Task task) {
+    private void processBridgeBasicInfoCard(XWPFDocument document, Building building, ReportTemplateTypes templateType, Integer minSystemLevel) {
         try {
             // 使用现有的桥梁卡片服务处理基本信息
-            bridgeCardService.processBridgeCardData(document, building, templateType, task);
+            bridgeCardService.processBridgeCardData(document, building, templateType, minSystemLevel);
             log.info("桥梁基本状况卡片数据处理完成");
         } catch (Exception e) {
             log.error("处理桥梁基本状况卡片数据失败", e);
@@ -5473,7 +5577,7 @@ public class ReportServiceImpl implements IReportService {
 
         // 为桥梁收集病害
         Map<Long, List<Disease>> bridgeDiseaseMap = new LinkedHashMap<>();
-        collectDiseases(biObject, allObjects, diseases, 1, bridgeDiseaseMap);
+        collectDiseases(biObject, allObjects, diseases, 3, bridgeDiseaseMap);
 
         AtomicInteger imageCounter = new AtomicInteger(1);
         AtomicInteger tableCounter = new AtomicInteger(1);

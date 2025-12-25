@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.domain.vo;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.utils.Convert2VO;
 import lombok.Data;
 import lombok.ToString;
 
@@ -22,17 +23,6 @@ public class Disease2ReportSummaryAiVO {
     private String position;
 
     /**
-     * 病害位置编号
-     */
-    private Integer positionNumber;
-
-    /**
-     * 病害类型
-     */
-    private DiseaseType diseaseType;
-    private Long diseaseTypeId;
-
-    /**
      * 病害描述
      */
     private String description;
@@ -47,26 +37,8 @@ public class Disease2ReportSummaryAiVO {
      */
     private String type;
 
-    /**
-     * 病害性质（结构病害 / 非结构病害）
-     */
-    private String nature;
-
-    /**
-     * 病害成因
-     */
-    private String cause;
-
-    /**
-     * 维修建议
-     */
-    private String repairRecommendation;
-
     // 裂缝特征 (纵向、横向、斜向、L型、U型）
     private String crackType;
-
-    // 发展趋势 （稳定、发展、新增、已维修、部分维修、未找到)
-    private String developmentTrend;
 
     /**
      * 构件名称 （支持自定义）
@@ -74,14 +46,25 @@ public class Disease2ReportSummaryAiVO {
     private String biObjectName;
 
     /**
-     * 年份  项目属性用于查询
+     * 转换方法
+     * 转换 一个 或 一个list
+     *
      */
-    private Integer year;
+    public static Disease2ReportSummaryAiVO convert(Disease disease) {
+        Disease2ReportSummaryAiVO result = Convert2VO.copyOne(disease, Disease2ReportSummaryAiVO.class);
+        String postion = disease.getPosition();
+        postion = postion.substring(postion.lastIndexOf('#') + 1);
+        result.setPosition(postion);
+        return result;
+    }
 
-
-    /**
-     * 病害详情
-     */
-    private List<DiseaseDetail> diseaseDetails;
-
+    public static List<Disease2ReportSummaryAiVO> convert(List<Disease> diseases) {
+        List<Disease2ReportSummaryAiVO> result = Convert2VO.copyList(diseases, Disease2ReportSummaryAiVO.class);
+        result.stream().forEach(disease2ReportSummaryAiVO -> {
+            String postion = disease2ReportSummaryAiVO.getPosition();
+            postion = postion.substring(postion.lastIndexOf('#') + 1);
+            disease2ReportSummaryAiVO.setPosition(postion);
+        });
+        return result;
+    }
 }

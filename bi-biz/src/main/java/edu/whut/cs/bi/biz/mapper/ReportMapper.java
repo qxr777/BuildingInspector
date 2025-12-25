@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.Report;
+import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
@@ -21,9 +22,15 @@ public interface ReportMapper {
      * 查询检测报告列表
      * 
      * @param report 检测报告
+     * @param currentUserId 当前用户ID（用于普通用户权限过滤）
+     * @param selectDeptId 部门ID（用于部门管理员权限过滤）
+     * @param parentDeptId 父部门ID（用于部门管理员权限过滤）
      * @return 检测报告集合
      */
-    public List<Report> selectReportList(Report report);
+    public List<Report> selectReportList(@Param("report") Report report, 
+                                         @Param("currentUserId") Long currentUserId, 
+                                         @Param("selectDeptId") Long selectDeptId, 
+                                         @Param("parentDeptId") Long parentDeptId);
 
     /**
      * 新增检测报告

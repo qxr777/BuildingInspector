@@ -352,44 +352,85 @@ public class ReportDataServiceImpl implements IReportDataService {
     }
 
     /**
-     * 获取构件病害数据（用于病害选择器）
+     * 获取构件病害数据（用于病害选择器）- 支持多任务
      *
-     * @param report 报告ID
-     * @return 构件病害数据列表
+     * @param report 报告对象
+     * @return Map结构，key为taskId，value包含buildingName和diseases列表
      */
     @Override
-    public List<Map<String, Object>> getDiseaseComponentData(Report report) {
+    public Map<Long, Map<String, Object>> getDiseaseComponentData(Report report) {
         long reportId = report.getId();
         long startTime = System.currentTimeMillis();
+        Map<Long, Map<String, Object>> resultMap = new LinkedHashMap<>();
 
         try {
-
-            // 1.获取报告关联的任务ID
+            // 1.获取报告关联的所有任务ID
             String taskIdsStr = report.getTaskIds();
             if (taskIdsStr == null || taskIdsStr.isEmpty()) {
-                return new ArrayList<>();
-            }
-            // 只取第一个任务ID
-            Long taskId = Long.parseLong(taskIdsStr.split(",")[0]);
-            Task task = taskService.selectTaskById(taskId);
-            // 2. 获取Building信息
-            Building building = task.getBuilding();
-            if (building == null) {
-                log.error("未找到建筑物，buildingId: {}", taskId);
-                return new ArrayList<>();
+                log.warn("报告未关联任何任务，reportId: {}", reportId);
+                return resultMap;
             }
 
-            // 4. 获取BiObject层级结构
+            // 2.遍历所有任务ID
+            String[] taskIdArray = taskIdsStr.split(",");
+            log.info("开始处理报告的{}个任务，reportId: {}", taskIdArray.length, reportId);
+
+            for (String taskIdStr : taskIdArray) {
+                Long taskId = Long.parseLong(taskIdStr.trim());
+                Task task = taskService.selectTaskById(taskId);
+                
+                if (task == null) {
+                    log.warn("任务不存在，跳过。taskId: {}", taskId);
+                    continue;
+                }
+
+                // 3.处理单个任务的病害数据
+                Map<String, Object> taskData = processSingleTaskDiseaseData(task, reportId);
+                if (taskData != null && !taskData.isEmpty()) {
+                    resultMap.put(taskId, taskData);
+                }
+            }
+
+            long totalTime = System.currentTimeMillis() - startTime;
+            log.info("获取所有任务构件病害数据成功，reportId: {}, 任务数: {}, 总耗时: {}ms",
+                    reportId, resultMap.size(), totalTime);
+
+            return resultMap;
+
+        } catch (Exception e) {
+            long totalTime = System.currentTimeMillis() - startTime;
+            log.error("获取构件病害数据失败，reportId: {}, 耗时: {}ms", reportId, totalTime, e);
+            return resultMap;
+        }
+    }
+
+    /**
+     * 处理单个任务的病害数据
+     *
+     * @param task 任务对象
+     * @param reportId 报告ID
+     * @return 包含buildingName和diseases的Map
+     */
+    private Map<String, Object> processSingleTaskDiseaseData(Task task, Long reportId) {
+        try {
+            // 1. 获取Building信息
+            Building building = task.getBuilding();
+            if (building == null) {
+                log.warn("任务未关联建筑物，taskId: {}", task.getId());
+                return null;
+            }
+
+            // 2. 获取BiObject层级结构
             Long subBridgeId = building.getRootObjectId();
             if (subBridgeId == null) {
-                log.error("建筑物未关联BiObject，buildingId: {}", building.getId());
-                return new ArrayList<>();
+                log.warn("建筑物未关联BiObject，buildingId: {}", building.getId());
+                return null;
             }
 
             BiObject subBridge = biObjectMapper.selectBiObjectById(subBridgeId);
             if (subBridge == null) {
-                log.error("未找到BiObject，biObjectId: {}", subBridgeId);
-                return new ArrayList<>();
+                log.warn("未找到BiObject，biObjectId: {}", subBridgeId);
+                return null;
             }
 
             List<BiObject> allObjects = biObjectMapper.selectChildrenById(subBridge.getId());
@@ -399,29 +440,27 @@ public class ReportDataServiceImpl implements IReportDataService {
             objectMap.put(subBridge.getId(), subBridge);
             allObjects.add(subBridge);
 
-            // 5. 获取第四层节点（构件层）
+            // 3. 获取第四层节点（构件层）
             List<BiObject> level4Objects = findLevel4Objects(allObjects, subBridge.getId());
 
             if (level4Objects.isEmpty()) {
-                log.warn("未找到第四层构件节点，reportId: {}", reportId);
-                return new ArrayList<>();
+                log.warn("未找到第四层构件节点，taskId: {}", task.getId());
+                return null;
             }
 
-            // 6. 提取所有第四层节点的ID
+            // 4. 提取所有第四层节点的ID
             List<Long> level4ObjectIds = level4Objects.stream()
                     .map(BiObject::getId)
                     .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
 
-            log.info("开始批量查询病害数据，构件数量: {}, reportId: {}", level4ObjectIds.size(), reportId);
-
-            // 7. 批量查询所有构件的病害数据（一次查询替代N次查询）
+            // 5. 批量查询所有构件的病害数据
             List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
                     level4ObjectIds, building.getId(), task.getProject().getYear());
 
-            log.info("批量查询完成，病害记录数: {}, 耗时: {}ms", allDiseases.size(), System.currentTimeMillis() - startTime);
+            log.info("任务病害数据查询完成，taskId: {}, 病害记录数: {}", task.getId(), allDiseases.size());
 
-            // 8. 构建结果数据
-            List<Map<String, Object>> result = new ArrayList<>();
+            // 6. 构建病害列表数据
+            List<Map<String, Object>> diseasesList = new ArrayList<>();
             Set<String> uniqueKeys = new HashSet<>();
 
             for (Disease disease : allDiseases) {
@@ -441,21 +480,26 @@ public class ReportDataServiceImpl implements IReportDataService {
                         dataItem.put("componentName", componentName);
                         dataItem.put("diseaseTypeId", disease.getDiseaseTypeId());
                         dataItem.put("diseaseTypeName", disease.getDiseaseType().getName());
-                        result.add(dataItem);
+                        diseasesList.add(dataItem);
                     }
                 }
             }
 
-            long totalTime = System.currentTimeMillis() - startTime;
-            log.info("获取构件病害数据成功，reportId: {}, 构件数: {}, 病害类型组合数: {}, 总耗时: {}ms",
-                    reportId, level4Objects.size(), result.size(), totalTime);
+            // 7. 构建返回结果
+            Map<String, Object> taskData = new HashMap<>();
+            taskData.put("taskId", task.getId());
+            taskData.put("buildingName", building.getName());
+            taskData.put("buildingId", building.getId());
+            taskData.put("diseases", diseasesList);
 
-            return result;
+            log.info("任务病害数据处理完成，taskId: {}, buildingName: {}, 病害类型组合数: {}",
+                    task.getId(), building.getName(), diseasesList.size());
+
+            return taskData;
 
         } catch (Exception e) {
-            long totalTime = System.currentTimeMillis() - startTime;
-            log.error("获取构件病害数据失败，reportId: {}, 耗时: {}ms", reportId, totalTime, e);
-            return new ArrayList<>();
+            log.error("处理任务病害数据失败，taskId: {}", task.getId(), e);
+            return null;
         }
     }
 

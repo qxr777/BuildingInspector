@@ -281,7 +281,9 @@ public class ReportDataController extends BaseController {
     }
 
     /**
-     * 获取构件病害数据（用于病害选择器）
+     * 获取构件病害数据（支持多任务）
+     * @param reportId 报告ID
+     * @return 返回Map结构，key为taskId，value包含buildingName和diseases列表
      */
     @PostMapping("/getDiseaseComponentData")
     @ResponseBody
@@ -291,8 +293,30 @@ public class ReportDataController extends BaseController {
             if (report == null) {
                 return AjaxResult.error("未找到报告");
             }
-            List<Map<String, Object>> diseaseComponentData = reportDataService.getDiseaseComponentData(report);
+            Map<Long, Map<String, Object>> diseaseComponentData = reportDataService.getDiseaseComponentData(report);
             return AjaxResult.success("获取成功", diseaseComponentData);
+        } catch (Exception e) {
+            logger.error("获取构件病害数据失败", e);
+            return AjaxResult.error("获取构件病害数据失败：" + e.getMessage());
+        }
+    }
+
+    @PostMapping("/getDiseaseComponentDataForSingleTask")
+    @ResponseBody
+    public AjaxResult getDiseaseComponentDataForSingleTask(@RequestParam("reportId") Long reportId) {
+        try {
+            Report report = reportService.selectReportById(reportId);
+            if (report == null) {
+                return AjaxResult.error("未找到报告");
+            }
+            String taskIdsStr = report.getTaskIds();
+            String[] taskIdArray = taskIdsStr.split(",");
+            if(taskIdArray.length == 0) {
+                return AjaxResult.error("报告未关联任务");
+            }
+            Long taskId = Long.parseLong(taskIdArray[0].trim());
+            Map<Long, Map<String, Object>> diseaseComponentData = reportDataService.getDiseaseComponentData(report);
+            return AjaxResult.success("获取成功", diseaseComponentData.get(taskId).get("diseases"));
         } catch (Exception e) {
             logger.error("获取构件病害数据失败", e);
             return AjaxResult.error("获取构件病害数据失败：" + e.getMessage());

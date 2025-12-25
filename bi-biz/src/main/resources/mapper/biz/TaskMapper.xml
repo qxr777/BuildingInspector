@@ -149,6 +149,18 @@
         </foreach>
     </select>
 
+    <select id="selectTaskListByIds" resultMap="TaskResult">
+        <include refid="selectTaskVo"/>
+        where t.del_flag = '0'
+        <if test="ids != null and ids.size() > 0">
+            and t.id in
+            <foreach item="id" collection="ids" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+        ORDER BY t.update_time DESC
+    </select>
+
     <insert id="insertTask" parameterType="Task" useGeneratedKeys="true" keyProperty="id">
         insert into bi_task
         <trim prefix="(" suffix=")" suffixOverrides=",">

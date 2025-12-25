@@ -236,7 +236,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             // 4. 处理桥梁基本状况卡片数据 和 桥梁概况 数据
             // 11.11  修改 ， 处理桥梁状况卡片 时 顺带 处理 桥梁概况数据。
             try {
-                bridgeCardService.processBridgeCardData(document, building, templateType, task);
+                BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                bridgeCardService.processBridgeCardData(document, building, templateType, biEvaluation.getSystemLevel());
                 log.info("桥梁基本状况卡片处理完成");
             } catch (Exception e) {
                 log.error("处理桥梁基本状况卡片出错: error={}", e.getMessage(), e);
@@ -753,6 +754,10 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
                 // 防止内容换行（可选）
                 tcPr.addNewNoWrap();
+                // 垂直居中 12.16 修改
+                if (!tcPr.isSetVAlign()) {
+                    tcPr.addNewVAlign().setVal(STVerticalJc.CENTER);
+                }
             }
 
             // 设置标题行在跨页时重复显示
@@ -779,6 +784,13 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     XWPFParagraph cellP = cell.getParagraphs().get(0);
                     ReportGenerateTools.setSingleLineSpacing(cellP);  // 设置单倍行距
                     cellP.setAlignment(ParagraphAlignment.CENTER);
+
+                    // 垂直居中 12.16修改。
+                    CTTcPr curTcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr()
+                            : cell.getCTTc().addNewTcPr();
+                    if (!curTcPr.isSetVAlign()) {
+                        curTcPr.addNewVAlign().setVal(STVerticalJc.CENTER);
+                    }
 
                     // 设置文本内容
                     XWPFRun cellR = cellP.createRun();
@@ -887,7 +899,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
     public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
         // 瘦身
-        List<Disease2ReportSummaryAiVO> less = Convert2VO.copyList(diseases, Disease2ReportSummaryAiVO.class);
+        List<Disease2ReportSummaryAiVO> less = Disease2ReportSummaryAiVO.convert(diseases);
         // 序列化为JSON字符串
         ObjectMapper mapper = new ObjectMapper();
         String diseasesJson = mapper.writeValueAsString(less);
@@ -1362,7 +1374,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     List<Integer> diseaseTypeIds = entry.getValue();
 
                     for (Integer diseaseTypeId : diseaseTypeIds) {
-                        combinations.add(new ComponentDiseaseType(componentId, diseaseTypeId.longValue()));
+                        combinations.add(new ComponentDiseaseType(null, componentId, diseaseTypeId.longValue()));
                     }
                 }
             }
@@ -1909,9 +1921,13 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 log.warn("未找到检测结论占位符: {}", key);
                 return;
             }
-
+            List<Task> tasks = new ArrayList<>();
+            tasks.add(task);
+            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+            Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
+            biEvaluationMap.put(biEvaluation.getTaskId(), biEvaluation);
             // 调用检测结论服务处理检测结论
-            testConclusionService.handleTestConclusion(document, targetParagraph, task, bridgeName);
+            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName, biEvaluationMap, biEvaluation.getSystemLevel());
 
             log.info("检测结论处理完成");
 
@@ -1939,9 +1955,10 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 log.warn("未找到检测结论桥梁详情占位符: {}", key);
                 return;
             }
-
+            List<Task> tasks = new ArrayList<>();
+            tasks.add(task);
             // 调用检测结论服务处理检测结论桥梁详情
-            testConclusionService.handleTestConclusionBridge(document, targetParagraph, task, bridgeName);
+            testConclusionService.handleTestConclusionBridge(document, targetParagraph, tasks);
 
             log.info("检测结论桥梁详情处理完成");
 

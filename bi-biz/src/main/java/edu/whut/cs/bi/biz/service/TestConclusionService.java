@@ -1,9 +1,11 @@
 package edu.whut.cs.bi.biz.service;
 
+import edu.whut.cs.bi.biz.domain.BiEvaluation;
 import edu.whut.cs.bi.biz.domain.Task;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,22 +20,20 @@ public interface TestConclusionService {
      *
      * @param document        Word文档
      * @param targetParagraph 目标段落（占位符段落）
-     * @param task            任务信息
      * @param bridgeName      桥梁名称
      */
     void handleTestConclusion(XWPFDocument document, XWPFParagraph targetParagraph,
-                              Task task, String bridgeName);
+                              List<Task> tasks, String bridgeName, Map<Long, BiEvaluation> biEvaluationMap, Integer minSystemLevel);
 
     /**
      * 处理第十章检测结论桥梁详情占位符
      *
      * @param document        Word文档
      * @param targetParagraph 目标段落（占位符段落）
-     * @param task            任务信息
-     * @param bridgeName      桥梁名称
+     * @param tasks            任务信息
      */
     void handleTestConclusionBridge(XWPFDocument document, XWPFParagraph targetParagraph,
-                                    Task task, String bridgeName);
+                                    List<Task> tasks);
 
     /**
      * 缓存病害汇总数据（供外部调用，在第三章处理时缓存）

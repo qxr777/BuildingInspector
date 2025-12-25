@@ -44,23 +44,37 @@ public class TestConclusionServiceImpl implements TestConclusionService {
 
     @Override
     public void handleTestConclusion(XWPFDocument document, XWPFParagraph targetParagraph,
-                                     Task task, String bridgeName) {
+                                     List<Task> tasks, String bridgeName,Map<Long, BiEvaluation> biEvaluationMap,Integer minSystemLevel) {
         try {
-            log.info("开始处理第十章检测结论, taskId: {}", task.getId());
+            log.info("开始处理第十章检测结论");
 
-            // 查询评定结果
-            BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
-            if (evaluation == null) {
-                log.warn("未找到任务的评定结果: taskId={}", task.getId());
+            if (biEvaluationMap == null) {
+                log.warn("未找到任务的评定结果");
                 // 清空占位符
                 clearParagraphRuns(targetParagraph);
                 XWPFRun run = targetParagraph.createRun();
                 run.setText("未找到评定结果");
                 return;
             }
+            StringBuilder content = new StringBuilder();
+            content.append("依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，");
 
             // 生成检测结论文本
-            String conclusionText = generateTestConclusionText(evaluation, bridgeName);
+            for(Task task:tasks){
+                BiEvaluation evaluation = biEvaluationMap.get(task.getId());
+                if (evaluation == null) {
+                    log.warn("未找到任务的评定结果: taskId={}", task.getId());
+                    continue;
+                }
+                // 拼接多个任务的结论
+                content.append(task.getBuilding().getName())
+                        .append("评定为")
+                        .append(evaluation.getSystemLevel())
+                        .append("类，");
+            }
+            content.append("全桥技术状况评定为")
+                    .append(minSystemLevel)
+                    .append("类。");
 
             // 清空占位符段落并填充内容
             clearParagraphRuns(targetParagraph);
@@ -70,72 +84,55 @@ public class TestConclusionServiceImpl implements TestConclusionService {
 
             // 添加结论文本
             XWPFRun run = targetParagraph.createRun();
-            run.setText("\t" + conclusionText);
+            run.setText("\t" + content);
             run.setFontSize(12);
             run.setFontFamily("宋体");
 
             log.info("第十章检测结论处理完成");
 
         } catch (Exception e) {
-            log.error("处理第十章检测结论失败: taskId={}", task.getId(), e);
+            log.error("处理第十章检测结论失败", e);
             throw e;
         }
     }
 
     @Override
     public void handleTestConclusionBridge(XWPFDocument document, XWPFParagraph targetParagraph,
-                                           Task task, String bridgeName) {
+                                           List<Task> tasks) {
         try {
-            log.info("开始处理第十章检测结论桥梁详情, taskId: {}", task.getId());
+            log.info("开始处理第十章检测结论桥梁详情");
 
             // 获取桥梁根节点
-            Building building = task.getBuilding();
-            if (building == null || building.getRootObjectId() == null) {
-                log.warn("未找到桥梁信息: taskId={}", task.getId());
-                return;
+            for (Task task : tasks) {
+                Building building = task.getBuilding();
+                if (building == null || building.getRootObjectId() == null) {
+                    log.warn("未找到桥梁信息: taskId={}", task.getId());
+                    return;
+                }
+
+                BiObject rootNode = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                if (rootNode == null) {
+                    log.warn("未找到桥梁根节点: rootObjectId={}", building.getRootObjectId());
+                    return;
+                }
+
+                // 获取所有节点
+                List<BiObject> allNodes = biObjectMapper.selectChildrenById(building.getRootObjectId());
+
+                // 获取插入位置的游标
+                XmlCursor cursor = targetParagraph.getCTP().newCursor();
+                // 生成桥梁结构树（只到第二层，第二层开始添加内容）
+                writeBridgeStructureTree(document, rootNode, allNodes, cursor, 1, building.getName());
             }
-
-            BiObject rootNode = biObjectMapper.selectBiObjectById(building.getRootObjectId());
-            if (rootNode == null) {
-                log.warn("未找到桥梁根节点: rootObjectId={}", building.getRootObjectId());
-                return;
-            }
-
-            // 获取所有节点
-            List<BiObject> allNodes = biObjectMapper.selectChildrenById(building.getRootObjectId());
-
-            // 获取插入位置的游标
-            XmlCursor cursor = targetParagraph.getCTP().newCursor();
-
             // 清空占位符段落
             clearParagraphRuns(targetParagraph);
-
-            // 生成桥梁结构树（只到第二层，第二层开始添加内容）
-            writeBridgeStructureTree(document, rootNode, allNodes, cursor, 1, bridgeName);
 
             log.info("第十章检测结论桥梁详情处理完成");
 
         } catch (Exception e) {
-            log.error("处理第十章检测结论桥梁详情失败: taskId={}", task.getId(), e);
+            log.error("处理第十章检测结论桥梁详情失败:}", e);
             throw e;
         }
-    }
-
-    /**
-     * 生成检测结论文本
-     */
-    private String generateTestConclusionText(BiEvaluation evaluation, String bridgeName) {
-        StringBuilder content = new StringBuilder();
-
-        content.append("依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，")
-                .append(bridgeName)
-                .append("评定为")
-                .append(evaluation.getSystemLevel())
-                .append("类，全桥技术状况评定为")
-                .append(evaluation.getSystemLevel())
-                .append("类。");
-
-        return content.toString();
     }
 
     /**
