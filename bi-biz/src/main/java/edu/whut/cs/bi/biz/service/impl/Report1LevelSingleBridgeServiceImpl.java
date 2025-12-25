@@ -16,7 +16,6 @@ import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.service.*;
-import edu.whut.cs.bi.biz.utils.Convert2VO;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import io.minio.GetObjectArgs;
@@ -806,7 +805,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                             cellR.setText(component != null ? component.getName() : "/");
                             break;
                         case 2:
-                            cellR.setText(d.getDiseaseType().getName() != null ? d.getDiseaseType().getName() : "/");
+                            // 12.25 修改 ,额外处理裂缝类型
+                            cellR.setText(ReportGenerateTools.reportDiseaseTypeNameIfCrack(d) != null ? ReportGenerateTools.reportDiseaseTypeNameIfCrack(d) : "/");
                             break;
                         case 3:
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");

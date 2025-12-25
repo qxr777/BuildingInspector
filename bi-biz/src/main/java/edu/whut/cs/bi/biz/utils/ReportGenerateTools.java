@@ -1,9 +1,12 @@
 package edu.whut.cs.bi.biz.utils;
 
+import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import io.minio.GetObjectArgs;
@@ -588,5 +591,20 @@ public class ReportGenerateTools {
                 extension.endsWith(".png") ||
                 extension.endsWith(".gif") ||
                 extension.endsWith(".bmp");
+    }
+
+    /**
+     * 针对报告的需求， 根据病害裂缝特征 返回 带有特征的病害类型 ， 例如 纵向裂缝。
+     */
+    public static String reportDiseaseTypeNameIfCrack(Disease disease) {
+        if (ObjectUtil.isEmpty(disease.getDiseaseType())) {
+            log.error("病害类型对象缺失，数据异常或未封装病害类型");
+            return disease.getType();
+        }
+        // 非裂缝类型
+        if (StringUtils.isEmpty(disease.getCrackType()) || !disease.getDiseaseType().getName().contains(ReportConstants.DISEASE_TYPE_NAME_CRACK)) {
+            return disease.getDiseaseType().getName();
+        }
+        return disease.getCrackType() + ReportConstants.DISEASE_TYPE_NAME_CRACK;
     }
 }

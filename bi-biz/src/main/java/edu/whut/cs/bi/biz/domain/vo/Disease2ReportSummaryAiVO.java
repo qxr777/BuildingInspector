@@ -1,11 +1,12 @@
 package edu.whut.cs.bi.biz.domain.vo;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.utils.Convert2VO;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import lombok.Data;
 import lombok.ToString;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -55,15 +56,17 @@ public class Disease2ReportSummaryAiVO {
         String postion = disease.getPosition();
         postion = postion.substring(postion.lastIndexOf('#') + 1);
         result.setPosition(postion);
+        // 数据库中的type带有编号，模型不需要这个信息，并且需要对裂缝病害单独处理包装。
+        result.setType(ReportGenerateTools.reportDiseaseTypeNameIfCrack(disease));
         return result;
     }
 
     public static List<Disease2ReportSummaryAiVO> convert(List<Disease> diseases) {
-        List<Disease2ReportSummaryAiVO> result = Convert2VO.copyList(diseases, Disease2ReportSummaryAiVO.class);
-        result.stream().forEach(disease2ReportSummaryAiVO -> {
-            String postion = disease2ReportSummaryAiVO.getPosition();
-            postion = postion.substring(postion.lastIndexOf('#') + 1);
-            disease2ReportSummaryAiVO.setPosition(postion);
+        List<Disease2ReportSummaryAiVO> result = new ArrayList<>();
+        // 数据库中的type带有编号，模型不需要这个信息，并且需要对裂缝病害单独处理包装。
+        diseases.stream().forEach(disease -> {
+            Disease2ReportSummaryAiVO tempVo = convert(disease);
+            result.add(tempVo);
         });
         return result;
     }

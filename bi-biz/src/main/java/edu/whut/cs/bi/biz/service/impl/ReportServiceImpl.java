@@ -194,7 +194,7 @@ public class ReportServiceImpl implements IReportService {
             PageUtils.startPage();
             reports = reportMapper.selectReportList(report, null, null, null);
         } else {
-            if(roles.stream().anyMatch(role -> "department_business_admin".equals(role))) {
+            if (roles.stream().anyMatch(role -> "department_business_admin".equals(role))) {
                 // 部门管理员
                 // 查询部门 - 设置父部门
                 SysDept curSysDept = deptService.selectDeptById(sysUser.getDeptId());
@@ -1410,7 +1410,7 @@ public class ReportServiceImpl implements IReportService {
                             cellR.setText(component != null ? component.getName() : "/");
                             break;
                         case 2:
-                            cellR.setText(d.getDiseaseType().getName() != null ? d.getDiseaseType().getName() : "/");
+                            cellR.setText(ReportGenerateTools.reportDiseaseTypeNameIfCrack(d) != null ? ReportGenerateTools.reportDiseaseTypeNameIfCrack(d) : "/");
                             break;
                         case 3:
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
@@ -1905,7 +1905,7 @@ public class ReportServiceImpl implements IReportService {
                             cellR.setText(componentMap.get(d.getComponentId()).getName());
                             break;
                         case 2:
-                            cellR.setText(d.getDiseaseType().getName() != null ? d.getDiseaseType().getName() : "/");
+                            cellR.setText(ReportGenerateTools.reportDiseaseTypeNameIfCrack(d) != null ? ReportGenerateTools.reportDiseaseTypeNameIfCrack(d) : "/");
                             break;
                         case 3:
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
@@ -5490,57 +5490,6 @@ public class ReportServiceImpl implements IReportService {
         return result.toString();
     }
 
-    /**
-     * 生成结构级别的备用病害描述
-     */
-    private String generateFallbackStructureDescription(List<Disease> diseases) {
-        StringBuilder result = new StringBuilder();
-        int index = 1;
-
-        for (Disease disease : diseases) {
-            result.append(String.format("%d）", index++));
-
-            // 构件名称
-            if (disease.getComponent() != null && disease.getComponent().getName() != null) {
-                result.append(disease.getComponent().getName());
-            }
-
-            result.append("存在");
-
-            // 数量
-            if (disease.getQuantity() > 0) {
-                result.append(disease.getQuantity()).append("处");
-            }
-
-            // 病害类型
-            if (disease.getDiseaseType() != null && disease.getDiseaseType().getName() != null) {
-                result.append(disease.getDiseaseType().getName());
-            }
-
-            // 添加基本参数
-            if (disease.getDiseaseDetails() != null && !disease.getDiseaseDetails().isEmpty()) {
-                DiseaseDetail detail = disease.getDiseaseDetails().get(0);
-
-                if (detail.getLength1() != null && detail.getLength1().doubleValue() > 0) {
-                    result.append("，L=").append(String.format("%.1f", detail.getLength1().doubleValue())).append("m");
-                }
-
-                if (detail.getCrackWidth() != null && detail.getCrackWidth().doubleValue() > 0) {
-                    result.append("，W=").append(String.format("%.2f", detail.getCrackWidth().doubleValue())).append("mm");
-                }
-
-                if (detail.getAreaLength() != null && detail.getAreaWidth() != null &&
-                        detail.getAreaLength().doubleValue() > 0 && detail.getAreaWidth().doubleValue() > 0) {
-                    double area = detail.getAreaLength().doubleValue() * detail.getAreaWidth().doubleValue();
-                    result.append("，S=").append(String.format("%.1f", area)).append("m²");
-                }
-            }
-
-            result.append("；\n");
-        }
-
-        return result.toString();
-    }
 
     /**
      * 处理单桥模板的外观检测结果（跳过桥名层级，直接生成结构内容）
@@ -5771,38 +5720,6 @@ public class ReportServiceImpl implements IReportService {
         }
 
         log.info("单桥桥梁概况照片处理完成 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
-    }
-
-    /**
-     * 生成结构分析文本
-     */
-    private String generateStructureAnalysisText(List<ComponentDiseaseType> combinations, Building building,
-                                                 Project project, BiObject biObject) {
-        StringBuilder analysis = new StringBuilder();
-
-        for (ComponentDiseaseType combination : combinations) {
-            BiObject component = biObjectMapper.selectBiObjectById(combination.getComponentId());
-            if (component != null) {
-                // 查询该构件的病害
-                Disease queryParam = new Disease();
-                queryParam.setBuildingId(building.getId());
-                queryParam.setProjectId(project.getId());
-                queryParam.setBiObjectId(component.getId());
-                queryParam.setDiseaseTypeId(combination.getDiseaseTypeId());
-
-                List<Disease> diseases = diseaseMapper.selectDiseaseList(queryParam);
-                if (!diseases.isEmpty()) {
-                    Disease firstDisease = diseases.get(0);
-                    analysis.append(component.getName());
-                    if (firstDisease.getDiseaseType() != null) {
-                        analysis.append(firstDisease.getDiseaseType().getName());
-                    }
-                    analysis.append("；");
-                }
-            }
-        }
-
-        return analysis.toString();
     }
 
     /**
