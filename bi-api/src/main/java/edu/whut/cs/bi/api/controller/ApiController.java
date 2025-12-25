@@ -877,8 +877,8 @@ public class ApiController {
     }
 
     @PostMapping("/batchImportPropertyData")
-    public AjaxResult batchImportPropertyData(MultipartFile file) {
-        return AjaxResult.success(propertyIndexService.batchImportPropertyData(file));
+    public AjaxResult batchImportPropertyData(MultipartFile file, boolean needLine) {
+        return AjaxResult.success(propertyIndexService.batchImportPropertyData(file, needLine));
     }
 
     @PostMapping("/addThumbPhoto")

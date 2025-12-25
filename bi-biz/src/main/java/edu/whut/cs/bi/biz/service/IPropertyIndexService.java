@@ -59,5 +59,5 @@ public interface IPropertyIndexService {
      * 批量导入属性数据
      * @param file excel文件
      */
-    List<String> batchImportPropertyData(MultipartFile file);
+    List<String> batchImportPropertyData(MultipartFile file, boolean needLine);
 }

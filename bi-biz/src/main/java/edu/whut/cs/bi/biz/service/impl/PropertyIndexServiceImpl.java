@@ -332,7 +332,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
     private Executor executorService;
 
     @Override
-    public List<String> batchImportPropertyData(MultipartFile file) {
+    public List<String> batchImportPropertyData(MultipartFile file, boolean needLine) {
 
         // 清空上次导入的未匹配数据
         unmatchedBuildings.clear();
@@ -361,7 +361,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
             // 2. 多线程处理每行数据（提交任务到线程池）
             List<CompletableFuture<Void>> futures = dataRows.stream()
                     .map(row -> CompletableFuture.runAsync(
-                            () -> processSingleRow(allBuildings, row, titleRow), // 每行的处理逻辑
+                            () -> processSingleRow(allBuildings, row, titleRow, needLine), // 每行的处理逻辑
                             executorService // 指定线程池
                     ))
                     .collect(Collectors.toList());
@@ -383,7 +383,7 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
      * @param titleRow 表头行
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public void processSingleRow(List<Building> allBuildings, Row row, Row titleRow) {
+    public void processSingleRow(List<Building> allBuildings, Row row, Row titleRow, boolean needLine) {
         try {
             // 1. 读取行数据（与原逻辑一致）
             String buildingName = getCellValueAsString(row.getCell(1));
@@ -401,13 +401,16 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
 //                return;
 //            }
             // 3. 查询桥梁（确保唯一匹配）
-            Building bd = allBuildings.stream().filter(b ->
-                            b.getName().equals(buildingName) && b.getStatus().equals("0"))
-                    .findFirst().orElse(null);
-
-//            Building bd = allBuildings.stream().filter(b ->
-//                            b.getName().equals(buildingName) && b.getLine().equals(lineCode) && b.getStatus().equals("0"))
-//                    .findFirst().orElse(null);
+            Building bd = null;
+            if (needLine) {
+                bd = allBuildings.stream().filter(b ->
+                                b.getName().equals(buildingName) && b.getLine().equals(lineCode) && b.getStatus().equals("0"))
+                        .findFirst().orElse(null);
+            } else {
+                bd = allBuildings.stream().filter(b ->
+                                b.getName().equals(buildingName) && b.getStatus().equals("0"))
+                        .findFirst().orElse(null);
+            }
 //            Building queryBuilding = new Building();
 //            queryBuilding.setName(buildingName);
 //            queryBuilding.setLine(lineCode);
