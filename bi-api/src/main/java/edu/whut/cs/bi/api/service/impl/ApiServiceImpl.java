@@ -68,20 +68,34 @@ public class ApiServiceImpl implements ApiService {
         }
 
         // 检查文件是否为ZIP格式
-        if (!file.getOriginalFilename().endsWith(".zip")) {
-            throw  new ServiceException("请上传ZIP格式的文件");
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null || !originalFileName.endsWith(".zip")) {
+            throw new ServiceException("请上传ZIP格式的文件");
         }
 
         Path tempDir = null;
+        Long buildingId = null;
+        Calendar calendar = Calendar.getInstance();
+        int currentYear = calendar.get(Calendar.YEAR);
+
         try {
+            String fileNameWithoutSuffix = originalFileName.substring(0, originalFileName.lastIndexOf("."));
+            String[] fileNameParts = fileNameWithoutSuffix.split("_");
+            try {
+                if (fileNameParts.length > 0) {
+                    buildingId = Long.parseLong(fileNameParts[0]);
+                }
+                // 4. 提取year（如果有下划线分隔，第二个部分就是year）
+                if (fileNameParts.length >= 2) {
+                    currentYear = Integer.parseInt(fileNameParts[1]);
+                }
+            } catch (NumberFormatException e) {
+                throw new ServiceException("压缩包文件名格式错误，应为：buildingId.zip 或 buildingId_year.zip");
+            }
+
             // 创建临时目录存放解压文件
             tempDir = Files.createTempDirectory("bridge_upload_");
             Map<String, Path> extractedFiles = new HashMap<>();
-            Long buildingId = null;
-            Calendar calendar = Calendar.getInstance();
-            int currentYear = calendar.get(Calendar.YEAR);
-
-            // 解压文件
 
             try (ZipInputStream zipIn = new ZipInputStream(file.getInputStream())) {
                 ZipEntry entry;
@@ -89,28 +103,6 @@ public class ApiServiceImpl implements ApiService {
                     if (!entry.isDirectory()) {
                         // 获取文件路径并统一路径分隔符为 /
                         String filePath = entry.getName().replace('\\', '/');
-
-                        // 提取buildingId（兼容旧格式：buildingId；新格式：buildingId_year）
-                        if (buildingId == null) {
-                            String[] pathParts = filePath.split("/");
-                            if (pathParts.length > 0) {
-                                // 取路径第一个部分（目录名：buildingId 或 buildingId_year）
-                                String firstDirName = pathParts[0];
-                                try {
-                                    // 按下划线分割目录名
-                                    String[] dirNameParts = firstDirName.split("_");
-                                    if (dirNameParts.length > 0) {
-                                        buildingId = Long.parseLong(dirNameParts[0]);
-                                    }
-                                    if (dirNameParts.length > 1) {
-                                        // 获取年份
-                                        currentYear = Integer.parseInt(dirNameParts[1]);
-                                    }
-                                } catch (NumberFormatException e) {
-                                    // 忽略非数字格式的目录名，不赋值buildingId
-                                }
-                            }
-                        }
 
                         // 创建文件并保存
                         Path outputPath = tempDir.resolve(filePath);
