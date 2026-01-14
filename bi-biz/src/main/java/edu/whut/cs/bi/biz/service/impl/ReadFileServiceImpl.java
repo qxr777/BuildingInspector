@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysDictDataService;
@@ -104,6 +105,8 @@ public class ReadFileServiceImpl implements ReadFileService {
 
         Building building = buildingMapper.selectBuildingById(task.getBuildingId());
 
+        String loginUser = ShiroUtils.getLoginName();
+
         // 病害类型”其他“，当病害类型都不存在时，默认为其他 (5)
         DiseaseType otherDiseaseType = diseaseTypeMapper.selectDiseaseTypeByCode("0.0.0.0-5");
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
@@ -189,7 +192,10 @@ public class ReadFileServiceImpl implements ReadFileService {
 
                         disease.setType(diseaseType);
                         disease.setDiseaseTypeId(queryDiseaseType.getId());
-
+                        disease.setCreateBy(loginUser);
+                        disease.setUpdateBy(loginUser);
+                        disease.setCreateTime(DateUtils.getNowDate());
+                        disease.setUpdateTime(DateUtils.getNowDate());
                         disease.setComponentId(component.getId());
                         disease.setBuildingId(building.getId());
                         disease.setProjectId(task.getProjectId());
@@ -252,7 +258,10 @@ public class ReadFileServiceImpl implements ReadFileService {
             Component component = new Component();
             component.setCode(componentCode);
             component.setName(componentCode + "#" + component_3);
-
+            component.setCreateBy(ShiroUtils.getLoginName());
+            component.setUpdateBy(ShiroUtils.getLoginName());
+            component.setCreateTime(DateUtils.getNowDate());
+            component.setUpdateTime(DateUtils.getNowDate());
             List<Component> oldComponents = componentMap.get(component.getName());
 
             if (oldComponents != null && oldComponents.size() > 0) {
@@ -321,6 +330,8 @@ public class ReadFileServiceImpl implements ReadFileService {
         Set<Disease> diseaseSet = new ConcurrentHashSet<>();
 
         Building building = buildingMapper.selectBuildingById(task.getBuildingId());
+
+        String loginUser = ShiroUtils.getLoginName();
 
         // 病害类型”其他“，当病害类型都不存在时，默认为其他 (5)
         DiseaseType otherDiseaseType = diseaseTypeMapper.selectDiseaseTypeByCode("0.0.0.0-5");
@@ -405,6 +416,10 @@ public class ReadFileServiceImpl implements ReadFileService {
 
                         Disease disease = new Disease();
                         disease.setPosition(position);
+                        disease.setCreateBy(loginUser);
+                        disease.setUpdateBy(loginUser);
+                        disease.setCreateTime(DateUtils.getNowDate());
+                        disease.setUpdateTime(DateUtils.getNowDate());
                         disease.setParticipateAssess("1");
                         disease.setDescription(diseaseDescription);
                         if (scale == null || scale.equals("/") || scale.equals("")) {
@@ -625,6 +640,10 @@ public class ReadFileServiceImpl implements ReadFileService {
             Component component = new Component();
             component.setCode(componentCode);
             component.setName(position);
+            component.setCreateBy(ShiroUtils.getLoginName());
+            component.setUpdateBy(ShiroUtils.getLoginName());
+            component.setCreateTime(DateUtils.getNowDate());
+            component.setUpdateTime(DateUtils.getNowDate());
 
             List<Component> oldComponents = componentMap.get(component.getName());
 
