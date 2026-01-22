@@ -577,7 +577,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                         String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
                         String imageDesc = componentName + type;
                         // 使用第3章编号规则
-                        String bookmark = "Figure_Chapter3_" + chapterImageCounter.getAndIncrement();
+                        String bookmark = "Figure_Chapter3_" + UUID.randomUUID() + "_" + chapterImageCounter.getAndIncrement();
                         imageBookmarks.add(bookmark + "|" + imageDesc); // 书签名和描述用|分隔
                     }
                 }
