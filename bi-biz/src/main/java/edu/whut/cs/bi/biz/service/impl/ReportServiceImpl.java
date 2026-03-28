@@ -1191,7 +1191,7 @@ public class ReportServiceImpl implements IReportService {
                         }
                         // 照片 图注 的 描述 不需要带病害规范号。
                         String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
-                        String imageDesc = componentName + type;
+                        String imageDesc = componentName + d.getPosition() + type;
                         // 使用第3章编号规则
                         String bookmark = "Figure_Chapter3_" + chapterImageCounter.getAndIncrement();
                         imageBookmarks.add(bookmark + "|" + imageDesc); // 书签名和描述用|分隔
@@ -1625,7 +1625,7 @@ public class ReportServiceImpl implements IReportService {
                         }
                         // 照片图注的描述不需要带病害规范号
                         String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
-                        String imageDesc = componentName + type;
+                        String imageDesc = componentName + d.getPosition() + type;
                         // 使用第3章编号规则
                         String bookmark = "Figure_Chapter3_" + UUID.randomUUID() + "_" + chapterImageCounter.getAndIncrement();
                         imageBookmarks.add(bookmark + "|" + imageDesc); // 书签名和描述用|分隔

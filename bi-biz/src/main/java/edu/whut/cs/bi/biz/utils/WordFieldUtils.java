@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.utils;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
+
 import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -29,9 +30,10 @@ public class WordFieldUtils {
 
     /**
      * 创建表格标题域
-     * @param document Word文档
-     * @param titleText 标题文本（如"检测结果表"）
-     * @param cursor 插入位置的游标，如果为null则追加到文档末尾
+     *
+     * @param document      Word文档
+     * @param titleText     标题文本（如"检测结果表"）
+     * @param cursor        插入位置的游标，如果为null则追加到文档末尾
      * @param chapterNumber 章节号，如果需要按章节编号则提供，否则传null
      * @return 生成的书签名，用于后续引用
      */
@@ -97,9 +99,10 @@ public class WordFieldUtils {
 
     /**
      * 创建表格标题域（兼容性方法，无章节号）
-     * @param document Word文档
+     *
+     * @param document  Word文档
      * @param titleText 标题文本（如"检测结果表"）
-     * @param cursor 插入位置的游标，如果为null则追加到文档末尾
+     * @param cursor    插入位置的游标，如果为null则追加到文档末尾
      * @return 生成的书签名，用于后续引用
      */
     public static String createTableCaption(XWPFDocument document, String titleText, XmlCursor cursor) {
@@ -108,11 +111,12 @@ public class WordFieldUtils {
 
     /**
      * 创建表格标题，支持传入计数器
-     * @param document Word文档
-     * @param titleText 标题文本
-     * @param cursor 插入位置的游标，如果为null则追加到文档末尾
+     *
+     * @param document      Word文档
+     * @param titleText     标题文本
+     * @param cursor        插入位置的游标，如果为null则追加到文档末尾
      * @param chapterNumber 章节号
-     * @param tableCounter 表格计数器
+     * @param tableCounter  表格计数器
      * @return 返回表格的书签名，用于后续引用
      */
     public static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor, Integer chapterNumber, AtomicInteger tableCounter) {
@@ -187,9 +191,10 @@ public class WordFieldUtils {
 
     /**
      * 创建图片标题域
-     * @param document Word文档
-     * @param titleText 标题文本（如"桥型布置图"）
-     * @param cursor 插入位置的游标，如果为null则追加到文档末尾
+     *
+     * @param document      Word文档
+     * @param titleText     标题文本（如"桥型布置图"）
+     * @param cursor        插入位置的游标，如果为null则追加到文档末尾
      * @param chapterNumber 章节号，如果需要按章节编号则提供，否则传null
      * @return 生成的书签名，用于后续引用
      */
@@ -199,11 +204,12 @@ public class WordFieldUtils {
 
     /**
      * 创建图片标题域，指定书签名
-     * @param document Word文档
-     * @param titleText 标题文本（如"桥型布置图"）
-     * @param cursor 插入位置的游标，如果为null则追加到文档末尾
+     *
+     * @param document      Word文档
+     * @param titleText     标题文本（如"桥型布置图"）
+     * @param cursor        插入位置的游标，如果为null则追加到文档末尾
      * @param chapterNumber 章节号，如果需要按章节编号则提供，否则传null
-     * @param bookmarkName 指定的书签名，如果为null则自动生成
+     * @param bookmarkName  指定的书签名，如果为null则自动生成
      * @return 生成的书签名，用于后续引用
      */
     public static String createFigureCaptionWithBookmark(XWPFDocument document, String titleText, XmlCursor cursor, Integer chapterNumber, String bookmarkName) {
@@ -256,10 +262,11 @@ public class WordFieldUtils {
 
     /**
      * 在现有段落中创建图片标题域（不创建新段落）
-     * @param paragraph 现有的段落
-     * @param titleText 标题文本
+     *
+     * @param paragraph     现有的段落
+     * @param titleText     标题文本
      * @param chapterNumber 章节号
-     * @param bookmarkName 指定的书签名，如果为null则自动生成
+     * @param bookmarkName  指定的书签名，如果为null则自动生成
      * @return 生成的书签名
      */
     public static String createFigureCaptionInParagraph(XWPFParagraph paragraph, String titleText, Integer chapterNumber, String bookmarkName) {
@@ -313,10 +320,11 @@ public class WordFieldUtils {
 
     /**
      * 创建表格引用域
-     * @param paragraph 要插入引用的段落
+     *
+     * @param paragraph    要插入引用的段落
      * @param bookmarkName 表格的书签名
-     * @param prefixText 前缀文本（如"具体检测结果见下表"）
-     * @param suffixText 后缀文本（如":"）
+     * @param prefixText   前缀文本（如"具体检测结果见下表"）
+     * @param suffixText   后缀文本（如":"）
      */
     public static void createTableReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         XWPFRun prefixRun = paragraph.createRun();
@@ -333,10 +341,11 @@ public class WordFieldUtils {
 
     /**
      * 创建章节格式的表格引用域（使用REF域引用整个表格标题）
-     * @param paragraph 要插入引用的段落
+     *
+     * @param paragraph    要插入引用的段落
      * @param bookmarkName 表格的书签名，格式如"Table_Chapter3_1"
-     * @param prefixText 前缀文本（如"具体检测结果见下表"）
-     * @param suffixText 后缀文本（如":"）
+     * @param prefixText   前缀文本（如"具体检测结果见下表"）
+     * @param suffixText   后缀文本（如":"）
      */
     public static void createChapterTableReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         XWPFRun prefixRun = paragraph.createRun();
@@ -366,10 +375,11 @@ public class WordFieldUtils {
 
     /**
      * 创建图片引用域
-     * @param paragraph 要插入引用的段落
+     *
+     * @param paragraph    要插入引用的段落
      * @param bookmarkName 图片的书签名
-     * @param prefixText 前缀文本（如"如"）
-     * @param suffixText 后缀文本（如"所示"）
+     * @param prefixText   前缀文本（如"如"）
+     * @param suffixText   后缀文本（如"所示"）
      */
     public static void createFigureReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         if (prefixText != null && !prefixText.isEmpty()) {
@@ -388,10 +398,11 @@ public class WordFieldUtils {
 
     /**
      * 创建章节格式的图片引用域（使用REF域引用整个图片标题）
-     * @param paragraph 段落
+     *
+     * @param paragraph    段落
      * @param bookmarkName 书签名称，格式如"Figure_Chapter3_1"
-     * @param prefixText 前缀文本（如"图"）
-     * @param suffixText 后缀文本
+     * @param prefixText   前缀文本（如"图"）
+     * @param suffixText   后缀文本
      */
     public static void createChapterFigureReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         if (prefixText != null && !prefixText.isEmpty()) {
@@ -423,8 +434,9 @@ public class WordFieldUtils {
 
     /**
      * 创建序列域（SEQ字段）
-     * @param paragraph 段落
-     * @param seqName 序列名称（如"Table"或"Figure"）
+     *
+     * @param paragraph    段落
+     * @param seqName      序列名称（如"Table"或"Figure"）
      * @param bookmarkName 书签名称
      */
     private static void createSequenceField(XWPFParagraph paragraph, String seqName, String bookmarkName) {
@@ -485,9 +497,10 @@ public class WordFieldUtils {
 
     /**
      * 创建章节序列域（按章节重新编号）
-     * @param paragraph 段落
-     * @param seqName 序列名称
-     * @param bookmarkName 书签名称
+     *
+     * @param paragraph     段落
+     * @param seqName       序列名称
+     * @param bookmarkName  书签名称
      * @param chapterNumber 章节号
      */
     private static void createChapterSequenceField(XWPFParagraph paragraph, String seqName, String bookmarkName, Integer chapterNumber) {
@@ -520,11 +533,12 @@ public class WordFieldUtils {
 
     /**
      * 创建完整格式的图片引用（如"图3-1"）
-     * @param paragraph 段落
-     * @param bookmarkName 书签名称，格式如"Figure_Chapter3_1"
-     * @param prefixText 前缀文本
-     * @param suffixText 后缀文本
-     * @param chapterNumber 章节号
+     *
+     * @param paragraph      段落
+     * @param bookmarkName   书签名称，格式如"Figure_Chapter3_1"
+     * @param prefixText     前缀文本
+     * @param suffixText     后缀文本
+     * @param chapterNumber  章节号
      * @param sequenceNumber 序号
      */
     public static void createFullFormatFigureReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText, Integer chapterNumber, Integer sequenceNumber) {
@@ -564,10 +578,11 @@ public class WordFieldUtils {
 
     /**
      * 创建完整格式的图片引用（如"图3-1"）- 重载方法，向后兼容
-     * @param paragraph 段落
+     *
+     * @param paragraph    段落
      * @param bookmarkName 书签名称，格式如"Figure_Chapter3_1"
-     * @param prefixText 前缀文本
-     * @param suffixText 后缀文本
+     * @param prefixText   前缀文本
+     * @param suffixText   后缀文本
      */
     public static void createFullFormatFigureReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         createFullFormatFigureReference(paragraph, bookmarkName, prefixText, suffixText, null, null);
@@ -575,6 +590,7 @@ public class WordFieldUtils {
 
     /**
      * 从书签名解析出显示格式
+     *
      * @param bookmarkName 书签名，如"Figure_Chapter3_1"或"Table_1"
      * @return 显示格式，如"3-1"或"3.1"
      */
@@ -606,7 +622,8 @@ public class WordFieldUtils {
 
     /**
      * 创建引用域（REF字段）
-     * @param paragraph 段落
+     *
+     * @param paragraph    段落
      * @param bookmarkName 要引用的书签名称
      */
     public static void createReferenceField(XWPFParagraph paragraph, String bookmarkName) {
@@ -645,6 +662,7 @@ public class WordFieldUtils {
 
     /**
      * 创建STYLEREF域
+     *
      * @param paragraph 段落
      */
     private static void createStyleRefField(XWPFParagraph paragraph) {
@@ -683,8 +701,9 @@ public class WordFieldUtils {
 
     /**
      * 创建简单的SEQ域
-     * @param paragraph 段落
-     * @param seqName 序列名称
+     *
+     * @param paragraph    段落
+     * @param seqName      序列名称
      * @param bookmarkName 书签名称
      */
     private static void createSimpleSEQField(XWPFParagraph paragraph, String seqName, String bookmarkName) {
@@ -732,6 +751,7 @@ public class WordFieldUtils {
 
     /**
      * 更新文档中的所有域
+     *
      * @param document Word文档
      */
     public static void updateAllFields(XWPFDocument document) {
@@ -746,8 +766,9 @@ public class WordFieldUtils {
 
     /**
      * 创建章节序列域（不包含书签）
-     * @param paragraph 段落
-     * @param seqName 序列名称
+     *
+     * @param paragraph     段落
+     * @param seqName       序列名称
      * @param chapterNumber 章节号
      */
     private static void createChapterSequenceFieldWithoutBookmark(XWPFParagraph paragraph, String seqName, Integer chapterNumber) {
@@ -780,8 +801,9 @@ public class WordFieldUtils {
 
     /**
      * 创建简单的SEQ域（不包含书签）
+     *
      * @param paragraph 段落
-     * @param seqName 序列名称
+     * @param seqName   序列名称
      */
     private static void createSimpleSEQFieldWithoutBookmark(XWPFParagraph paragraph, String seqName) {
         // 创建域开始
@@ -819,8 +841,9 @@ public class WordFieldUtils {
 
     /**
      * 创建序列域（不包含书签）
+     *
      * @param paragraph 段落
-     * @param seqName 序列名称
+     * @param seqName   序列名称
      */
     private static void createSequenceFieldWithoutBookmark(XWPFParagraph paragraph, String seqName) {
         createSimpleSEQFieldWithoutBookmark(paragraph, seqName);
