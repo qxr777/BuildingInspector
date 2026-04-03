@@ -107,11 +107,17 @@ public class BuildingController extends BaseController {
         List<BiTemplateObject> templates = biTemplateObjectService.selectBiTemplateObjectList(templateQuery);
         mmap.put("templates", templates);
 
-        // 获取所有可选的父桥（组合桥）
-        Building parentQuery = new Building();
-        parentQuery.setIsLeaf("0");
-        parentQuery.setStatus("0");
-        List<Building> parentBuildings = buildingService.selectBuildingList(parentQuery);
+        // 获取所有可选的父桥（组合桥 -> 0，桥幅 -> 1）
+        Building parentQuery0 = new Building();
+        parentQuery0.setIsLeaf("0");
+        parentQuery0.setStatus("0");
+        List<Building> parentBuildings = buildingService.selectBuildingList(parentQuery0);
+
+        Building parentQuery1 = new Building();
+        parentQuery1.setIsLeaf("1");
+        parentQuery1.setStatus("0");
+        parentBuildings.addAll(buildingService.selectBuildingList(parentQuery1));
+
         mmap.put("parents", parentBuildings);
 
         return prefix + "/add";
@@ -139,12 +145,18 @@ public class BuildingController extends BaseController {
         Building building = buildingService.selectBuildingWithParentInfo(id);
         mmap.put("building", building);
 
-        // 获取所有可选的父桥（组合桥）
-        Building parentQuery = new Building();
-        parentQuery.setIsLeaf("0");
-        parentQuery.setStatus("0");
-        parentQuery.setDelFlag("0");
-        List<Building> allParentBuildings = buildingService.selectBuildingList(parentQuery);
+        // 获取所有可选的父桥（组合桥 -> 0，桥幅 -> 1）
+        Building parentQuery0 = new Building();
+        parentQuery0.setIsLeaf("0");
+        parentQuery0.setStatus("0");
+        parentQuery0.setDelFlag("0");
+        List<Building> allParentBuildings = buildingService.selectBuildingList(parentQuery0);
+
+        Building parentQuery1 = new Building();
+        parentQuery1.setIsLeaf("1");
+        parentQuery1.setStatus("0");
+        parentQuery1.setDelFlag("0");
+        allParentBuildings.addAll(buildingService.selectBuildingList(parentQuery1));
 
         // 获取当前桥梁的所有子桥（如果是组合桥）
         List<Long> excludeIds = new ArrayList<>();

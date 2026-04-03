@@ -15,6 +15,13 @@
                             <input type="text" name="name"/>
                         </li>
                         <li>
+                            <label>类型：</label>
+                            <select name="isLeaf" th:with="type=${@dict.getType('bi_building_is_leaf')}">
+                                <option value="">所有</option>
+                                <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                            </select>
+                        </li>
+                        <li>
                             <label>状态：</label>
                             <select name="status" th:with="type=${@dict.getType('bi_building_status')}">
                                 <option value="">所有</option>
@@ -134,6 +141,10 @@
                     title: '管理部门'
                 },
                 {
+                    field: 'templateName',
+                    title: '桥型模板'
+                },
+                {
                     title: '操作',
                     align: 'center',
                     formatter: function(value, row, index) {
@@ -143,7 +154,7 @@
 
                         // 创建更多操作菜单
                         var more = [];
-                        if (row.isLeaf === "1") {
+                        if (row.isLeaf === "1" || row.isLeaf === "2") {
                             more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="maintainObject(\'' + row.rootObjectId + '\')"><i class="fa fa-cogs"></i>部件结构</a> ');
                         }
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="showComponentList(\'' + row.rootObjectId + '\')"><i class="fa fa-list"></i>构件列表</a> ');
@@ -192,7 +203,7 @@
 
             // 根据是否包含组合桥显示不同提示
             if (hasComposite) {
-                $.modal.confirm("确定删除所选中的" + rows.length + "条数据吗？<br><span style='color:red;font-weight:bold;'>注意：删除组合桥时将同时删除其下所有子桥及部件！</span>", function() {
+                $.modal.confirm("确定删除所选中的" + rows.length + "条数据吗？<br><span style='color:red;font-weight:bold;'>注意：删除组合桥时将同时删除其下所有子节点及部件！</span>", function() {
                     $.operate.post(table.options.removeUrl, data);
                 });
             } else {
@@ -239,14 +250,19 @@
     }
 
     function deleteBuilding(id, isLeaf, name) {
+        var typeLabel = "建筑";
+        if (isLeaf === "0") typeLabel = "组合桥";
+        else if (isLeaf === "1") typeLabel = "桥幅";
+        else if (isLeaf === "2") typeLabel = "桥跨";
+
         if (isLeaf === "0") {
             // 组合桥删除确认
-            $.modal.confirm("确定要删除组合桥 <strong>" + name + "</strong> 吗？<br><span style='color:red;font-weight:bold;'>注意：删除后将同时删除该组合桥下的所有子桥及部件！</span>", function() {
+            $.modal.confirm("确定要删除组合桥 <strong>" + name + "</strong> 吗？<br><span style='color:red;font-weight:bold;'>注意：删除后将同时删除该组合桥下的所有子桥/桥跨及部件！</span>", function() {
                 $.operate.post(prefix + "/remove", { "ids": id });
             });
         } else {
-            // 桥幅删除确认
-            $.modal.confirm("确定要删除桥幅 <strong>" + name + "</strong> 吗？<br><span style='color:red;'>删除后将同时删除相关部件数据！</span>", function() {
+            // 桥幅/桥跨删除确认
+            $.modal.confirm("确定要删除" + typeLabel + " <strong>" + name + "</strong> 吗？<br><span style='color:red;'>删除后将同时删除相关部件数据！</span>", function() {
                 $.operate.post(prefix + "/remove", { "ids": id });
             });
         }

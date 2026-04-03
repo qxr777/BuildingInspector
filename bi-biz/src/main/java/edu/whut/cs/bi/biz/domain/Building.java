@@ -32,15 +32,42 @@ public class Building extends BaseEntity {
     private String name;
 
     /**
-     * 类型（0组合桥 1桥幅）
+     * 类型（0=组合桥, 1=桥幅, 2=桥跨）
      */
-    @Excel(name = "类型", readConverterExp = "0=组合桥,1=桥幅")
+    @Excel(name = "类型", readConverterExp = "0=组合桥,1=桥幅,2=桥跨")
     private String isLeaf;
+
 
     /**
      * 模板ID
      */
     private Long templateId;
+
+    /**
+     * 桥型模板名称
+     */
+    @Excel(name = "桥型模板")
+    private String templateName;
+
+    public void setTemplateId(Long templateId) 
+    {
+        this.templateId = templateId;
+    }
+
+    public Long getTemplateId() 
+    {
+        return templateId;
+    }
+
+    public void setTemplateName(String templateName) 
+    {
+        this.templateName = templateName;
+    }
+
+    public String getTemplateName() 
+    {
+        return templateName;
+    } 
 
     /**
      * 根对象ID

@@ -26,6 +26,7 @@
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
+        <result property="templateName"  column="template_name"  />
     </resultMap>
 
     <resultMap type="ProjectBuildingVO" id="ProjectBuildingResult" extends="BuildingResult">
@@ -42,8 +43,11 @@
         select b.id, b.name,
                b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude, b.address, b.area,
                b.line, b.admin_dept, b.weight, b.video_feed, b.root_object_id, b.root_property_id,
-               b.remark, b.create_by, b.create_time, b.update_by, b.update_time
+               b.remark, b.create_by, b.create_time, b.update_by, b.update_time,
+               t.name as template_name
         from bi_building b
+        left join bi_object o on b.root_object_id = o.id
+        left join bi_template_object t on o.template_object_id = t.id
     </sql>
 
     <select id="selectBuildingList" parameterType="Building" resultMap="BuildingResult">
@@ -245,7 +249,7 @@
         from bi_building b
         where
         b.del_flag = '0'
-        and b.is_leaf = '1'
+        and b.is_leaf in ('1', '2')
         <if test="buildingSet != null">
             and b.name in
             <foreach item="name" collection="buildingSet" open="(" separator="," close=")">

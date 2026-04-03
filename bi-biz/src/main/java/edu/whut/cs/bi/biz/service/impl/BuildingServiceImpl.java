@@ -138,19 +138,19 @@ public class BuildingServiceImpl implements IBuildingService {
             
             // 设置Building的rootObjectId，避免后续更新
             building.setRootObjectId(rootObject.getId());
-        } else if ("1".equals(building.getIsLeaf())) {
-            // 桥幅：可以选择一个父桥（组合桥）或直接放在根目录，需要选择模板
+        } else if ("1".equals(building.getIsLeaf()) || "2".equals(building.getIsLeaf())) {
+             // 桥幅或桥跨：可以选择一个父桥（组合桥/桥幅）或直接放在根目录
+             Long parentRootObjectId = 0L; // 默认为根目录
+             
+             // 如果指定了父桥，则获取父桥的根节点ID
+             if (building.getParentId() != null) {
+                 Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+                 if (parentBridge != null && parentBridge.getRootObjectId() != null) {
+                     parentRootObjectId = Long.valueOf(parentBridge.getRootObjectId());
+                 }
+             }
+             
             if (building.getTemplateId() != null) {
-                Long parentRootObjectId = 0L; // 默认为根目录
-                
-                // 如果指定了父桥，则获取父桥的根节点ID
-                if (building.getParentId() != null) {
-                    Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
-                    if (parentBridge != null && parentBridge.getRootObjectId() != null) {
-                        parentRootObjectId = Long.valueOf(parentBridge.getRootObjectId());
-                    }
-                }
-                
                 // 获取模版树结构和所有子节点（一次性查询，避免多次数据库访问）
                 BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
                 if (template != null) {
@@ -165,6 +165,22 @@ public class BuildingServiceImpl implements IBuildingService {
                     log.error("未找到指定模版!");
                     throw new RuntimeException("未找到指定模版!");
                 }
+            } else {
+                // 不关联模板情况，只需创建一个空的根组件挂载即可
+                if (parentRootObjectId != 0L) {
+                    rootObject.setParentId(parentRootObjectId);
+                    BiObject parentObject = biObjectService.selectBiObjectById(parentRootObjectId);
+                    if (parentObject != null) {
+                        rootObject.setAncestors(parentObject.getAncestors() + "," + parentRootObjectId);
+                    } else {
+                        rootObject.setAncestors("0," + parentRootObjectId);
+                    }
+                } else {
+                    rootObject.setParentId(0L);
+                    rootObject.setAncestors("0");
+                }
+                biObjectService.insertBiObject(rootObject);
+                building.setRootObjectId(rootObject.getId());
             }
         }
         
