@@ -109,4 +109,23 @@ public class ApiControllerV2 {
         }
         return AjaxResult.error("该建筑物暂未生成数据包");
     }
+
+    /**
+     * 生成通用基础 SQLite 离线包 (包含模板、病害类型、标度等)
+     */
+    @PostMapping("/common/sqlite")
+    @ResponseBody
+    @ApiOperation("获取/生成通用基础SQLite")
+    public AjaxResult generateCommonSqlite() {
+        try {
+            SqliteVo sqliteInfo = sqliteService.generateCommonBaseSqlite();
+            if (sqliteInfo == null) {
+                return AjaxResult.error("通用基础 SQLite 生成失败");
+            }
+            return AjaxResult.success("获取成功", sqliteInfo);
+        } catch (Exception e) {
+            log.error("获取通用基础 SQLite 文件失败", e);
+            return AjaxResult.error("生成基础数据包失败：" + e.getMessage());
+        }
+    }
 }

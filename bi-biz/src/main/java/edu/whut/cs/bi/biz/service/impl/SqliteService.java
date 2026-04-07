@@ -56,6 +56,14 @@ public class SqliteService {
     private FileMapMapper fileMapMapper;
     @Resource
     private UserSqliteMapper userSqliteMapper;
+    @Resource
+    private BiTemplateObjectMapper biTemplateObjectMapper;
+    @Resource
+    private TODiseaseTypeMapper toDiseaseTypeMapper;
+    @Resource
+    private DiseaseTypeMapper diseaseTypeMapper;
+    @Resource
+    private DiseaseScaleMapper diseaseScaleMapper;
 
     @Autowired
     private MinioClient minioClient;
@@ -137,6 +145,27 @@ public class SqliteService {
         return getVoFromFileMapId(us.getMinioId(), us.getPackageSize());
     }
 
+    /**
+     * 生成通用基础核心数据 SQLite (模板、病害类型、标度)
+     */
+    public SqliteVo generateCommonBaseSqlite() {
+        log.info("[SQLite] 开始生成通用基础核心表 SQLite");
+        File sqliteFile = null;
+        try {
+            sqliteFile = doGenerateCommonBaseSqlite();
+            if (sqliteFile != null && sqliteFile.exists()) {
+                String fileMapId = uploadToMinio(sqliteFile, "common_base.db");
+                log.info("[SQLite] 通用基础核心包上传成功");
+                return getVoFromFileMapId(Long.valueOf(fileMapId), sqliteFile.length() / 1024 + " KB");
+            }
+        } catch (Exception e) {
+            log.error("[SQLite] 通用基础核心包生成失败", e);
+        } finally {
+            cleanupTempFile(sqliteFile);
+        }
+        return null;
+    }
+
 
     private SqliteVo getVoFromFileMapId(Long fileMapId, String size) {
         FileMap fm = fileMapMapper.selectFileMapById(fileMapId);
@@ -177,7 +206,7 @@ public class SqliteService {
 
     private File doGenerateUserSqlite(Long userId) throws Exception {
         // 1. 获取关联项目
-        List<Project> projects = projectMapper.selectProjectList(null, userId, null);
+        List<Project> projects = projectMapper.selectProjectList(new Project(), userId, null);
         if (projects.isEmpty()) return null;
 
         List<Long> pIds = projects.stream().map(Project::getId).collect(Collectors.toList());
@@ -211,6 +240,25 @@ public class SqliteService {
         try (Connection conn = connect(tempFile)) {
             createTables(conn, "bi_object", "bi_component", "bi_attachment", "bi_disease", "bi_disease_detail", "bi_file_map");
             exportInspectionData(conn, Collections.singletonList(buildingId));
+            conn.commit();
+        }
+        return tempFile;
+    }
+
+    private File doGenerateCommonBaseSqlite() throws Exception {
+        // 1. 获取全量基础数据
+        List<BiTemplateObject> templateObjects = biTemplateObjectMapper.selectBiTemplateObjectList(new BiTemplateObject());
+        List<Map<String, Object>> toMappings = toDiseaseTypeMapper.selectAllTemplateObjectDiseaseTypeMappings();
+        List<DiseaseType> diseaseTypes = diseaseTypeMapper.selectDiseaseTypeList(new DiseaseType());
+        List<DiseaseScale> diseaseScales = diseaseScaleMapper.selectDiseaseScaleList(new DiseaseScale());
+
+        File tempFile = File.createTempFile("common_base_", ".db");
+        try (Connection conn = connect(tempFile)) {
+            createTables(conn, "bi_template_object", "bi_template_object_disease_type", "bi_disease_type", "bi_disease_scale");
+            insertTemplateObjects(conn, templateObjects);
+            insertTODiseaseTypeMappings(conn, toMappings);
+            insertDiseaseTypes(conn, diseaseTypes);
+            insertDiseaseScales(conn, diseaseScales);
             conn.commit();
         }
         return tempFile;
@@ -331,9 +379,13 @@ public class SqliteService {
             if (set.contains("bi_object")) s.execute("CREATE TABLE IF NOT EXISTS bi_object (id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT, ancestors TEXT, status TEXT, del_flag TEXT, longitude REAL, latitude REAL, altitude REAL, position TEXT, area TEXT, admin_dept TEXT, weight REAL, standard_weight REAL, video_feed TEXT, props TEXT, template_object_id INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
             if (set.contains("bi_component")) s.execute("CREATE TABLE IF NOT EXISTS bi_component (id INTEGER PRIMARY KEY, bi_object_id INTEGER, name TEXT, code TEXT, status TEXT, del_flag TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
             if (set.contains("bi_disease")) s.execute("CREATE TABLE IF NOT EXISTS bi_disease (id INTEGER PRIMARY KEY, position TEXT, position_number TEXT, type TEXT, disease_type_id INTEGER, description TEXT, level TEXT, quantity TEXT, units TEXT, nature TEXT, participate_assess TEXT, deduct_points INTEGER, img_no_exp TEXT, project_id INTEGER, bi_object_id INTEGER, bi_object_name TEXT, building_id INTEGER, component_id INTEGER, commit_type TEXT, local_id TEXT, remark TEXT, cause TEXT, repair_recommendation TEXT, crack_type TEXT, development_trend TEXT, detection_method TEXT, attachment_count INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, task_id INTEGER)");
-            if (set.contains("bi_disease_detail")) s.execute("CREATE TABLE IF NOT EXISTS bi_disease_detail (id INTEGER PRIMARY KEY, disease_id INTEGER, reference1_location TEXT, reference1_location_start REAL, reference1_location_end REAL, reference2_location TEXT, reference2_location_start REAL, reference2_location_end REAL, length1 REAL, length2 REAL, length3 REAL, width REAL, height_depth REAL, crack_width REAL, area_length REAL, area_width REAL, area_identifier INTEGER, deformation REAL, angle INTEGER, numerator_ratio INTEGER, denominator_ratio INTEGER, length_range_start REAL, length_range_end REAL, width_range_start REAL, width_range_end REAL, height_depth_range_start REAL, height_depth_range_end REAL, crack_width_range_start REAL, crack_width_range_end REAL, area_range_start REAL, area_range_end REAL, deformation_range_start REAL, deformation_range_end REAL, angle_range_start REAL, angle_range_end REAL, other TEXT)");
-            if (set.contains("bi_attachment")) s.execute("CREATE TABLE IF NOT EXISTS bi_attachment (id INTEGER PRIMARY KEY, name TEXT, subject_id INTEGER, type INTEGER, minio_id INTEGER, thumb_minio_id INTEGER)");
             if (set.contains("bi_file_map")) s.execute("CREATE TABLE IF NOT EXISTS bi_file_map (id INTEGER PRIMARY KEY, old_name TEXT, new_name TEXT, create_time TEXT, update_time TEXT, create_by TEXT, file_type TEXT, url TEXT, attachment_remark TEXT, subject_id INTEGER)");
+            
+            // 基础模板表
+            if (set.contains("bi_template_object")) s.execute("CREATE TABLE IF NOT EXISTS bi_template_object (id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT, ancestors TEXT, status TEXT, del_flag TEXT, weight REAL, props TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_template_object_disease_type")) s.execute("CREATE TABLE IF NOT EXISTS bi_template_object_disease_type (template_object_id INTEGER, disease_type_id INTEGER, PRIMARY KEY(template_object_id, disease_type_id))");
+            if (set.contains("bi_disease_type")) s.execute("CREATE TABLE IF NOT EXISTS bi_disease_type (id INTEGER PRIMARY KEY, code TEXT, name TEXT, max_scale INTEGER, min_scale INTEGER, status TEXT, threshold INTEGER, group_name TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_disease_scale")) s.execute("CREATE TABLE IF NOT EXISTS bi_disease_scale (id INTEGER PRIMARY KEY, type_code TEXT, scale INTEGER, qualitative_description TEXT, quantitative_description TEXT, status TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
         }
     }
 
@@ -580,6 +632,93 @@ public class SqliteService {
                 ps.addBatch();
             }
             ps.executeBatch();
+        }
+    }
+
+    private void insertTemplateObjects(Connection conn, List<BiTemplateObject> objects) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_template_object (id, parent_id, name, ancestors, status, del_flag, weight, props, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (BiTemplateObject o : objects) {
+                ps.setLong(1, o.getId());
+                setLongOrNull(ps, 2, o.getParentId());
+                ps.setString(3, o.getName());
+                ps.setString(4, o.getAncestors());
+                ps.setString(5, o.getStatus());
+                ps.setString(6, o.getDelFlag());
+                setDecimalOrNull(ps, 7, o.getWeight());
+                ps.setString(8, o.getProps());
+                ps.setString(9, o.getCreateBy());
+                ps.setString(10, dateToStr(o.getCreateTime()));
+                ps.setString(11, tToUpdateBy(o));
+                ps.setString(12, dateToStr(o.getUpdateTime()));
+                ps.setString(13, o.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertTODiseaseTypeMappings(Connection conn, List<Map<String, Object>> mappings) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_template_object_disease_type (template_object_id, disease_type_id) VALUES (?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (Map<String, Object> m : mappings) {
+                ps.setObject(1, m.get("template_object_id"));
+                ps.setObject(2, m.get("disease_type_id"));
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertDiseaseTypes(Connection conn, List<DiseaseType> types) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_disease_type (id, code, name, max_scale, min_scale, status, threshold, group_name, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (DiseaseType t : types) {
+                ps.setLong(1, t.getId());
+                ps.setString(2, t.getCode());
+                ps.setString(3, t.getName());
+                setIntOrNull(ps, 4, t.getMaxScale());
+                setIntOrNull(ps, 5, t.getMinScale());
+                ps.setString(6, t.getStatus());
+                setIntOrNull(ps, 7, t.getThreshold());
+                ps.setString(8, t.getGroupName());
+                ps.setString(9, t.getCreateBy());
+                ps.setString(10, dateToStr(t.getCreateTime()));
+                ps.setString(11, t.getUpdateBy());
+                ps.setString(12, dateToStr(t.getUpdateTime()));
+                ps.setString(13, t.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertDiseaseScales(Connection conn, List<DiseaseScale> scales) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_disease_scale (id, type_code, scale, qualitative_description, quantitative_description, status, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (DiseaseScale s : scales) {
+                ps.setLong(1, s.getId());
+                ps.setString(2, s.getTypeCode());
+                setIntOrNull(ps, 3, s.getScale());
+                ps.setString(4, s.getQualitativeDescription());
+                ps.setString(5, s.getQuantitativeDescription());
+                ps.setString(6, s.getStatus());
+                ps.setString(7, s.getCreateBy());
+                ps.setString(8, dateToStr(s.getCreateTime()));
+                ps.setString(9, s.getUpdateBy());
+                ps.setString(10, dateToStr(s.getUpdateTime()));
+                ps.setString(11, s.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private String tToUpdateBy(BiTemplateObject o) {
+        try {
+            return o.getUpdateBy();
+        } catch (Error | Exception e) {
+            return null;
         }
     }
 

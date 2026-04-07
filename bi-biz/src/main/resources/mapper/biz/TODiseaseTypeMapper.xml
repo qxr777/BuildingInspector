@@ -58,6 +58,11 @@
         </foreach>
     </select>
 
+    <select id="selectAllTemplateObjectDiseaseTypeMappings" resultType="java.util.HashMap">
+        select template_object_id, disease_type_id
+        from bi_template_object_disease_type
+    </select>
+
     <select id="selectTemplateObjectDiseaseTypeMappings" resultType="java.util.HashMap">
         select template_object_id, disease_type_id
         from bi_template_object_disease_type
