@@ -209,4 +209,14 @@
         </foreach>
     </select>
 
+    <!-- 根据 bi_object_id 列表批量查询构件 -->
+    <select id="selectComponentsByBiObjectIds" resultMap="ComponentResult">
+        <include refid="selectComponentVo"/>
+        where c.del_flag = '0'
+        and c.bi_object_id in
+        <foreach collection="biObjectIds" item="biObjectId" open="(" separator="," close=")">
+            #{biObjectId}
+        </foreach>
+    </select>
+
 </mapper>

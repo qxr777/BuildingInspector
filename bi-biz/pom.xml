@@ -136,6 +136,13 @@
             <artifactId>thumbnailator</artifactId>
             <version>0.4.20</version> <!-- 最新版本可到 Maven 中央仓库查询 -->
         </dependency>
+
+        <!-- SQLite JDBC：用于生成项目级 SQLite 数据库文件 -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.45.1.0</version>
+        </dependency>
     </dependencies>
 
 

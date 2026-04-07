@@ -46,3 +46,5 @@ nbdist/
 !*/build/*.html
 !*/build/*.xml
 docker/data/
+.vscode/launch.json
+.vscode/settings.json

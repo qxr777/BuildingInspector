@@ -122,4 +122,12 @@ public interface DiseaseMapper {
     List<Disease> selectDiseasesByTimeRange(@Param("startTime") String startTime,
                                             @Param("endTime") String endTime);
 
+    /**
+     * 根据 building_id 列表批量查询病害（仅基础字段，不 JOIN disease_type）
+     *
+     * @param buildingIds 建筑 ID 列表
+     * @return 病害列表
+     */
+    List<Disease> selectDiseasesByBuildingIds(@Param("buildingIds") List<Long> buildingIds);
+
 }

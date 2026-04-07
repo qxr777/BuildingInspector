@@ -88,4 +88,7 @@ public class Project extends BaseEntity {
 
     // 父级部门id
     private Long parentDeptId;
+
+    // SQLite 数据库文件在 file_map 中的 ID
+    private Long sqliteMinioId;
 }

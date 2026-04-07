@@ -21,6 +21,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
+        <result property="sqliteMinioId"    column="sqlite_minio_id"    />
     </resultMap>
 
     <sql id="selectProjectVo">
@@ -39,7 +40,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                create_by,
                create_time,
                update_by,
-               update_time
+               update_time,
+               sqlite_minio_id
         from bi_project
     </sql>
 
@@ -155,6 +157,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="sqliteMinioId != null">sqlite_minio_id = #{sqliteMinioId},</if>
         </trim>
         where id = #{id} and del_flag = '0'
     </update>

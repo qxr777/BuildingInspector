@@ -94,4 +94,12 @@ public interface BuildingMapper {
      * 根据名称查询建筑信息
      */
     List<Building> selectBuildingByNames(@Param("buildingSet") Set<String> buildingSet);
+
+    /**
+     * 根据 ID 列表批量查询建筑
+     *
+     * @param ids 建筑 ID 列表
+     * @return 建筑列表
+     */
+    List<Building> selectBuildingsByIds(@Param("ids") List<Long> ids);
 }

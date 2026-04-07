@@ -28,6 +28,8 @@ import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
+import edu.whut.cs.bi.biz.service.impl.ProjectSqliteService;
+import edu.whut.cs.bi.biz.domain.vo.ProjectSqliteVo;
 import edu.whut.cs.bi.biz.service.impl.ReadFileServiceImpl;
 import edu.whut.cs.bi.biz.utils.ThumbPhotoUtils;
 import io.minio.GetObjectArgs;
@@ -98,6 +100,12 @@ public class ApiController {
 
     @Autowired
     private FileMapServiceImpl fileMapServiceImpl;
+
+    @Autowired
+    private ProjectSqliteService projectSqliteService;
+
+    // ... 省略其他不变的属性及初始部分，将新增的 @GetMapping 加到合适的地方（例如类声明最前面或者靠近其他 project 相关接口）
+
 
     @Autowired
     private MinioConfig minioConfig;
@@ -204,6 +212,27 @@ public class ApiController {
             return AjaxResult.success("ObjectTree success", jsonObject);
         } catch (Exception e) {
             return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取项目关联的离线 SQLite 数据库文件下载地址
+     *
+     * @param projectId 项目 ID
+     * @return 返回 MinIO 下载地址
+     */
+    @GetMapping("/project/{id}/sqlite")
+    @ResponseBody
+    public AjaxResult getProjectSqliteUrl(@PathVariable("id") Long projectId) {
+        try {
+            ProjectSqliteVo sqliteInfo = projectSqliteService.getSqliteDownloadUrl(projectId);
+            if (sqliteInfo == null) {
+                return AjaxResult.error("SQLite 文件未生成或不存在，请稍候再试");
+            }
+            return AjaxResult.success("获取成功", sqliteInfo);
+        } catch (Exception e) {
+            log.error("获取项目 SQLite 文件失败, projectId: {}", projectId, e);
+            return AjaxResult.error("获取 SQLite 文件失败: " + e.getMessage());
         }
     }
 

@@ -63,6 +63,9 @@ public class ProjectServiceImpl implements IProjectService {
     @Resource
     private PackageMapper packageMapper;
 
+    @Resource
+    private ProjectSqliteService projectSqliteService;
+
 
     /**
      * 查询项目
@@ -169,7 +172,14 @@ public class ProjectServiceImpl implements IProjectService {
             });
         }
 
-        return projectMapper.updateProject(project);
+        int result = projectMapper.updateProject(project);
+        
+        // 触发 SQLite 生成
+        if (project.getId() != null) {
+            projectSqliteService.generateSqliteAsync(project.getId());
+        }
+        
+        return result;
     }
 
     /**
@@ -429,6 +439,10 @@ public class ProjectServiceImpl implements IProjectService {
         }
 
         projectMapper.updateProjectTimeByProjectId(projectId);
+        
+        // 触发 SQLite 生成
+        projectSqliteService.generateSqliteAsync(projectId);
+        
         return save;
     }
 

@@ -133,4 +133,12 @@ public interface ComponentMapper {
      */
     public List<Component> selectComponentsByIds(List<Long> ids);
 
+    /**
+     * 根据 bi_object_id 列表批量查询构件
+     *
+     * @param biObjectIds bi_object ID 列表
+     * @return 构件列表
+     */
+    List<Component> selectComponentsByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds);
+
 }
