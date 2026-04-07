@@ -6,6 +6,7 @@ import java.util.List;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import org.springframework.web.multipart.MultipartFile;
+import com.ruoyi.common.core.domain.AjaxResult;
 
 /**
  * 建筑Service接口
@@ -104,4 +105,28 @@ public interface IBuildingService {
     public void readBuildingExcel(MultipartFile file, Long projectId);
     
     Building getUniqueBuilding(String bridgeName, String lineCode, String zipCode);
+
+    /**
+     * 根据建筑Id，将所有关联病害的附件打包成zip并上传至minio
+     *
+     * @param buildingId 建筑物ID
+     * @return 结果
+     */
+    AjaxResult generateBuildingPackage(Long buildingId);
+
+    /**
+     * 查询建筑物病害离线包
+     *
+     * @param id 建筑物病害离线包主键
+     * @return 建筑物病害离线包
+     */
+    public edu.whut.cs.bi.biz.domain.BuildingPackage selectBuildingPackageById(Long id);
+
+    /**
+     * 查询建筑物病害离线包列表
+     *
+     * @param buildingPackage 建筑物病害离线包
+     * @return 建筑物病害离线包集合
+     */
+    public List<edu.whut.cs.bi.biz.domain.BuildingPackage> selectBuildingPackageList(edu.whut.cs.bi.biz.domain.BuildingPackage buildingPackage);
 }

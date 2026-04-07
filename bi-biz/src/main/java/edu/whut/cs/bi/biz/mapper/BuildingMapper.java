@@ -102,4 +102,12 @@ public interface BuildingMapper {
      * @return 建筑列表
      */
     List<Building> selectBuildingsByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 校验建筑名称唯一性（精确匹配）
+     *
+     * @param building 建筑信息
+     * @return 匹配的建筑列表
+     */
+    public List<Building> checkBuildingUnique(Building building);
 }

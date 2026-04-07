@@ -204,9 +204,31 @@ public class ProjectSqliteService {
                 : diseaseDetailMapper.selectDiseaseDetailsByDiseaseIds(diseaseIds);
 
         // 获取 Attachment（通过 disease subjectId）
-        List<Attachment> attachments = diseaseIds.isEmpty()
+        List<Attachment> diseaseAttachments = diseaseIds.isEmpty()
                 ? Collections.emptyList()
                 : attachmentService.getAttachmentBySubjectIds(diseaseIds);
+
+        // 获取桥梁附件（通过 buildingIds，且 type = 6）
+        List<Attachment> buildingAttachments = buildingIds.isEmpty()
+                ? Collections.emptyList()
+                : attachmentService.getAttachmentBySubjectIds(buildingIds).stream()
+                    .filter(a -> Integer.valueOf(6).equals(a.getType()))
+                    .collect(Collectors.toList());
+
+        // 合并附件
+        List<Attachment> allAttachments = new ArrayList<>();
+        allAttachments.addAll(diseaseAttachments);
+        allAttachments.addAll(buildingAttachments);
+
+        // 获取 FileMap（通过 Attachment 的 minioId）
+        List<Long> minioIds = allAttachments.stream()
+                .map(Attachment::getMinioId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        List<FileMap> fileMaps = minioIds.isEmpty()
+                ? Collections.emptyList()
+                : fileMapMapper.selectFileMapByIds(minioIds);
 
         // 2. 创建 SQLite 文件并写入数据
         File tempFile = File.createTempFile("project_" + projectId + "_", ".db");
@@ -228,15 +250,16 @@ public class ProjectSqliteService {
             insertComponents(conn, components);
             insertDiseases(conn, diseases);
             insertDiseaseDetails(conn, diseaseDetails);
-            insertAttachments(conn, attachments);
+            insertAttachments(conn, allAttachments);
+            insertFileMaps(conn, fileMaps);
 
             conn.commit();
         }
 
         log.info("[SQLite] 项目 {} 数据写入完成: tasks={}, buildings={}, objects={}, " +
-                        "components={}, diseases={}, details={}, attachments={}",
+                        "components={}, diseases={}, details={}, attachments={}, fileMaps={}",
                 projectId, tasks.size(), buildings.size(), allBiObjects.size(),
-                components.size(), diseases.size(), diseaseDetails.size(), attachments.size());
+                components.size(), diseases.size(), diseaseDetails.size(), allAttachments.size(), fileMaps.size());
 
         return tempFile;
     }
@@ -439,6 +462,19 @@ public class ProjectSqliteService {
                     "type INTEGER, " +
                     "minio_id INTEGER, " +
                     "thumb_minio_id INTEGER)");
+
+            // bi_file_map
+            stmt.execute("CREATE TABLE IF NOT EXISTS bi_file_map (" +
+                    "id INTEGER PRIMARY KEY, " +
+                    "old_name TEXT, " +
+                    "new_name TEXT, " +
+                    "create_time TEXT, " +
+                    "update_time TEXT, " +
+                    "create_by TEXT, " +
+                    "file_type TEXT, " +
+                    "url TEXT, " +
+                    "attachment_remark TEXT, " +
+                    "subject_id INTEGER)");
         }
     }
 
@@ -647,6 +683,26 @@ public class ProjectSqliteService {
                 setIntOrNull(ps, 4, a.getType());
                 setLongOrNull(ps, 5, a.getMinioId());
                 setLongOrNull(ps, 6, a.getThumbMinioId());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertFileMaps(Connection conn, List<FileMap> fileMaps) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_file_map (id, old_name, new_name, create_time, update_time, create_by, file_type, url, attachment_remark, subject_id) VALUES (?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (FileMap f : fileMaps) {
+                ps.setInt(1, f.getId());
+                ps.setString(2, f.getOldName());
+                ps.setString(3, f.getNewName());
+                ps.setString(4, dateToStr(f.getCreateTime()));
+                ps.setString(5, dateToStr(f.getUpdateTime()));
+                ps.setString(6, f.getCreateBy());
+                ps.setString(7, f.getFileType());
+                ps.setString(8, f.getUrl());
+                ps.setString(9, f.getAttachmentRemark());
+                setLongOrNull(ps, 10, f.getSubjectId());
                 ps.addBatch();
             }
             ps.executeBatch();

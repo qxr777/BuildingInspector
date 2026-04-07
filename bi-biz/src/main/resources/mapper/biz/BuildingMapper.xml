@@ -271,4 +271,20 @@
             #{id}
         </foreach>
     </select>
+
+    <!-- 校验建筑唯一性（精确匹配） -->
+    <select id="checkBuildingUnique" parameterType="Building" resultMap="BuildingWithParentResult">
+        SELECT b.id, b.name, b.area, b.line, pb.id as parent_id
+        FROM bi_building b
+        LEFT JOIN bi_object o ON b.root_object_id = o.id
+        LEFT JOIN bi_building pb ON pb.root_object_id = o.parent_id
+        <where>
+            b.del_flag = '0'
+            <if test="name != null and name != ''"> AND b.name = #{name} </if>
+            <if test="area != null and area != ''"> AND b.area = #{area} </if>
+            <if test="line != null and line != ''"> AND b.line = #{line} </if>
+            <if test="parentId != null"> AND pb.id = #{parentId} </if>
+            <if test="parentId == null"> AND o.parent_id = 0 </if>
+        </where>
+    </select>
 </mapper>

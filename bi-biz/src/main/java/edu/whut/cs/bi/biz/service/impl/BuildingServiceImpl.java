@@ -31,8 +31,26 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import com.ruoyi.common.core.domain.AjaxResult;
+import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.mapper.BuildingPackageMapper;
+import edu.whut.cs.bi.biz.service.AttachmentService;
+import edu.whut.cs.bi.biz.service.IDiseaseService;
+import edu.whut.cs.bi.biz.service.IFileMapService;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
 
+import java.util.stream.Collectors;
 /**
  * 建筑Service业务层处理
  *
@@ -56,7 +74,24 @@ public class BuildingServiceImpl implements IBuildingService {
     @Autowired
     private SysDictDataMapper sysDictDataMapper;
     
-    
+    @Autowired
+    private IDiseaseService diseaseService;
+
+    @Autowired
+    private AttachmentService attachmentService;
+
+    @Autowired
+    private IFileMapService fileMapServiceImpl;
+
+    @Autowired
+    private MinioClient minioClient;
+
+    @Autowired
+    private MinioConfig minioConfig;
+
+    @Autowired
+    private BuildingPackageMapper buildingPackageMapper;
+
     /**
      * 查询建筑
      *
@@ -88,16 +123,8 @@ public class BuildingServiceImpl implements IBuildingService {
     @Override
     @Transactional
     public int insertBuilding(Building building) {
-        // 先校验是否已经存在
-        Building query = new Building();
-        query.setName(building.getName());
-        query.setArea(building.getArea());
-        query.setLine(building.getLine());
-        List<Building> buildings = this.selectBuildingList(query);
-        if (CollUtil.isNotEmpty(buildings)) {
-            log.error("该片区线路桥梁已存在");
-            throw new RuntimeException("该片区线路桥梁已存在");
-        }
+        // 1. 唯一性校验
+        checkBuildingUnique(building);
 
         building.setCreateTime(DateUtils.getNowDate());
         
@@ -197,17 +224,8 @@ public class BuildingServiceImpl implements IBuildingService {
     @Override
     @Transactional
     public int updateBuilding(Building building) {
-        // 先校验是否已经存在
-        Building query = new Building();
-        query.setName(building.getName());
-        query.setArea(building.getArea());
-        query.setLine(building.getLine());
-        List<Building> buildings = this.selectBuildingList(query);
-        List<Long> queryIds = buildings.stream().map(Building::getId).filter(id -> !id.equals(building.getId())).toList();
-        if (CollUtil.isNotEmpty(queryIds)) {
-            log.error("该片区线路桥梁已存在");
-            throw new RuntimeException("该片区线路桥梁已存在");
-        }
+        // 1. 唯一性校验
+        checkBuildingUnique(building);
 
         building.setUpdateTime(DateUtils.getNowDate());
         building.setUpdateBy(ShiroUtils.getLoginName());
@@ -924,5 +942,248 @@ public class BuildingServiceImpl implements IBuildingService {
 
         return list.get(0);
     }
-}
+    /**
+     * 根据建筑Id，将所有关联病害的附件打包成zip并上传至minio
+     *
+     * @param buildingId 建筑物ID
+     * @return 结果
+     */
+    @Override
+    public AjaxResult generateBuildingPackage(Long buildingId) {
+        File tempFile = null;
+        try {
+            Building building = selectBuildingById(buildingId);
+            if (building == null) {
+                return AjaxResult.error("建筑物不存在");
+            }
 
+            // 创建日期格式化对象，用于生成文件夹名称
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+            String dateStr = dateFormat.format(new Date());
+
+            String rootDirName = "Building-" + buildingId + "-Diseases-" + dateStr;
+            String zipFileName = rootDirName + ".zip";
+
+            // 创建临时文件直接写入ZIP数据
+            tempFile = File.createTempFile("building_disease_package_", ".zip");
+            String zipSize;
+
+            try (FileOutputStream fos = new FileOutputStream(tempFile);
+                 ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+
+                // 收集所有关联的 ID (建筑物 ID + 病害 ID)
+                List<Long> subjectIds = new ArrayList<>();
+                subjectIds.add(buildingId);
+
+                // 1. 获取所有的病害 ID
+                Disease diseaseQuery = new Disease();
+                diseaseQuery.setBuildingId(buildingId);
+                List<Disease> diseases = diseaseService.selectDiseaseList(diseaseQuery);
+                if (diseases != null) {
+                    for (Disease d : diseases) {
+                        subjectIds.add(d.getId());
+                    }
+                }
+
+                // 2. 添加所有关联 ID 的附件到 ZIP
+                addBuildingAttachments(zipOut, subjectIds);
+
+                zipOut.close();
+                long length = tempFile.length();
+                double sizeInMB = length / 1024.0 / 1024.0;
+                DecimalFormat df = new DecimalFormat("#.###");
+                zipSize = df.format(sizeInMB) + "MB";
+                log.info("建筑物附件ZIP文件生成完成，大小: {}", zipSize);
+            }
+
+            // 获取当前登录用户名，如果获取失败则默认"system"
+            String currentLoginName;
+            try {
+                currentLoginName = com.ruoyi.common.utils.ShiroUtils.getLoginName();
+            } catch (Exception e) {
+                currentLoginName = "system";
+            }
+
+            try {
+                FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, currentLoginName);
+                
+                // 检查是否已存在记录，实现“每个Building仅有一条记录，新打包则更新”的逻辑
+                edu.whut.cs.bi.biz.domain.BuildingPackage query = new edu.whut.cs.bi.biz.domain.BuildingPackage();
+                query.setBuildingId(buildingId);
+                List<edu.whut.cs.bi.biz.domain.BuildingPackage> existingPackages = buildingPackageMapper.selectBuildingPackageList(query);
+                
+                if (existingPackages != null && !existingPackages.isEmpty()) {
+                    // 更新现有记录
+                    edu.whut.cs.bi.biz.domain.BuildingPackage buildingPackage = existingPackages.get(0);
+                    buildingPackage.setMinioId(Long.valueOf(fileMap.getId()));
+                    buildingPackage.setUpdateTime(new Date());
+                    buildingPackage.setPackageSize(zipSize);
+                    buildingPackageMapper.updateBuildingPackage(buildingPackage);
+                } else {
+                    // 新增记录
+                    edu.whut.cs.bi.biz.domain.BuildingPackage buildingPackage = new edu.whut.cs.bi.biz.domain.BuildingPackage();
+                    buildingPackage.setBuildingId(buildingId);
+                    buildingPackage.setMinioId(Long.valueOf(fileMap.getId()));
+                    buildingPackage.setPackageTime(new Date());
+                    buildingPackage.setUpdateTime(new Date());
+                    buildingPackage.setPackageSize(zipSize);
+                    buildingPackageMapper.insertBuildingPackage(buildingPackage);
+                }
+
+                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size", zipSize);
+            } catch (Exception e) {
+                log.error("上传建筑物病害附件包到MinIO失败", e);
+                return AjaxResult.error("上传建筑物病害附件包到MinIO失败");
+            }
+
+        } catch (Exception e) {
+            log.error("生成建筑物病害附件包失败", e);
+            return AjaxResult.error("生成建筑物病害附件包失败");
+        } finally {
+            if (tempFile != null && tempFile.exists()) {
+                boolean deleted = tempFile.delete();
+                if (!deleted) {
+                    log.warn("临时文件删除失败: {}", tempFile.getAbsolutePath());
+                }
+            }
+        }
+    }
+
+    /**
+     * 添加建筑物及其关联病害的附件
+     */
+    private void addBuildingAttachments(ZipOutputStream zipOut, List<Long> subjectIds) {
+        if (subjectIds == null || subjectIds.isEmpty()) {
+            return;
+        }
+        try {
+            // 批量获取所有附件
+            List<Attachment> attachments = attachmentService.getAttachmentBySubjectIds(subjectIds);
+            if (attachments == null || attachments.isEmpty()) {
+                return;
+            }
+
+            // 收集所有 MinioId，进行批量查询
+            List<Long> minioIds = attachments.stream()
+                    .map(Attachment::getMinioId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (minioIds.isEmpty()) {
+                return;
+            }
+
+            // 批量查询 FileMap
+            List<FileMap> fileMaps = fileMapServiceImpl.selectFileMapByIds(minioIds);
+            Map<Long, FileMap> fileMapMap = fileMaps.stream()
+                    .collect(Collectors.toMap(fileMap -> Long.valueOf(fileMap.getId()), fileMap -> fileMap, (v1, v2) -> v1));
+
+            // 流式读取并直接写入ZIP
+            for (Attachment attachment : attachments) {
+                try {
+                    // 获取FileMap
+                    FileMap fileMap = fileMapMap.get(attachment.getMinioId());
+                    if (fileMap == null) {
+                        continue;
+                    }
+
+                    String newName = fileMap.getNewName();
+                    if (com.ruoyi.common.utils.StringUtils.isEmpty(newName)) {
+                        continue;
+                    }
+
+                    // 创建ZIP条目：扁平化结构，直接使用 newName
+                    ZipEntry entry = new ZipEntry(newName);
+                    zipOut.putNextEntry(entry);
+
+                    // 流式从MinIO读取并直接写入ZIP
+                    try (InputStream imageStream = minioClient.getObject(GetObjectArgs.builder()
+                            .bucket(minioConfig.getBucketName())
+                            .object(newName.substring(0, 2) + "/" + newName)
+                            .build())) {
+
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = imageStream.read(buffer)) != -1) {
+                            zipOut.write(buffer, 0, bytesRead);
+                        }
+                    }
+
+                    zipOut.closeEntry();
+                } catch (Exception e) {
+                    log.error("添加附件到ZIP失败, attachmentId: {}", attachment.getId(), e);
+                }
+            }
+        } catch (Exception e) {
+            log.error("添加附件过程发生错误", e);
+        }
+    }
+
+    /**
+     * 查询建筑物病害离线包
+     *
+     * @param id 建筑物病害离线包主键
+     * @return 建筑物病害离线包
+     */
+    @Override
+    public edu.whut.cs.bi.biz.domain.BuildingPackage selectBuildingPackageById(Long id)
+    {
+        edu.whut.cs.bi.biz.domain.BuildingPackage bp = buildingPackageMapper.selectBuildingPackageById(id);
+        if (bp != null && bp.getNewName() != null) {
+            String prefix = bp.getNewName().substring(0, 2);
+            bp.setUrl(minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + prefix + "/" + bp.getNewName());
+        }
+        return bp;
+    }
+
+    /**
+     * 查询建筑物病害离线包列表
+     *
+     * @param buildingPackage 建筑物病害离线包
+     * @return 建筑物病害离线包
+     */
+    @Override
+    public List<edu.whut.cs.bi.biz.domain.BuildingPackage> selectBuildingPackageList(edu.whut.cs.bi.biz.domain.BuildingPackage buildingPackage)
+    {
+        List<edu.whut.cs.bi.biz.domain.BuildingPackage> list = buildingPackageMapper.selectBuildingPackageList(buildingPackage);
+        for (edu.whut.cs.bi.biz.domain.BuildingPackage bp : list) {
+            if (bp.getNewName() != null) {
+                String prefix = bp.getNewName().substring(0, 2);
+                bp.setUrl(minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + prefix + "/" + bp.getNewName());
+            }
+        }
+        return list;
+    }
+
+    /**
+     * 校验建筑唯一性（精确匹配）
+     */
+    private void checkBuildingUnique(Building building) {
+        Building query = new Building();
+        query.setName(building.getName());
+
+        // 根据类型决定校验范围
+        if ("0".equals(building.getIsLeaf())) {
+            // 组合桥：在片区+线路范围内名称唯一
+            query.setArea(building.getArea());
+            query.setLine(building.getLine());
+        } else {
+            // 桥幅/桥跨：在父节点范围内名称唯一
+            query.setParentId(building.getParentId());
+        }
+
+        List<Building> buildings = buildingMapper.checkBuildingUnique(query);
+
+        // 若为更新操作，排除当前 ID
+        if (building.getId() != null) {
+            buildings = buildings.stream()
+                .filter(b -> !b.getId().equals(building.getId()))
+                .collect(Collectors.toList());
+        }
+
+        if (CollUtil.isNotEmpty(buildings)) {
+            log.error("该片区线路桥梁已存在: {}", building.getName());
+            throw new RuntimeException("该片区线路桥梁已存在");
+        }
+    }
+}

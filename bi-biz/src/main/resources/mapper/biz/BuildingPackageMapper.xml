@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BuildingPackageMapper">
+
+    <resultMap type="edu.whut.cs.bi.biz.domain.BuildingPackage" id="BuildingPackageResult">
+        <id     property="id"           column="id"           />
+        <result property="buildingId"   column="building_id"  />
+        <result property="minioId"      column="minio_id"     />
+        <result property="packageTime"  column="package_time" />
+        <result property="updateTime"   column="update_time"  />
+        <result property="packageSize"  column="package_size" />
+        <result property="newName"      column="newName"      />
+        <result property="fileName"     column="oldName"      />
+        <result property="fileCreateBy" column="createBy"     />
+    </resultMap>
+
+    <sql id="selectBuildingPackageVo">
+        select p.id, p.building_id, p.minio_id, p.package_size, p.package_time, p.update_time,
+               f.oldName, f.newName, f.createBy
+        from bi_building_package p
+        left join bi_file_map f on p.minio_id = f.id
+    </sql>
+
+    <select id="selectBuildingPackageById" parameterType="Long" resultMap="BuildingPackageResult">
+        <include refid="selectBuildingPackageVo"/>
+        where p.id = #{id}
+    </select>
+
+    <select id="selectBuildingPackageList" parameterType="edu.whut.cs.bi.biz.domain.BuildingPackage" resultMap="BuildingPackageResult">
+        <include refid="selectBuildingPackageVo"/>
+        <where>
+            <if test="id != null">
+                AND p.id = #{id}
+            </if>
+            <if test="buildingId != null">
+                AND p.building_id = #{buildingId}
+            </if>
+            <if test="minioId != null">
+                AND p.minio_id = #{minioId}
+            </if>
+            <if test="packageSize != null">
+                AND p.package_size = #{packageSize}
+            </if>
+            <if test="fileName != null and fileName != ''">
+                AND f.oldName like concat('%', #{fileName}, '%')
+            </if>
+            <if test="fileCreateBy != null and fileCreateBy != ''">
+                AND f.createBy like concat('%', #{fileCreateBy}, '%')
+            </if>
+        </where>
+        ORDER BY p.update_time DESC
+    </select>
+
+    <insert id="insertBuildingPackage" parameterType="edu.whut.cs.bi.biz.domain.BuildingPackage" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_building_package
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="buildingId != null">building_id,</if>
+            <if test="minioId != null">minio_id,</if>
+            <if test="packageTime != null">package_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="packageSize != null">package_size,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="buildingId != null">#{buildingId},</if>
+            <if test="minioId != null">#{minioId},</if>
+            <if test="packageTime != null">#{packageTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="packageSize != null">#{packageSize},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBuildingPackage" parameterType="edu.whut.cs.bi.biz.domain.BuildingPackage">
+        update bi_building_package
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="buildingId != null">building_id = #{buildingId},</if>
+            <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="packageTime != null">package_time = #{packageTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="packageSize != null">package_size = #{packageSize},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBuildingPackageById" parameterType="Long">
+        delete from bi_building_package where id = #{id}
+    </delete>
+
+    <delete id="deleteBuildingPackageByIds" parameterType="Long[]">
+        delete from bi_building_package where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>
