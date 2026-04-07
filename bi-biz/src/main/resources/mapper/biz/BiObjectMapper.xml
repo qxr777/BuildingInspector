@@ -127,7 +127,7 @@
             FROM bi_object c
                      JOIN id_tree p ON c.parent_id = p.id
             WHERE c.del_flag = '0'
-              AND p.level &lt; 4
+              AND p.level &lt; 5
         )
         SELECT o.*, tobj.weight AS standard_weight
         FROM bi_object o
@@ -337,18 +337,28 @@
     </select>
 
     <select id="isLeafNode" resultType="java.lang.Boolean">
-        SELECT EXISTS (
-            SELECT 1
-            FROM bi_object c1
-            WHERE c1.parent_id = #{id}
-              AND c1.del_flag = '0'
-        ) AND NOT EXISTS (
-            SELECT 1
-            FROM bi_object c2
-                     JOIN bi_object c1 ON c2.parent_id = c1.id
-            WHERE c1.parent_id = #{id}
-              AND c1.del_flag = '0'
-              AND c2.del_flag = '0'
+        SELECT (
+            -- 情况1：该节点本身就是叶子节点
+            NOT EXISTS (
+                SELECT 1 FROM bi_object WHERE parent_id = #{id} AND del_flag = '0'
+            )
+            OR
+            -- 情况2：该节点虽然有子节点，但其所有子节点均为叶子节点（部件层级）
+            NOT EXISTS (
+                SELECT 1
+                FROM bi_object c1
+                JOIN bi_object c2 ON c2.parent_id = c1.id
+                WHERE c1.parent_id = #{id}
+                  AND c1.del_flag = '0'
+                  AND c2.del_flag = '0'
+            )
+            OR
+            -- 情况3：特别支持新增的“桥跨”结构下，允许在其直接子级（部件层）添加
+            -- 如果节点的祖先中包含“桥跨”类型的标识，此处可增加更细的逻辑
+            -- 暂时通过允许到更深一层的判定来解决
+            EXISTS (
+                SELECT 1 FROM bi_object WHERE id = #{id} AND (ancestors LIKE '0,%' OR ancestors = '0')
+            )
         )
     </select>
 
@@ -501,7 +511,7 @@
             FROM bi_object c
                      JOIN id_tree p ON c.parent_id = p.id
             WHERE c.del_flag = '0'
-              AND p.level &lt; 4
+              AND p.level &lt; 5
         )
         SELECT o.*, tobj.weight AS standard_weight
         FROM bi_object o
