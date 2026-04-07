@@ -32,6 +32,7 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.*;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.text.DecimalFormat;
@@ -91,6 +92,9 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Autowired
     private BuildingPackageMapper buildingPackageMapper;
+
+    @Autowired
+    private SqliteService sqliteService;
 
     /**
      * 查询建筑
@@ -988,6 +992,33 @@ public class BuildingServiceImpl implements IBuildingService {
                 // 2. 添加所有关联 ID 的附件到 ZIP
                 addBuildingAttachments(zipOut, subjectIds);
 
+                // 3. 同时生成并添加 SQLite 数据库文件 (data.db)
+                File sqliteFile = null;
+                try {
+                    sqliteFile = sqliteService.doGenerateBuildingSqlite(buildingId);
+                    if (sqliteFile != null && sqliteFile.exists()) {
+                        log.info("开始将 SQLite 数据库文件添加到 ZIP 包, buildingId: {}", buildingId);
+                        ZipEntry dbEntry = new ZipEntry("data.db");
+                        zipOut.putNextEntry(dbEntry);
+                        try (FileInputStream dbIn = new FileInputStream(sqliteFile)) {
+                            byte[] buffer = new byte[8192];
+                            int len;
+                            while ((len = dbIn.read(buffer)) > 0) {
+                                zipOut.write(buffer, 0, len);
+                            }
+                        }
+                        zipOut.closeEntry();
+                        log.info("SQLite 数据库文件添加完成");
+                    }
+                } catch (Exception e) {
+                    log.error("在生成建筑物离线包时集成 SQLite 失败, buildingId: {}", buildingId, e);
+                    // 即使 SQLite 生成失败，我们也继续生成 ZIP（或者根据业务决定是否报错）
+                } finally {
+                    if (sqliteFile != null && sqliteFile.exists()) {
+                        sqliteFile.delete();
+                    }
+                }
+
                 zipOut.close();
                 long length = tempFile.length();
                 double sizeInMB = length / 1024.0 / 1024.0;
@@ -1016,7 +1047,7 @@ public class BuildingServiceImpl implements IBuildingService {
                     // 更新现有记录
                     edu.whut.cs.bi.biz.domain.BuildingPackage buildingPackage = existingPackages.get(0);
                     buildingPackage.setMinioId(Long.valueOf(fileMap.getId()));
-                    buildingPackage.setUpdateTime(new Date());
+                    buildingPackage.setPackageTime(new Date());
                     buildingPackage.setPackageSize(zipSize);
                     buildingPackageMapper.updateBuildingPackage(buildingPackage);
                 } else {
@@ -1025,7 +1056,6 @@ public class BuildingServiceImpl implements IBuildingService {
                     buildingPackage.setBuildingId(buildingId);
                     buildingPackage.setMinioId(Long.valueOf(fileMap.getId()));
                     buildingPackage.setPackageTime(new Date());
-                    buildingPackage.setUpdateTime(new Date());
                     buildingPackage.setPackageSize(zipSize);
                     buildingPackageMapper.insertBuildingPackage(buildingPackage);
                 }

@@ -26,6 +26,8 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import edu.whut.cs.bi.biz.service.impl.SqliteService;
+
 /**
  * 任务Service业务层处理
  *
@@ -63,6 +65,9 @@ public class TaskServiceImpl implements ITaskService {
 
     @Resource
     private PackageMapper packageMapper;
+
+    @Resource
+    private SqliteService sqliteService;
 
     /**
      * 查询任务
@@ -280,6 +285,8 @@ public class TaskServiceImpl implements ITaskService {
         List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(task.getProjectId(), ProjectUserRoleEnum.INSPECTOR.getValue());
         if(!users.isEmpty()) {
             packageMapper.batchUpdateUpdateTimeNow(users);
+            // 联动触发用户级 SQLite 更新
+            users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
         }
         projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
 
@@ -295,11 +302,17 @@ public class TaskServiceImpl implements ITaskService {
     @Override
     @Transactional
     public int updateTask(Task task) {
-        task.setUpdateTime(DateUtils.getNowDate());
-
-        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
-
-        return taskMapper.updateTask(task);
+        int result = taskMapper.updateTask(task);
+        Task updatedTask = taskMapper.selectTaskById(task.getId());
+        if (updatedTask != null && updatedTask.getProjectId() != null) {
+            List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(updatedTask.getProjectId(), ProjectUserRoleEnum.INSPECTOR.getValue());
+            if(!users.isEmpty()) {
+                packageMapper.batchUpdateUpdateTimeNow(users);
+                users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+            }
+            projectMapper.updateProjectTimeByProjectId(updatedTask.getProjectId());
+        }
+        return result;
     }
 
     /**
@@ -312,9 +325,22 @@ public class TaskServiceImpl implements ITaskService {
     @Transactional
     public int deleteTaskByIds(String ids) {
         List<Task> taskList = taskMapper.selectTaskByIds(ids);
+        Set<Long> projectIds = new HashSet<>();
         for (Task task : taskList) {
-            projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
+            if (task.getProjectId() != null) {
+                projectIds.add(task.getProjectId());
+            }
         }
+        
+        // 触发受影响项目的检测员更新
+        projectIds.forEach(pId -> {
+            List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(pId, ProjectUserRoleEnum.INSPECTOR.getValue());
+            if(!users.isEmpty()) {
+                packageMapper.batchUpdateUpdateTimeNow(users);
+                users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+            }
+            projectMapper.updateProjectTimeByProjectId(pId);
+        });
 
         return taskMapper.deleteTaskByIds(Convert.toStrArray(ids));
     }
@@ -329,7 +355,14 @@ public class TaskServiceImpl implements ITaskService {
     @Transactional
     public int deleteTaskById(Long id) {
         Task task = taskMapper.selectTaskById(id);
-        projectMapper.updateProjectTimeByProjectId(task.getBuildingId());
+        if (task != null && task.getProjectId() != null) {
+            List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(task.getProjectId(), ProjectUserRoleEnum.INSPECTOR.getValue());
+            if(!users.isEmpty()) {
+                packageMapper.batchUpdateUpdateTimeNow(users);
+                users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+            }
+            projectMapper.updateProjectTimeByProjectId(task.getProjectId());
+        }
 
         return taskMapper.deleteTaskById(id);
     }
@@ -352,7 +385,16 @@ public class TaskServiceImpl implements ITaskService {
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
 
-        return taskMapper.batchInsertTask(projectId, buildingIds, ShiroUtils.getLoginName());
+        int result = taskMapper.batchInsertTask(projectId, buildingIds, ShiroUtils.getLoginName());
+        
+        // 触发用户级 SQLite 更新
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+            users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+        }
+        
+        return result;
     }
 
     /**
@@ -375,6 +417,7 @@ public class TaskServiceImpl implements ITaskService {
         List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
         if(!users.isEmpty()) {
             packageMapper.batchUpdateUpdateTimeNow(users);
+            users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
         }
 
         return taskMapper.deleteTaskByProjectIdAndBuildingId(projectId, buildingId);
@@ -399,6 +442,8 @@ public class TaskServiceImpl implements ITaskService {
         List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
         if(!users.isEmpty()) {
             packageMapper.batchUpdateUpdateTimeNow(users);
+            // 联动触发用户级 SQLite 更新
+            users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
         }
 
         return taskMapper.batchDeleteTaskByProjectIdAndBuildingIds(projectId, buildingIds);
@@ -406,11 +451,32 @@ public class TaskServiceImpl implements ITaskService {
 
     @Override
     public int deleteTaskByBuildingId(Long buildingId) {
+        // 先获取涉及的任务，以确定项目 ID
+        List<Task> tasks = taskMapper.selectTaskListByBuildingId(buildingId);
+        if (tasks != null && !tasks.isEmpty()) {
+            Set<Long> projectIds = tasks.stream()
+                .map(Task::getProjectId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+            
+            projectIds.forEach(pId -> {
+                List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(pId, ProjectUserRoleEnum.INSPECTOR.getValue());
+                if(!users.isEmpty()) {
+                    packageMapper.batchUpdateUpdateTimeNow(users);
+                    users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+                }
+            });
+        }
         return taskMapper.deleteTaskByBuildingId(buildingId);
     }
 
     @Override
     public int deleteTaskByProjectId(Long projectId) {
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        if(!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+            users.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+        }
         return taskMapper.deleteTaskByProjectId(projectId);
     }
 

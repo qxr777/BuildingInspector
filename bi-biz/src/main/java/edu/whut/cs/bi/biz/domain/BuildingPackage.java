@@ -23,9 +23,6 @@ public class BuildingPackage extends BaseEntity {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date packageTime;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
-    private Date updateTime;
-
     private String packageSize;
 
     /** 文件存储名称（非数据库字段，关联FileMap表的newName） */

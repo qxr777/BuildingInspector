@@ -3,7 +3,6 @@ CREATE TABLE `bi_building_package` (
   `building_id` bigint(20) DEFAULT NULL COMMENT '关联建筑物ID',
   `minio_id` bigint(20) DEFAULT NULL COMMENT '关联的MinIO文件映射ID',
   `package_time` datetime DEFAULT NULL COMMENT '打包时间',
-  `update_time` datetime DEFAULT NULL COMMENT '最后更新时间',
   `package_size` varchar(50) DEFAULT NULL COMMENT '包大小',
   PRIMARY KEY (`id`),
   KEY `idx_building_id` (`building_id`)

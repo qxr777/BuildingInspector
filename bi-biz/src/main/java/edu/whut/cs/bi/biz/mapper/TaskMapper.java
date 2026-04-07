@@ -104,7 +104,12 @@ public interface TaskMapper
     int deleteTaskByProjectId(@Param("projectId") Long projectId);
 
     /**
+     * 通过桥梁id查询任务列表
+     */
+    List<Task> selectTaskListByBuildingId(Long buildingId);
+
+    /**
      * 通过项目id查询完整任务列表
      */
-    List<Task> selectFullTaskListByProjectId(Long id);
+    List<Task> selectFullTaskListByProjectId(Long projectId);
 }

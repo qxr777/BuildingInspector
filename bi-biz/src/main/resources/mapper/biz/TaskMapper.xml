@@ -142,6 +142,10 @@
         select *  from bi_task where project_id = #{projectId} and del_flag = '0'
     </select>
 
+    <select id="selectTaskListByBuildingId" resultType="edu.whut.cs.bi.biz.domain.Task">
+        select * from bi_task where building_id = #{buildingId} and del_flag = '0'
+    </select>
+
     <select id="selectTaskByIds" resultType="edu.whut.cs.bi.biz.domain.Task">
         select * from bi_task where del_flag = '0' and id in
         <foreach item="id" collection="ids" open="(" separator="," close=")">

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.UserSqliteMapper">
+
+    <resultMap type="UserSqlite" id="UserSqliteResult">
+        <result property="id"    column="id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="minioId"    column="minio_id"    />
+        <result property="packageTime"    column="package_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="packageSize"    column="package_size"    />
+        <result property="delFlag"    column="del_flag"    />
+        <result property="newName"    column="newName"    />
+        <result property="url"    column="url"    />
+    </resultMap>
+
+    <select id="selectUserSqliteByUserId" parameterType="Long" resultMap="UserSqliteResult">
+        SELECT u.*, f.newName
+        FROM bi_user_sqlite u
+        LEFT JOIN bi_file_map f ON u.minio_id = f.id
+        WHERE u.user_id = #{userId} AND u.del_flag = '0'
+    </select>
+
+    <insert id="insertUserSqlite" parameterType="UserSqlite" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO bi_user_sqlite
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="minioId != null">minio_id,</if>
+            <if test="packageTime != null">package_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="packageSize != null">package_size,</if>
+            <if test="delFlag != null">del_flag,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="minioId != null">#{minioId},</if>
+            <if test="packageTime != null">#{packageTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="packageSize != null">#{packageSize},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+        </trim>
+    </insert>
+
+    <update id="updateUserSqlite" parameterType="UserSqlite">
+        UPDATE bi_user_sqlite
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="packageTime != null">package_time = #{packageTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="packageSize != null">package_size = #{packageSize},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+        </trim>
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

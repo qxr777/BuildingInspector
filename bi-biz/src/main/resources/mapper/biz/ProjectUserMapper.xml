@@ -95,4 +95,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         delete from bi_project_user where project_id = #{projectId}
     </delete>
 
+    <select id="selectAllUserIdsByProjectId" resultType="java.lang.Long">
+        SELECT DISTINCT user_id FROM bi_project_user WHERE project_id = #{projectId}
+    </select>
+
 </mapper>

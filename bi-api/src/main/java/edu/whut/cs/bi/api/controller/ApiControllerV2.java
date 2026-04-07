@@ -1,9 +1,9 @@
 package edu.whut.cs.bi.api.controller;
 
 import com.ruoyi.common.core.domain.AjaxResult;
-import edu.whut.cs.bi.biz.domain.vo.ProjectSqliteVo;
+import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
 import edu.whut.cs.bi.biz.service.IBuildingService;
-import edu.whut.cs.bi.biz.service.impl.ProjectSqliteService;
+import edu.whut.cs.bi.biz.service.impl.SqliteService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
@@ -26,20 +26,17 @@ public class ApiControllerV2 {
     private IBuildingService buildingService;
 
     @Autowired
-    private ProjectSqliteService projectSqliteService;
+    private SqliteService sqliteService;
 
     /**
-     * 获取项目关联的离线 SQLite 数据库文件下载地址
-     *
-     * @param projectId 项目 ID
-     * @return 返回 MinIO 下载地址
+     * 获取项目关联的离线 SQLite 数据库文件下载地址 (全量)
      */
     @GetMapping("/project/{id}/sqlite")
     @ResponseBody
     @ApiOperation("获取项目SQLite下载地址")
     public AjaxResult getProjectSqliteUrl(@PathVariable("id") Long projectId) {
         try {
-            ProjectSqliteVo sqliteInfo = projectSqliteService.getSqliteDownloadUrl(projectId);
+            SqliteVo sqliteInfo = sqliteService.getProjectSqliteUrl(projectId);
             if (sqliteInfo == null) {
                 return AjaxResult.error("SQLite 文件未生成或不存在，请稍候再试");
             }
@@ -51,10 +48,38 @@ public class ApiControllerV2 {
     }
 
     /**
-     * 根据建筑Id，将所有关联的附件打包成zip并上传至minio
-     *
-     * @param buildingId 建筑物ID
-     * @return 结果
+     * 获取用户的离线 SQLite 数据库文件下载地址 (3张核心表)
+     */
+    @GetMapping("/user/{id}/sqlite")
+    @ResponseBody
+    @ApiOperation("获取用户级SQLite下载地址")
+    public AjaxResult getUserSqliteUrl(@PathVariable("id") Long userId) {
+        try {
+            SqliteVo sqliteInfo = sqliteService.getUserSqliteUrl(userId);
+            if (sqliteInfo == null) {
+                return AjaxResult.error("用户级 SQLite 文件未生成或不存在，请稍候再试");
+            }
+            return AjaxResult.success("获取成功", sqliteInfo);
+        } catch (Exception e) {
+            log.error("获取用户 SQLite 文件失败, userId: {}", userId, e);
+            return AjaxResult.error("获取 SQLite 文件失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 触发为用户生成 SQLite 离线包
+     */
+    @PostMapping("/user/{id}/sqlite")
+    @ResponseBody
+    @ApiOperation("手动触发生成用户级SQLite")
+    public AjaxResult generateUserSqlite(@PathVariable("id") Long userId) {
+        sqliteService.generateUserSqliteAsync(userId);
+        return AjaxResult.success("已交由后台处理，请稍后查询下载地址");
+    }
+
+
+    /**
+     * 生成建筑物附件离线包 (ZIP)
      */
     @PostMapping("/building/{id}/package")
     @ResponseBody
@@ -67,10 +92,7 @@ public class ApiControllerV2 {
     }
 
     /**
-     * 获取建筑物最新的病害离线包信息
-     *
-     * @param buildingId 建筑物ID
-     * @return 离线包信息
+     * 获取建筑物最新的病害离线包信息 (ZIP)
      */
     @GetMapping("/building/{id}/package")
     @ResponseBody

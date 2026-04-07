@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.util.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -64,7 +65,7 @@ public class ProjectServiceImpl implements IProjectService {
     private PackageMapper packageMapper;
 
     @Resource
-    private ProjectSqliteService projectSqliteService;
+    private SqliteService sqliteService;
 
 
     /**
@@ -176,7 +177,12 @@ public class ProjectServiceImpl implements IProjectService {
         
         // 触发 SQLite 生成
         if (project.getId() != null) {
-            projectSqliteService.generateSqliteAsync(project.getId());
+            sqliteService.generateSqliteAsync(project.getId());
+            // 联动更新项目下所有用户的 SQLite
+            List<Long> allUserIds = projectUserMapper.selectAllUserIdsByProjectId(project.getId());
+            if (allUserIds != null) {
+                allUserIds.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+            }
         }
         
         return result;
@@ -191,12 +197,14 @@ public class ProjectServiceImpl implements IProjectService {
     @Override
     @Transactional
     public int deleteProjectByIds(String ids) {
-        // 这个地方应该做一次权限校验
-
-        // 删除项目下的任务
         String[] strArray = Convert.toStrArray(ids);
-        for (int i = 0; i < strArray.length; i++) {
-            Long id = Long.valueOf(strArray[i]);
+        for (String sId : strArray) {
+            Long id = Long.valueOf(sId);
+            // 触发受影响用户的 SQLite 更新
+            List<Long> allUserIds = projectUserMapper.selectAllUserIdsByProjectId(id);
+            if (allUserIds != null) {
+                allUserIds.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+            }
             taskMapper.deleteTaskByProjectId(id);
             projectUserMapper.deleteProjectUser(id);
         }
@@ -212,6 +220,11 @@ public class ProjectServiceImpl implements IProjectService {
     @Override
     @Transactional
     public int deleteProjectById(Long id) {
+        // 触发受影响用户的 SQLite 更新
+        List<Long> allUserIds = projectUserMapper.selectAllUserIdsByProjectId(id);
+        if (allUserIds != null) {
+            allUserIds.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+        }
         // 删除项目下的任务
         taskMapper.deleteTaskByProjectId(id);
         // 删除项目相关的人员关联
@@ -441,7 +454,19 @@ public class ProjectServiceImpl implements IProjectService {
         projectMapper.updateProjectTimeByProjectId(projectId);
         
         // 触发 SQLite 生成
-        projectSqliteService.generateSqliteAsync(projectId);
+        sqliteService.generateSqliteAsync(projectId);
+
+        // 联动更新所有相关用户的 SQLite
+        Set<Long> userIdsToUpdate = new HashSet<>();
+        if (inspectorIds != null) userIdsToUpdate.addAll(inspectorIds);
+        if (preInspectors != null) userIdsToUpdate.addAll(preInspectors);
+        if (authorId != null) userIdsToUpdate.add(authorId);
+        if (reviewerId != null) userIdsToUpdate.add(reviewerId);
+        if (approverId != null) userIdsToUpdate.add(approverId);
+        
+        userIdsToUpdate.stream()
+            .filter(Objects::nonNull)
+            .forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
         
         return save;
     }

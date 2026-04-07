@@ -54,4 +54,12 @@ public interface ProjectUserMapper
      * @return
      */
     int saveProjectUser(@Param("projectId") Long projectId, @Param("inspectorIds") List<Long> inspectorIds, @Param("role") String role);
+
+    /**
+     * 根据项目ID查询所有关联的用户ID列表
+     *
+     * @param projectId 项目ID
+     * @return 用户ID列表
+     */
+    List<Long> selectAllUserIdsByProjectId(Long projectId);
 }

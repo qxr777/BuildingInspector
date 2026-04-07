@@ -9,7 +9,6 @@
         <result property="buildingId"   column="building_id"  />
         <result property="minioId"      column="minio_id"     />
         <result property="packageTime"  column="package_time" />
-        <result property="updateTime"   column="update_time"  />
         <result property="packageSize"  column="package_size" />
         <result property="newName"      column="newName"      />
         <result property="fileName"     column="oldName"      />
@@ -17,7 +16,7 @@
     </resultMap>
 
     <sql id="selectBuildingPackageVo">
-        select p.id, p.building_id, p.minio_id, p.package_size, p.package_time, p.update_time,
+        select p.id, p.building_id, p.minio_id, p.package_size, p.package_time,
                f.oldName, f.newName, f.createBy
         from bi_building_package p
         left join bi_file_map f on p.minio_id = f.id
@@ -50,7 +49,7 @@
                 AND f.createBy like concat('%', #{fileCreateBy}, '%')
             </if>
         </where>
-        ORDER BY p.update_time DESC
+        ORDER BY p.package_time DESC
     </select>
 
     <insert id="insertBuildingPackage" parameterType="edu.whut.cs.bi.biz.domain.BuildingPackage" useGeneratedKeys="true" keyProperty="id">
@@ -59,14 +58,12 @@
             <if test="buildingId != null">building_id,</if>
             <if test="minioId != null">minio_id,</if>
             <if test="packageTime != null">package_time,</if>
-            <if test="updateTime != null">update_time,</if>
             <if test="packageSize != null">package_size,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="buildingId != null">#{buildingId},</if>
             <if test="minioId != null">#{minioId},</if>
             <if test="packageTime != null">#{packageTime},</if>
-            <if test="updateTime != null">#{updateTime},</if>
             <if test="packageSize != null">#{packageSize},</if>
         </trim>
     </insert>
@@ -77,7 +74,6 @@
             <if test="buildingId != null">building_id = #{buildingId},</if>
             <if test="minioId != null">minio_id = #{minioId},</if>
             <if test="packageTime != null">package_time = #{packageTime},</if>
-            <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="packageSize != null">package_size = #{packageSize},</if>
         </trim>
         where id = #{id}
