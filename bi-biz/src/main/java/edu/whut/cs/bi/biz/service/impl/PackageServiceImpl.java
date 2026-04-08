@@ -478,9 +478,11 @@ public class PackageServiceImpl implements IPackageService {
         photoGroups.put("sideLeft", new ArrayList<>());
         photoGroups.put("sideRight", new ArrayList<>());
         if (!attachments.isEmpty()) {
-            // 获取MinIO ID列表
+            // 获取MinIO ID列表（原图和缩略图）
             List<Long> minioIds = attachments.stream()
-                    .map(Attachment::getMinioId)
+                    .flatMap(a -> java.util.stream.Stream.of(a.getMinioId(), a.getThumbMinioId()))
+                    .filter(Objects::nonNull)
+                    .distinct()
                     .collect(Collectors.toList());
 
             // 批量查询FileMap
@@ -493,7 +495,11 @@ public class PackageServiceImpl implements IPackageService {
 
             // 处理每个附件
             for (Attachment attachment : attachments) {
-                FileMap fileMap = fileMapMap.get(attachment.getMinioId());
+                // 优先使用缩略图
+                Long targetMinioId = attachment.getThumbMinioId() != null ? attachment.getThumbMinioId() : attachment.getMinioId();
+                if (targetMinioId == null) continue;
+
+                FileMap fileMap = fileMapMap.get(targetMinioId);
                 if (fileMap == null) continue;
 
                 String[] nameParts = attachment.getName().split("_");
@@ -571,9 +577,11 @@ public class PackageServiceImpl implements IPackageService {
                 return;
             }
 
-            // 收集所有 MinioId，进行批量查询
+            // 收集所有 MinioId（原图和缩略图），进行批量查询
             List<Long> minioIds = neededAttachments.stream()
-                    .map(Attachment::getMinioId)
+                    .flatMap(a -> java.util.stream.Stream.of(a.getMinioId(), a.getThumbMinioId()))
+                    .filter(Objects::nonNull)
+                    .distinct()
                     .collect(Collectors.toList());
 
             // 批量查询 FileMap
@@ -587,8 +595,14 @@ public class PackageServiceImpl implements IPackageService {
             // 流式读取并直接写入ZIP
             for (Attachment attachment : neededAttachments) {
                 try {
+                    // 优先使用缩略图
+                    Long targetMinioId = attachment.getThumbMinioId() != null ? attachment.getThumbMinioId() : attachment.getMinioId();
+                    if (targetMinioId == null) {
+                        continue;
+                    }
+
                     // 获取FileMap
-                    FileMap fileMap = fileMapMap.get(attachment.getMinioId());
+                    FileMap fileMap = fileMapMap.get(targetMinioId);
                     if (fileMap == null) {
                         continue;
                     }

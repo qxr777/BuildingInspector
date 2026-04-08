@@ -288,7 +288,12 @@ public class SqliteService {
                 .filter(a -> Integer.valueOf(6).equals(a.getType())).collect(Collectors.toList()));
         }
 
-        List<Long> mIds = attachments.stream().map(Attachment::getMinioId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        // 搜集所有关联的文件 ID (原图和缩略图)
+        List<Long> mIds = attachments.stream()
+                .flatMap(a -> java.util.stream.Stream.of(a.getMinioId(), a.getThumbMinioId()))
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
         List<FileMap> fMaps = mIds.isEmpty() ? Collections.emptyList() : fileMapMapper.selectFileMapByIds(mIds);
 
         insertBiObjects(conn, allObjects);
@@ -379,7 +384,9 @@ public class SqliteService {
             if (set.contains("bi_object")) s.execute("CREATE TABLE IF NOT EXISTS bi_object (id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT, ancestors TEXT, status TEXT, del_flag TEXT, longitude REAL, latitude REAL, altitude REAL, position TEXT, area TEXT, admin_dept TEXT, weight REAL, standard_weight REAL, video_feed TEXT, props TEXT, template_object_id INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
             if (set.contains("bi_component")) s.execute("CREATE TABLE IF NOT EXISTS bi_component (id INTEGER PRIMARY KEY, bi_object_id INTEGER, name TEXT, code TEXT, status TEXT, del_flag TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
             if (set.contains("bi_disease")) s.execute("CREATE TABLE IF NOT EXISTS bi_disease (id INTEGER PRIMARY KEY, position TEXT, position_number TEXT, type TEXT, disease_type_id INTEGER, description TEXT, level TEXT, quantity TEXT, units TEXT, nature TEXT, participate_assess TEXT, deduct_points INTEGER, img_no_exp TEXT, project_id INTEGER, bi_object_id INTEGER, bi_object_name TEXT, building_id INTEGER, component_id INTEGER, commit_type TEXT, local_id TEXT, remark TEXT, cause TEXT, repair_recommendation TEXT, crack_type TEXT, development_trend TEXT, detection_method TEXT, attachment_count INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, task_id INTEGER)");
-            if (set.contains("bi_file_map")) s.execute("CREATE TABLE IF NOT EXISTS bi_file_map (id INTEGER PRIMARY KEY, old_name TEXT, new_name TEXT, create_time TEXT, update_time TEXT, create_by TEXT, file_type TEXT, url TEXT, attachment_remark TEXT, subject_id INTEGER)");
+            if (set.contains("bi_file_map")) s.execute("CREATE TABLE IF NOT EXISTS bi_file_map (id INTEGER PRIMARY KEY, old_name TEXT, new_name TEXT, create_time TEXT, update_time TEXT, create_by TEXT, file_type TEXT)");
+            if (set.contains("bi_attachment")) s.execute("CREATE TABLE IF NOT EXISTS bi_attachment (id INTEGER PRIMARY KEY, name TEXT, minio_id INTEGER, thumb_minio_id INTEGER, type INTEGER, del_flag TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, weight REAL, subject_id INTEGER)");
+            if (set.contains("bi_disease_detail")) s.execute("CREATE TABLE IF NOT EXISTS bi_disease_detail (id INTEGER PRIMARY KEY, disease_id INTEGER, reference1_location TEXT, reference1_location_start REAL, reference1_location_end REAL, reference2_location TEXT, reference2_location_start REAL, reference2_location_end REAL, length1 REAL, length2 REAL, length3 REAL, width REAL, height_depth REAL, crack_width REAL, area_length REAL, area_width REAL, area_identifier INTEGER, deformation REAL, angle INTEGER, numerator_ratio INTEGER, denominator_ratio INTEGER, length_range_start REAL, length_range_end REAL, width_range_start REAL, width_range_end REAL, height_depth_range_start REAL, height_depth_range_end REAL, crack_width_range_start REAL, crack_width_range_end REAL, area_range_start REAL, area_range_end REAL, deformation_range_start REAL, deformation_range_end REAL, angle_range_start REAL, angle_range_end REAL, other TEXT)");
             
             // 基础模板表
             if (set.contains("bi_template_object")) s.execute("CREATE TABLE IF NOT EXISTS bi_template_object (id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT, ancestors TEXT, status TEXT, del_flag TEXT, weight REAL, props TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
@@ -616,7 +623,7 @@ public class SqliteService {
     }
 
     private void insertFileMaps(Connection conn, List<FileMap> fileMaps) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_file_map (id, old_name, new_name, create_time, update_time, create_by, file_type, url, attachment_remark, subject_id) VALUES (?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_file_map (id, old_name, new_name, create_time, update_time, create_by, file_type) VALUES (?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (FileMap f : fileMaps) {
                 ps.setInt(1, f.getId());
@@ -626,9 +633,6 @@ public class SqliteService {
                 ps.setString(5, dateToStr(f.getUpdateTime()));
                 ps.setString(6, f.getCreateBy());
                 ps.setString(7, f.getFileType());
-                ps.setString(8, f.getUrl());
-                ps.setString(9, f.getAttachmentRemark());
-                setLongOrNull(ps, 10, f.getSubjectId());
                 ps.addBatch();
             }
             ps.executeBatch();

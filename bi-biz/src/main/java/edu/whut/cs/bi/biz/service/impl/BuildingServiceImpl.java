@@ -1093,10 +1093,11 @@ public class BuildingServiceImpl implements IBuildingService {
                 return;
             }
 
-            // 收集所有 MinioId，进行批量查询
+            // 收集所有 MinioId（原图和缩略图），进行批量查询
             List<Long> minioIds = attachments.stream()
-                    .map(Attachment::getMinioId)
+                    .flatMap(a -> java.util.stream.Stream.of(a.getMinioId(), a.getThumbMinioId()))
                     .filter(Objects::nonNull)
+                    .distinct()
                     .collect(Collectors.toList());
 
             if (minioIds.isEmpty()) {
@@ -1111,8 +1112,14 @@ public class BuildingServiceImpl implements IBuildingService {
             // 流式读取并直接写入ZIP
             for (Attachment attachment : attachments) {
                 try {
+                    // 优先使用缩略图，若没有则使用原图
+                    Long targetMinioId = attachment.getThumbMinioId() != null ? attachment.getThumbMinioId() : attachment.getMinioId();
+                    if (targetMinioId == null) {
+                        continue;
+                    }
+
                     // 获取FileMap
-                    FileMap fileMap = fileMapMap.get(attachment.getMinioId());
+                    FileMap fileMap = fileMapMap.get(targetMinioId);
                     if (fileMap == null) {
                         continue;
                     }
