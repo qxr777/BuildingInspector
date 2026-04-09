@@ -10,6 +10,7 @@ import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.IBiEvaluationService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
+import edu.whut.cs.bi.biz.service.impl.SqliteService;
 import com.ruoyi.system.mapper.SysUserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,6 +69,9 @@ class TaskServiceImplTest {
 
     @Mock
     private PackageMapper packageMapper;
+
+    @Mock
+    private SqliteService sqliteService;
 
     /**
      * 测试 selectTaskById：任务存在且桥梁信息可正常加载。
@@ -162,6 +166,8 @@ class TaskServiceImplTest {
         when(projectMapper.selectProjectById(projectId)).thenReturn(project);
         when(projectMapper.updateProject(project)).thenReturn(1);
         when(taskMapper.batchInsertTask(eq(projectId), eq(Arrays.asList(1L, 2L)), eq("tester"))).thenReturn(2);
+        when(projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue()))
+                .thenReturn(Collections.emptyList());
 
         try (MockedStatic<ShiroUtils> shiroUtilsMockedStatic = mockStatic(ShiroUtils.class)) {
             shiroUtilsMockedStatic.when(ShiroUtils::getLoginName).thenReturn("tester");

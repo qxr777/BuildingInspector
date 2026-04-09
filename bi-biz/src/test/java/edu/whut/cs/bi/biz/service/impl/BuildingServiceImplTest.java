@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
@@ -27,9 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -81,7 +82,7 @@ class BuildingServiceImplTest {
         input.setLine("L1");
         input.setIsLeaf("0");
 
-        when(buildingMapper.selectBuildingList(any(Building.class))).thenReturn(Collections.emptyList());
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.emptyList());
         doAnswer(invocation -> {
             BiObject root = invocation.getArgument(0);
             root.setId(100L);
@@ -98,6 +99,107 @@ class BuildingServiceImplTest {
     }
 
     /**
+     * 测试场景：新增桥跨时挂载到父桥根节点，并创建空根节点。
+     */
+    @Test
+    void testInsertBuilding_SpanWithParent_NoTemplate() {
+        Building input = new Building();
+        input.setName("K1跨");
+        input.setIsLeaf("2");
+        input.setParentId(10L);
+
+        Building parent = new Building();
+        parent.setId(10L);
+        parent.setRootObjectId(200L);
+
+        BiObject parentRoot = new BiObject();
+        parentRoot.setId(200L);
+        parentRoot.setAncestors("0,9");
+
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.emptyList());
+        when(buildingMapper.selectBuildingById(10L)).thenReturn(parent);
+        when(biObjectService.selectBiObjectById(200L)).thenReturn(parentRoot);
+        doAnswer(invocation -> {
+            BiObject root = invocation.getArgument(0);
+            root.setId(300L);
+            return null;
+        }).when(biObjectService).insertBiObject(any(BiObject.class));
+        when(buildingMapper.insertBuilding(any(Building.class))).thenReturn(1);
+
+        int rows = buildingService.insertBuilding(input);
+
+        assertEquals(1, rows);
+        assertEquals(300L, input.getRootObjectId());
+        verify(biObjectService, times(1)).insertBiObject(argThat(obj ->
+                obj.getParentId().equals(200L)
+                        && "0,9,200".equals(obj.getAncestors())
+                        && "K1跨".equals(obj.getName())
+        ));
+    }
+
+    /**
+     * 测试场景：新增桥跨并指定模板时，进入维护树生成分支并回填 rootObjectId。
+     */
+    @Test
+    void testInsertBuilding_SpanWithParent_WithTemplate() {
+        Building input = new Building();
+        input.setName("K2跨");
+        input.setIsLeaf("2");
+        input.setParentId(10L);
+        input.setTemplateId(500L);
+
+        Building parent = new Building();
+        parent.setId(10L);
+        parent.setRootObjectId(200L);
+
+        BiTemplateObject template = new BiTemplateObject();
+        template.setId(500L);
+        template.setName("梁桥模板");
+        template.setParentId(999L);
+
+        BiTemplateObject childTemplate = new BiTemplateObject();
+        childTemplate.setId(501L);
+        childTemplate.setParentId(500L);
+        childTemplate.setName("上部结构");
+        childTemplate.setOrderNum(1);
+
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.emptyList());
+        when(buildingMapper.selectBuildingById(10L)).thenReturn(parent);
+        when(biTemplateObjectService.selectBiTemplateObjectById(500L)).thenReturn(template);
+        when(biTemplateObjectService.selectChildrenById(500L)).thenReturn(Collections.singletonList(childTemplate));
+
+        doAnswer(invocation -> {
+            BiObject root = invocation.getArgument(0);
+            root.setId(300L);
+            return null;
+        }).when(biObjectService).insertBiObject(argThat(obj ->
+                "K2跨(梁桥模板)".equals(obj.getName()) && obj.getParentId().equals(200L)
+        ));
+
+        doAnswer(invocation -> {
+            List<BiObject> nodes = invocation.getArgument(0);
+            if (nodes != null && !nodes.isEmpty()) {
+                nodes.get(0).setId(301L);
+            }
+            return null;
+        }).when(biObjectService).batchInsertBiObjects(any(List.class));
+
+        when(buildingMapper.insertBuilding(any(Building.class))).thenReturn(1);
+
+        int rows = buildingService.insertBuilding(input);
+
+        assertEquals(1, rows);
+        assertEquals(300L, input.getRootObjectId());
+        verify(biTemplateObjectService, times(1)).selectBiTemplateObjectById(500L);
+        verify(biTemplateObjectService, times(1)).selectChildrenById(500L);
+        verify(biObjectService, times(1)).insertBiObject(argThat(obj ->
+                "K2跨(梁桥模板)".equals(obj.getName())
+                        && obj.getParentId().equals(200L)
+        ));
+        verify(biObjectService, times(1)).batchInsertBiObjects(any(List.class));
+    }
+
+    /**
      * 测试场景：新增建筑时若片区+线路+桥名重复，应抛出业务异常。
      */
     @Test
@@ -110,7 +212,7 @@ class BuildingServiceImplTest {
 
         Building existed = new Building();
         existed.setId(1L);
-        when(buildingMapper.selectBuildingList(any(Building.class))).thenReturn(Collections.singletonList(existed));
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.singletonList(existed));
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> buildingService.insertBuilding(input));
 
@@ -149,7 +251,7 @@ class BuildingServiceImplTest {
         newParentObject.setId(200L);
         newParentObject.setAncestors("0,9");
 
-        when(buildingMapper.selectBuildingList(any(Building.class))).thenReturn(Collections.singletonList(oldBuilding));
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.emptyList());
         when(buildingMapper.selectBuildingById(anyLong())).thenAnswer(invocation -> {
             Long id = invocation.getArgument(0);
             if (id.equals(1L)) {
@@ -198,7 +300,7 @@ class BuildingServiceImplTest {
 
         Building another = new Building();
         another.setId(99L);
-        when(buildingMapper.selectBuildingList(any(Building.class))).thenReturn(Collections.singletonList(another));
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.singletonList(another));
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> buildingService.updateBuilding(updateParam));
 

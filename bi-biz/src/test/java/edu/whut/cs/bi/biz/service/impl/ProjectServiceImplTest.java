@@ -65,6 +65,9 @@ class ProjectServiceImplTest {
     @Mock
     private PackageMapper packageMapper;
 
+    @Mock
+    private SqliteService sqliteService;
+
     /**
      * 测试 selectProjectList：部门管理员查询项目列表并完成项目信息补全。
      */
