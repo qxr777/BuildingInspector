@@ -2,12 +2,14 @@ package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author QiXin
  * @date 2025/3/17
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 public class Attachment extends BaseEntity{
 
     /** 附件id */
@@ -22,6 +24,15 @@ public class Attachment extends BaseEntity{
     private Long minioId;
     /** 缩略图minioId */
     private Long thumbMinioId;
+
+    /** 离线记录唯一标识(UUID) */
+    private String offlineUuid;
+
+    /** 关联主体的离线UUID */
+    private String offlineSubjectUuid;
+
+    /** 是否为离线同步数据 (0:否, 1:是) */
+    private Integer isOfflineData;
 
     /**
      * TODO: 附件存储在MinIO 中

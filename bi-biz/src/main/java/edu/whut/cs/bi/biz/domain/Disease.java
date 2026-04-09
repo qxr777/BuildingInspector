@@ -1,10 +1,7 @@
 package edu.whut.cs.bi.biz.domain;
 
-import cn.hutool.core.util.ObjectUtil;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ruoyi.common.core.domain.BaseEntity;
-import com.ruoyi.common.utils.StringUtils;
-import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -188,4 +185,19 @@ public class Disease extends BaseEntity {
      * 图片编号
      */
     private String imgNoExp;
+
+    /** 离线记录唯一标识(UUID) */
+    private String offlineUuid;
+
+    /** 所属桥梁离线UUID */
+    private String buildingUuid;
+
+    /** 所属节点离线UUID */
+    private String objectUuid;
+
+    /** 所属部件离线UUID */
+    private String componentUuid;
+
+    /** 是否为离线同步数据 (0:否, 1:是) */
+    private Integer isOfflineData;
 }

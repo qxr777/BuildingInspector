@@ -2,7 +2,6 @@ package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.TreeEntity;
-import io.swagger.models.auth.In;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -133,6 +132,18 @@ public class BiObject extends TreeEntity {
     @Excel(name = "构件数量")
     private Integer count;
 
+    /** 离线记录唯一标识(UUID) */
+    private String offlineUuid;
+
+    /** 父节点离线UUID */
+    private String parentUuid;
+
+    /** 所属桥梁离线UUID */
+    private String buildingUuid;
+
+    /** 是否为离线同步数据 (0:否, 1:是) */
+    private Integer isOfflineData;
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
@@ -157,6 +168,10 @@ public class BiObject extends TreeEntity {
                 .append("videoFeed", getVideoFeed())
                 .append("weight", getWeight())
                 .append("templateObjectId", getTemplateObjectId())
+                .append("offlineUuid", getOfflineUuid())
+                .append("parentUuid", getParentUuid())
+                .append("buildingUuid", getBuildingUuid())
+                .append("isOfflineData", getIsOfflineData())
                 .toString();
     }
 }

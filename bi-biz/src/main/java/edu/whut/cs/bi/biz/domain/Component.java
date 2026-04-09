@@ -58,4 +58,12 @@ public class Component extends BaseEntity {
 
     private String grandObjectName;
 
+    /** 离线记录唯一标识(UUID) */
+    private String offlineUuid;
+
+    /** 所属节点离线UUID */
+    private String objectUuid;
+
+    /** 是否为离线同步数据 (0:否, 1:是) */
+    private Integer isOfflineData;
 }

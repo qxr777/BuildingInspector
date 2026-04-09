@@ -6,111 +6,112 @@ import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 
-@EqualsAndHashCode(callSuper = true)
+/**
+ * @author QiXin
+ * @date 2025/3/17
+ */
 @Data
+@EqualsAndHashCode(callSuper = true)
 public class DiseaseDetail extends BaseEntity {
 
-    // 主键Id
+    /**
+     * 步长
+     */
+    private Integer step;
+
+    /**
+     * 详情id
+     */
     private Long id;
 
-    // 病害id
+    /**
+     * 病害id
+     */
     private Long diseaseId;
 
-    // 参考面1位置
-    private String reference1Location;
+    /**
+     * 长度最小值
+     */
+    private BigDecimal lengthMin;
 
-    // 距参考面1位置-起始位置
-    private BigDecimal reference1LocationStart;
+    /**
+     * 长度最大值
+     */
+    private BigDecimal lengthMax;
 
-    // 距参考面1位置-终点位置
-    private BigDecimal reference1LocationEnd;
+    /**
+     * 长度分段
+     */
+    private String lengthRange;
 
-    // 参考面2位置
-    private String reference2Location;
+    /**
+     * 宽度最小值
+     */
+    private BigDecimal widthMin;
 
-    // 距参考面2位置-起始位置
-    private BigDecimal reference2LocationStart;
+    /**
+     * 宽度最大值
+     */
+    private BigDecimal widthMax;
 
-    // 距参考面2位置-终点位置
-    private BigDecimal reference2LocationEnd;
+    /**
+     * 宽度分段
+     */
+    private String widthRange;
 
-    // 长度
-    private BigDecimal length1;
-    private BigDecimal length2;
-    private BigDecimal length3;
+    /**
+     * 深度最小值
+     */
+    private BigDecimal depthMin;
 
-    // 宽度
-    private BigDecimal width;
+    /**
+     * 深度最大值
+     */
+    private BigDecimal depthMax;
 
-    // 高度/深度
-    private BigDecimal heightDepth;
+    /**
+     * 深度分段
+     */
+    private String depthRange;
 
-    // 缝宽
-    private BigDecimal crackWidth;
+    /**
+     * 面积最小值
+     */
+    private BigDecimal areaMin;
 
-    // 面积_长
-    private BigDecimal areaLength;
+    /**
+     * 面积最大值
+     */
+    private BigDecimal areaMax;
 
-    // 面积_宽
-    private BigDecimal areaWidth;
+    /**
+     * 面积分段
+     */
+    private String areaRange;
 
-    // 面积标识符 区分“普通-0”、“平均-1”、“总计-2”
-    private Integer areaIdentifier;
+    /**
+     * 角度
+     */
+    private BigDecimal angle;
 
-    // 变形/位移
-    private BigDecimal deformation;
-
-    // 角度
-    private Integer angle;
-
-    // 比例-分子
-    private Integer numeratorRatio;
-
-    // 比例-分母
-    private Integer denominatorRatio;
-
-    // 长度范围起点
-    private BigDecimal lengthRangeStart;
-
-    // 长度范围终点
-    private BigDecimal lengthRangeEnd;
-
-    // 宽度范围起点 （废弃）
-    private BigDecimal widthRangeStart;
-
-    // 宽度范围终点（废弃）
-    private BigDecimal widthRangeEnd;
-
-    // 高度/深度范围起点
-    private BigDecimal heightDepthRangeStart;
-
-    // 高度/深度范围终点
-    private BigDecimal heightDepthRangeEnd;
-
-    // 缝宽范围起点
-    private BigDecimal crackWidthRangeStart;
-
-    // 缝宽范围终点
-    private BigDecimal crackWidthRangeEnd;
-
-    // 面积范围起点（废弃）
-    private BigDecimal areaRangeStart;
-
-    // 面积范围终点（废弃）
-    private BigDecimal areaRangeEnd;
-
-    // 变形/位移范围起点
-    private BigDecimal deformationRangeStart;
-
-    // 变形/位移范围终点
-    private BigDecimal deformationRangeEnd;
-
-    // 角度范围起点
+    /**
+     * 角度分段开始
+     */
     private BigDecimal angleRangeStart;
 
-    // 角度范围终点
+    /**
+     * 角度分段结束
+     */
     private BigDecimal angleRangeEnd;
 
-    // 其他
+    /**
+     * 其他
+     */
     private String other;
+
+    /** 离线记录唯一标识(UUID) */
+    private String offlineUuid;
+
+    /** 是否为离线同步数据 (0:否, 1:是) */
+    private Integer isOfflineData;
 }
