@@ -45,7 +45,7 @@
     <select id="selectBiTemplateObjectList" parameterType="BiTemplateObject" resultMap="BiTemplateObjectResult">
         SELECT
         t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
-        t.weight, t.props, t.remark
+        t.weight, t.props, t.remark, t.create_by, t.create_time, t.update_by, t.update_time
         FROM bi_template_object t
         <where>
             <if test="status != null and status != ''">
