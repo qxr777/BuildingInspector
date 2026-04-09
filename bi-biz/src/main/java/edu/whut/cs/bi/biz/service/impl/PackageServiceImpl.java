@@ -529,10 +529,7 @@ public class PackageServiceImpl implements IPackageService {
                 zipOut.putNextEntry(entry);
 
                 // 从MinIO读取
-                try (InputStream imageStream = minioClient.getObject(GetObjectArgs.builder()
-                        .bucket(minioConfig.getBucketName())
-                        .object(fileMap.getNewName().substring(0, 2) + "/" + fileMap.getNewName())
-                        .build())) {
+                try (InputStream imageStream = openObjectStream(fileMap.getNewName())) {
 
                     byte[] buffer = new byte[8192];
                     int bytesRead;
@@ -621,10 +618,7 @@ public class PackageServiceImpl implements IPackageService {
                     zipOut.putNextEntry(entry);
 
                     // 流式从MinIO读取并直接写入ZIP
-                    try (InputStream imageStream = minioClient.getObject(GetObjectArgs.builder()
-                            .bucket(minioConfig.getBucketName())
-                            .object(newName.substring(0, 2) + "/" + newName)
-                            .build())) {
+                    try (InputStream imageStream = openObjectStream(newName)) {
 
                         byte[] buffer = new byte[8192];
                         int bytesRead;
@@ -644,6 +638,16 @@ public class PackageServiceImpl implements IPackageService {
         } catch (Exception e) {
             log.error("处理病害图片失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 打开 MinIO 对象流，便于测试时覆写。
+     */
+    protected InputStream openObjectStream(String newName) throws Exception {
+        return minioClient.getObject(GetObjectArgs.builder()
+                .bucket(minioConfig.getBucketName())
+                .object(newName.substring(0, 2) + "/" + newName)
+                .build());
     }
 
     /**
