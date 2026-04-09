@@ -7,6 +7,8 @@ import lombok.EqualsAndHashCode;
 import java.math.BigDecimal;
 
 /**
+ * 病害详情对象 bi_disease_detail
+ * 
  * @author QiXin
  * @date 2025/3/17
  */
@@ -14,99 +16,151 @@ import java.math.BigDecimal;
 @EqualsAndHashCode(callSuper = true)
 public class DiseaseDetail extends BaseEntity {
 
-    /**
-     * 步长
-     */
+    /** 步长 */
     private Integer step;
 
-    /**
-     * 详情id
-     */
+    /** 详情id */
     private Long id;
 
-    /**
-     * 病害id
-     */
+    /** 病害id */
     private Long diseaseId;
 
-    /**
-     * 长度最小值
-     */
-    private BigDecimal lengthMin;
+    /** 参考面1位置 */
+    private String reference1Location;
 
-    /**
-     * 长度最大值
-     */
-    private BigDecimal lengthMax;
+    /** 参考面1起始位置 */
+    private BigDecimal reference1LocationStart;
 
-    /**
-     * 长度分段
-     */
-    private String lengthRange;
+    /** 参考面1结束位置 */
+    private BigDecimal reference1LocationEnd;
 
-    /**
-     * 宽度最小值
-     */
-    private BigDecimal widthMin;
+    /** 参考面2位置 */
+    private String reference2Location;
 
-    /**
-     * 宽度最大值
-     */
-    private BigDecimal widthMax;
+    /** 参考面2起始位置 */
+    private BigDecimal reference2LocationStart;
 
-    /**
-     * 宽度分段
-     */
-    private String widthRange;
+    /** 参考面2结束位置 */
+    private BigDecimal reference2LocationEnd;
 
-    /**
-     * 深度最小值
-     */
-    private BigDecimal depthMin;
+    /** 长度1 */
+    private BigDecimal length1;
 
-    /**
-     * 深度最大值
-     */
-    private BigDecimal depthMax;
+    /** 长度2 */
+    private BigDecimal length2;
 
-    /**
-     * 深度分段
-     */
-    private String depthRange;
+    /** 长度3 */
+    private BigDecimal length3;
 
-    /**
-     * 面积最小值
-     */
-    private BigDecimal areaMin;
+    /** 宽度 */
+    private BigDecimal width;
 
-    /**
-     * 面积最大值
-     */
-    private BigDecimal areaMax;
+    /** 高度/深度 */
+    private BigDecimal heightDepth;
 
-    /**
-     * 面积分段
-     */
-    private String areaRange;
+    /** 裂缝宽度 */
+    private BigDecimal crackWidth;
 
-    /**
-     * 角度
-     */
-    private BigDecimal angle;
+    /** 面积-长度 */
+    private BigDecimal areaLength;
 
-    /**
-     * 角度分段开始
-     */
+    /** 面积-宽度 */
+    private BigDecimal areaWidth;
+
+    /** 面积标识符 */
+    private Integer areaIdentifier;
+
+    /** 变形 */
+    private BigDecimal deformation;
+
+    /** 角度 */
+    private Integer angle;
+
+    /** 比例分子 */
+    private Integer numeratorRatio;
+
+    /** 比例分母 */
+    private Integer denominatorRatio;
+
+    /** 长度分段起始 */
+    private BigDecimal lengthRangeStart;
+
+    /** 长度分段结束 */
+    private BigDecimal lengthRangeEnd;
+
+    /** 宽度分段起始 */
+    private BigDecimal widthRangeStart;
+
+    /** 宽度分段结束 */
+    private BigDecimal widthRangeEnd;
+
+    /** 高度/深度分段起始 */
+    private BigDecimal heightDepthRangeStart;
+
+    /** 高度/深度分段结束 */
+    private BigDecimal heightDepthRangeEnd;
+
+    /** 裂缝宽度分段起始 */
+    private BigDecimal crackWidthRangeStart;
+
+    /** 裂缝宽度分段结束 */
+    private BigDecimal crackWidthRangeEnd;
+
+    /** 面积分段起始 */
+    private BigDecimal areaRangeStart;
+
+    /** 面积分段结束 */
+    private BigDecimal areaRangeEnd;
+
+    /** 变形分段起始 */
+    private BigDecimal deformationRangeStart;
+
+    /** 变形分段结束 */
+    private BigDecimal deformationRangeEnd;
+
+    /** 角度分段起始 */
     private BigDecimal angleRangeStart;
 
-    /**
-     * 角度分段结束
-     */
+    /** 角度分段结束 */
     private BigDecimal angleRangeEnd;
 
-    /**
-     * 其他
-     */
+    /** 长度最小值 (保留兼容) */
+    private BigDecimal lengthMin;
+
+    /** 长度最大值 (保留兼容) */
+    private BigDecimal lengthMax;
+
+    /** 长度分段 (保留兼容) */
+    private String lengthRange;
+
+    /** 宽度最小值 (保留兼容) */
+    private BigDecimal widthMin;
+
+    /** 宽度最大值 (保留兼容) */
+    private BigDecimal widthMax;
+
+    /** 宽度分段 (保留兼容) */
+    private String widthRange;
+
+    /** 深度最小值 (保留兼容) */
+    private BigDecimal depthMin;
+
+    /** 深度最大值 (保留兼容) */
+    private BigDecimal depthMax;
+
+    /** 深度分段 (保留兼容) */
+    private String depthRange;
+
+    /** 面积最小值 (保留兼容) */
+    private BigDecimal areaMin;
+
+    /** 面积最大值 (保留兼容) */
+    private BigDecimal areaMax;
+
+    /** 面积分段 (保留兼容) */
+    private String areaRange;
+
+    /** 其他 */
     private String other;
 
     /** 离线记录唯一标识(UUID) */
