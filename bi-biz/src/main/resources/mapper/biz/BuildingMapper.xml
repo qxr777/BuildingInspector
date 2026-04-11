@@ -28,6 +28,7 @@
         <result property="updateTime"    column="update_time"    />
         <result property="templateName"  column="template_name"  />
         <result property="offlineUuid"  column="offline_uuid"  />
+        <result property="rootObjectUuid" column="root_object_uuid" />
         <result property="isOfflineData" column="is_offline_data" />
     </resultMap>
 
@@ -106,6 +107,10 @@
         </where>
     </select>
 
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="BuildingResult">
+        select * from bi_building where offline_uuid = #{offlineUuid} and del_flag = '0' limit 1
+    </select>
+
     <insert id="insertBuilding" parameterType="Building" useGeneratedKeys="true" keyProperty="id">
         insert into bi_building
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -131,6 +136,7 @@
             <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="rootObjectUuid != null">root_object_uuid,</if>
             <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -156,6 +162,7 @@
             <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="rootObjectUuid != null">#{rootObjectUuid},</if>
             <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
     </insert>
@@ -184,6 +191,7 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="rootObjectUuid != null">root_object_uuid = #{rootObjectUuid},</if>
             <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>
         where id = #{id}

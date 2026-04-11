@@ -166,6 +166,11 @@ public class DiseaseDetail extends BaseEntity {
     /** 离线记录唯一标识(UUID) */
     private String offlineUuid;
 
+    /** 所属病害离线UUID */
+    @com.alibaba.fastjson.annotation.JSONField(name = "diseaseUuid")
+    @com.fasterxml.jackson.annotation.JsonProperty("diseaseUuid")
+    private String diseaseUuid;
+
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;
 }

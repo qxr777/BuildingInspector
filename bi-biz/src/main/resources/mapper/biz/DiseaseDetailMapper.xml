@@ -39,6 +39,9 @@
         <result property="angleRangeStart" column="angle_range_start"/>
         <result property="angleRangeEnd" column="angle_range_end"/>
         <result property="other" column="other"/>
+        <result property="offlineUuid" column="offline_uuid"/>
+        <result property="diseaseUuid" column="disease_uuid"/>
+        <result property="isOfflineData" column="is_offline_data"/>
     </resultMap>
 
     <sql id="selectDiseaseDetailVo">
@@ -75,7 +78,10 @@
                deformation_range_end,
                angle_range_start,
                angle_range_end,
-               other
+               other,
+               offline_uuid,
+               disease_uuid,
+               is_offline_data
         from bi_disease_detail
     </sql>
 
@@ -176,9 +182,16 @@
             <if test="angleRangeStart != null">angle_range_start = #{angleRangeStart},</if>
             <if test="angleRangeEnd != null">angle_range_end = #{angleRangeEnd},</if>
             <if test="other != null and other != ''">other = #{other},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="diseaseUuid != null">disease_uuid = #{diseaseUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </set>
         where id = #{id}
     </update>
+
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="DiseaseDetailResult">
+        select * from bi_disease_detail where offline_uuid = #{offlineUuid} limit 1
+    </select>
 
     <insert id="insertDiseaseDetail" parameterType="DiseaseDetail" useGeneratedKeys="true" keyProperty="id">
         insert into bi_disease_detail
@@ -216,6 +229,9 @@
             <if test="angleRangeStart != null">angle_range_start,</if>
             <if test="angleRangeEnd != null">angle_range_end,</if>
             <if test="other != null and other != ''">other,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="diseaseUuid != null">disease_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
         values
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -252,6 +268,9 @@
             <if test="angleRangeStart != null">#{angleRangeStart},</if>
             <if test="angleRangeEnd != null">#{angleRangeEnd},</if>
             <if test="other != null and other != ''">#{other},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="diseaseUuid != null">#{diseaseUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
     </insert>
 
@@ -291,7 +310,10 @@
             deformation_range_end,
             angle_range_start,
             angle_range_end,
-            other
+            other,
+            disease_uuid,
+            offline_uuid,
+            is_offline_data
         )
         VALUES
         <foreach collection="diseaseDetails" item="detail" separator=",">
@@ -328,7 +350,10 @@
                 #{detail.deformationRangeEnd},
                 #{detail.angleRangeStart},
                 #{detail.angleRangeEnd},
-                #{detail.other}
+                #{detail.other},
+                #{detail.diseaseUuid},
+                #{detail.offlineUuid},
+                #{detail.isOfflineData}
             )
         </foreach>
     </insert>
