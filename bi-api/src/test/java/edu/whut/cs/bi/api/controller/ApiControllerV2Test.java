@@ -87,11 +87,16 @@ class ApiControllerV2Test {
 
     @Test
     void testGenerateUserSqlite_Success() {
+        SqliteVo vo = new SqliteVo();
+        vo.setUrl("http://test.url");
+        doReturn(vo).when(sqliteService).generateUserSqliteSync(20L);
+
         AjaxResult result = apiControllerV2.generateUserSqlite(20L);
 
         assertEquals(0, result.get(AjaxResult.CODE_TAG));
-        assertEquals("已交由后台处理，请稍后查询下载地址", result.get(AjaxResult.MSG_TAG));
-        verify(sqliteService, times(1)).generateUserSqliteAsync(20L);
+        assertEquals("获取成功", result.get(AjaxResult.MSG_TAG));
+        assertSame(vo, result.get(AjaxResult.DATA_TAG));
+        verify(sqliteService, times(1)).generateUserSqliteSync(20L);
     }
 
     @Test

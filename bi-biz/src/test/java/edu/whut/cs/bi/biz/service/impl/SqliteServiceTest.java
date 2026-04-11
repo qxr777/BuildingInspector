@@ -8,6 +8,7 @@ import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.DiseaseDetail;
+import edu.whut.cs.bi.biz.domain.DiseasePosition;
 import edu.whut.cs.bi.biz.domain.DiseaseScale;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.domain.FileMap;
@@ -21,10 +22,12 @@ import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
+import edu.whut.cs.bi.biz.mapper.DiseasePositionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseScaleMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectMapper;
+import edu.whut.cs.bi.biz.mapper.TODiseasePositionMapper;
 import edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.mapper.UserSqliteMapper;
@@ -100,6 +103,10 @@ class SqliteServiceTest {
     private DiseaseTypeMapper diseaseTypeMapper;
     @Mock
     private DiseaseScaleMapper diseaseScaleMapper;
+    @Mock
+    private DiseasePositionMapper diseasePositionMapper;
+    @Mock
+    private TODiseasePositionMapper toDiseasePositionMapper;
     @Mock
     private MinioClient minioClient;
     @Mock
@@ -217,12 +224,12 @@ class SqliteServiceTest {
     }
 
     /**
-     * 测试场景：用户维度异步打包流程全部成功。
+     * 测试场景：用户维度同步打包流程全部成功。
      * Mock 内容：项目/任务/桥梁查询正常，MinIO 上传成功，fileMap 插入后回填 id，用户打包记录不存在走 insert 分支。
      * 预期结果：方法正常执行且写入用户 SQLite 关联信息。
      */
     @Test
-    void testGenerateUserSqliteAsync_HappyPath() throws Exception {
+    void testGenerateUserSqliteSync_HappyPath() throws Exception {
         Long userId = 99L;
 
         Project project = new Project();
@@ -249,7 +256,7 @@ class SqliteServiceTest {
 
         doReturn(null).when(userSqliteMapper).selectUserSqliteByUserId(userId);
 
-        sqliteService.generateUserSqliteAsync(userId);
+        sqliteService.generateUserSqliteSync(userId);
 
         verify(fileMapMapper, times(1)).insertFileMap(any(FileMap.class));
         verify(userSqliteMapper, times(1)).insertUserSqlite(any(UserSqlite.class));
@@ -257,17 +264,18 @@ class SqliteServiceTest {
     }
 
     /**
-     * 测试场景：用户维度异步打包时上游依赖抛异常。
+     * 测试场景：用户维度同步打包时上游依赖抛异常。
      * Mock 内容：projectMapper 查询项目时抛 RuntimeException。
-     * 预期结果：异步入口内部吞掉异常，不向外抛出；且不会继续执行上传与用户记录写入。
+     * 预期结果：内部捕获异常并返回 null。
      */
     @Test
-    void testGenerateUserSqliteAsync_ExceptionPath() throws Exception {
+    void testGenerateUserSqliteSync_ExceptionPath() throws Exception {
         Long userId = 100L;
         doThrow(new RuntimeException("db error"))
                 .when(projectMapper).selectProjectList(any(Project.class), eq(userId), eq(null));
 
-        assertDoesNotThrow(() -> sqliteService.generateUserSqliteAsync(userId));
+        SqliteVo vo = sqliteService.generateUserSqliteSync(userId);
+        assertNull(vo);
 
         verify(minioClient, never()).putObject(any());
         verify(userSqliteMapper, never()).insertUserSqlite(any(UserSqlite.class));
@@ -312,6 +320,10 @@ class SqliteServiceTest {
                 .selectDiseaseTypeList(any(DiseaseType.class));
         doReturn(Collections.singletonList(scale)).when(diseaseScaleMapper)
                 .selectDiseaseScaleList(any(DiseaseScale.class));
+        doReturn(Collections.emptyList()).when(diseasePositionMapper)
+                .selectDiseasePositionList(any());
+        doReturn(Collections.emptyList()).when(toDiseasePositionMapper)
+                .selectAllMappings();
 
         doReturn("bucket-test").when(minioConfig).getBucketName();
         doReturn("http://minio.local").when(minioConfig).getUrl();

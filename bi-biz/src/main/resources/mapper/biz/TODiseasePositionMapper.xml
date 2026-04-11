@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.TODiseasePositionMapper">
+
+    <select id="selectAllMappings" resultType="java.util.HashMap">
+        select template_object_id, disease_position_id
+        from bi_template_object_disease_position
+    </select>
+
+    <select id="selectByTemplateObjectId" parameterType="Long" resultType="java.lang.Long">
+        select disease_position_id
+        from bi_template_object_disease_position
+        where template_object_id = #{templateObjectId}
+    </select>
+
+    <insert id="batchInsert">
+        insert into bi_template_object_disease_position (template_object_id, disease_position_id)
+        values
+        <foreach collection="diseasePositionIds" item="dpId" separator=",">
+            (#{templateObjectId}, #{dpId})
+        </foreach>
+    </insert>
+
+    <delete id="deleteMapping">
+        delete from bi_template_object_disease_position
+        where template_object_id = #{templateObjectId}
+          and disease_position_id = #{diseasePositionId}
+    </delete>
+
+</mapper>

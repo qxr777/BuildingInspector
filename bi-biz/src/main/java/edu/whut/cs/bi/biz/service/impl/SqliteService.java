@@ -65,6 +65,10 @@ public class SqliteService {
     private DiseaseTypeMapper diseaseTypeMapper;
     @Resource
     private DiseaseScaleMapper diseaseScaleMapper;
+    @Resource
+    private DiseasePositionMapper diseasePositionMapper;
+    @Resource
+    private TODiseasePositionMapper toDiseasePositionMapper;
 
     @Autowired
     private MinioClient minioClient;
@@ -273,15 +277,19 @@ public class SqliteService {
         List<Map<String, Object>> toMappings = toDiseaseTypeMapper.selectAllTemplateObjectDiseaseTypeMappings();
         List<DiseaseType> diseaseTypes = diseaseTypeMapper.selectDiseaseTypeList(new DiseaseType());
         List<DiseaseScale> diseaseScales = diseaseScaleMapper.selectDiseaseScaleList(new DiseaseScale());
+        List<DiseasePosition> diseasePositions = diseasePositionMapper.selectDiseasePositionList(new DiseasePosition());
+        List<Map<String, Object>> toDpMappings = toDiseasePositionMapper.selectAllMappings();
 
         File tempFile = File.createTempFile("common_base_", ".db");
         try (Connection conn = connect(tempFile)) {
             createTables(conn, "bi_template_object", "bi_template_object_disease_type", "bi_disease_type",
-                    "bi_disease_scale");
+                    "bi_disease_scale", "bi_disease_position", "bi_template_object_disease_position");
             insertTemplateObjects(conn, templateObjects);
             insertTODiseaseTypeMappings(conn, toMappings);
             insertDiseaseTypes(conn, diseaseTypes);
             insertDiseaseScales(conn, diseaseScales);
+            insertDiseasePositions(conn, diseasePositions);
+            insertTODiseasePositionMappings(conn, toDpMappings);
             conn.commit();
         }
         return tempFile;
@@ -452,6 +460,12 @@ public class SqliteService {
             if (set.contains("bi_disease_scale"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_disease_scale (id INTEGER PRIMARY KEY, type_code TEXT, scale INTEGER, qualitative_description TEXT, quantitative_description TEXT, status TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_disease_position"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_disease_position (id INTEGER PRIMARY KEY, name TEXT, code TEXT, props TEXT, ref1 TEXT, ref2 TEXT, sort_order INTEGER, status TEXT, del_flag TEXT, remark TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT)");
+            if (set.contains("bi_template_object_disease_position"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_template_object_disease_position (template_object_id INTEGER, disease_position_id INTEGER, PRIMARY KEY(template_object_id, disease_position_id))");
         }
     }
 
@@ -792,6 +806,42 @@ public class SqliteService {
                 ps.setString(9, s.getUpdateBy());
                 ps.setString(10, dateToStr(s.getUpdateTime()));
                 ps.setString(11, s.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertDiseasePositions(Connection conn, List<DiseasePosition> positions) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_disease_position (id, name, code, props, ref1, ref2, sort_order, status, del_flag, remark, create_by, create_time, update_by, update_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (DiseasePosition dp : positions) {
+                ps.setLong(1, dp.getId());
+                ps.setString(2, dp.getName());
+                ps.setString(3, dp.getCode());
+                ps.setString(4, dp.getProps());
+                ps.setString(5, dp.getRef1());
+                ps.setString(6, dp.getRef2());
+                setIntOrNull(ps, 7, dp.getSortOrder());
+                ps.setString(8, dp.getStatus());
+                ps.setString(9, dp.getDelFlag());
+                ps.setString(10, dp.getRemark());
+                ps.setString(11, dp.getCreateBy());
+                ps.setString(12, dateToStr(dp.getCreateTime()));
+                ps.setString(13, dp.getUpdateBy());
+                ps.setString(14, dateToStr(dp.getUpdateTime()));
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertTODiseasePositionMappings(Connection conn, List<Map<String, Object>> mappings) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_template_object_disease_position (template_object_id, disease_position_id) VALUES (?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (Map<String, Object> m : mappings) {
+                ps.setObject(1, m.get("template_object_id"));
+                ps.setObject(2, m.get("disease_position_id"));
                 ps.addBatch();
             }
             ps.executeBatch();
