@@ -110,4 +110,12 @@ public interface BuildingMapper {
      * @return 匹配的建筑列表
      */
     public List<Building> checkBuildingUnique(Building building);
+
+    /**
+     * 根据离线UUID查询建筑 (高性能)
+     *
+     * @param offlineUuid 离线UUID
+     * @return 建筑
+     */
+    public Building selectByOfflineUuid(String offlineUuid);
 }

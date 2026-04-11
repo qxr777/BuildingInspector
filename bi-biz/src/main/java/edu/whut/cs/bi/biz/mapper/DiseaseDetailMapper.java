@@ -7,9 +7,9 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * 病害Mapper接口
+ * 病害详情Mapper接口
  *
- * @author: chenwenqi
+ * @author: QiXin
  * @date: 2025-04-09
  */
 @Mapper
@@ -93,4 +93,12 @@ public interface DiseaseDetailMapper {
      * @return 删除结果
      */
     int deleteDiseaseDetailByDiseaseIds(Long[] ids);
+
+    /**
+     * 根据离线UUID查询病害详情 (高性能)
+     *
+     * @param offlineUuid 离线UUID
+     * @return 病害详情
+     */
+    public DiseaseDetail selectByOfflineUuid(String offlineUuid);
 }

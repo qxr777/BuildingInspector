@@ -138,6 +138,9 @@ public class BiObject extends TreeEntity {
     /** 父节点离线UUID */
     private String parentUuid;
 
+    /** 所属桥梁ID */
+    private Long buildingId;
+
     /** 所属桥梁离线UUID */
     private String buildingUuid;
 

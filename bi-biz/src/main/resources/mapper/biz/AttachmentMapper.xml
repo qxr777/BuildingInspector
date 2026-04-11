@@ -16,10 +16,13 @@
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
+        <result property="offlineUuid" column="offline_uuid"/>
+        <result property="offlineSubjectUuid" column="offline_subject_uuid"/>
+        <result property="isOfflineData" column="is_offline_data"/>
     </resultMap>
 
     <sql id="selectAttachmentVo">
-        select id, name, type, minio_id, thumb_minio_id, subject_id, remark, create_by, create_time, update_by, update_time from bi_attachment
+        select id, name, type, minio_id, thumb_minio_id, subject_id, remark, create_by, create_time, update_by, update_time, offline_uuid, offline_subject_uuid, is_offline_data from bi_attachment
     </sql>
 
     <select id="selectAll" resultMap="AttachmentResult">
@@ -81,6 +84,9 @@
             <if test="remark != null">remark,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="offlineSubjectUuid != null">offline_subject_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="name != null and name != ''">#{name},</if>
@@ -91,6 +97,9 @@
             <if test="remark != null">#{remark},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="offlineSubjectUuid != null">#{offlineSubjectUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
     </insert>
 
@@ -107,6 +116,9 @@
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="offlineSubjectUuid != null">offline_subject_uuid = #{offlineSubjectUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>
         where id = #{id}
     </update>

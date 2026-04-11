@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.SyncLogMapper">
+
+    <insert id="insert" parameterType="SyncLog" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_sync_log (sync_uuid, user_id, status, client_info, create_time, remark)
+        values (#{syncUuid}, #{userId}, #{status}, #{clientInfo}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateStatus">
+        update bi_sync_log
+        set status = #{status},
+            finish_time = sysdate(),
+            remark = #{remark}
+        where sync_uuid = #{syncUuid}
+    </update>
+
+    <select id="selectBySyncUuid" resultType="SyncLog">
+        select id, sync_uuid, user_id, status, client_info, create_time, finish_time, remark
+        from bi_sync_log
+        where sync_uuid = #{syncUuid}
+    </select>
+
+</mapper>

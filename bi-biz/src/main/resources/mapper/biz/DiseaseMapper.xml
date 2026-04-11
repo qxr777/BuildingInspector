@@ -37,6 +37,11 @@
         <result property="updateTime" column="update_time"/>
         <result property="taskId" column="task_id"/>
         <result property="imgNoExp" column="img_no_exp"/>
+        <result property="offlineUuid" column="offline_uuid"/>
+        <result property="buildingUuid" column="building_uuid"/>
+        <result property="objectUuid" column="object_uuid"/>
+        <result property="componentUuid" column="component_uuid"/>
+        <result property="isOfflineData" column="is_offline_data"/>
 
         <!-- diseaseType object -->
         <association property="diseaseType" javaType="DiseaseType">
@@ -89,6 +94,11 @@
                d.update_by,
                d.update_time,
                d.task_id,
+               d.offline_uuid,
+               d.building_uuid,
+               d.object_uuid,
+               d.component_uuid,
+               d.is_offline_data,
                bp.year            as bp_year,
                dt.id              as dt_id,
                dt.name            as dt_name,
@@ -142,6 +152,10 @@
         order by d.create_time desc
     </select>
 
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="DiseaseResult">
+        select * from bi_disease where offline_uuid = #{offlineUuid} limit 1
+    </select>
+
     <insert id="insertDisease" parameterType="Disease" useGeneratedKeys="true" keyProperty="id">
         insert into bi_disease
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -176,6 +190,11 @@
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="buildingUuid != null">building_uuid,</if>
+            <if test="objectUuid != null">object_uuid,</if>
+            <if test="componentUuid != null">component_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="position != null and position != ''">#{position},</if>
@@ -209,6 +228,11 @@
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="buildingUuid != null">#{buildingUuid},</if>
+            <if test="objectUuid != null">#{objectUuid},</if>
+            <if test="componentUuid != null">#{componentUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
     </insert>
 
@@ -269,6 +293,11 @@
             <if test="attachmentCount != null">attachment_count = #{attachmentCount},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="buildingUuid != null">building_uuid = #{buildingUuid},</if>
+            <if test="objectUuid != null">object_uuid = #{objectUuid},</if>
+            <if test="componentUuid != null">component_uuid = #{componentUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>
         where id = #{id}
     </update>

@@ -30,6 +30,10 @@
         <result property="parentName" column="parent_name" />
         <result property="count" column="count" />
         <result property="templateObjectId" column="template_object_id" />
+        <result property="offlineUuid" column="offline_uuid" />
+        <result property="parentUuid" column="parent_uuid" />
+        <result property="buildingUuid" column="building_uuid" />
+        <result property="isOfflineData" column="is_offline_data" />
         <collection property="children" ofType="BiObject">
             <id     property="id"        column="child_id"         />
             <result property="name"      column="child_name"       />
@@ -42,9 +46,9 @@
     </resultMap>
 
     <sql id="selectBiObjectVo">
-        select id, name, parent_id, ancestors, order_num, status, del_flag, longitude, latitude,
-               altitude, position, area, admin_dept, weight, video_feed, props, create_by, create_time, update_by,
-               update_time, remark, template_object_id,count
+         select id, name, parent_id, ancestors, order_num, status, del_flag, longitude, latitude,
+                altitude, position, area, admin_dept, weight, video_feed, props, create_by, create_time, update_by,
+                update_time, remark, template_object_id, count, offline_uuid, parent_uuid, building_uuid, is_offline_data
         from bi_object
     </sql>
 
@@ -138,6 +142,10 @@
 
 
 
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="BiObjectResult">
+        select * from bi_object where offline_uuid = #{offlineUuid} and del_flag = '0' limit 1
+    </select>
+
     <insert id="insertBiObject" parameterType="BiObject" useGeneratedKeys="true" keyProperty="id">
         insert into bi_object
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -163,6 +171,10 @@
             <if test="updateTime != null">update_time,</if>
             <if test="remark != null">remark,</if>
             <if test="templateObjectId != null">template_object_id,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="parentUuid != null">parent_uuid,</if>
+            <if test="buildingUuid != null">building_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="id != null">#{id},</if>
@@ -187,6 +199,10 @@
             <if test="updateTime != null">#{updateTime},</if>
             <if test="remark != null">#{remark},</if>
             <if test="templateObjectId != null">#{templateObjectId},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="parentUuid != null">#{parentUuid},</if>
+            <if test="buildingUuid != null">#{buildingUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
     </insert>
 
@@ -215,6 +231,10 @@
             <if test="remark != null">remark = #{remark},</if>
             <if test="count != null">count = #{count},</if>
             <if test="templateObjectId != null">template_object_id = #{templateObjectId},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="parentUuid != null">parent_uuid = #{parentUuid},</if>
+            <if test="buildingUuid != null">building_uuid = #{buildingUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>
         where id = #{id}
     </update>

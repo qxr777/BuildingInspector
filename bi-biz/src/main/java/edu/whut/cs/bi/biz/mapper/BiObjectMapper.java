@@ -203,4 +203,12 @@ public interface BiObjectMapper {
      * @return 更新的记录数
      */
     int updateAncestorsCount(@Param("ancestorIds") List<Long> ancestorIds, @Param("deltaCount") int deltaCount, @Param("updateBy") String updateBy);
+
+    /**
+     * 根据离线UUID查询对象 (高性能，无级联)
+     *
+     * @param offlineUuid 离线UUID
+     * @return 对象
+     */
+    public BiObject selectByOfflineUuid(String offlineUuid);
 }

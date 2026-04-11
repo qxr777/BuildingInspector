@@ -141,4 +141,11 @@ public interface ComponentMapper {
      */
     List<Component> selectComponentsByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds);
 
+    /**
+     * 根据离线UUID查询构件 (高性能)
+     *
+     * @param offlineUuid 离线UUID
+     * @return 构件
+     */
+    public Component selectByOfflineUuid(String offlineUuid);
 }

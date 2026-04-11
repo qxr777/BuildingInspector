@@ -130,4 +130,11 @@ public interface DiseaseMapper {
      */
     List<Disease> selectDiseasesByBuildingIds(@Param("buildingIds") List<Long> buildingIds);
 
+    /**
+     * 根据离线UUID查询病害 (高性能)
+     *
+     * @param offlineUuid 离线UUID
+     * @return 病害
+     */
+    public Disease selectByOfflineUuid(String offlineUuid);
 }

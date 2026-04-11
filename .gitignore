@@ -38,6 +38,7 @@ nbdist/
 
 ######################################################################
 # Others
+.DS_Store
 *.log
 *.xml.versionsBackup
 *.swp
@@ -48,3 +49,6 @@ nbdist/
 docker/data/
 .vscode/launch.json
 .vscode/settings.json
+test_out.json
+u95.db-shm
+u95.db-wal

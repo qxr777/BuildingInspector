@@ -16,6 +16,9 @@
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"  column="update_time"  />
         <result property="remark"      column="remark"       />
+        <result property="offlineUuid" column="offline_uuid" />
+        <result property="objectUuid"  column="object_uuid"  />
+        <result property="isOfflineData" column="is_offline_data" />
         <association property="biObject" javaType="BiObject">
             <result property="id" column="bi_object_id"/>
             <result property="name" column="bi_object_name"/>
@@ -35,18 +38,22 @@
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"  column="update_time"  />
         <result property="remark"      column="remark"       />
+        <result property="offlineUuid" column="offline_uuid" />
+        <result property="objectUuid"  column="object_uuid"  />
+        <result property="isOfflineData" column="is_offline_data" />
     </resultMap>
 
     <sql id="selectComponentVo">
-        select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
-               c.update_by, c.update_time, c.remark, o.name as bi_object_name , o.ancestors as bi_object_ancestors
+         select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
+                c.update_by, c.update_time, c.remark, c.offline_uuid, c.object_uuid, c.is_offline_data,
+                o.name as bi_object_name , o.ancestors as bi_object_ancestors
         from bi_component c
                  left join bi_object o on o.id = c.bi_object_id
     </sql>
 
     <sql id="selectComponentListVo">
-        select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
-               c.update_by, c.update_time, c.remark
+         select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
+                c.update_by, c.update_time, c.remark, c.offline_uuid, c.object_uuid, c.is_offline_data
         from bi_component c
     </sql>
 
@@ -107,6 +114,10 @@
         </where>
     </select>
 
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="ComponentResult">
+        select * from bi_component where offline_uuid = #{offlineUuid} and del_flag = '0' limit 1
+    </select>
+
     <insert id="insertComponent" parameterType="Component" useGeneratedKeys="true" keyProperty="id">
         insert into bi_component
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -120,6 +131,9 @@
             <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="remark != null">remark,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="objectUuid != null">object_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="biObjectId != null">#{biObjectId},</if>
@@ -132,6 +146,9 @@
             <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="remark != null">#{remark},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="objectUuid != null">#{objectUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
     </insert>
 
@@ -146,6 +163,9 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="objectUuid != null">object_uuid = #{objectUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>
         where id = #{id} and del_flag = '0'
     </update>

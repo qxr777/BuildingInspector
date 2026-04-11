@@ -181,7 +181,7 @@ public class ProjectServiceImpl implements IProjectService {
             // 联动更新项目下所有用户的 SQLite
             List<Long> allUserIds = projectUserMapper.selectAllUserIdsByProjectId(project.getId());
             if (allUserIds != null) {
-                allUserIds.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+                allUserIds.forEach(uid -> sqliteService.generateUserSqliteSync(uid));
             }
         }
         
@@ -203,7 +203,7 @@ public class ProjectServiceImpl implements IProjectService {
             // 触发受影响用户的 SQLite 更新
             List<Long> allUserIds = projectUserMapper.selectAllUserIdsByProjectId(id);
             if (allUserIds != null) {
-                allUserIds.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+                allUserIds.forEach(uid -> sqliteService.generateUserSqliteSync(uid));
             }
             taskMapper.deleteTaskByProjectId(id);
             projectUserMapper.deleteProjectUser(id);
@@ -223,7 +223,7 @@ public class ProjectServiceImpl implements IProjectService {
         // 触发受影响用户的 SQLite 更新
         List<Long> allUserIds = projectUserMapper.selectAllUserIdsByProjectId(id);
         if (allUserIds != null) {
-            allUserIds.forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+            allUserIds.forEach(uid -> sqliteService.generateUserSqliteSync(uid));
         }
         // 删除项目下的任务
         taskMapper.deleteTaskByProjectId(id);
@@ -466,7 +466,7 @@ public class ProjectServiceImpl implements IProjectService {
         
         userIdsToUpdate.stream()
             .filter(Objects::nonNull)
-            .forEach(uid -> sqliteService.generateUserSqliteAsync(uid));
+            .forEach(uid -> sqliteService.generateUserSqliteSync(uid));
         
         return save;
     }

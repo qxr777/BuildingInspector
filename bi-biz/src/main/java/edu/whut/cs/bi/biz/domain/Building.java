@@ -177,6 +177,9 @@ public class Building extends BaseEntity {
      */
     private Integer bridgeType;
 
+    /** 根对象离线UUID */
+    private String rootObjectUuid;
+
     /** 离线记录唯一标识(UUID) */
     private String offlineUuid;
 
@@ -204,6 +207,8 @@ public class Building extends BaseEntity {
                 .append("adminDept", getAdminDept())
                 .append("videoFeed", getVideoFeed())
                 .append("weight", getWeight())
+                .append("rootObjectId", getRootObjectId())
+                .append("rootObjectUuid", getRootObjectUuid())
                 .append("offlineUuid", getOfflineUuid())
                 .append("isOfflineData", getIsOfflineData())
                 .toString();
