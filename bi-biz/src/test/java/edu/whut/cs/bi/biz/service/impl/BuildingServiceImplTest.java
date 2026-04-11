@@ -354,4 +354,126 @@ class BuildingServiceImplTest {
         assertEquals("删除建筑失败", ex.getMessage());
         assertNotNull(ex.getCause());
     }
+
+    /**
+     * 测试场景：新增桥幅/桥跨指定模板但模板不存在时，应抛出异常。
+     */
+    @Test
+    void testInsertBuilding_WithTemplateButTemplateNotFound() {
+        Building input = new Building();
+        input.setName("K3跨");
+        input.setIsLeaf("1");
+        input.setTemplateId(999L);
+
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.emptyList());
+        when(biTemplateObjectService.selectBiTemplateObjectById(999L)).thenReturn(null);
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> buildingService.insertBuilding(input));
+
+        assertEquals("未找到指定模版!", ex.getMessage());
+    }
+
+    /**
+     * 测试场景：修改建筑时若记录不存在，应直接返回0。
+     */
+    @Test
+    void testUpdateBuilding_WhenOldBuildingNotFound() {
+        Building updateParam = new Building();
+        updateParam.setId(100L);
+        updateParam.setName("不存在的桥");
+        updateParam.setArea("A1");
+        updateParam.setLine("L1");
+
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.emptyList());
+        when(buildingMapper.selectBuildingById(100L)).thenReturn(null);
+
+        int rows = buildingService.updateBuilding(updateParam);
+
+        assertEquals(0, rows);
+        verify(buildingMapper, times(0)).updateBuilding(any(Building.class));
+    }
+
+    /**
+     * 测试场景：仅修改名称时，应同步更新根节点名称。
+     */
+    @Test
+    void testUpdateBuilding_NameChangedOnly() {
+        Building updateParam = new Building();
+        updateParam.setId(1L);
+        updateParam.setName("新桥名");
+        updateParam.setArea("A1");
+        updateParam.setLine("L1");
+
+        Building oldBuilding = new Building();
+        oldBuilding.setId(1L);
+        oldBuilding.setName("旧桥名");
+        oldBuilding.setRootObjectId(100L);
+
+        when(buildingMapper.checkBuildingUnique(any(Building.class))).thenReturn(Collections.emptyList());
+        when(buildingMapper.selectBuildingById(1L)).thenReturn(oldBuilding);
+        when(buildingMapper.updateBuilding(any(Building.class))).thenReturn(1);
+
+        int rows = buildingService.updateBuilding(updateParam);
+
+        assertEquals(1, rows);
+        verify(biObjectService, times(1)).updateBiObject(argThat(obj ->
+                obj.getId().equals(100L) && "新桥名".equals(obj.getName())
+        ));
+        verify(biObjectService, times(0)).batchUpdateAncestors(anyLong(), anyString(), anyString(), anyString());
+    }
+
+    /**
+     * 测试场景：删除非组合桥时应删除任务、逻辑删除部件树并删除当前记录。
+     */
+    @Test
+    void testDeleteBuildingById_NonCompositeWithRoot() {
+        Building current = new Building();
+        current.setId(5L);
+        current.setIsLeaf("1");
+        current.setRootObjectId(500L);
+
+        when(buildingMapper.selectBuildingById(5L)).thenReturn(current);
+        when(buildingMapper.deleteBuildingById(5L)).thenReturn(1);
+
+        int rows = buildingService.deleteBuildingById(5L);
+
+        assertEquals(1, rows);
+        verify(biObjectService, times(1)).logicDeleteByRootObjectId(eq(500L), anyString());
+        verify(taskService, times(1)).deleteTaskByBuildingId(5L);
+        verify(buildingMapper, times(1)).deleteBuildingById(5L);
+    }
+
+    /**
+     * 测试场景：删除建筑时若ID不存在，应返回0。
+     */
+    @Test
+    void testDeleteBuildingById_NotFound() {
+        when(buildingMapper.selectBuildingById(999L)).thenReturn(null);
+
+        int rows = buildingService.deleteBuildingById(999L);
+
+        assertEquals(0, rows);
+        verify(buildingMapper, times(0)).deleteBuildingById(anyLong());
+        verify(taskService, times(0)).deleteTaskByBuildingId(anyLong());
+    }
+
+    /**
+     * 测试场景：查询子桥ID时若当前组合桥不存在或无根节点，应返回空列表。
+     */
+    @Test
+    void testSelectChildBuildingIds_EmptyCases() {
+        when(buildingMapper.selectBuildingById(1L)).thenReturn(null);
+
+        List<Long> result1 = buildingService.selectChildBuildingIds(1L);
+        assertEquals(0, result1.size());
+
+        Building noRoot = new Building();
+        noRoot.setId(2L);
+        noRoot.setRootObjectId(null);
+        when(buildingMapper.selectBuildingById(2L)).thenReturn(noRoot);
+
+        List<Long> result2 = buildingService.selectChildBuildingIds(2L);
+        assertEquals(0, result2.size());
+    }
 }
+
