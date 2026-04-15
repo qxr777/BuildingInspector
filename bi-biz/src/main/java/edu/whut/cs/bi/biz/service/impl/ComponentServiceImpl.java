@@ -12,6 +12,8 @@ import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.domain.BiObjectComponent;
+import edu.whut.cs.bi.biz.mapper.BiObjectComponentMapper;
 import edu.whut.cs.bi.biz.service.IComponentService;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
@@ -26,6 +28,9 @@ public class ComponentServiceImpl implements IComponentService {
 
     @Autowired
     private BiObjectMapper biObjectMapper;
+
+    @Autowired
+    private BiObjectComponentMapper biObjectComponentMapper;
 
     /**
      * 查询构件
@@ -91,7 +96,17 @@ public class ComponentServiceImpl implements IComponentService {
     @Override
     public int insertComponent(Component component) {
         component.setCreateTime(DateUtils.getNowDate());
-        return componentMapper.insertComponent(component);
+        int rows = componentMapper.insertComponent(component);
+        if (rows > 0 && component.getId() != null && component.getBiObjectId() != null) {
+            BiObjectComponent rel = new BiObjectComponent();
+            rel.setComponentId(component.getId());
+            rel.setBiObjectId(component.getBiObjectId());
+            rel.setWeight(new java.math.BigDecimal("1.0"));
+            rel.setCreateTime(component.getCreateTime());
+            rel.setCreateBy(component.getCreateBy());
+            biObjectComponentMapper.insertBiObjectComponent(rel);
+        }
+        return rows;
     }
 
     /**
@@ -114,7 +129,11 @@ public class ComponentServiceImpl implements IComponentService {
      */
     @Override
     public int deleteComponentByIds(String ids) {
-        return componentMapper.deleteComponentByIds(Convert.toStrArray(ids));
+        String[] idArr = Convert.toStrArray(ids);
+        for (String id : idArr) {
+            biObjectComponentMapper.deleteBiObjectComponentByComponentId(Long.valueOf(id));
+        }
+        return componentMapper.deleteComponentByIds(idArr);
     }
 
     /**
@@ -125,6 +144,7 @@ public class ComponentServiceImpl implements IComponentService {
      */
     @Override
     public int deleteComponentById(Long id) {
+        biObjectComponentMapper.deleteBiObjectComponentByComponentId(id);
         return componentMapper.deleteComponentById(id);
     }
 
@@ -172,6 +192,15 @@ public class ComponentServiceImpl implements IComponentService {
             component.setCreateBy(ShiroUtils.getLoginName());
 
             if (componentMapper.insertComponent(component) > 0) {
+                // 同步创建多对多关联
+                BiObjectComponent rel = new BiObjectComponent();
+                rel.setComponentId(component.getId());
+                rel.setBiObjectId(biObjectId);
+                rel.setWeight(new java.math.BigDecimal("1.0"));
+                rel.setCreateTime(component.getCreateTime());
+                rel.setCreateBy(component.getCreateBy());
+                biObjectComponentMapper.insertBiObjectComponent(rel);
+                
                 successCount++;
             }
         }
@@ -202,7 +231,7 @@ public class ComponentServiceImpl implements IComponentService {
      * @param objectName   部件名称
      */
     private void generateCodesRecursive(List<CodeSegment> segments, int index, List<String> currentParts,
-                                        List<String> results, String objectName) {
+            List<String> results, String objectName) {
         if (index == segments.size()) {
             // 只使用 "-" 连接片段
             String code = String.join("-", currentParts);
@@ -309,5 +338,16 @@ public class ComponentServiceImpl implements IComponentService {
             return new ArrayList<>();
         }
         return componentMapper.selectComponentsByIds(ids);
+    }
+    /**
+     * 根据对象ID查询关联的构件列表 (包含多对多关联的共享构件)
+     * 用于 2026 新标评定计算
+     *
+     * @param biObjectId 对象ID (如桥跨ID)
+     * @return 构件集合
+     */
+    @Override
+    public List<Component> selectComponentsByObjectIdForEval(Long biObjectId) {
+        return componentMapper.selectComponentsByObjectIdForEval(biObjectId);
     }
 }

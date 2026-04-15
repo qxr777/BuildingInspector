@@ -101,6 +101,15 @@ public class Disease extends BaseEntity {
     // 发展趋势 （稳定、发展、新增、已维修、部分维修、未找到)
     private String developmentTrend;
 
+    /** 单个病害的缺损程度 (EDI) */
+    private Integer edi;
+
+    /** 病害导致的功能影响状况 (EFI) */
+    private Integer efi;
+
+    /** 病害影响状况的发展趋势修正系数 (EAI) */
+    private Integer eai;
+
     /**
      * 扣分
      */

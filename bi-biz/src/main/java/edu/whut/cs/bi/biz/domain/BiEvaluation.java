@@ -2,6 +2,9 @@ package edu.whut.cs.bi.biz.domain;
 
 import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.math.BigDecimal;
 
@@ -9,6 +12,7 @@ import java.math.BigDecimal;
  *  桥幅的技术状况评定
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 public class BiEvaluation extends BaseEntity {
 
     /**
@@ -82,4 +86,39 @@ public class BiEvaluation extends BaseEntity {
     private Task task;
     private Long taskId;
 
+    /** 评价对象类型: BRIDGE(全桥), SPAN(桥跨) */
+    private String targetType;
+
+    /** 评价对象ID: building_id 或 bi_object_id */
+    private Long targetId;
+
+    /** 附属构造评分 (FSCI 2026新标) */
+    private BigDecimal acciScore;
+
+    /** 附属构造等级 (2026新标) */
+    private Integer acciLevel;
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
+                .append("id", getId())
+                .append("targetType", getTargetType())
+                .append("targetId", getTargetId())
+                .append("superstructureLevel", getSuperstructureLevel())
+                .append("superstructureScore", getSuperstructureScore())
+                .append("substructureLevel", getSubstructureLevel())
+                .append("substructureScore", getSubstructureScore())
+                .append("deckSystemLevel", getDeckSystemLevel())
+                .append("deckSystemScore", getDeckSystemScore())
+                .append("acciLevel", getAcciLevel())
+                .append("acciScore", getAcciScore())
+                .append("systemScore", getSystemScore())
+                .append("systemLevel", getSystemLevel())
+                .append("worstPartLevel", getWorstPartLevel())
+                .append("level", getLevel())
+                .append("singleControl", getSingleControl())
+                .append("manmadeLevel", getManmadeLevel())
+                .append("taskId", getTaskId())
+                .toString();
+    }
 }

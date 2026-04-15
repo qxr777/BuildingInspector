@@ -18,7 +18,7 @@ import java.util.*;
  * 离线数据上传同步服务实现类
  *
  * @author QiXin
- * @date 2026/04/09
+ * @date 2026/04/13
  */
 @Slf4j
 @Service
@@ -40,6 +40,12 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private IdMappingMapper idMappingMapper;
     @Autowired
     private SyncLogMapper syncLogMapper;
+    @Autowired
+    private BiObjectComponentMapper biObjectComponentMapper;
+    @Autowired
+    private edu.whut.cs.bi.biz.engine.BridgeEvaluationEngine bridgeEvaluationEngine;
+    @Autowired
+    private edu.whut.cs.bi.biz.mapper.BiEvalComponentDetailMapper biEvalComponentDetailMapper;
 
     private static final String ENTITY_BUILDING = "Building";
     private static final String ENTITY_OBJECT = "BiObject";
@@ -47,6 +53,7 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private static final String ENTITY_DISEASE = "Disease";
     private static final String ENTITY_DISEASE_DETAIL = "DiseaseDetail";
     private static final String ENTITY_ATTACHMENT = "Attachment";
+    private static final String ENTITY_OBJECT_COMPONENT = "BiObjectComponent";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -58,7 +65,7 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
 
         SyncResultVo result = new SyncResultVo();
 
-        // 1. 记录同步日志 (不影响主流程)
+        // 1. 记录同步日志
         try {
             Long userId = null;
             try {
@@ -87,32 +94,143 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         try {
             Map<String, Long> uuidMap = new HashMap<>();
 
-            log.info("阶段 2: 处理 Building...");
+            log.info("处理 Building...");
             processBuildings(dataMap.get("buildings"), syncUuid, uuidMap, result, loginName);
 
-            log.info("阶段 3: 处理 BiObject...");
+            log.info("处理 BiObject...");
             processBiObjects(dataMap.get("objects"), syncUuid, uuidMap, result, loginName);
 
-            log.info("阶段 2.5: 补充处理 Building...");
+            log.info("补充处理 Building RootIDs...");
             processBuildingsRootIds(dataMap.get("buildings"), uuidMap);
 
-            log.info("阶段 4: 处理 Component...");
+            log.info("处理 Component...");
             processComponents(dataMap.get("components"), syncUuid, uuidMap, result, loginName);
 
-            log.info("阶段 5: 处理 Disease...");
+            log.info("处理 Disease...");
             processDiseases(dataMap.get("diseases"), syncUuid, uuidMap, result, loginName);
 
-            log.info("阶段 6: 处理 DiseaseDetail...");
+            log.info("处理 DiseaseDetail...");
             processDiseaseDetails(dataMap.get("diseaseDetails"), syncUuid, uuidMap, result);
 
-            log.info("阶段 7: 处理 Attachment...");
+            log.info("处理 Attachment...");
             processAttachments(dataMap.get("attachments"), syncUuid, uuidMap, result, loginName);
 
-            syncLogMapper.updateStatus(syncUuid, 1, "同步成功: " + result.getSuccessCount() + " 条记录");
-            log.info("离线同步处理完成, UUID: {}", syncUuid);
+            // 阶段 8: 触发 2026 新标评定
+            try {
+                Set<Long> affectedSpanIds = new HashSet<>();
+                processBiObjectComponents(dataMap.get("biObjectComponents"), syncUuid, uuidMap, result, loginName,
+                        affectedSpanIds);
+
+                // 同时也要考虑普通构件归属的变化对跨评定的影响
+                List<Component> clientComponents = parseList(dataMap.get("components"), Component.class);
+                for (Component clientComp : clientComponents) {
+                    Long serverId = uuidMap.get(clientComp.getOfflineUuid());
+                    if (serverId != null) {
+                        Component serverComp = componentMapper.selectComponentById(serverId);
+                        if (serverComp != null && serverComp.getBiObjectId() != null) {
+                            affectedSpanIds.add(serverComp.getBiObjectId());
+                        }
+                    }
+                }
+
+                if (!affectedSpanIds.isEmpty()) {
+                    Long taskId = null;
+                    Object taskIdObj = dataMap.get("taskId");
+                    if (taskIdObj != null)
+                        taskId = Long.valueOf(taskIdObj.toString());
+
+                    if (taskId == null) {
+                        List<Disease> diseases = parseList(dataMap.get("diseases"), Disease.class);
+                        if (!diseases.isEmpty() && diseases.get(0).getTaskId() != null) {
+                            taskId = diseases.get(0).getTaskId();
+                        }
+                    }
+
+                    if (taskId != null) {
+                        log.info("开始进行构件评定标度数据转移...");
+                        List<edu.whut.cs.bi.biz.domain.BiEvalComponentDetail> detailList = new ArrayList<>();
+                        for (Long spanId : affectedSpanIds) {
+                            // 使用专用的评定构件检索方法 (包含物理归属与逻辑关联)
+                            List<Component> components = componentMapper.selectComponentsByObjectIdForEval(spanId);
+                            for (Component c : components) {
+                                Disease diseaseQuery = new Disease();
+                                diseaseQuery.setTaskId(taskId);
+                                diseaseQuery.setComponentId(c.getId());
+                                List<Disease> diseasesOfComp = diseaseMapper.selectDiseaseList(diseaseQuery);
+
+                                Integer edi = null;
+                                Integer efi = 0;
+                                Integer eai = -1;
+                                boolean hasDiseaseMetrics = false;
+
+                                if (diseasesOfComp != null && !diseasesOfComp.isEmpty()) {
+                                    for (Disease d : diseasesOfComp) {
+                                        if (d.getEdi() != null) {
+                                            hasDiseaseMetrics = true;
+                                            if (edi == null || d.getEdi() > edi)
+                                                edi = d.getEdi();
+                                        }
+                                        if (d.getEfi() != null) {
+                                            hasDiseaseMetrics = true;
+                                            if (d.getEfi() > efi)
+                                                efi = d.getEfi();
+                                        }
+                                        if (d.getEai() != null) {
+                                            hasDiseaseMetrics = true;
+                                            if (d.getEai() > eai)
+                                                eai = d.getEai();
+                                        }
+                                    }
+                                }
+
+                                if (!hasDiseaseMetrics) {
+                                    edi = c.getEdi();
+                                    if (c.getEfi() != null)
+                                        efi = c.getEfi();
+                                    if (c.getEai() != null)
+                                        eai = c.getEai();
+                                }
+
+                                if (edi != null || c.getEdi() != null) {
+                                    edu.whut.cs.bi.biz.domain.BiEvalComponentDetail detail = new edu.whut.cs.bi.biz.domain.BiEvalComponentDetail();
+                                    detail.setTaskId(taskId);
+                                    detail.setSpanId(spanId);
+                                    detail.setComponentId(c.getId());
+                                    detail.setEdi(edi != null ? edi : c.getEdi());
+                                    detail.setEfi(efi);
+                                    detail.setEai(eai);
+                                    detailList.add(detail);
+                                }
+                            }
+                        }
+                        if (!detailList.isEmpty()) {
+                            biEvalComponentDetailMapper.batchInsert(detailList);
+                            log.info("成功转移 {} 条评定细目", detailList.size());
+                        }
+
+                        log.info("开始触发分跨评定, 共 {} 跨", affectedSpanIds.size());
+                        for (Long spanId : affectedSpanIds) {
+                            bridgeEvaluationEngine.evaluate("SPAN", spanId, taskId);
+                        }
+
+                        Long buildingId = null;
+                        List<Building> buildings = parseList(dataMap.get("buildings"), Building.class);
+                        if (!buildings.isEmpty()) {
+                            buildingId = uuidMap.get(buildings.get(0).getOfflineUuid());
+                        }
+                        if (buildingId != null) {
+                            bridgeEvaluationEngine.evaluate("BRIDGE", buildingId, taskId);
+                        }
+                    }
+                }
+            } catch (Exception ee) {
+                log.error("自动评定失败: {}", ee.getMessage());
+            }
+
+            syncLogMapper.updateStatus(syncUuid, 1, "同步成功");
 
         } catch (Exception e) {
-            log.error("离线同步致命错误, UUID: " + syncUuid, e);
+            log.error("离线同步失败", e);
             syncLogMapper.updateStatus(syncUuid, 2, "异常: " + e.getMessage());
             throw e;
         }
@@ -125,18 +243,15 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<Building> list = parseList(data, Building.class);
         for (Building item : list) {
             try {
-                log.debug("同步 Building: {} (OfflineUUID: {})", item.getName(), item.getOfflineUuid());
                 Building existing = buildingMapper.selectByOfflineUuid(item.getOfflineUuid());
                 if (existing != null) {
                     uuidMap.put(item.getOfflineUuid(), existing.getId());
                     continue;
                 }
-
                 item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
                 buildingMapper.insertBuilding(item);
-
                 saveMapping(ENTITY_BUILDING, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
             } catch (Exception e) {
                 result.addError(ENTITY_BUILDING, item.getOfflineUuid(), e.getMessage());
@@ -150,27 +265,20 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         int total = list.size();
         Set<String> processedUuids = new HashSet<>();
 
-        for (int i = 0; i < 10; i++) { // 增加循环层数，应对更复杂的树结构
+        for (int i = 0; i < 5; i++) {
             int roundCount = 0;
             for (BiObject item : list) {
                 if (processedUuids.contains(item.getOfflineUuid()))
                     continue;
 
-                // 检查父节点是否已就绪
                 Long parentId = 0L;
                 if (item.getParentUuid() != null && !item.getParentUuid().isEmpty()) {
                     parentId = uuidMap.get(item.getParentUuid());
-                    if (parentId == null) {
-                        IdMapping mapping = idMappingMapper.selectByOfflineUuid(ENTITY_OBJECT, item.getParentUuid());
-                        if (mapping != null)
-                            parentId = mapping.getServerId();
-                    }
                     if (parentId == null)
-                        continue; // 父节点还没处理，等下一轮
+                        continue;
                 }
 
                 try {
-                    log.debug("同步 BiObject: {} (OfflineUUID: {})", item.getName(), item.getOfflineUuid());
                     BiObject existing = biObjectMapper.selectByOfflineUuid(item.getOfflineUuid());
                     if (existing != null) {
                         uuidMap.put(item.getOfflineUuid(), existing.getId());
@@ -179,40 +287,22 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                         continue;
                     }
 
-                    // 处理关联 ID
                     item.setParentId(parentId);
-                    if (item.getBuildingUuid() != null) {
+                    if (item.getBuildingUuid() != null)
                         item.setBuildingId(uuidMap.get(item.getBuildingUuid()));
-                    }
 
-                    // 重新生成祖级列表 (ancestors)，确保云端树形结构路径正确
-                    if (parentId == 0L) {
-                        item.setAncestors("0");
-                    } else {
+                    if (parentId != 0L) {
                         BiObject parentNode = biObjectMapper.selectBiObjectById(parentId);
-                        if (parentNode != null) {
-                            item.setAncestors(parentNode.getAncestors() + "," + parentId);
-                        } else {
-                            item.setAncestors("0," + parentId); // 兜底方案
-                        }
+                        item.setAncestors(
+                                parentNode != null ? parentNode.getAncestors() + "," + parentId : "0," + parentId);
+                    } else {
+                        item.setAncestors("0");
                     }
 
                     item.setIsOfflineData(1);
                     item.setCreateBy(loginName);
                     item.setCreateTime(DateUtils.getNowDate());
                     biObjectMapper.insertBiObject(item);
-
-                    // 方案B：如果是顶层节点且关联了桥梁，自动更新桥梁的 root_object_id 和 root_object_uuid
-                    // if (item.getParentUuid() == null && item.getBuildingId() != null) {
-                    // Building b = new Building();
-                    // b.setId(item.getBuildingId());
-                    // b.setRootObjectId(item.getId());
-                    // b.setRootObjectUuid(item.getOfflineUuid());
-                    // buildingMapper.updateBuilding(b);
-                    // log.info("已自动更新桥梁 (ID:{}) 的根对象 ID 为 {}, UUID 为 {}", item.getBuildingId(),
-                    // item.getId(),
-                    // item.getOfflineUuid());
-                    // }
 
                     saveMapping(ENTITY_OBJECT, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
                     processedUuids.add(item.getOfflineUuid());
@@ -232,22 +322,26 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<Component> list = parseList(data, Component.class);
         for (Component item : list) {
             try {
-                log.debug("同步 Component: {} (OfflineUUID: {})", item.getName(), item.getOfflineUuid());
                 Component existing = componentMapper.selectByOfflineUuid(item.getOfflineUuid());
                 if (existing != null) {
                     uuidMap.put(item.getOfflineUuid(), existing.getId());
                     continue;
                 }
-
-                if (item.getObjectUuid() != null) {
+                if (item.getObjectUuid() != null)
                     item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
-                }
-
                 item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
                 componentMapper.insertComponent(item);
-
+                if (item.getId() != null && item.getBiObjectId() != null) {
+                    BiObjectComponent rel = new BiObjectComponent();
+                    rel.setComponentId(item.getId());
+                    rel.setBiObjectId(item.getBiObjectId());
+                    rel.setWeight(new java.math.BigDecimal("1.0"));
+                    rel.setCreateBy(loginName);
+                    rel.setCreateTime(item.getCreateTime());
+                    biObjectComponentMapper.insertBiObjectComponent(rel);
+                }
                 saveMapping(ENTITY_COMPONENT, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
             } catch (Exception e) {
                 result.addError(ENTITY_COMPONENT, item.getOfflineUuid(), e.getMessage());
@@ -260,25 +354,21 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<Disease> list = parseList(data, Disease.class);
         for (Disease item : list) {
             try {
-                log.debug("同步 Disease: {} (OfflineUUID: {})", item.getDescription(), item.getOfflineUuid());
                 Disease existing = diseaseMapper.selectByOfflineUuid(item.getOfflineUuid());
                 if (existing != null) {
                     uuidMap.put(item.getOfflineUuid(), existing.getId());
                     continue;
                 }
-
                 if (item.getBuildingUuid() != null)
                     item.setBuildingId(uuidMap.get(item.getBuildingUuid()));
                 if (item.getObjectUuid() != null)
                     item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
                 if (item.getComponentUuid() != null)
                     item.setComponentId(uuidMap.get(item.getComponentUuid()));
-
                 item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
                 diseaseMapper.insertDisease(item);
-
                 saveMapping(ENTITY_DISEASE, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
             } catch (Exception e) {
                 result.addError(ENTITY_DISEASE, item.getOfflineUuid(), e.getMessage());
@@ -290,22 +380,11 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<DiseaseDetail> list = parseList(data, DiseaseDetail.class);
         for (DiseaseDetail item : list) {
             try {
-                log.info("同步 DiseaseDetail (OfflineUUID: {})", item.getOfflineUuid());
-                // 增加 DiseaseDetail 幂等校验
-                if (item.getOfflineUuid() != null) {
-                    DiseaseDetail existing = diseaseDetailMapper.selectByOfflineUuid(item.getOfflineUuid());
-                    if (existing != null)
-                        continue;
-                }
-
-                log.info("同步 DiseaseDetail (OfflineUUID: {}, DiseaseUuid: {})", item.getOfflineUuid(),
-                        item.getDiseaseUuid());
-                if (item.getDiseaseUuid() != null) {
-                    Long serverId = uuidMap.get(item.getDiseaseUuid());
-                    log.info("  -> 映射 DiseaseUuid {} 到 ServerId: {}", item.getDiseaseUuid(), serverId);
-                    item.setDiseaseId(serverId);
-                }
-
+                if (item.getOfflineUuid() != null
+                        && diseaseDetailMapper.selectByOfflineUuid(item.getOfflineUuid()) != null)
+                    continue;
+                if (item.getDiseaseUuid() != null)
+                    item.setDiseaseId(uuidMap.get(item.getDiseaseUuid()));
                 item.setIsOfflineData(1);
                 diseaseDetailMapper.insertDiseaseDetail(item);
                 result.setSuccessCount(result.getSuccessCount() + 1);
@@ -320,10 +399,8 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<Attachment> list = parseList(data, Attachment.class);
         for (Attachment item : list) {
             try {
-                if (item.getOfflineSubjectUuid() != null) {
+                if (item.getOfflineSubjectUuid() != null)
                     item.setSubjectId(uuidMap.get(item.getOfflineSubjectUuid()));
-                }
-
                 item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
@@ -338,20 +415,46 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private void processBuildingsRootIds(Object data, Map<String, Long> uuidMap) {
         List<Building> list = parseList(data, Building.class);
         for (Building item : list) {
-            String rootUuid = item.getRootObjectUuid();
-            if (rootUuid != null && !rootUuid.isEmpty()) {
-                Long rootId = uuidMap.get(rootUuid);
-                if (rootId != null) {
-                    // 获取 Building 的 server id
-                    Long buildingId = uuidMap.get(item.getOfflineUuid());
-                    if (buildingId != null) {
-                        Building update = new Building();
-                        update.setId(buildingId);
-                        update.setRootObjectId(rootId);
-                        buildingMapper.updateBuilding(update);
-                        log.info("阶段 2.5: 已更新桥梁 {} 的 root_object_id 为 {}", buildingId, rootId);
-                    }
-                }
+            Long rootId = uuidMap.get(item.getRootObjectUuid());
+            Long buildingId = uuidMap.get(item.getOfflineUuid());
+            if (rootId != null && buildingId != null) {
+                Building update = new Building();
+                update.setId(buildingId);
+                update.setRootObjectId(rootId);
+                buildingMapper.updateBuilding(update);
+            }
+        }
+    }
+
+    private void processBiObjectComponents(Object data, String syncUuid, Map<String, Long> uuidMap, SyncResultVo result,
+            String loginName, Set<Long> affectedSpanIds) {
+        if (data == null)
+            return;
+        List<BiObjectComponent> list = parseList(data, BiObjectComponent.class);
+        for (BiObjectComponent item : list) {
+            try {
+                BiObjectComponent query = new BiObjectComponent();
+                query.setOfflineUuid(item.getOfflineUuid());
+                if (!biObjectComponentMapper.selectBiObjectComponentList(query).isEmpty())
+                    continue;
+
+                if (item.getComponentUuid() != null)
+                    item.setComponentId(uuidMap.get(item.getComponentUuid()));
+                if (item.getObjectUuid() != null)
+                    item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
+
+                if (item.getComponentId() == null || item.getBiObjectId() == null)
+                    continue;
+
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                biObjectComponentMapper.insertBiObjectComponent(item);
+
+                affectedSpanIds.add(item.getBiObjectId());
+                saveMapping(ENTITY_OBJECT_COMPONENT, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
+            } catch (Exception e) {
+                result.addError(ENTITY_OBJECT_COMPONENT, item.getOfflineUuid(), e.getMessage());
             }
         }
     }
@@ -369,13 +472,7 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         uuidMap.put(uuid, id);
         result.addMapping(type, uuid, id);
         result.setSuccessCount(result.getSuccessCount() + 1);
-
-        IdMapping mapping = IdMapping.builder()
-                .entityType(type)
-                .offlineUuid(uuid)
-                .serverId(id)
-                .syncUuid(syncUuid)
-                .build();
-        idMappingMapper.insert(mapping);
+        idMappingMapper
+                .insert(IdMapping.builder().entityType(type).offlineUuid(uuid).serverId(id).syncUuid(syncUuid).build());
     }
 }

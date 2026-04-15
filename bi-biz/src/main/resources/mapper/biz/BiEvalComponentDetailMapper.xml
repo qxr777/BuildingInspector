@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BiEvalComponentDetailMapper">
+
+    <resultMap type="edu.whut.cs.bi.biz.domain.BiEvalComponentDetail" id="BiEvalComponentDetailResult">
+        <result property="id" column="id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="spanId" column="span_id"/>
+        <result property="componentId" column="component_id"/>
+        <result property="edi" column="edi"/>
+        <result property="efi" column="efi"/>
+        <result property="eai" column="eai"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectBiEvalComponentDetailVo">
+        select id, task_id, span_id, component_id, edi, efi, eai, create_time, update_time
+        from bi_evaluation_component_detail
+    </sql>
+
+    <select id="selectList" parameterType="edu.whut.cs.bi.biz.domain.BiEvalComponentDetail" resultMap="BiEvalComponentDetailResult">
+        <include refid="selectBiEvalComponentDetailVo"/>
+        <where>  
+            <if test="taskId != null "> and task_id = #{taskId}</if>
+            <if test="spanId != null "> and span_id = #{spanId}</if>
+            <if test="componentId != null "> and component_id = #{componentId}</if>
+        </where>
+    </select>
+
+    <insert id="insertBiEvalComponentDetail" parameterType="edu.whut.cs.bi.biz.domain.BiEvalComponentDetail" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_evaluation_component_detail
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">task_id,</if>
+            <if test="spanId != null">span_id,</if>
+            <if test="componentId != null">component_id,</if>
+            <if test="edi != null">edi,</if>
+            <if test="efi != null">efi,</if>
+            <if test="eai != null">eai,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">#{taskId},</if>
+            <if test="spanId != null">#{spanId},</if>
+            <if test="componentId != null">#{componentId},</if>
+            <if test="edi != null">#{edi},</if>
+            <if test="efi != null">#{efi},</if>
+            <if test="eai != null">#{eai},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <insert id="batchInsert">
+        insert into bi_evaluation_component_detail(task_id, span_id, component_id, edi, efi, eai, create_time) values
+        <foreach item="item" index="index" collection="list" separator=",">
+            (#{item.taskId}, #{item.spanId}, #{item.componentId}, #{item.edi}, #{item.efi}, #{item.eai}, sysdate())
+        </foreach>
+    </insert>
+
+</mapper>

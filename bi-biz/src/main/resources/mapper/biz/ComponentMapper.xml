@@ -19,6 +19,9 @@
         <result property="offlineUuid" column="offline_uuid" />
         <result property="objectUuid"  column="object_uuid"  />
         <result property="isOfflineData" column="is_offline_data" />
+        <result property="edi" column="edi" />
+        <result property="efi" column="efi" />
+        <result property="eai" column="eai" />
         <association property="biObject" javaType="BiObject">
             <result property="id" column="bi_object_id"/>
             <result property="name" column="bi_object_name"/>
@@ -41,11 +44,15 @@
         <result property="offlineUuid" column="offline_uuid" />
         <result property="objectUuid"  column="object_uuid"  />
         <result property="isOfflineData" column="is_offline_data" />
+        <result property="edi" column="edi" />
+        <result property="efi" column="efi" />
+        <result property="eai" column="eai" />
     </resultMap>
 
     <sql id="selectComponentVo">
          select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
                 c.update_by, c.update_time, c.remark, c.offline_uuid, c.object_uuid, c.is_offline_data,
+                c.edi, c.efi, c.eai,
                 o.name as bi_object_name , o.ancestors as bi_object_ancestors
         from bi_component c
                  left join bi_object o on o.id = c.bi_object_id
@@ -53,7 +60,8 @@
 
     <sql id="selectComponentListVo">
          select c.id, c.bi_object_id, c.name, c.code, c.status, c.del_flag, c.create_by, c.create_time,
-                c.update_by, c.update_time, c.remark, c.offline_uuid, c.object_uuid, c.is_offline_data
+                c.update_by, c.update_time, c.remark, c.offline_uuid, c.object_uuid, c.is_offline_data,
+                c.edi, c.efi, c.eai
         from bi_component c
     </sql>
 
@@ -96,12 +104,11 @@
     </select>
 
 
-    <select id="selectComponentsByBiObjectIdAndChildren" parameterType="Long" resultMap="ComponentResult">
+    <select id="selectComponentsByObjectIdForEval" parameterType="Long" resultMap="ComponentResult">
         <include refid="selectComponentVo"/>
-        where c.bi_object_id in (
-        select id from bi_object where id = #{biObjectId}
-        union
-        select id from bi_object where FIND_IN_SET(#{biObjectId}, ancestors)
+        where (
+            c.bi_object_id = #{biObjectId}
+            or c.id in (select component_id from bi_object_component where bi_object_id = #{biObjectId})
         ) and c.del_flag = '0'
     </select>
 
@@ -134,6 +141,9 @@
             <if test="offlineUuid != null">offline_uuid,</if>
             <if test="objectUuid != null">object_uuid,</if>
             <if test="isOfflineData != null">is_offline_data,</if>
+            <if test="edi != null">edi,</if>
+            <if test="efi != null">efi,</if>
+            <if test="eai != null">eai,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="biObjectId != null">#{biObjectId},</if>
@@ -149,6 +159,9 @@
             <if test="offlineUuid != null">#{offlineUuid},</if>
             <if test="objectUuid != null">#{objectUuid},</if>
             <if test="isOfflineData != null">#{isOfflineData},</if>
+            <if test="edi != null">#{edi},</if>
+            <if test="efi != null">#{efi},</if>
+            <if test="eai != null">#{eai},</if>
         </trim>
     </insert>
 
@@ -166,6 +179,9 @@
             <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
             <if test="objectUuid != null">object_uuid = #{objectUuid},</if>
             <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
+            <if test="edi != null">edi = #{edi},</if>
+            <if test="efi != null">efi = #{efi},</if>
+            <if test="eai != null">eai = #{eai},</if>
         </trim>
         where id = #{id} and del_flag = '0'
     </update>
@@ -183,23 +199,27 @@
 
     <insert id="batchInsertComponents" parameterType="java.util.List">
         insert into bi_component
-        (bi_object_id, name, code, status, del_flag, create_by, create_time, update_by, update_time, remark)
+        (bi_object_id, name, code, status, del_flag, create_by, create_time, update_by, update_time, remark, offline_uuid, object_uuid, is_offline_data, edi, efi, eai)
         values
         <foreach collection="components" item="component" separator=",">
             (#{component.biObjectId}, #{component.name}, #{component.code}, #{component.status},
             #{component.delFlag}, #{component.createBy}, #{component.createTime},
-            #{component.updateBy}, #{component.updateTime}, #{component.remark})
+            #{component.updateBy}, #{component.updateTime}, #{component.remark},
+            #{component.offlineUuid}, #{component.objectUuid}, #{component.isOfflineData},
+            #{component.edi}, #{component.efi}, #{component.eai})
         </foreach>
     </insert>
 
     <insert id="batchAddComponents" parameterType="java.util.Set">
         insert into bi_component
-        (bi_object_id, name, code, status, del_flag, create_by, create_time, update_by, update_time, remark)
+        (bi_object_id, name, code, status, del_flag, create_by, create_time, update_by, update_time, remark, offline_uuid, object_uuid, is_offline_data, edi, efi, eai)
         values
         <foreach collection="components" item="component" separator=",">
             (#{component.biObjectId}, #{component.name}, #{component.code}, #{component.status},
             #{component.delFlag}, #{component.createBy}, #{component.createTime},
-            #{component.updateBy}, #{component.updateTime}, #{component.remark})
+            #{component.updateBy}, #{component.updateTime}, #{component.remark},
+            #{component.offlineUuid}, #{component.objectUuid}, #{component.isOfflineData},
+            #{component.edi}, #{component.efi}, #{component.eai})
         </foreach>
     </insert>
 
@@ -215,6 +235,9 @@
                 <if test="component.updateBy != null">update_by = #{component.updateBy},</if>
                 <if test="component.updateTime != null">update_time = #{component.updateTime},</if>
                 <if test="component.remark != null">remark = #{component.remark},</if>
+                <if test="component.edi != null">edi = #{component.edi},</if>
+                <if test="component.efi != null">efi = #{component.efi},</if>
+                <if test="component.eai != null">eai = #{component.eai},</if>
             </set>
             where id = #{component.id} and del_flag = '0'
         </foreach>

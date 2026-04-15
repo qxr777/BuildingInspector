@@ -148,4 +148,12 @@ public interface ComponentMapper {
      * @return 构件
      */
     public Component selectByOfflineUuid(String offlineUuid);
+
+    /**
+     * 根据桥跨ID查询关联的构件列表 (包含共享构件)
+     *
+     * @param spanId 桥跨ID
+     * @return 构件集合
+     */
+    public List<Component> selectComponentsByObjectIdForEval(Long biObjectId);
 }

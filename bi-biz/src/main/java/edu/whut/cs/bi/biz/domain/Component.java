@@ -66,4 +66,13 @@ public class Component extends BaseEntity {
 
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;
+
+    /** 构件缺损状况 (0~3) */
+    private Integer edi;
+
+    /** 构件功能状况 (0~2) */
+    private Integer efi;
+
+    /** 构件影响状况 (-1~1) */
+    private Integer eai;
 }

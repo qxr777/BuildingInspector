@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BiObjectComponentMapper">
+    
+    <resultMap type="BiObjectComponent" id="BiObjectComponentResult">
+        <result property="id"    column="id"    />
+        <result property="componentId"    column="component_id"    />
+        <result property="biObjectId"    column="bi_object_id"    />
+        <result property="weight"    column="weight"    />
+        <result property="offlineUuid"    column="offline_uuid"    />
+        <result property="isOfflineData"    column="is_offline_data"    />
+        <result property="componentUuid"    column="component_uuid"    />
+        <result property="objectUuid"    column="object_uuid"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectBiObjectComponentVo">
+        select id, component_id, bi_object_id, weight, offline_uuid, is_offline_data, component_uuid, object_uuid, create_by, create_time, update_by, update_time from bi_object_component
+    </sql>
+
+    <select id="selectBiObjectComponentList" parameterType="BiObjectComponent" resultMap="BiObjectComponentResult">
+        <include refid="selectBiObjectComponentVo"/>
+        <where>  
+            <if test="componentId != null "> and component_id = #{componentId}</if>
+            <if test="biObjectId != null "> and bi_object_id = #{biObjectId}</if>
+            <if test="componentUuid != null  and componentUuid != ''"> and component_uuid = #{componentUuid}</if>
+            <if test="objectUuid != null  and objectUuid != ''"> and object_uuid = #{objectUuid}</if>
+        </where>
+    </select>
+    
+    <select id="selectBiObjectComponentById" parameterType="Long" resultMap="BiObjectComponentResult">
+        <include refid="selectBiObjectComponentVo"/>
+        where id = #{id}
+    </select>
+        
+    <insert id="insertBiObjectComponent" parameterType="BiObjectComponent" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_object_component
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="componentId != null">component_id,</if>
+            <if test="biObjectId != null">bi_object_id,</if>
+            <if test="weight != null">weight,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
+            <if test="componentUuid != null">component_uuid,</if>
+            <if test="objectUuid != null">object_uuid,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="componentId != null">#{componentId},</if>
+            <if test="biObjectId != null">#{biObjectId},</if>
+            <if test="weight != null">#{weight},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
+            <if test="componentUuid != null">#{componentUuid},</if>
+            <if test="objectUuid != null">#{objectUuid},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBiObjectComponent" parameterType="BiObjectComponent">
+        update bi_object_component
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="componentId != null">component_id = #{componentId},</if>
+            <if test="biObjectId != null">bi_object_id = #{biObjectId},</if>
+            <if test="weight != null">weight = #{weight},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
+            <if test="componentUuid != null">component_uuid = #{componentUuid},</if>
+            <if test="objectUuid != null">object_uuid = #{objectUuid},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBiObjectComponentById" parameterType="Long">
+        delete from bi_object_component where id = #{id}
+    </delete>
+
+    <delete id="deleteBiObjectComponentByIds" parameterType="String">
+        delete from bi_object_component where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    <delete id="deleteBiObjectComponentByComponentId" parameterType="Long">
+        delete from bi_object_component where component_id = #{componentId}
+    </delete>
+
+</mapper>

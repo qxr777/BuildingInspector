@@ -52,3 +52,4 @@ docker/data/
 test_out.json
 u95.db-shm
 u95.db-wal
+.mvn/jvm.config

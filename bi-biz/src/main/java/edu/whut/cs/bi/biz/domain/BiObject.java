@@ -147,6 +147,12 @@ public class BiObject extends TreeEntity {
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;
 
+    /** 跨号 (1, 2, 3...) */
+    private Integer spanIndex;
+
+    /** 跨径长度(米) */
+    private BigDecimal spanLength;
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
@@ -175,6 +181,8 @@ public class BiObject extends TreeEntity {
                 .append("parentUuid", getParentUuid())
                 .append("buildingUuid", getBuildingUuid())
                 .append("isOfflineData", getIsOfflineData())
+                .append("spanIndex", getSpanIndex())
+                .append("spanLength", getSpanLength())
                 .toString();
     }
 }

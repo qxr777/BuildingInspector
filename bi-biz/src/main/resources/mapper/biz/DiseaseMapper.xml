@@ -43,6 +43,10 @@
         <result property="componentUuid" column="component_uuid"/>
         <result property="isOfflineData" column="is_offline_data"/>
 
+        <result property="edi" column="edi"/>
+        <result property="efi" column="efi"/>
+        <result property="eai" column="eai"/>
+
         <!-- diseaseType object -->
         <association property="diseaseType" javaType="DiseaseType">
             <result property="id" column="dt_id"/>
@@ -87,6 +91,9 @@
                d.repair_recommendation,
                d.crack_type,
                d.development_trend,
+               d.edi,
+               d.efi,
+               d.eai,
                d.detection_method as detection_method,
                d.attachment_count,
                d.create_by,
@@ -195,6 +202,9 @@
             <if test="objectUuid != null">object_uuid,</if>
             <if test="componentUuid != null">component_uuid,</if>
             <if test="isOfflineData != null">is_offline_data,</if>
+            <if test="edi != null">edi,</if>
+            <if test="efi != null">efi,</if>
+            <if test="eai != null">eai,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="position != null and position != ''">#{position},</if>
@@ -233,6 +243,9 @@
             <if test="objectUuid != null">#{objectUuid},</if>
             <if test="componentUuid != null">#{componentUuid},</if>
             <if test="isOfflineData != null">#{isOfflineData},</if>
+            <if test="edi != null">#{edi},</if>
+            <if test="efi != null">#{efi},</if>
+            <if test="eai != null">#{eai},</if>
         </trim>
     </insert>
 
@@ -242,7 +255,7 @@
         participate_assess, deduct_points, project_id, bi_object_id, bi_object_name, img_no_exp,
         building_id, task_id, component_id, commit_type, local_id, remark, cause,
         repair_recommendation, crack_type, development_trend, detection_method,
-        attachment_count, create_by, create_time, update_by, update_time
+        attachment_count, create_by, create_time, update_by, update_time, edi, efi, eai
         ) VALUES
         <foreach collection="list" item="disease" separator=",">
             (
@@ -254,7 +267,7 @@
             #{disease.localId}, #{disease.remark}, #{disease.cause},
             #{disease.repairRecommendation}, #{disease.crackType}, #{disease.developmentTrend},
             #{disease.detectionMethod}, #{disease.attachmentCount}, #{disease.createBy},
-            #{disease.createTime}, #{disease.updateBy}, #{disease.updateTime}
+            #{disease.createTime}, #{disease.updateBy}, #{disease.updateTime}, #{disease.edi}, #{disease.efi}, #{disease.eai}
             )
         </foreach>
     </insert>
@@ -298,6 +311,9 @@
             <if test="objectUuid != null">object_uuid = #{objectUuid},</if>
             <if test="componentUuid != null">component_uuid = #{componentUuid},</if>
             <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
+            <if test="edi != null">edi = #{edi},</if>
+            <if test="efi != null">efi = #{efi},</if>
+            <if test="eai != null">eai = #{eai},</if>
         </trim>
         where id = #{id}
     </update>
@@ -450,6 +466,27 @@
                     <foreach collection="diseaseList" item="item">
                         <if test="item.updateTime != null">
                             WHEN #{item.id} THEN #{item.updateTime}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="edi = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.edi != null">
+                            WHEN #{item.id} THEN #{item.edi}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="efi = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.efi != null">
+                            WHEN #{item.id} THEN #{item.efi}
+                        </if>
+                    </foreach>
+                </trim>
+                <trim prefix="eai = CASE id" suffix=" END,">
+                    <foreach collection="diseaseList" item="item">
+                        <if test="item.eai != null">
+                            WHEN #{item.id} THEN #{item.eai}
                         </if>
                     </foreach>
                 </trim>
