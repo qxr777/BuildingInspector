@@ -47,6 +47,18 @@ public class BiTemplateObject extends TreeEntity {
     private BigDecimal weight;
 
     /**
+     * 影响系数Ƴ
+     */
+    @Excel(name = "影响系数Ƴ")
+    private BigDecimal impactFactor;
+
+    /**
+     * 类别（i）
+     */
+    @Excel(name = "类别（i）")
+    private String categoryI;
+
+    /**
      * 附加属性2
      */
     @Excel(name = "附加属性")
@@ -161,6 +173,21 @@ public class BiTemplateObject extends TreeEntity {
         this.weight = weight;
     }
 
+    public BigDecimal getImpactFactor() {
+        return impactFactor;
+    }
+
+    public void setImpactFactor(BigDecimal impactFactor) {
+        this.impactFactor = impactFactor;
+    }
+
+    public String getCategoryI() {
+        return categoryI;
+    }
+
+    public void setCategoryI(String categoryI) {
+        this.categoryI = categoryI;
+    }
 
     @Override
     public String toString() {
@@ -173,6 +200,8 @@ public class BiTemplateObject extends TreeEntity {
                 .append("status", getStatus())
                 .append("delFlag", getDelFlag())
                 .append("weight", getWeight()) // 添加 weight 属性
+                .append("impactFactor", getImpactFactor())
+                .append("categoryI", getCategoryI())
                 .append("remark", getRemark())
                 .append("createBy", getCreateBy())
                 .append("createTime", getCreateTime())

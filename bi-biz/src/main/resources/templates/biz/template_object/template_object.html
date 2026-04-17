@@ -97,6 +97,8 @@
                 name: selectedRoot.name,
                 orderNum: selectedRoot.orderNum,
                 weight: selectedRoot.weight,
+                impactFactor: selectedRoot.impactFactor,
+                categoryI: selectedRoot.categoryI,
                 status: selectedRoot.status,
                 ancestors: selectedRoot.ancestors
             },
@@ -133,6 +135,16 @@
                 {
                     field: 'weight',
                     title: '权重',
+                    align: 'left'
+                },
+                {
+                    field: 'impactFactor',
+                    title: '影响系数Ƴ',
+                    align: 'left'
+                },
+                {
+                    field: 'categoryI',
+                    title: '类别（i）',
                     align: 'left'
                 },
                 {
