@@ -34,4 +34,15 @@ public interface TODiseasePositionMapper {
      * 根据模板构件ID查询关联的病害位置ID列表
      */
     List<Long> selectByTemplateObjectId(Long templateObjectId);
+
+    /**
+     * 批量统计多个模板对象的病害位置数量
+     */
+    List<Map<String, Object>> countDiseasePositionsByTemplateObjectIds(@Param("templateObjectIds") List<Long> templateObjectIds);
+
+    /**
+     * 批量删除指定模板构件的病害位置关联
+     */
+    int batchDeleteData(@Param("templateObjectId") Long templateObjectId,
+                        @Param("diseasePositionIds") List<Long> diseasePositionIds);
 }

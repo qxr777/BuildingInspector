@@ -4,6 +4,7 @@ import java.util.List;
 
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import com.ruoyi.common.core.domain.Ztree;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseasePositionVO;
 import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
 
 /**
@@ -85,6 +86,14 @@ public interface IBiTemplateObjectService {
     public List<BiTemplateObject> selectChildrenById(Long id);
 
     /**
+     * 查询指定节点的所有子节点，并填充病害位置数量
+     *
+     * @param id 节点ID
+     * @return 子节点列表
+     */
+    public List<BiTemplateObject> selectChildrenByIdWithDiseasePosition(Long id);
+
+    /**
      * 添加模板对象和病害类型关联
      *
      * @param templateObjectId 模板对象ID
@@ -129,6 +138,51 @@ public interface IBiTemplateObjectService {
      * @return 病害类型列表
      */
     public List<TemplateDiseaseTypeVO> selectDiseaseTypeVOList(TemplateDiseaseTypeVO diseaseType, Long templateObjectId);
+
+    /**
+     * 添加模板对象和病害位置关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseasePositionId 病害位置ID
+     * @return 结果
+     */
+    public int insertTemplateDiseasePosition(Long templateObjectId, Long diseasePositionId);
+
+    /**
+     * 删除模板对象和病害位置关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseasePositionId 病害位置ID
+     * @return 结果
+     */
+    public int deleteTemplateDiseasePosition(Long templateObjectId, Long diseasePositionId);
+
+    /**
+     * 批量添加模板对象和病害位置关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseasePositionIds 病害位置ID字符串，逗号分隔
+     * @return 结果
+     */
+    public int batchInsertTemplateDiseasePosition(Long templateObjectId, String diseasePositionIds);
+
+    /**
+     * 批量删除模板对象和病害位置关联
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseasePositionIds 病害位置ID字符串，逗号分隔
+     * @return 结果
+     */
+    public int batchDeleteTemplateDiseasePosition(Long templateObjectId, String diseasePositionIds);
+
+    /**
+     * 获取病害位置列表，包含是否已选信息
+     *
+     * @param diseasePosition 病害位置信息
+     * @param templateObjectId 模板对象ID
+     * @return 病害位置列表
+     */
+    public List<TemplateDiseasePositionVO> selectDiseasePositionVOList(TemplateDiseasePositionVO diseasePosition, Long templateObjectId);
 
     /**
      * 导出模板文件

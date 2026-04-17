@@ -29,4 +29,24 @@
           and disease_position_id = #{diseasePositionId}
     </delete>
 
+    <delete id="batchDeleteData">
+        delete from bi_template_object_disease_position
+        where template_object_id = #{templateObjectId}
+        and disease_position_id in
+        <foreach collection="diseasePositionIds" item="diseasePositionId" open="(" separator="," close=")">
+            #{diseasePositionId}
+        </foreach>
+    </delete>
+
+    <!-- 批量统计多个模板对象的病害位置数量 -->
+    <select id="countDiseasePositionsByTemplateObjectIds" resultType="java.util.HashMap">
+        SELECT template_object_id as "key", COUNT(disease_position_id) as "value"
+        FROM bi_template_object_disease_position
+        WHERE template_object_id IN
+        <foreach collection="templateObjectIds" item="templateObjectId" open="(" separator="," close=")">
+            #{templateObjectId}
+        </foreach>
+        GROUP BY template_object_id
+    </select>
+
 </mapper>
