@@ -173,4 +173,7 @@ public class DiseaseDetail extends BaseEntity {
 
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;
+
+    /** 是否被App离线删除标记 (0:否, 1:是) */
+    private Integer offlineDeleted;
 }

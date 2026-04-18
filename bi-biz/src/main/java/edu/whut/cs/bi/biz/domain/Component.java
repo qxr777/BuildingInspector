@@ -67,6 +67,9 @@ public class Component extends BaseEntity {
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;
 
+    /** 是否被App离线删除标记 (0:否, 1:是) */
+    private Integer offlineDeleted;
+
     /** 构件缺损状况 (0~3) */
     private Integer edi;
 

@@ -246,6 +246,18 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 Building existing = buildingMapper.selectByOfflineUuid(item.getOfflineUuid());
                 if (existing != null) {
                     uuidMap.put(item.getOfflineUuid(), existing.getId());
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        buildingMapper.deleteBuildingById(item.getId());
+                        continue;
+                    }
+                    buildingMapper.updateBuilding(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
                     continue;
                 }
                 item.setIsOfflineData(1);
@@ -279,17 +291,30 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 }
 
                 try {
+                    item.setParentId(parentId);
+                    if (item.getBuildingUuid() != null)
+                        item.setBuildingId(uuidMap.get(item.getBuildingUuid()));
                     BiObject existing = biObjectMapper.selectByOfflineUuid(item.getOfflineUuid());
                     if (existing != null) {
                         uuidMap.put(item.getOfflineUuid(), existing.getId());
+                        item.setId(existing.getId());
+                        item.setUpdateBy(loginName);
+                        item.setUpdateTime(DateUtils.getNowDate());
+                        processedUuids.add(item.getOfflineUuid());
+                        roundCount++;
+                        if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                            biObjectMapper.deleteBiObjectById(item.getId());
+                            continue;
+                        }
+                        biObjectMapper.updateBiObject(item);
+                        result.setSuccessCount(result.getSuccessCount() + 1);
+                        continue;
+                    }
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
                         processedUuids.add(item.getOfflineUuid());
                         roundCount++;
                         continue;
                     }
-
-                    item.setParentId(parentId);
-                    if (item.getBuildingUuid() != null)
-                        item.setBuildingId(uuidMap.get(item.getBuildingUuid()));
 
                     if (parentId != 0L) {
                         BiObject parentNode = biObjectMapper.selectBiObjectById(parentId);
@@ -322,13 +347,25 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<Component> list = parseList(data, Component.class);
         for (Component item : list) {
             try {
+                if (item.getObjectUuid() != null)
+                    item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
                 Component existing = componentMapper.selectByOfflineUuid(item.getOfflineUuid());
                 if (existing != null) {
                     uuidMap.put(item.getOfflineUuid(), existing.getId());
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        componentMapper.deleteComponentById(item.getId());
+                        continue;
+                    }
+                    componentMapper.updateComponent(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
                     continue;
                 }
-                if (item.getObjectUuid() != null)
-                    item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
                 item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
@@ -354,17 +391,29 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<Disease> list = parseList(data, Disease.class);
         for (Disease item : list) {
             try {
-                Disease existing = diseaseMapper.selectByOfflineUuid(item.getOfflineUuid());
-                if (existing != null) {
-                    uuidMap.put(item.getOfflineUuid(), existing.getId());
-                    continue;
-                }
                 if (item.getBuildingUuid() != null)
                     item.setBuildingId(uuidMap.get(item.getBuildingUuid()));
                 if (item.getObjectUuid() != null)
                     item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
                 if (item.getComponentUuid() != null)
                     item.setComponentId(uuidMap.get(item.getComponentUuid()));
+                Disease existing = diseaseMapper.selectByOfflineUuid(item.getOfflineUuid());
+                if (existing != null) {
+                    uuidMap.put(item.getOfflineUuid(), existing.getId());
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        diseaseMapper.deleteDiseaseById(item.getId());
+                        continue;
+                    }
+                    diseaseMapper.updateDisease(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
                 item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
@@ -380,11 +429,22 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<DiseaseDetail> list = parseList(data, DiseaseDetail.class);
         for (DiseaseDetail item : list) {
             try {
-                if (item.getOfflineUuid() != null
-                        && diseaseDetailMapper.selectByOfflineUuid(item.getOfflineUuid()) != null)
-                    continue;
                 if (item.getDiseaseUuid() != null)
                     item.setDiseaseId(uuidMap.get(item.getDiseaseUuid()));
+                DiseaseDetail existing = item.getOfflineUuid() != null ? diseaseDetailMapper.selectByOfflineUuid(item.getOfflineUuid()) : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        diseaseDetailMapper.deleteDiseaseDetailById(item.getId());
+                        continue;
+                    }
+                    diseaseDetailMapper.updateDiseaseDetail(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
                 item.setIsOfflineData(1);
                 diseaseDetailMapper.insertDiseaseDetail(item);
                 result.setSuccessCount(result.getSuccessCount() + 1);
@@ -401,6 +461,11 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
             try {
                 if (item.getOfflineSubjectUuid() != null)
                     item.setSubjectId(uuidMap.get(item.getOfflineSubjectUuid()));
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    // For attachments, we skip or we can delete if it already exists, assuming offline_deleted implies we skip insertion if it's new.
+                    // If we need true deletion for attachments we should check if they exist first. For now skip insertion.
+                    continue;
+                }
                 item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
@@ -433,15 +498,27 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         List<BiObjectComponent> list = parseList(data, BiObjectComponent.class);
         for (BiObjectComponent item : list) {
             try {
-                BiObjectComponent query = new BiObjectComponent();
-                query.setOfflineUuid(item.getOfflineUuid());
-                if (!biObjectComponentMapper.selectBiObjectComponentList(query).isEmpty())
-                    continue;
-
                 if (item.getComponentUuid() != null)
                     item.setComponentId(uuidMap.get(item.getComponentUuid()));
                 if (item.getObjectUuid() != null)
                     item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
+                List<BiObjectComponent> existings = biObjectComponentMapper.selectBiObjectComponentList(new BiObjectComponent() {{ setOfflineUuid(item.getOfflineUuid()); }});
+                if (!existings.isEmpty()) {
+                    BiObjectComponent existing = existings.get(0);
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        biObjectComponentMapper.deleteBiObjectComponentById(item.getId());
+                        continue;
+                    }
+                    biObjectComponentMapper.updateBiObjectComponent(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
 
                 if (item.getComponentId() == null || item.getBiObjectId() == null)
                     continue;

@@ -33,6 +33,9 @@ public class BiObjectComponent extends BaseEntity {
     /** 是否为离线生成数据 (0:云端数据, 1:离线数据) */
     private Integer isOfflineData;
 
+    /** 是否被App离线删除标记 (0:否, 1:是) */
+    private Integer offlineDeleted;
+
     /** 构件离线UUID (同步辅助) */
     private String componentUuid;
 
