@@ -4,6 +4,10 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="edu.whut.cs.bi.biz.mapper.DiseasePositionMapper">
 
+    <resultMap type="edu.whut.cs.bi.biz.domain.vo.TemplateDiseasePositionVO" id="TemplateDiseasePositionVOResult" extends="DiseasePositionResult">
+        <result property="isSelected" column="isSelected"/>
+    </resultMap>
+
     <resultMap type="edu.whut.cs.bi.biz.domain.DiseasePosition" id="DiseasePositionResult">
         <id property="id" column="id"/>
         <result property="name" column="name"/>
@@ -91,5 +95,39 @@
     <update id="deleteDiseasePositionById" parameterType="Long">
         update bi_disease_position set del_flag = '2' where id = #{id}
     </update>
+
+    <select id="selectTemplateDiseasePositionList" resultMap="TemplateDiseasePositionVOResult">
+        SELECT d.id,
+               d.name,
+               d.code,
+               d.props,
+               d.ref1,
+               d.ref2,
+               d.sort_order,
+               d.status,
+               d.del_flag,
+               d.remark,
+               d.create_by,
+               d.create_time,
+               d.update_by,
+               d.update_time,
+               CASE WHEN td.template_object_id IS NOT NULL THEN 1 ELSE 0 END AS isSelected
+        FROM bi_disease_position d
+        LEFT JOIN bi_template_object_disease_position td ON d.id = td.disease_position_id
+            AND td.template_object_id = #{templateObjectId}
+        <where>
+            <if test="diseasePosition.name != null and diseasePosition.name != ''">
+                AND d.name like concat('%', #{diseasePosition.name}, '%')
+            </if>
+            <if test="diseasePosition.status != null and diseasePosition.status != ''">
+                AND d.status = #{diseasePosition.status}
+            </if>
+            <if test="diseasePosition.isSelected != null">
+                AND (td.template_object_id IS NOT NULL) = #{diseasePosition.isSelected}
+            </if>
+            AND d.del_flag = '0'
+        </where>
+        ORDER BY d.sort_order, d.id
+    </select>
 
 </mapper>

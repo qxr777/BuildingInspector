@@ -97,6 +97,8 @@
                 name: selectedRoot.name,
                 orderNum: selectedRoot.orderNum,
                 weight: selectedRoot.weight,
+                impactFactor: selectedRoot.impactFactor,
+                categoryI: selectedRoot.categoryI,
                 status: selectedRoot.status,
                 ancestors: selectedRoot.ancestors
             },
@@ -136,8 +138,23 @@
                     align: 'left'
                 },
                 {
+                    field: 'impactFactor',
+                    title: '影响系数Ƴ',
+                    align: 'left'
+                },
+                {
+                    field: 'categoryI',
+                    title: '类别（i）',
+                    align: 'left'
+                },
+                {
                     field: 'diseaseTypeCount',
                     title: '病害类型数',
+                    align: 'left'
+                },
+                {
+                    field: 'diseasePositionCount',
+                    title: '病害位置数',
                     align: 'left'
                 },
                 {
@@ -160,6 +177,7 @@
                         var more = [];
                         more.push('<a class="btn btn-default btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a> ');
                         more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="selectDiseaseType(\'' + row.id + '\')"><i class="fa fa-bug"></i>病害类型</a> ');
+                        more.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="selectDiseasePosition(\'' + row.id + '\')"><i class="fa fa-map-marker"></i>病害位置</a> ');
 
                         if(more.length > 0) {
                             actions.push('<a class="btn btn-info btn-xs" data-toggle="popover" data-html="true" data-trigger="hover" data-placement="left"data-content="' + more.join('').replace(/"/g, '&quot;') + '">更多操作</a>');
@@ -176,6 +194,12 @@
     function selectDiseaseType(templateObjectId) {
         var url = ctx + "biz/template_object/selectDiseaseType/" + templateObjectId;
         $.modal.openTab("选择病害类型", url);
+    }
+
+    /* 选择病害位置 */
+    function selectDiseasePosition(templateObjectId) {
+        var url = ctx + "biz/template_object/selectDiseasePosition/" + templateObjectId;
+        $.modal.openTab("选择病害位置", url);
     }
 </script>
 </body>

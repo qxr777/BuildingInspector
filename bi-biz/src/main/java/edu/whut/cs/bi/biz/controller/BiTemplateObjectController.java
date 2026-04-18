@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseasePositionVO;
 import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,8 +58,9 @@ public class BiTemplateObjectController extends BaseController {
     public List<BiTemplateObject> list(BiTemplateObject biTemplateObject) {
         List<BiTemplateObject> list;
         if (biTemplateObject != null && biTemplateObject.getId() != null) {
-            // 如果指定了parentId，则返回该节点及其所有子节点
-            list = biTemplateObjectService.selectChildrenById(biTemplateObject.getId());
+            // 如果指定了parentId，则返回该节点及其所有子节点（包含病害位置统计）
+            list = biTemplateObjectService.selectChildrenByIdWithDiseasePosition(biTemplateObject.getId());
+            // 根节点自身病害位置数前端只展示子节点统计，这里不强制设置
             list.add(0,biTemplateObject);
         } else {
             // 否则返回所有节点
@@ -225,6 +227,72 @@ public class BiTemplateObjectController extends BaseController {
     public TableDataInfo listDiseaseType(TemplateDiseaseTypeVO diseaseType, Long templateObjectId) {
         startPage();
         List<TemplateDiseaseTypeVO> list = biTemplateObjectService.selectDiseaseTypeVOList(diseaseType, templateObjectId);
+        return getDataTable(list);
+    }
+
+    /**
+     * 选择病害位置页面
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @GetMapping("/selectDiseasePosition/{templateObjectId}")
+    public String selectDiseasePosition(@PathVariable("templateObjectId") Long templateObjectId, ModelMap mmap) {
+        mmap.put("templateObjectId", templateObjectId);
+        return prefix + "/selectDiseasePosition";
+    }
+
+    /**
+     * 添加单个病害位置
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.INSERT)
+    @PostMapping("/addTemplateDiseasePosition")
+    @ResponseBody
+    public AjaxResult addTemplateDiseasePosition(Long templateObjectId, Long diseasePositionId) {
+        return toAjax(biTemplateObjectService.insertTemplateDiseasePosition(templateObjectId, diseasePositionId));
+    }
+
+    /**
+     * 取消单个病害位置
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.DELETE)
+    @PostMapping("/cancelTemplateDiseasePosition")
+    @ResponseBody
+    public AjaxResult cancelTemplateDiseasePosition(Long templateObjectId, Long diseasePositionId) {
+        return toAjax(biTemplateObjectService.deleteTemplateDiseasePosition(templateObjectId, diseasePositionId));
+    }
+
+    /**
+     * 批量添加病害位置
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.INSERT)
+    @PostMapping("/batchAddTemplateDiseasePosition")
+    @ResponseBody
+    public AjaxResult batchAddTemplateDiseasePosition(Long templateObjectId, String diseasePositionIds) {
+        return toAjax(biTemplateObjectService.batchInsertTemplateDiseasePosition(templateObjectId, diseasePositionIds));
+    }
+
+    /**
+     * 批量取消病害位置
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @Log(title = "桥梁构件模版", businessType = BusinessType.DELETE)
+    @PostMapping("/batchCancelTemplateDiseasePosition")
+    @ResponseBody
+    public AjaxResult batchCancelTemplateDiseasePosition(Long templateObjectId, String diseasePositionIds) {
+        return toAjax(biTemplateObjectService.batchDeleteTemplateDiseasePosition(templateObjectId, diseasePositionIds));
+    }
+
+    /**
+     * 获取病害位置列表
+     */
+    @RequiresPermissions("biz:template_object:edit")
+    @PostMapping("/listDiseasePosition")
+    @ResponseBody
+    public TableDataInfo listDiseasePosition(TemplateDiseasePositionVO diseasePosition, Long templateObjectId) {
+        startPage();
+        List<TemplateDiseasePositionVO> list = biTemplateObjectService.selectDiseasePositionVOList(diseasePosition, templateObjectId);
         return getDataTable(list);
     }
 

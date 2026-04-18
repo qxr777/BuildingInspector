@@ -13,6 +13,8 @@
         <result property="status" column="status"/>
         <result property="delFlag" column="del_flag"/>
         <result property="weight" column="weight"/>
+        <result property="impactFactor" column="impact_factor"/>
+        <result property="categoryI" column="category_i"/>
         <result property="props" column="props"/>
         <result property="remark" column="remark"/>
         <result property="createBy" column="create_by"/>
@@ -29,6 +31,8 @@
             <result property="status" column="child_status"/>
             <result property="delFlag" column="child_del_flag"/>
             <result property="weight" column="child_weight"/>
+            <result property="impactFactor" column="child_impact_factor"/>
+            <result property="categoryI" column="child_category_i"/>
             <result property="props" column="child_props"/>
             <result property="remark" column="child_remark"/>
             <result property="createBy" column="child_create_by"/>
@@ -39,13 +43,13 @@
     </resultMap>
 
     <sql id="selectBiTemplateObjectVo">
-        select id, name, parent_id, ancestors, order_num, status, del_flag, weight, props, remark, create_by, create_time, update_by, update_time from bi_template_object
+        select id, name, parent_id, ancestors, order_num, status, del_flag, weight, impact_factor, category_i, props, remark, create_by, create_time, update_by, update_time from bi_template_object
     </sql>
 
     <select id="selectBiTemplateObjectList" parameterType="BiTemplateObject" resultMap="BiTemplateObjectResult">
         SELECT
         t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
-        t.weight, t.props, t.remark, t.create_by, t.create_time, t.update_by, t.update_time
+        t.weight, t.impact_factor, t.category_i, t.props, t.remark, t.create_by, t.create_time, t.update_by, t.update_time
         FROM bi_template_object t
         <where>
             <if test="status != null and status != ''">
@@ -60,7 +64,7 @@
     </select>
 
     <select id="selectBiTemplateObjectById" parameterType="Long" resultMap="BiTemplateObjectResult">
-        select t.id, t.name, t.parent_id, t.order_num, t.status, t.del_flag, t.weight, t.props, t.create_by, t.create_time, t.update_by, t.update_time, t.remark, t.ancestors,
+        select t.id, t.name, t.parent_id, t.order_num, t.status, t.del_flag, t.weight, t.impact_factor, t.category_i, t.props, t.create_by, t.create_time, t.update_by, t.update_time, t.remark, t.ancestors,
                p.name as parent_name
         from bi_template_object t
                  left join bi_template_object p on p.id = t.parent_id
@@ -96,6 +100,8 @@
         <if test="status != null">status,</if>
         <if test="delFlag != null">del_flag,</if>
         <if test="weight != null">weight,</if>
+        <if test="impactFactor != null">impact_factor,</if>
+        <if test="categoryI != null and categoryI != ''">category_i,</if>
         <if test="props != null">props,</if>
         <if test="remark != null">remark,</if>
         <if test="createBy != null">create_by,</if>
@@ -109,6 +115,8 @@
         <if test="status != null">#{status},</if>
         <if test="delFlag != null">#{delFlag},</if>
         <if test="weight != null">#{weight},</if>
+        <if test="impactFactor != null">#{impactFactor},</if>
+        <if test="categoryI != null and categoryI != ''">#{categoryI},</if>
         <if test="props != null">#{props},</if>
         <if test="remark != null">#{remark},</if>
         <if test="createBy != null">#{createBy},</if>
@@ -126,6 +134,8 @@
             <if test="status != null and status != ''">status = #{status},</if>
             <if test="delFlag != null">del_flag = #{delFlag},</if>
             <if test="weight != null">weight = #{weight},</if>
+            <if test="impactFactor != null">impact_factor = #{impactFactor},</if>
+            <if test="categoryI != null and categoryI != ''">category_i = #{categoryI},</if>
             <if test="props != null">props = #{props},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>

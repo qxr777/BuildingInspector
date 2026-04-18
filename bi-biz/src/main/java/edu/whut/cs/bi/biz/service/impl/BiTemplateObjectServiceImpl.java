@@ -12,8 +12,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.Ztree;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseasePositionVO;
 import edu.whut.cs.bi.biz.domain.vo.TemplateDiseaseTypeVO;
+import edu.whut.cs.bi.biz.mapper.DiseasePositionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
+import edu.whut.cs.bi.biz.mapper.TODiseasePositionMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseTypeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -43,6 +46,12 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
 
     @Autowired
     private IDiseaseTypeService diseaseTypeService;
+
+    @Autowired
+    private TODiseasePositionMapper toDiseasePositionMapper;
+
+    @Autowired
+    private DiseasePositionMapper diseasePositionMapper;
 
     /**
      * 查询桥梁构件模版
@@ -181,13 +190,46 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
 
             // 填充病害类型数量
             for (BiTemplateObject template : list) {
-                Integer count = diseaseTypeCounts.get(template.getId());
-                template.setDiseaseTypeCount(count);
+                Integer typeCount = diseaseTypeCounts.getOrDefault(template.getId(), 0);
+                template.setDiseaseTypeCount(typeCount);
             }
         }
 
         return list;
 
+    }
+
+    /**
+     * 查询指定节点的所有子节点，并填充病害位置数量
+     *
+     * @param id 节点ID
+     * @return 子节点列表
+     */
+    @Override
+    public List<BiTemplateObject> selectChildrenByIdWithDiseasePosition(Long id) {
+        List<BiTemplateObject> list = selectChildrenById(id);
+        if (list == null || list.isEmpty()) {
+            return list;
+        }
+
+        List<Long> templateIds = list.stream()
+                .map(BiTemplateObject::getId)
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> diseasePositionCountsList = toDiseasePositionMapper.countDiseasePositionsByTemplateObjectIds(templateIds);
+        Map<Long, Integer> diseasePositionCounts = new HashMap<>();
+        for (Map<String, Object> map : diseasePositionCountsList) {
+            Long key = ((Number) map.get("key")).longValue();
+            Integer value = ((Number) map.get("value")).intValue();
+            diseasePositionCounts.put(key, value);
+        }
+
+        for (BiTemplateObject template : list) {
+            Integer positionCount = diseasePositionCounts.getOrDefault(template.getId(), 0);
+            template.setDiseasePositionCount(positionCount);
+        }
+
+        return list;
     }
 
     /**
@@ -296,6 +338,81 @@ public class BiTemplateObjectServiceImpl implements IBiTemplateObjectService {
     @Override
     public List<TemplateDiseaseTypeVO> selectDiseaseTypeVOList(TemplateDiseaseTypeVO diseaseType, Long templateObjectId) {
         return diseaseTypeMapper.selectTemplateDiseaseTypeList(templateObjectId, diseaseType);
+    }
+
+    /**
+     * 添加模板对象和病害位置关联
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int insertTemplateDiseasePosition(Long templateObjectId, Long diseasePositionId) {
+        List<Long> existedIds = toDiseasePositionMapper.selectByTemplateObjectId(templateObjectId);
+        if (existedIds != null && existedIds.contains(diseasePositionId)) {
+            return 0;
+        }
+
+        List<Long> diseasePositionIds = new ArrayList<>();
+        diseasePositionIds.add(diseasePositionId);
+        toDiseasePositionMapper.batchInsert(templateObjectId, diseasePositionIds);
+        updateRootBitemplateObject(templateObjectId);
+        return 1;
+    }
+
+    /**
+     * 删除模板对象和病害位置关联
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteTemplateDiseasePosition(Long templateObjectId, Long diseasePositionId) {
+        updateRootBitemplateObject(templateObjectId);
+        return toDiseasePositionMapper.deleteMapping(templateObjectId, diseasePositionId);
+    }
+
+    /**
+     * 批量添加模板对象和病害位置关联
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int batchInsertTemplateDiseasePosition(Long templateObjectId, String diseasePositionIds) {
+        String[] ids = Convert.toStrArray(diseasePositionIds);
+        List<Long> diseasePositionIdList = Arrays.stream(ids)
+                .map(Long::valueOf)
+                .collect(Collectors.toList());
+
+        // 过滤已存在关联，避免重复插入导致主键冲突
+        List<Long> existedIds = toDiseasePositionMapper.selectByTemplateObjectId(templateObjectId);
+        Set<Long> existedIdSet = existedIds == null ? Collections.emptySet() : new HashSet<>(existedIds);
+        List<Long> needInsertIds = diseasePositionIdList.stream()
+                .filter(id -> !existedIdSet.contains(id))
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (!needInsertIds.isEmpty()) {
+            toDiseasePositionMapper.batchInsert(templateObjectId, needInsertIds);
+            updateRootBitemplateObject(templateObjectId);
+        }
+        return needInsertIds.size();
+    }
+
+    /**
+     * 批量删除模板对象和病害位置关联
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int batchDeleteTemplateDiseasePosition(Long templateObjectId, String diseasePositionIds) {
+        String[] ids = Convert.toStrArray(diseasePositionIds);
+        updateRootBitemplateObject(templateObjectId);
+        return toDiseasePositionMapper.batchDeleteData(templateObjectId, Arrays.stream(ids)
+                .map(Long::valueOf)
+                .collect(Collectors.toList()));
+    }
+
+    /**
+     * 获取病害位置列表，包含是否已选信息
+     */
+    @Override
+    public List<TemplateDiseasePositionVO> selectDiseasePositionVOList(TemplateDiseasePositionVO diseasePosition, Long templateObjectId) {
+        return diseasePositionMapper.selectTemplateDiseasePositionList(templateObjectId, diseasePosition);
     }
 
     @Override

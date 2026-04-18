@@ -1,6 +1,8 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.DiseasePosition;
+import edu.whut.cs.bi.biz.domain.vo.TemplateDiseasePositionVO;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -36,4 +38,14 @@ public interface DiseasePositionMapper {
      * 删除病害位置（逻辑删除）
      */
     int deleteDiseasePositionById(Long id);
+
+    /**
+     * 查询病害位置列表，包含是否已选信息
+     *
+     * @param templateObjectId 模板对象ID
+     * @param diseasePosition 病害位置查询条件
+     * @return 病害位置列表
+     */
+    List<TemplateDiseasePositionVO> selectTemplateDiseasePositionList(@Param("templateObjectId") Long templateObjectId,
+                                                                      @Param("diseasePosition") DiseasePosition diseasePosition);
 }
