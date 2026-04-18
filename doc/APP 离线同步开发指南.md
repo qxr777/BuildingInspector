@@ -1008,26 +1008,74 @@ async function syncWithRetry(payload: SyncPayload): Promise<SyncResult> {
 
 ### 9.1 UUID 生成 (Vue.js)
 
+**⚠️ 重要：UUID 重复风险**
+
+文档中提供的 `generateUuid()` 使用 `Math.random()`，**在极端情况下可能重复**。可能导致：
+- 同步时数据覆盖
+- 服务端拒绝请求（UUID 冲突）
+
+**推荐方案（按优先级）：**
+
+**方案 1：使用第三方库（推荐）**
+
+```bash
+npm install uuid
+```
+
 ```javascript
 // utils/uuid.js
+import { v4 as uuidv4 } from 'uuid'
+
+export function generateUuid() {
+  return uuidv4()  // 标准的 UUID-4，碰撞概率极低
+}
+```
+
+**方案 2：使用 Crypto API（浏览器/WebView）**
+
+```javascript
+// 适用于现代浏览器和 Capacitor WebView
+export function generateSecureUuid() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  // 设置 UUID-4 版本位
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  // 设置 RFC 4122 变体位
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  
+  const hex = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`
+}
+```
+
+**方案 3：简单实现（仅用于测试/临时）**
+
+```javascript
 export function generateUuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
   })
 }
-
-// 或使用 crypto API（更安全）
-export function generateSecureUuid() {
-  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
-    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-  )
-}
-
-// 使用
-import { generateUuid } from '@/utils/uuid'
-const uuid = generateUuid()
 ```
+
+**使用示例：**
+
+```javascript
+import { generateUuid } from '@/utils/uuid'
+
+// 生成唯一 ID
+const uuid = generateUuid()
+// 示例输出："550e8400-e29b-41d4-a716-446655440000"
+```
+
+**注意事项：**
+
+| 项目 | 说明 |
+|------|------|
+| 格式 | UUID-4（32 位十六进制，带连字符） |
+| 大小写 | 建议统一使用小写 |
+| 存储 | SQLite 中使用 `TEXT` 类型 |
+| 唯一性 | 每条离线记录必须唯一，重复会导致同步失败 |
 
 ### 9.2 同步粒度
 
