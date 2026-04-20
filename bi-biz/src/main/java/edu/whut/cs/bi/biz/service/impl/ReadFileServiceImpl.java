@@ -535,14 +535,15 @@ public class ReadFileServiceImpl implements ReadFileService {
         }
     }
 
-    // 定义支持的分隔符（中文顿号和波浪线）
-    private static final String SEPARATOR_DOT = "、";
-    private static final String SEPARATOR_TILDE = "~";
+    // 定义支持的分隔符
+    private static final String SEPARATOR_DOT = "、";          // 中文顿号
+    private static final String SEPARATOR_TILDE = "~";        // 波浪线
+    private static final String SEPARATOR_SLASH = "/";        // 斜杠（新增）
 
     /**
      * 将photoName分割为字符串列表
      *
-     * @param photoName 原始字符串（如"1982、1983"或"1982~1985"）
+     * @param photoName 原始字符串（如"1982、1983"或"1982~1985"或"1982/1983）
      * @return 分割后的列表，若输入为空则返回空列表
      */
     public List<String> splitPhotoName(String photoName) {
@@ -558,14 +559,19 @@ public class ReadFileServiceImpl implements ReadFileService {
             String[] parts = trimmedPhotoName.split(SEPARATOR_DOT);
             result.addAll(Arrays.asList(parts));
         }
-        // 2. 再判断是否包含波浪线分隔符
+        // 2. 判断是否包含斜杠分隔符（新增）
+        else if (trimmedPhotoName.contains(SEPARATOR_SLASH)) {
+            String[] parts = trimmedPhotoName.split(SEPARATOR_SLASH);
+            result.addAll(Arrays.asList(parts));
+        }
+        // 3. 再判断是否包含波浪线分隔符
         else if (trimmedPhotoName.contains(SEPARATOR_TILDE)) {
             String[] parts = trimmedPhotoName.split(SEPARATOR_TILDE);
             for (int i = Integer.valueOf(parts[0]); i <= Integer.valueOf(parts[1]); i++) {
                 result.add(String.valueOf(i));
             }
         }
-        // 3. 若没有分隔符（单个值），直接添加到列表
+        // 4. 若没有分隔符（单个值），直接添加到列表
         else {
             result.add(trimmedPhotoName);
         }
