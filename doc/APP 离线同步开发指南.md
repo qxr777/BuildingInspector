@@ -1,8 +1,10 @@
 # App 离线同步开发指南
 
-> 文档版本：v1.1  
-> 最后更新：2026-04-18  
+> 文档版本：v1.2  
+> 最后更新：2026-04-22  
 > 适用对象：App 端开发人员 (Vue.js + Capacitor/Cordova)
+>
+> **更新说明：** 新增离线删除机制和离线更新机制详细说明
 
 **技术栈说明：** 本 App 采用 Vue.js 框架开发，使用 Capacitor/Cordova 访问原生 SQLite 能力。
 
@@ -17,9 +19,10 @@
 5. [SQLite 表结构要求](#5-sqlite-表结构要求)
 6. [字段映射规则](#6-字段映射规则)
 7. [离线删除机制](#7-离线删除机制)
-8. [错误处理](#8-错误处理)
-9. [最佳实践](#9-最佳实践)
-10. [常见问题](#10-常见问题)
+8. [离线更新机制](#8-离线更新机制)
+9. [错误处理](#9-错误处理)
+10. [最佳实践](#10-最佳实践)
+11. [常见问题](#11-常见问题)
 
 ---
 
@@ -32,10 +35,19 @@
 **核心设计：**
 - 每条离线记录生成唯一 `offlineUuid` (UUID-4)
 - 服务端通过 `offlineUuid` 判断是新增还是更新
-- 通过 `offlineDeleted` 字段标记删除操作
+- 通过 `offlineDeleted` 字段标记删除操作（软删除）
 - 通过 `is_offline_data` 标识数据来源于离线端
+- **同步后立即重建 SQLite**：服务端返回全新数据库，App 覆盖本地实现强一致性
 
-### 1.2 支持同步的实体
+### 1.2 数据变更类型支持
+
+| 变更类型 | App 端操作 | 同步字段 | 服务端处理 |
+|----------|-----------|----------|-----------|
+| **新增** | 插入记录，`offlineDeleted=0` | `offlineUuid`, `offlineDeleted=0` | 插入新记录 |
+| **更新** | 修改字段，`offlineDeleted=0` | `offlineUuid`, `offlineDeleted=0` | 根据 UUID 更新 |
+| **删除** | 设置 `offlineDeleted=1` | `offlineUuid`, `offlineDeleted=1` | 软删除/物理删除 |
+
+### 1.3 支持同步的实体
 
 | 实体 | 表名 | 说明 |
 |------|------|------|
@@ -47,11 +59,7 @@
 | Attachment | `bi_attachment` | 附件 (图片等) |
 | BiObjectComponent | `bi_object_component` | 构件 - 对象关联 (2026 新标) |
 
----
-
-## 2. 同步流程
-
-### 2.1 核心设计理念：Post-Submit Rebuild & Fetch
+### 1.4 同步策略：Post-Submit Rebuild & Fetch
 
 本系统采用 **"提交后立即重建 & 获取"** 模型，极大简化 App 端逻辑：
 
@@ -69,8 +77,13 @@
 - **零合并逻辑**：App 端无需实现复杂的数据合并算法
 - **强一致性**：下载的 SQLite 包含云端所有最新数据（包括其他设备的变更）
 - **简化流程**：一次请求完成"上传 + 下载"闭环
+- **删除同步简化**：被删除的记录在新的 SQLite 中不存在，无需本地处理级联删除
 
-### 2.2 完整同步时序
+---
+
+## 2. 同步流程
+
+### 2.1 完整同步时序
 
 ```
 ┌─────────┐         ┌─────────┐         ┌─────────┐
@@ -103,7 +116,7 @@
      │                   │                   │
 ```
 
-### 2.3 步骤说明
+### 2.2 步骤说明
 
 **步骤 1：附件预上传**
 
@@ -893,7 +906,7 @@ SQLite 使用下划线命名，App 端需转换为驼峰：
 1. **不要物理删除**本地记录
 2. 设置 `offline_deleted = 1`
 3. 设置 `is_offline_data = 1` (如果原来是 0，表示云端数据被离线删除)
-4. 下次同步时，服务端会执行对应的软删除
+4. 下次同步时，服务端会执行对应的删除操作
 
 ### 7.2 代码示例 (Vue.js)
 
@@ -942,21 +955,249 @@ const deleteBuilding = async (building) => {
 </script>
 ```
 
-### 7.3 注意事项
+### 7.3 服务端处理逻辑
 
-| 实体 | 删除处理说明 |
-|------|-------------|
-| Building | 级联删除所有子对象、构件、病害 |
-| BiObject | 级联删除子对象、构件、病害 |
-| Component | 检查是否有关联病害 |
-| Disease | 级联删除 DiseaseDetail |
-| Attachment | **当前版本暂不支持删除** |
+服务端收到 `offline_deleted = 1` 的记录后：
+
+```java
+// SyncUploadServiceImpl.java 伪代码
+if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+    // 记录已存在，执行删除
+    if (existing != null) {
+        buildingMapper.deleteBuildingById(item.getId());
+    }
+    // 记录不存在，跳过（已经是删除状态）
+    continue;
+}
+```
+
+**各实体删除处理：**
+
+| 实体 | 服务端删除处理 |
+|------|---------------|
+| Building | 物理删除，级联删除所有子对象、构件、病害 |
+| BiObject | 物理删除，级联删除子对象、构件、病害 |
+| Component | 物理删除，检查是否有关联病害 |
+| Disease | 物理删除，级联删除 DiseaseDetail |
+| DiseaseDetail | 物理删除 |
+| BiObjectComponent | 物理删除 |
+| Attachment | 跳过插入（当前版本暂不支持独立删除） |
+
+### 7.4 删除同步时序图
+
+```
+App 端                          服务端                          SQLite
+ │                               │                               │
+ │ 用户删除 Building             │                               │
+ │───┐                           │                               │
+ │   │ UPDATE bi_building        │                               │
+ │   │ SET offline_deleted=1     │                               │
+ │<──┘                           │                               │
+ │                               │                               │
+ │ 下次同步时                    │                               │
+ │───┐                           │                               │
+ │   │ POST /sync/upload         │                               │
+ │   │ { buildings: [{           │                               │
+ │   │   offlineUuid: "xxx",     │                               │
+ │   │   offlineDeleted: 1       │                               │
+ │   │ }] }                      │                               │
+ │   │                           │ DELETE FROM bi_building       │
+ │   │                           │ WHERE offline_uuid = "xxx"    │
+ │   │                           │                               │
+ │   │                           │ 重建 SQLite (不含已删记录)     │
+ │   │                           │ 上传至 MinIO                  │
+ │<──│ { url: "..." }            │                               │
+ │   │                           │                               │
+ │ 下载新 SQLite                 │                               │
+ │ 覆盖本地数据库                │                               │
+ │───┐                           │                               │
+ │   │ SELECT * FROM ...         │                               │
+ │<──┘ (已删除记录不存在)         │                               │
+```
+
+### 7.5 注意事项
+
+| 项目 | 说明 |
+|------|------|
+| **级联删除** | 服务端自动处理，App 端无需关心 |
+| **删除幂等性** | 重复删除同一记录不会报错 |
+| **网络失败** | 保留 `offline_deleted=1` 标记，等待重试 |
+| **UI 刷新** | 删除后立即从列表移除，同步成功后重新加载全量数据 |
 
 ---
 
-## 8. 错误处理
+## 8. 离线更新机制
 
-### 8.1 常见错误码
+### 8.1 更新流程
+
+当用户在 App 端修改一条记录时：
+
+1. **直接修改**本地记录字段
+2. 确保 `is_offline_data = 1` (标记为待同步)
+3. `offline_deleted` 保持为 `0`
+4. 下次同步时，服务端根据 `offlineUuid` 找到对应记录并更新
+
+### 8.2 代码示例 (Vue.js)
+
+```javascript
+// stores/sync.js - Pinia Store
+import { defineStore } from 'pinia'
+import { openDB } from '@capacitor-community/sqlite'
+
+export const useSyncStore = defineStore('sync', {
+  state: () => ({
+    isSyncing: false
+  }),
+  
+  actions: {
+    async updateRecord(table, id, changes) {
+      const db = await openDB('BridgeInspector', 1, true, false)
+      
+      // 构建 SET 子句
+      const setClause = Object.keys(changes).map(key => `${key} = ?`).join(', ')
+      const values = Object.values(changes)
+      
+      await db.run(
+        `UPDATE ${table} SET ${setClause}, is_offline_data = 1 WHERE id = ?`,
+        [...values, id]
+      )
+      
+      // 标记为待同步
+      await this.addSyncQueue(table, id)
+    },
+    
+    async addSyncQueue(table, id) {
+      const queue = JSON.parse(localStorage.getItem('sync_queue') || '[]')
+      // 避免重复入队
+      const exists = queue.some(item => item.table === table && item.id === id)
+      if (!exists) {
+        queue.push({ table, id, timestamp: Date.now() })
+        localStorage.setItem('sync_queue', JSON.stringify(queue))
+      }
+    }
+  }
+})
+
+// 使用示例
+// components/BuildingDetail.vue
+<script setup>
+import { useSyncStore } from '@/stores/sync'
+
+const syncStore = useSyncStore()
+
+const saveBuilding = async (building) => {
+  await syncStore.updateRecord('bi_building', building.id, {
+    name: building.name,
+    area: building.area,
+    status: building.status,
+    update_time: new Date().toISOString()
+  })
+}
+</script>
+```
+
+### 8.3 服务端处理逻辑
+
+服务端收到更新请求后：
+
+```java
+// SyncUploadServiceImpl.java 伪代码
+Building existing = buildingMapper.selectByOfflineUuid(item.getOfflineUuid());
+if (existing != null) {
+    // 记录已存在，执行更新
+    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+        // 标记为删除
+        buildingMapper.deleteBuildingById(item.getId());
+    } else {
+        // 正常更新
+        item.setId(existing.getId());
+        buildingMapper.updateBuilding(item);
+    }
+    uuidMap.put(item.getOfflineUuid(), existing.getId());
+    continue;
+}
+// 记录不存在，且不是删除操作 → 插入新记录
+```
+
+### 8.4 更新字段说明
+
+**可更新字段：**
+
+| 实体 | 可更新字段 | 说明 |
+|------|-----------|------|
+| Building | `name`, `area`, `line`, `status`, `longitude`, `latitude` 等 | 除 ID、UUID 外的业务字段 |
+| BiObject | `name`, `status`, `span_index`, `span_length` 等 | 除 ID、UUID、父级引用外的字段 |
+| Component | `name`, `code`, `status`, `edi`, `efi`, `eai` | 评定字段可更新 |
+| Disease | `description`, `type`, `level`, `quantity`, `edi`, `efi`, `eai` | 病害信息和评定字段 |
+| DiseaseDetail | 所有测量字段 | `width`, `length1`, `reference1Location` 等 |
+
+**不可更新字段：**
+
+| 字段 | 说明 |
+|------|------|
+| `id` | 服务端主键，由服务端分配 |
+| `offline_uuid` | 离线唯一标识，生成后不可变 |
+| `is_offline_data` | 同步状态标志，服务端自动管理 |
+| `create_time`, `create_by` | 创建信息，不可变 |
+
+### 8.5 冲突处理
+
+当前版本采用 **"服务端优先"** 策略：
+
+- 服务端根据 `offlineUuid` 找到记录直接覆盖更新
+- 不比较变更时间戳
+- 不合并多方变更
+
+**建议实践：**
+- 同一记录避免多设备同时编辑
+- 同步成功后，App 立即刷新本地数据（通过下载新 SQLite）
+- 编辑前检查网络状态，在线时直接调用在线编辑接口
+
+### 8.6 更新同步时序图
+
+```
+App 端                          服务端                          SQLite
+ │                               │                               │
+ │ 用户修改 Building 名称        │                               │
+ │───┐                           │                               │
+ │   │ UPDATE bi_building        │                               │
+ │   │ SET name='新名称',         │                               │
+ │   │     is_offline_data=1     │                               │
+ │   │ WHERE id=123              │                               │
+ │<──┘                           │                               │
+ │                               │                               │
+ │ 下次同步时                    │                               │
+ │───┐                           │                               │
+ │   │ POST /sync/upload         │                               │
+ │   │ { buildings: [{           │                               │
+ │   │   offlineUuid: "xxx",     │                               │
+ │   │   name: "新名称",          │                               │
+ │   │   offlineDeleted: 0       │                               │
+ │   │ }] }                      │                               │
+ │   │                           │ SELECT id FROM bi_building    │
+ │   │                           │ WHERE offline_uuid = "xxx"    │
+ │   │                           │ → id=123                      │
+ │   │                           │                               │
+ │   │                           │ UPDATE bi_building            │
+ │   │                           │ SET name='新名称'              │
+ │   │                           │ WHERE id=123                  │
+ │   │                           │                               │
+ │   │                           │ 重建 SQLite (含更新后数据)     │
+ │   │                           │ 上传至 MinIO                  │
+ │<──│ { url: "..." }            │                               │
+ │   │                           │                               │
+ │ 下载新 SQLite                 │                               │
+ │ 覆盖本地数据库                │                               │
+ │───┐                           │                               │
+ │   │ SELECT name FROM ...      │                               │
+ │<──┘ → "新名称"                 │                               │
+```
+
+---
+
+## 9. 错误处理
+
+### 9.1 常见错误码
 
 | code | 说明 | 处理建议 |
 |------|------|---------|
@@ -965,7 +1206,7 @@ const deleteBuilding = async (building) => {
 | 401 | 认证失败 | 刷新 Token 后重试 |
 | 500 | 服务端错误 | 记录日志，等待人工介入 |
 
-### 8.2 重试策略
+### 9.2 重试策略
 
 ```typescript
 const RETRY_CONFIG = {
@@ -1004,9 +1245,9 @@ async function syncWithRetry(payload: SyncPayload): Promise<SyncResult> {
 
 ---
 
-## 9. 最佳实践
+## 10. 最佳实践
 
-### 9.1 UUID 生成 (Vue.js)
+### 10.1 UUID 生成 (Vue.js)
 
 **⚠️ 重要：UUID 重复风险**
 
@@ -1077,13 +1318,13 @@ const uuid = generateUuid()
 | 存储 | SQLite 中使用 `TEXT` 类型 |
 | 唯一性 | 每条离线记录必须唯一，重复会导致同步失败 |
 
-### 9.2 同步粒度
+### 10.2 同步粒度
 
 - 建议每 **50-100 条记录** 分批同步
 - 单次请求 JSON 大小建议不超过 **5MB**
 - 附件上传建议并发数 ≤ 3
 
-### 9.3 本地状态管理
+### 10.3 本地状态管理
 
 建议增加本地状态字段：
 
@@ -1094,13 +1335,13 @@ const uuid = generateUuid()
 | `sync_time` | DATETIME | 最后同步时间 |
 | `server_id` | INTEGER | 服务端 ID (同步后填充) |
 
-### 9.4 网络优化
+### 10.4 网络优化
 
 - 使用 **WiFi 优先** 策略
 - 图片上传前进行 **压缩** (建议 ≤ 500KB)
 - 弱网环境下降低并发数
 
-### 9.5 日志记录
+### 10.5 日志记录
 
 建议记录以下日志用于排查：
 
@@ -1113,7 +1354,7 @@ const uuid = generateUuid()
 [Sync] 数据库替换完成
 ```
 
-### 9.6 数据库下载策略 (重要)
+### 10.6 数据库下载策略 (重要)
 
 **同步成功后，App 应立即在后台下载新的 SQLite：**
 
@@ -1227,7 +1468,7 @@ const handleSyncResponse = async (response) => {
 
 ---
 
-## 10. 常见问题
+## 11. 常见问题
 
 ### Q1: 同步时提示"UUID 重复"
 
@@ -1326,6 +1567,50 @@ export const authStorage = {
 - localStorage/sessionStorage (未加密，易受 XSS 攻击)
 - SQLite 数据库 (明文)
 - 日志文件中
+
+### Q8: 离线删除后，本地列表如何刷新？
+
+**建议做法：**
+
+```javascript
+// 1. 删除标记后立即从 UI 列表移除
+const deleteBuilding = async (building) => {
+  await syncStore.markAsDeleted('bi_building', building.id)
+  buildings.value = buildings.value.filter(b => b.id !== building.id)
+}
+
+// 2. 同步成功后，重新加载全量数据
+const handleSyncSuccess = async () => {
+  await loadBuildingsFromDatabase() // 从新 SQLite 重新加载
+}
+```
+
+**原因：** 同步成功后，App 会下载全新的 SQLite，已删除的记录不存在于新数据库中。
+
+### Q9: 云端数据被离线删除后，`is_offline_data` 如何设置？
+
+当用户删除一条原本来自云端的记录（`is_offline_data = 0`）时：
+
+```sql
+UPDATE bi_building 
+SET offline_deleted = 1, is_offline_data = 1 
+WHERE id = ?
+```
+
+**说明：**
+- `offline_deleted = 1` 告知服务端需要删除
+- `is_offline_data = 1` 标记为待同步，确保记录会被上传
+
+### Q10: 删除操作需要重试吗？
+
+**需要。** 删除操作和新增/更新使用相同的同步队列和重试机制：
+
+```javascript
+// 删除失败后，记录仍保留 offline_deleted=1
+// 下次同步时会再次尝试上传
+```
+
+**注意：** 服务端删除是幂等的，重复删除同一记录不会报错。
 
 ---
 
