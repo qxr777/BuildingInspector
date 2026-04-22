@@ -351,7 +351,7 @@ public class ReadFileServiceImpl implements ReadFileService {
 
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 Subject subject = ThreadContext.getSubject();
-                for (int i = 3; i < sheet.getLastRowNum(); i++) {
+                for (int i = 3; i <= sheet.getLastRowNum(); i++) {
                     Row row = sheet.getRow(i);
                     if (row == null) continue;
 
