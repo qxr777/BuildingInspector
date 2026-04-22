@@ -94,7 +94,7 @@ class ApiControllerV2Test {
         AjaxResult result = apiControllerV2.generateUserSqlite(20L);
 
         assertEquals(0, result.get(AjaxResult.CODE_TAG));
-        assertEquals("获取成功", result.get(AjaxResult.MSG_TAG));
+        assertEquals("已成功生成离线包并获取地址", result.get(AjaxResult.MSG_TAG));
         assertSame(vo, result.get(AjaxResult.DATA_TAG));
         verify(sqliteService, times(1)).generateUserSqliteSync(20L);
     }

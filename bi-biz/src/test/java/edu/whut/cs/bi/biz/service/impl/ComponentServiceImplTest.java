@@ -4,7 +4,9 @@ import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.dto.CodeSegment;
+import edu.whut.cs.bi.biz.domain.BiObjectComponent;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import edu.whut.cs.bi.biz.mapper.BiObjectComponentMapper;
 import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +41,9 @@ class ComponentServiceImplTest {
 
     @Mock
     private BiObjectMapper biObjectMapper;
+
+    @Mock
+    private BiObjectComponentMapper biObjectComponentMapper;
 
     /**
      * 测试场景：批量生成构件时，部件存在且编号片段合法，能够正常生成并入库。

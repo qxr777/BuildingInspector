@@ -1,5 +1,5 @@
 # 使用openjdk的Java 17基础镜像
-FROM openjdk:17-jdk
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/openjdk:17-jdk
 
 # 设置工作目录
 WORKDIR /app

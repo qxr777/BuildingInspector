@@ -53,3 +53,7 @@ test_out.json
 u95.db-shm
 u95.db-wal
 .mvn/jvm.config
+build-bi.sh
+upgrade-bi.sh
+Dockerfile
+Dockerfile

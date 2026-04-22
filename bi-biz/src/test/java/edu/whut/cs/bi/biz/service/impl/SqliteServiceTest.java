@@ -16,7 +16,9 @@ import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.UserSqlite;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
+import edu.whut.cs.bi.biz.domain.BiObjectComponent;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import edu.whut.cs.bi.biz.mapper.BiObjectComponentMapper;
 import edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ComponentMapper;
@@ -111,6 +113,8 @@ class SqliteServiceTest {
     private MinioClient minioClient;
     @Mock
     private MinioConfig minioConfig;
+    @Mock
+    private BiObjectComponentMapper biObjectComponentMapper;
 
     private final List<File> generatedFiles = new ArrayList<>();
 
@@ -190,6 +194,7 @@ class SqliteServiceTest {
         doReturn(Collections.singletonList(diseaseAttachment), Collections.singletonList(buildingAttachment))
                 .when(attachmentService).getAttachmentBySubjectIds(anyList());
         doReturn(Collections.singletonList(map1)).when(fileMapMapper).selectFileMapByIds(Arrays.asList(701L, 702L, 703L));
+        doReturn(new ArrayList<>()).when(biObjectComponentMapper).selectBiObjectComponentList(any());
 
         File result = sqliteService.doGenerateBuildingSqlite(buildingId);
         generatedFiles.add(result);

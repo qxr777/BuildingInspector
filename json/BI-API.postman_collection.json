@@ -1,0 +1,952 @@
+{
+  "info": {
+    "_postman_id": "f6666983-3ad8-40c2-ac6c-7f355cd7f03a",
+    "name": "BI-API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "2988524",
+    "_collection_link": "https://go.postman.co/collection/2988524-f6666983-3ad8-40c2-ac6c-7f355cd7f03a?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "用户登录 /jwt/login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// 解析响应体为JSON对象",
+              "var responseJson = pm.response.json();",
+              "",
+              "// 检查响应状态码和code字段，确保响应成功",
+              "if (pm.response.code === 200 && responseJson.code === 0) {",
+              "    // 从JSON对象中提取token",
+              "    var token = responseJson.token;",
+              "    // 将token保存到集合变量中",
+              "    pm.collectionVariables.set(\"token\", token);",
+              "    console.log(\"Token已保存到集合变量中: \" + token);",
+              "} else {",
+              "    console.log(\"响应失败，未获取到有效的token。\");",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/jwt/login?username=znjc_test_1&password=123456",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "jwt",
+            "login"
+          ],
+          "query": [
+            {
+              "key": "username",
+              "value": "znjc_test_1"
+            },
+            {
+              "key": "password",
+              "value": "123456"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/list",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/list",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "list"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/user/list",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/user/list",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "user",
+            "list"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/api/role/list",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/role/list",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "role",
+            "list"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "根据桥幅id查询桥幅部件树",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/building/43/object",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "building",
+            "43",
+            "object"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "根据桥幅id查询桥幅基本状况卡片",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/building/4358/property",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "building",
+            "4358",
+            "property"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "根据用户id查询用户项目Project列表",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/project",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "project"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "根据项目ProjectId查询任务列表",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/project/6/task",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "project",
+            "6",
+            "task"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "上传bridgeExcel",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "uuid": "3ff84451-5b19-45e7-be4e-d94eb9bdc1de",
+              "src": "/C:/Users/10512/Desktop/软件--模板建立清单.xlsx"
+            },
+            {
+              "key": "projectId",
+              "value": "40",
+              "type": "text",
+              "uuid": "2514a939-cc39-447c-a7f1-49d97a07dab5"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/upload/bridgeExcel",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "upload",
+            "bridgeExcel"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "上传PropertyExcel",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "uuid": "e15f9e3a-84b1-4446-a15b-b7979328d467",
+              "src": "/C:/Users/10512/Desktop/2.xlsx"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/batchImportPropertyData",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "batchImportPropertyData"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "生成缩略图",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "uuid": "e15f9e3a-84b1-4446-a15b-b7979328d467",
+              "src": "/C:/Users/10512/Desktop/桥梁综合信息列表-湖北交投鄂西高速公路运营管理有限公司(宣鹤高速)(3).xlsx"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/addThumbPhoto?taskId=1527",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "addThumbPhoto"
+          ],
+          "query": [
+            {
+              "key": "taskId",
+              "value": "1527",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "上传DieaseZip",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "uuid": "3ff84451-5b19-45e7-be4e-d94eb9bdc1de",
+              "src": "/C:/Users/10512/Desktop/2024建恩高速建松段养护检查等级I级桥梁（拱桥）定期检查报告.zip"
+            },
+            {
+              "key": "projectId",
+              "value": "11",
+              "type": "text",
+              "uuid": "c6b117f8-bce5-42f9-8600-66a4ad64bf4c"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/upload/diseaseZip",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "upload",
+            "diseaseZip"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "上传DieaseZip Copy",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "uuid": "3ff84451-5b19-45e7-be4e-d94eb9bdc1de",
+              "src": "/C:/Users/10512/Desktop/2024建恩高速建松段养护检查等级I级桥梁（拱桥）定期检查报告.zip"
+            },
+            {
+              "key": "projectId",
+              "value": "11",
+              "type": "text",
+              "uuid": "c6b117f8-bce5-42f9-8600-66a4ad64bf4c"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/upload/diseaseZip",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "upload",
+            "diseaseZip"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "根据BuidlingId和Year查询桥梁历史病害",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/building/37/disease/2023",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "building",
+            "37",
+            "disease",
+            "2023"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "修复biObject错误数据",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/updateErrorData?updateTime=2025-09-13",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "updateErrorData"
+          ],
+          "query": [
+            {
+              "key": "updateTime",
+              "value": "2025-09-13"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "修复biObject错误数据 Copy",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/building/37/disease/2023",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "building",
+            "37",
+            "disease",
+            "2023"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "提交桥梁构件列表API",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n        \"orderNum\": 0,\r\n        \"delFlag\": \"0\",\r\n        \"children\": [\r\n            {\r\n                \"orderNum\": 0,\r\n                \"delFlag\": \"0\",\r\n                \"updateBy\": \"admin\",\r\n                \"children\": [\r\n                    {\r\n                        \"orderNum\": 1,\r\n                        \"delFlag\": \"0\",\r\n                        \"children\": [\r\n                            {\r\n                                \"orderNum\": 1,\r\n                                \"delFlag\": \"0\",\r\n                                \"updateBy\": \"admin\",\r\n                                \"id\": 1050,\r\n                                \"ancestors\": \"0,1045,1046,1047\",\r\n                                \"templateObjectId\": 11011,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.4000,\r\n                                \"updateTime\": \"2025-05-08 14:49:49\",\r\n                                \"parentId\": 1047,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:55\",\r\n                                \"name\": \"斜拉索系统（斜拉索、锚具、拉索护套、减震装置等）\",\r\n                                \"diseaseTypes\": [\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.1.1-1\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:01:52\",\r\n                                        \"name\": \"拉索锈蚀、断丝\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:52\",\r\n                                        \"id\": 153,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.1.1-2\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:01:52\",\r\n                                        \"name\": \"滑移变位\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:52\",\r\n                                        \"id\": 154,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.1.1-3\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:53\",\r\n                                        \"name\": \"涂层损坏\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:53\",\r\n                                        \"id\": 155,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.1.1-4\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:53\",\r\n                                        \"name\": \"护套内的材料老化变质\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:53\",\r\n                                        \"id\": 156,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.1.1-5\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:01:53\",\r\n                                        \"name\": \"锚固区损坏\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:53\",\r\n                                        \"id\": 157,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.1.1-6\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:01:54\",\r\n                                        \"name\": \"拉索线形异常\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:54\",\r\n                                        \"id\": 158,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.2.1-1\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:54\",\r\n                                        \"name\": \"漆膜损坏\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:54\",\r\n                                        \"id\": 159,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.2.1-2\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:55\",\r\n                                        \"name\": \"护套裂缝\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:55\",\r\n                                        \"id\": 160,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.2.1-3\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:55\",\r\n                                        \"name\": \"护套锈蚀\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:55\",\r\n                                        \"id\": 161,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.2.1-4\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:55\",\r\n                                        \"name\": \"防护层破损\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:55\",\r\n                                        \"id\": 162,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.2.1-5\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:56\",\r\n                                        \"name\": \"护套上端浆液离析\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:56\",\r\n                                        \"id\": 163,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.2.1-6\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:56\",\r\n                                        \"name\": \"渗水\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:56\",\r\n                                        \"id\": 164,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.5.1-1\",\r\n                                        \"maxScale\": 3,\r\n                                        \"createTime\": \"2025-05-02 20:01:58\",\r\n                                        \"name\": \"锚杯积水\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:58\",\r\n                                        \"id\": 169,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.5.1-2\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:59\",\r\n                                        \"name\": \"锚具内潮湿\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:59\",\r\n                                        \"id\": 170,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.5.1-3\",\r\n                                        \"maxScale\": 3,\r\n                                        \"createTime\": \"2025-05-02 20:01:59\",\r\n                                        \"name\": \"防锈油结块\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:59\",\r\n                                        \"id\": 171,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.5.1-4\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:59\",\r\n                                        \"name\": \"锚具锈蚀\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:59\",\r\n                                        \"id\": 172,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.6.1-1\",\r\n                                        \"maxScale\": 3,\r\n                                        \"createTime\": \"2025-05-02 20:02:00\",\r\n                                        \"name\": \"减震装置损坏\",\r\n                                        \"updateTime\": \"2025-05-02 20:02:00\",\r\n                                        \"id\": 173,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    }\r\n                                ],\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 2,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1051,\r\n                                \"ancestors\": \"0,1045,1046,1047\",\r\n                                \"templateObjectId\": 11012,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.2500,\r\n                                \"updateTime\": \"2025-05-08 14:53:03\",\r\n                                \"parentId\": 1047,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:55\",\r\n                                \"name\": \"主梁（钢桁架或钢箱主梁）\",\r\n                                \"diseaseTypes\": [\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.1-1\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:00:50\",\r\n                                        \"name\": \"剥落、露筋\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:50\",\r\n                                        \"id\": 123,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.1-2\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:50\",\r\n                                        \"name\": \"跨中挠度\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:50\",\r\n                                        \"id\": 124,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.1-3\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:51\",\r\n                                        \"name\": \"构件变形\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:51\",\r\n                                        \"id\": 125,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.1-4\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:51\",\r\n                                        \"name\": \"混凝土裂缝\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:51\",\r\n                                        \"id\": 126,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.2-1\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:52\",\r\n                                        \"name\": \"构件变形\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:52\",\r\n                                        \"id\": 127,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.2-2\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:00:52\",\r\n                                        \"name\": \"锈蚀\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:52\",\r\n                                        \"id\": 128,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.2-3\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:52\",\r\n                                        \"name\": \"跨中挠度\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:52\",\r\n                                        \"id\": 129,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.2-4\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:53\",\r\n                                        \"name\": \"裂缝\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:53\",\r\n                                        \"id\": 130,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.3-1\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:53\",\r\n                                        \"name\": \"构件变形\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:53\",\r\n                                        \"id\": 131,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.3-2\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:00:54\",\r\n                                        \"name\": \"锈蚀\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:54\",\r\n                                        \"id\": 132,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.3-3\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:54\",\r\n                                        \"name\": \"跨中挠度\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:54\",\r\n                                        \"id\": 133,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.4.3-4\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:55\",\r\n                                        \"name\": \"裂缝\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:55\",\r\n                                        \"id\": 134,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    }\r\n                                ],\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 3,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1052,\r\n                                \"ancestors\": \"0,1045,1046,1047\",\r\n                                \"templateObjectId\": 11013,\r\n                                \"comments\": [\r\n                                    {\r\n                                        \"code\": \"1-6-1-1#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔1\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-1-2#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔2\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-1-3#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔3\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-2-1#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔4\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-2-2#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔5\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-2-3#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔6\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-3-1#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔7\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-3-2#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔8\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-3-3#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔9\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-4-1#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔10\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-4-2#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔11\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-4-3#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔12\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-5-1#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔13\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-5-2#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔14\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-6-5-3#索塔\",\r\n                                        \"updateTime\": \"2025-05-05 16:44:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1052,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:44:30\",\r\n                                        \"name\": \"索塔15\",\r\n                                        \"status\": \"0\"\r\n                                    }\r\n                                ],\r\n                                \"count\": 15,\r\n                                \"weight\": 0.2500,\r\n                                \"updateTime\": \"2025-05-05 15:44:55\",\r\n                                \"parentId\": 1047,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:55\",\r\n                                \"name\": \"索塔\",\r\n                                \"diseaseTypes\": [\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.5.1-2\",\r\n                                        \"maxScale\": 3,\r\n                                        \"createTime\": \"2025-05-02 20:00:55\",\r\n                                        \"name\": \"蜂窝、麻面\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:55\",\r\n                                        \"id\": 136,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.5.1-3\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:00:56\",\r\n                                        \"name\": \"剥落、露筋\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:56\",\r\n                                        \"id\": 137,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.5.1-4\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:00:56\",\r\n                                        \"name\": \"钢筋锈蚀\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:56\",\r\n                                        \"id\": 138,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"7.5.1-7\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:00:57\",\r\n                                        \"name\": \"基础冲刷\",\r\n                                        \"updateTime\": \"2025-05-02 20:00:57\",\r\n                                        \"id\": 141,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.4.1-1\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:01:57\",\r\n                                        \"name\": \"倾斜变形\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:57\",\r\n                                        \"id\": 165,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.4.1-2\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:57\",\r\n                                        \"name\": \"裂缝\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:57\",\r\n                                        \"id\": 166,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.4.1-3\",\r\n                                        \"maxScale\": 5,\r\n                                        \"createTime\": \"2025-05-02 20:01:57\",\r\n                                        \"name\": \"沉降\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:57\",\r\n                                        \"id\": 167,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"8.4.1-4\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-05-02 20:01:58\",\r\n                                        \"name\": \"锚固区渗水\",\r\n                                        \"updateTime\": \"2025-05-02 20:01:58\",\r\n                                        \"id\": 168,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    }\r\n                                ],\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 4,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1053,\r\n                                \"ancestors\": \"0,1045,1046,1047\",\r\n                                \"templateObjectId\": 11014,\r\n                                \"comments\": [\r\n                                    {\r\n                                        \"code\": \"1-07-1-1#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:29\",\r\n                                        \"name\": \"支座1\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-1-2#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:29\",\r\n                                        \"name\": \"支座2\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-1-3#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:29\",\r\n                                        \"name\": \"支座3\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-1-4#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座4\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-2-1#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座5\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-2-2#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座6\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-2-3#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:29\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座7\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-2-4#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座8\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-3-1#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座9\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-3-2#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座10\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-3-3#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座11\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-3-4#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座12\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-4-1#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座13\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-4-2#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座14\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-4-3#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座15\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-4-4#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座16\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-5-1#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座17\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-5-2#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座18\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-5-3#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:30\",\r\n                                        \"name\": \"支座19\",\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"code\": \"1-07-5-4#支座\",\r\n                                        \"updateTime\": \"2025-05-05 16:45:30\",\r\n                                        \"delFlag\": \"0\",\r\n                                        \"biObjectId\": 1053,\r\n                                        \"createBy\": \"admin\",\r\n                                        \"createTime\": \"2025-05-05 16:45:31\",\r\n                                        \"name\": \"支座20\",\r\n                                        \"status\": \"0\"\r\n                                    }\r\n                                ],\r\n                                \"count\": 20,\r\n                                \"weight\": 0.1000,\r\n                                \"updateTime\": \"2025-05-05 15:44:55\",\r\n                                \"parentId\": 1047,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:55\",\r\n                                \"name\": \"支座\",\r\n                                \"diseaseTypes\": [\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"5.3.2-1\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-04-14 17:14:06\",\r\n                                        \"name\": \"钢支座组件或功能缺陷\",\r\n                                        \"updateTime\": \"2025-04-14 17:14:06\",\r\n                                        \"id\": 29,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"5.3.2-2\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-04-14 17:14:06\",\r\n                                        \"name\": \"钢支座位移、转角超限\",\r\n                                        \"updateTime\": \"2025-04-14 17:14:06\",\r\n                                        \"id\": 30,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    },\r\n                                    {\r\n                                        \"createBy\": \"admin\",\r\n                                        \"code\": \"5.3.2-3\",\r\n                                        \"maxScale\": 4,\r\n                                        \"createTime\": \"2025-04-14 17:14:06\",\r\n                                        \"name\": \"钢支座部件磨损、裂缝\",\r\n                                        \"updateTime\": \"2025-04-14 17:14:06\",\r\n                                        \"id\": 31,\r\n                                        \"minScale\": 1,\r\n                                        \"status\": \"0\"\r\n                                    }\r\n                                ],\r\n                                \"status\": \"0\"\r\n                            }\r\n                        ],\r\n                        \"id\": 1047,\r\n                        \"ancestors\": \"0,1045,1046\",\r\n                        \"templateObjectId\": 1101,\r\n                        \"count\": 0,\r\n                        \"weight\": 0.4000,\r\n                        \"updateTime\": \"2025-05-05 15:44:55\",\r\n                        \"parentId\": 1046,\r\n                        \"createBy\": \"admin\",\r\n                        \"createTime\": \"2025-05-05 15:44:55\",\r\n                        \"name\": \"上部结构\",\r\n                        \"status\": \"0\"\r\n                    },\r\n                    {\r\n                        \"orderNum\": 2,\r\n                        \"delFlag\": \"0\",\r\n                        \"children\": [\r\n                            {\r\n                                \"orderNum\": 1,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1054,\r\n                                \"ancestors\": \"0,1045,1046,1048\",\r\n                                \"templateObjectId\": 11021,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.0200,\r\n                                \"updateTime\": \"2025-05-05 15:44:55\",\r\n                                \"parentId\": 1048,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:55\",\r\n                                \"name\": \"翼墙、耳墙\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 2,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1055,\r\n                                \"ancestors\": \"0,1045,1046,1048\",\r\n                                \"templateObjectId\": 11022,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.0100,\r\n                                \"updateTime\": \"2025-05-05 15:44:55\",\r\n                                \"parentId\": 1048,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:55\",\r\n                                \"name\": \"锥坡、护坡\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 3,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1056,\r\n                                \"ancestors\": \"0,1045,1046,1048\",\r\n                                \"templateObjectId\": 11023,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.3000,\r\n                                \"updateTime\": \"2025-05-05 15:44:55\",\r\n                                \"parentId\": 1048,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"桥墩\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 4,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1057,\r\n                                \"ancestors\": \"0,1045,1046,1048\",\r\n                                \"templateObjectId\": 11024,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.3000,\r\n                                \"updateTime\": \"2025-05-05 15:44:55\",\r\n                                \"parentId\": 1048,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"桥台\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 5,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1058,\r\n                                \"ancestors\": \"0,1045,1046,1048\",\r\n                                \"templateObjectId\": 11025,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.2800,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1048,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"墩台基础\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 6,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1059,\r\n                                \"ancestors\": \"0,1045,1046,1048\",\r\n                                \"templateObjectId\": 11026,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.0700,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1048,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"河床\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 7,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1060,\r\n                                \"ancestors\": \"0,1045,1046,1048\",\r\n                                \"templateObjectId\": 11027,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.0200,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1048,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"调治构造物\",\r\n                                \"status\": \"0\"\r\n                            }\r\n                        ],\r\n                        \"id\": 1048,\r\n                        \"ancestors\": \"0,1045,1046\",\r\n                        \"templateObjectId\": 1102,\r\n                        \"count\": 0,\r\n                        \"weight\": 0.4000,\r\n                        \"updateTime\": \"2025-05-05 15:44:55\",\r\n                        \"parentId\": 1046,\r\n                        \"createBy\": \"admin\",\r\n                        \"createTime\": \"2025-05-05 15:44:55\",\r\n                        \"name\": \"下部结构\",\r\n                        \"status\": \"0\"\r\n                    },\r\n                    {\r\n                        \"orderNum\": 3,\r\n                        \"delFlag\": \"0\",\r\n                        \"children\": [\r\n                            {\r\n                                \"orderNum\": 1,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1061,\r\n                                \"ancestors\": \"0,1045,1046,1049\",\r\n                                \"templateObjectId\": 11031,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.4000,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1049,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"桥面铺装\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 2,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1062,\r\n                                \"ancestors\": \"0,1045,1046,1049\",\r\n                                \"templateObjectId\": 11032,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.2500,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1049,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"伸缩缝装置\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 3,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1063,\r\n                                \"ancestors\": \"0,1045,1046,1049\",\r\n                                \"templateObjectId\": 11033,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.1000,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1049,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"人行道\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 4,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1064,\r\n                                \"ancestors\": \"0,1045,1046,1049\",\r\n                                \"templateObjectId\": 11034,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.1000,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1049,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"栏杆、护栏\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 5,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1065,\r\n                                \"ancestors\": \"0,1045,1046,1049\",\r\n                                \"templateObjectId\": 11035,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.1000,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1049,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:56\",\r\n                                \"name\": \"排水系统\",\r\n                                \"status\": \"0\"\r\n                            },\r\n                            {\r\n                                \"orderNum\": 6,\r\n                                \"delFlag\": \"0\",\r\n                                \"id\": 1066,\r\n                                \"ancestors\": \"0,1045,1046,1049\",\r\n                                \"templateObjectId\": 11036,\r\n                                \"count\": 0,\r\n                                \"weight\": 0.0500,\r\n                                \"updateTime\": \"2025-05-05 15:44:56\",\r\n                                \"parentId\": 1049,\r\n                                \"createBy\": \"admin\",\r\n                                \"createTime\": \"2025-05-05 15:44:57\",\r\n                                \"name\": \"照明、标志\",\r\n                                \"status\": \"0\"\r\n                            }\r\n                        ],\r\n                        \"id\": 1049,\r\n                        \"ancestors\": \"0,1045,1046\",\r\n                        \"templateObjectId\": 1103,\r\n                        \"count\": 0,\r\n                        \"weight\": 0.2000,\r\n                        \"updateTime\": \"2025-05-05 15:44:55\",\r\n                        \"parentId\": 1046,\r\n                        \"createBy\": \"admin\",\r\n                        \"createTime\": \"2025-05-05 15:44:55\",\r\n                        \"name\": \"桥面系\",\r\n                        \"status\": \"0\"\r\n                    }\r\n                ],\r\n                \"id\": 1046,\r\n                \"ancestors\": \"0,1045\",\r\n                \"templateObjectId\": 11,\r\n                \"count\": 0,\r\n                \"updateTime\": \"2025-05-05 17:12:15\",\r\n                \"parentId\": 1045,\r\n                \"createBy\": \"admin\",\r\n                \"createTime\": \"2025-05-05 15:44:55\",\r\n                \"name\": \"神农溪特大桥(下行)(K1263+414)-左线\",\r\n                \"status\": \"0\"\r\n            }\r\n        ],\r\n        \"id\": 1045,\r\n        \"ancestors\": \"0\",\r\n        \"count\": 0,\r\n        \"updateTime\": \"2025-05-05 15:44:13\",\r\n        \"parentId\": 0,\r\n        \"createBy\": \"admin\",\r\n        \"createTime\": \"2025-05-05 15:44:13\",\r\n        \"name\": \"神农溪特大桥\",\r\n        \"status\": \"0\"\r\n    }\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/building/updateObjectTree",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "building",
+            "updateObjectTree"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "提交病害列表API",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[\r\n            {\r\n                \"createBy\": \"admin\",\r\n                \"createTime\": \"2025-05-14 00:19:21\",\r\n                \"updateTime\": \"2025-05-14 00:19:21\",\r\n                \"diseaseType\": {\r\n                    \"id\": 26,\r\n                    \"code\": \"5.3.1-4\",\r\n                    \"name\": \"盆式支座组件损坏\",\r\n                    \"maxScale\": 4,\r\n                    \"minScale\": 1,\r\n                    \"status\": \"0\"\r\n                },\r\n                \"diseaseTypeId\": 26,\r\n                \"description\": \"盆底四角翘起，或钢盆出现较多锈蚀，或支座底板局部裂纹、掉角，钢件非主要受力部位出现脱焊，或钢盆出现较多锈蚀并伴有剥落，或除盆底、盆环外其他部位开裂，或底板产生变形，混凝土酥裂，露筋、掉角\",\r\n                \"trend\": \"稳定\",\r\n                \"level\": 1,\r\n                \"quantity\": 1,\r\n                \"type\": \"盆式支座组件损坏\",\r\n                \"participateAssess\": \"0\",\r\n                \"deductPoints\": 0,\r\n                \"biObjectId\": 1053,\r\n                \"projectId\": 2,\r\n                \"component\": {\r\n                    \"createBy\": \"admin\",\r\n                    \"createTime\": \"2025-04-21 16:57:20\",\r\n                    \"updateTime\": \"2025-04-21 16:57:19\",\r\n                    \"biObject\": {\r\n                        \"id\": 1053,\r\n                        \"name\": \"支座\",\r\n                        \"count\": 0\r\n                    },\r\n                    \"code\": \"R-5#支座\",\r\n                    \"name\": \"支座5\",\r\n                    \"biObjectId\": 1053,\r\n                    \"status\": \"0\",\r\n                    \"delFlag\": \"0\",\r\n                    \"parentObjectName\": \"上部结构\"\r\n                },\r\n                \"buildingId\": 37\r\n            }\r\n        ]\r\n    \r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/disease/batchSave",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "disease",
+            "batchSave"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "上传用户压缩包",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3NTM4NTc4MDMsInVzZXJuYW1lIjoiaW5zcGVjdG9yMUB6bmpjIn0.EjVI95rXTWo56xsZcnRcD31kp57R3cmNoeS_meoWHt8",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "uuid": "bc12cc96-1bb3-48db-85d0-937410ed0cdc",
+              "src": "/C:/Users/Administrator/Desktop/1861 (2).zip"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/upload/bridgeData",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "upload",
+            "bridgeData"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "查询用户数据包",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "",
+              "type": "text",
+              "uuid": "c831a04d-f3d3-4dac-b4d0-4f2528b633a6",
+              "value": "",
+              "disabled": true
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/user/dataPackage",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "user",
+            "dataPackage"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "V2-生成桥幅压缩包",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/v2/building/4644/package",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v2",
+            "building",
+            "4644",
+            "package"
+          ],
+          "query": [
+            {
+              "key": "",
+              "value": null,
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "V2-生成用户级SQLite",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/v2/user/95/sqlite",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v2",
+            "user",
+            "95",
+            "sqlite"
+          ],
+          "query": [
+            {
+              "key": "",
+              "value": null,
+              "type": "text",
+              "disabled": true
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "【作废】获取Project离线Sqlite",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/v2/project/145/sqlite",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v2",
+            "project",
+            "145",
+            "sqlite"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "V2-获取User离线Sqlite",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/v2/user/95/sqlite",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v2",
+            "user",
+            "95",
+            "sqlite"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "V2-生成基础核心离线Sqlite",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/v2/common/sqlite",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v2",
+            "common",
+            "sqlite"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "V2-获取桥幅压缩包",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/api/v2/building/4644/package",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v2",
+            "building",
+            "4644",
+            "package"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "host",
+      "value": "60.205.13.156",
+      "type": "default"
+    },
+    {
+      "key": "port",
+      "value": "8090",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "1234567890",
+      "type": "string"
+    }
+  ]
+}
