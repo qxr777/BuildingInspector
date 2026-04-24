@@ -284,7 +284,8 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                     continue;
 
                 Long parentId = 0L;
-                if (item.getParentUuid() != null && !item.getParentUuid().isEmpty()) {
+                if (item.getParentUuid() != null && !item.getParentUuid().isEmpty()
+                        && !"0".equals(item.getParentUuid())) {
                     parentId = uuidMap.get(item.getParentUuid());
                     if (parentId == null)
                         continue;
@@ -547,8 +548,8 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         if (uuid == null || uuid.isEmpty())
             return;
         uuidMap.put(uuid, id);
+        // addMapping 内部已经对 successCount +1，这里避免重复累加
         result.addMapping(type, uuid, id);
-        result.setSuccessCount(result.getSuccessCount() + 1);
         idMappingMapper
                 .insert(IdMapping.builder().entityType(type).offlineUuid(uuid).serverId(id).syncUuid(syncUuid).build());
     }
