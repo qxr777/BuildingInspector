@@ -279,7 +279,8 @@
         select b.id, b.name, b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude,
                b.address, b.area, b.line, b.admin_dept, b.weight, b.video_feed,
                b.root_object_id, b.root_property_id, b.remark,
-               b.create_by, b.create_time, b.update_by, b.update_time
+               b.create_by, b.create_time, b.update_by, b.update_time,
+               b.offline_uuid, b.root_object_uuid, b.is_offline_data
         from bi_building b
         where b.del_flag = '0'
         and b.id in

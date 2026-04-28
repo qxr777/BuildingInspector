@@ -605,7 +605,8 @@
                d.component_id, d.commit_type, d.local_id, d.remark,
                d.cause, d.repair_recommendation, d.crack_type,
                d.development_trend, d.detection_method, d.attachment_count,
-               d.create_by, d.create_time, d.update_by, d.update_time, d.task_id
+               d.create_by, d.create_time, d.update_by, d.update_time, d.task_id,
+               d.offline_uuid, d.building_uuid, d.object_uuid, d.component_uuid, d.is_offline_data
         from bi_disease d
         where d.building_id in
         <foreach collection="buildingIds" item="buildingId" open="(" separator="," close=")">

@@ -360,6 +360,13 @@ public class SqliteService {
     // ======================== 辅助方法 ========================
 
     private Connection connect(File file) throws SQLException {
+        try {
+            // 某些运行方式下 SPI 自动注册不会生效，这里显式加载避免 No suitable driver
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("SQLite JDBC 驱动未加载，请检查 org.xerial:sqlite-jdbc 依赖是否在运行时类路径中", e);
+        }
+
         String jdbcUrl = "jdbc:sqlite:" + file.getAbsolutePath();
         Connection conn = DriverManager.getConnection(jdbcUrl);
         try (Statement stmt = conn.createStatement()) {
