@@ -71,6 +71,8 @@ public class SqliteService {
     private TODiseasePositionMapper toDiseasePositionMapper;
     @Resource
     private BiObjectComponentMapper biObjectComponentMapper;
+    @Resource
+    private PropertyMapper propertyMapper;
 
     @Autowired
     private MinioClient minioClient;
@@ -242,7 +244,7 @@ public class SqliteService {
         try (Connection conn = connect(tempFile)) {
             // 合并创建用户级与桥梁检查级相关的所有表
             createTables(conn, "bi_project", "bi_building", "bi_task", "bi_object", "bi_component", "bi_disease",
-                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_object_component");
+                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_object_component", "bi_property");
 
             insertProjects(conn, projects);
             insertBuildings(conn, buildings);
@@ -251,6 +253,25 @@ public class SqliteService {
             // 4. 将所有关联桥梁的检查数据 (部件结构树、病害、照片等) 直接装填入此单一 DB
             if (!bIds.isEmpty()) {
                 exportInspectionData(conn, bIds);
+
+                // 获取并插入桥梁相关的属性数据 (bi_property)
+                List<Long> rootPropertyIds = buildings.stream()
+                        .map(Building::getRootPropertyId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .collect(Collectors.toList());
+                if (!rootPropertyIds.isEmpty()) {
+                    List<Property> properties = new ArrayList<>();
+                    for (Long rootId : rootPropertyIds) {
+                        List<Property> tree = propertyMapper.selectAllChildrenById(rootId);
+                        if (tree != null) {
+                            properties.addAll(tree);
+                        }
+                    }
+                    if (!properties.isEmpty()) {
+                        insertProperties(conn, properties);
+                    }
+                }
             }
             conn.commit();
         }
@@ -493,6 +514,9 @@ public class SqliteService {
             if (set.contains("bi_object_component"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_object_component (id INTEGER PRIMARY KEY, component_id INTEGER, bi_object_id INTEGER, component_uuid TEXT, object_uuid TEXT, weight REAL, offline_uuid TEXT, is_offline_data INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, offline_deleted INTEGER DEFAULT 0)");
+            if (set.contains("bi_property"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_property (id INTEGER PRIMARY KEY, name TEXT, value TEXT, parent_id INTEGER, ancestors TEXT, order_num INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
         }
     }
 
@@ -788,6 +812,27 @@ public class SqliteService {
                 ps.setString(5, dateToStr(f.getUpdateTime()));
                 ps.setString(6, f.getCreateBy());
                 ps.setString(7, f.getFileType());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertProperties(Connection conn, List<Property> properties) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_property (id, name, value, parent_id, ancestors, order_num, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (Property p : properties) {
+                ps.setLong(1, p.getId());
+                ps.setString(2, p.getName());
+                ps.setString(3, p.getValue());
+                setLongOrNull(ps, 4, p.getParentId());
+                ps.setString(5, p.getAncestors());
+                setIntOrNull(ps, 6, p.getOrderNum());
+                ps.setString(7, p.getCreateBy());
+                ps.setString(8, dateToStr(p.getCreateTime()));
+                ps.setString(9, p.getUpdateBy());
+                ps.setString(10, dateToStr(p.getUpdateTime()));
+                ps.setString(11, p.getRemark());
                 ps.addBatch();
             }
             ps.executeBatch();
