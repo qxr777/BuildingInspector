@@ -13,6 +13,7 @@ import edu.whut.cs.bi.biz.domain.DiseaseScale;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Project;
+import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.UserSqlite;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
@@ -29,6 +30,7 @@ import edu.whut.cs.bi.biz.mapper.DiseaseScaleMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectMapper;
+import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.mapper.TODiseasePositionMapper;
 import edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
@@ -115,6 +117,8 @@ class SqliteServiceTest {
     private MinioConfig minioConfig;
     @Mock
     private BiObjectComponentMapper biObjectComponentMapper;
+    @Mock
+    private PropertyMapper propertyMapper;
 
     private final List<File> generatedFiles = new ArrayList<>();
 
@@ -246,10 +250,16 @@ class SqliteServiceTest {
 
         Building building = new Building();
         building.setId(3001L);
+        building.setRootPropertyId(88L);
+        
+        Property property = new Property();
+        property.setId(88L);
+        property.setName("桥梁属性");
 
         doReturn(Collections.singletonList(project)).when(projectMapper).selectProjectList(any(Project.class), eq(userId), eq(null));
         doReturn(Collections.singletonList(task)).when(taskMapper).selectFullTaskListByProjectId(1001L);
         doReturn(Collections.singletonList(building)).when(buildingMapper).selectBuildingsByIds(Collections.singletonList(3001L));
+        doReturn(Collections.singletonList(property)).when(propertyMapper).selectAllChildrenById(88L);
 
         doReturn("bucket-test").when(minioConfig).getBucketName();
         doReturn(null).when(minioClient).putObject(any());
