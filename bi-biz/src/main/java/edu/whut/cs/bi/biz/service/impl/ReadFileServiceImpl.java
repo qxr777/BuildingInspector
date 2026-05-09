@@ -359,18 +359,18 @@ public class ReadFileServiceImpl implements ReadFileService {
                     if (component_3 == null || component_3.equals("/") || component_3.equals("")) {
                         continue;
                     }
+                    String component_4 = getCellValueAsString(row.getCell(4));
 
                     int finalI = i;
                     CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
 
                         ThreadContext.bind(subject);
 
-                        String position = getCellValueAsString(row.getCell(4));
-                        String component_4 = position.split("#")[1];
-
-                        String diseaseType = getCellValueAsString(row.getCell(5));
+                        String position = getCellValueAsString(row.getCell(5));
+                        String componentCode = position.split("#")[0];
+                        String diseaseType = getCellValueAsString(row.getCell(6));
                         // 1处
-                        String diseaseNumber = getCellValueAsString(row.getCell(6));
+                        String diseaseNumber = getCellValueAsString(row.getCell(7));
                         String units = "";
 
                         // 检查是否以非数字字符结尾
@@ -383,15 +383,15 @@ public class ReadFileServiceImpl implements ReadFileService {
                             units = "处";
                         }
 
-                        String length = getCellValueAsString(row.getCell(7));
-                        String lengthUnits = getCellValueAsString(row.getCell(8));
+                        String length = getCellValueAsString(row.getCell(8));
+                        String lengthUnits = getCellValueAsString(row.getCell(9));
 
-                        String diseaseDescription = getCellValueAsString(row.getCell(9));
-                        String repairSuggestion = getCellValueAsString(row.getCell(10));
-                        String scale = getCellValueAsString(row.getCell(11));
-                        String photoName = getCellValueAsString(row.getCell(12));
-                        String developmentTrend = getCellValueAsString(row.getCell(13));
-                        String remark = getCellValueAsString(row.getCell(14));
+                        String diseaseDescription = getCellValueAsString(row.getCell(10));
+                        String repairSuggestion = getCellValueAsString(row.getCell(11));
+                        String scale = getCellValueAsString(row.getCell(12));
+                        String photoName = getCellValueAsString(row.getCell(13));
+                        String developmentTrend = getCellValueAsString(row.getCell(14));
+                        String remark = getCellValueAsString(row.getCell(15));
 
                         BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
 
@@ -410,7 +410,7 @@ public class ReadFileServiceImpl implements ReadFileService {
                                 throw new RuntimeException("第" + (finalI + 1) + "行数据未找到对应的部件：" + component_4);
                         }
 
-                        List<Component> componentList = newComponentMap.get(position);
+                        List<Component> componentList = newComponentMap.get(componentCode + "#" + component_4);
                         BiObject finalBiObject1 = biObject4;
                         Component component = componentList.stream().filter(c -> c.getBiObjectId().equals(finalBiObject1.getId())).findFirst().orElse(null);
 
@@ -611,19 +611,21 @@ public class ReadFileServiceImpl implements ReadFileService {
             if (row == null) continue;
 
             String component_3 = getCellValueAsString(row.getCell(3));
-            String position = getCellValueAsString(row.getCell(4));
+            String position = getCellValueAsString(row.getCell(5));
             if (component_3 == null || component_3.equals("/") || component_3.equals("")) {
                 continue;
             }
 
             String[] splitPosition = position.split("#");
-            String componentCode = splitPosition[0];
-            String component_4 = "";
-            try {
-                component_4 = splitPosition[1];
-            } catch (Exception e) {
-                throw new RuntimeException("第" + (i + 1) + "行数据，病害位置格式错误（应为'code#xx'格式)：" + position + "，或者是excel文件格式错误，缺失部件列。");
+            if (splitPosition.length == 1) {
+                throw new RuntimeException("第" + (i + 1) + "行数据，病害位置格式不正确：缺失 '# ' 符号");
             }
+            String componentCode = splitPosition[0];
+            String component_4 = getCellValueAsString(row.getCell(4));
+            if (component_4 == null || component_4.equals("/") || component_4.equals("")) {
+                throw new RuntimeException("第" + (i + 1) + "行数据，构件2出现错误或为空");
+            }
+
 
             BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
 
@@ -645,7 +647,7 @@ public class ReadFileServiceImpl implements ReadFileService {
             // 新增部件
             Component component = new Component();
             component.setCode(componentCode);
-            component.setName(position);
+            component.setName(componentCode + "#" + component_4);
             component.setCreateBy(ShiroUtils.getLoginName());
             component.setUpdateBy(ShiroUtils.getLoginName());
             component.setCreateTime(DateUtils.getNowDate());
