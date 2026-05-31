@@ -354,8 +354,7 @@ public class ReportGenerateTools {
 
                     // 如果有标题且不是封面图片，添加标题段落
                     if (imageTitle != null && !imageTitle.isEmpty() && !isCoverImage) {
-                        // 使用insertNewParagraph在指定位置插入，避免在文档末尾创建
-                        XWPFParagraph titleParagraph = document.insertNewParagraph(paragraph.getCTP().newCursor());
+                        XWPFParagraph titleParagraph = insertParagraphAfter(document, paragraph);
                         titleParagraph.setAlignment(ParagraphAlignment.CENTER);
                         titleParagraph.setStyle("12");
                         titleParagraph.setSpacingBefore(100);
@@ -443,6 +442,17 @@ public class ReportGenerateTools {
         }
 
         log.warn("未找到占位符在文档中: {}, 请检查Word模板中是否存在该占位符", placeholder);
+    }
+
+    private static XWPFParagraph insertParagraphAfter(XWPFDocument document, XWPFParagraph paragraph) {
+        org.apache.xmlbeans.XmlCursor cursor = paragraph.getCTP().newCursor();
+        try {
+            cursor.toEndToken();
+            cursor.toNextToken();
+            return document.insertNewParagraph(cursor);
+        } finally {
+            cursor.dispose();
+        }
     }
 
     /**

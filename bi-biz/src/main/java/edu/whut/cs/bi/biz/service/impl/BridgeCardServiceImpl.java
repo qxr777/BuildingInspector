@@ -4,8 +4,12 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.DisposalSuggestionEnums;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTVerticalJc;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STVerticalJc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -75,13 +79,8 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                 throw new RuntimeException("未找到对应的建筑信息");
             }
 
-            // 2. 获取属性信息
-            Property property = propertyService.selectPropertyById(building.getRootPropertyId());
-            if (property == null) {
-                throw new RuntimeException("未找到对应的属性信息");
-            }
-
-            List<Property> properties = propertyService.selectPropertyList(property);
+            // 2. 获取属性信息。组合桥父级建筑可能没有属性根，不能因此中断整份报告。
+            List<Property> properties = loadBridgeCardProperties(building);
 //
 //            // 3. 处理结构体系特殊属性
 //            processStructureSystemProperty(properties);
@@ -98,6 +97,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
 
             // 处理 特殊字段
             processSpecialProp(building, properties, templateType, minSystemLevel);
+            ReportTemplateValueUtils.addAliasProperties(properties);
             // 处理图片
             processImageAttachments(document, building.getId(), templateType);
             // 将属性替换占位符
@@ -108,10 +108,10 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                 Property propertyOverviewUpperStructure = new Property();
                 propertyOverviewUpperStructure.setName("概况上部结构");
                 if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_ARCH_BRIDGE.getType())) {
-                    propertyOverviewUpperStructure.setValue(properties.stream().filter(a -> a.getName().equals("拱桥主桥上部构造结构形式")).map(a -> a.getValue()).toList().get(0));
+                    propertyOverviewUpperStructure.setValue(getPropertyValue(properties, "拱桥主桥上部构造结构形式"));
                 } else if (templateType.getType().equals(ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE.getType())
                         || templateType.getType().equals(ReportTemplateTypes.LEVEL_1_BEAM_BRIDGE.getType())) {
-                    propertyOverviewUpperStructure.setValue(properties.stream().filter(a -> a.getName().equals("梁桥主桥上部构造结构形式")).map(a -> a.getValue()).toList().get(0));
+                    propertyOverviewUpperStructure.setValue(getPropertyValue(properties, "梁桥主桥上部构造结构形式"));
                 } else {
                     propertyOverviewUpperStructure.setValue("");
                 }
@@ -130,6 +130,22 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             log.error("处理桥梁卡片数据失败", e);
             throw new RuntimeException("处理桥梁卡片数据失败：" + e.getMessage());
         }
+    }
+
+    private List<Property> loadBridgeCardProperties(Building building) {
+        if (building.getRootPropertyId() == null) {
+            log.warn("建筑未配置rootPropertyId，桥梁卡片将使用Building基础字段兜底。buildingId={}, buildingName={}",
+                    building.getId(), building.getName());
+            return new ArrayList<>();
+        }
+        Property property = propertyService.selectPropertyById(building.getRootPropertyId());
+        if (property == null) {
+            log.warn("未找到rootPropertyId对应的属性根，桥梁卡片将使用Building基础字段兜底。buildingId={}, rootPropertyId={}",
+                    building.getId(), building.getRootPropertyId());
+            return new ArrayList<>();
+        }
+        List<Property> properties = propertyService.selectPropertyList(property);
+        return properties == null ? new ArrayList<>() : new ArrayList<>(properties);
     }
 
     /**
@@ -232,6 +248,11 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         propertyBuilding.setName("桥梁名称");
         propertyBuilding.setValue(building.getName());
         properties.add(propertyBuilding);
+        addBuildingBaseProperty(properties, "桥梁编号", building.getBuildingCode());
+        addBuildingBaseProperty(properties, "路线编号", building.getRouteCode());
+        addBuildingBaseProperty(properties, "路线名称", building.getRouteName());
+        addBuildingBaseProperty(properties, "桥位桩号", building.getBridgePileNumber());
+        addBuildingBaseProperty(properties, "桥梁全长(m)", building.getBridgeLength());
         // 最后的生成报告年月日
         Date date = new Date();
         Property propertyGenerateDate = new Property();
@@ -247,7 +268,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             propertyStructure.setName("结构体系");
 
             // 主梁 或 主拱圈 需要根据桥梁类型填写
-            String mainBridgeUpperStructureForm = properties.stream().filter(a -> a.getName().equals("主桥上部构造结构形式")).map(a -> a.getValue()).toList().get(0);
+            String mainBridgeUpperStructureForm = getPropertyValue(properties, "主桥上部构造结构形式");
             Property propertyMainBridgeUpperStructureForm = new Property();
             propertyMainBridgeUpperStructureForm.setValue(mainBridgeUpperStructureForm);
             if (templateType.equals(ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE)) {
@@ -282,7 +303,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         }
 
         // 处理 上次 处置建议 ， 如果 存在
-        String lastSysLevel = properties.stream().filter(a -> a.getName().equals("桥梁技术状况")).map(a -> a.getValue()).toList().get(0);
+        String lastSysLevel = getPropertyValue(properties, "桥梁技术状况");
         if (lastSysLevel != null && lastSysLevel.length() >= 2) {
             int lastSysLevelInt = lastSysLevel.charAt(0) - '0';
             Property propertyLastAdance = new Property();
@@ -295,13 +316,42 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             Property prop = properties.get(i);
             if (prop.getName().equals("是否公铁两用桥梁")) {
                 String curValue = prop.getValue();
-                prop.setValue(curValue.equals("否") ? "公路" : "公铁两用桥");
+                prop.setValue("否".equals(curValue) ? "公路" : "公铁两用桥");
             }
             if (prop.getName().equals("跨径组合")) {
                 String curValue = prop.getValue();
-                prop.setValue(curValue.replace('*', '×'));
+                prop.setValue(curValue == null ? "" : curValue.replace('*', '×'));
             }
         }
+    }
+
+    private void addBuildingBaseProperty(List<Property> properties, String name, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
+        boolean exists = properties.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(property -> name.equals(property.getName()) && property.getValue() != null && !property.getValue().trim().isEmpty());
+        if (exists) {
+            return;
+        }
+        Property property = new Property();
+        property.setName(name);
+        property.setValue(value);
+        properties.add(property);
+    }
+
+    private String getPropertyValue(List<Property> properties, String propertyName) {
+        if (properties == null || propertyName == null) {
+            return "";
+        }
+        return properties.stream()
+                .filter(Objects::nonNull)
+                .filter(property -> propertyName.equals(property.getName()))
+                .map(Property::getValue)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("");
     }
 
     /**
@@ -427,6 +477,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         for (XWPFTable table : document.getTables()) {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
+                    setCellVerticalCenter(cell);
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
                         // 遍历所有属性进行替换
                         for (Property prop : properties) {
@@ -441,6 +492,12 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                 }
             }
         }
+    }
+
+    private void setCellVerticalCenter(XWPFTableCell cell) {
+        CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+        CTVerticalJc vAlign = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
+        vAlign.setVal(STVerticalJc.CENTER);
     }
 
     /**
@@ -477,6 +534,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         for (XWPFTable table : document.getTables()) {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
+                    setCellVerticalCenter(cell);
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
                         replaceRemainingPlaceholders(paragraph);
                     }

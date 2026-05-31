@@ -26,12 +26,15 @@ import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.Convert2VO;
 import edu.whut.cs.bi.biz.utils.DiseaseComparisonTableUtils;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
+import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.apache.xmlbeans.XmlCursor;
+import org.apache.xmlbeans.XmlObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -468,14 +471,22 @@ public class ReportServiceImpl implements IReportService {
             replaceText(document, "${month}", String.valueOf(month));
             replaceText(document, "${day}", String.valueOf(day));
 
-            // 替换项目相关信息
+            // 组合桥封面字段：用户填报值优先，项目数据只作为默认值。
+            Map<String, String> defaultValues = new LinkedHashMap<>();
             if (project != null) {
-                // 项目名称
-                replaceText(document, "${project-name}", project.getName());
-
-                // 委托单位 - 从项目的dept中获取
+                defaultValues.put("${project-name}", project.getName());
                 if (project.getDept() != null && project.getDept().getDeptName() != null) {
-                    replaceText(document, "${client-unit}", project.getDept().getDeptName());
+                    defaultValues.put("${client-unit}", project.getDept().getDeptName());
+                }
+            }
+            Map<String, String> placeholderValues = ReportTemplateValueUtils.buildPlaceholderValues(reportDataList, defaultValues);
+            List<String> earlyTextKeys = Arrays.asList(
+                    "${project-name}", "${client-unit}", "${委托单位}",
+                    "${engineering-name}", "${工程名称}", "${detection-category}", "${检测类别}"
+            );
+            for (String key : earlyTextKeys) {
+                if (placeholderValues.containsKey(key)) {
+                    replaceText(document, key, placeholderValues.get(key));
                 }
             }
 
@@ -516,7 +527,8 @@ public class ReportServiceImpl implements IReportService {
                 Map<String, Object> additionalData = new HashMap<>();
                 additionalData.put("report", report);
                 additionalData.put("project", project);
-                bridgeCardService.processBridgeCardData(document, building, ReportTemplateTypes.COMBINED_BRIDGE, minSystemLevel);
+                Building bridgeCardBuilding = resolveCombinedBridgeCardBuilding(building, tasks);
+                bridgeCardService.processBridgeCardData(document, bridgeCardBuilding, ReportTemplateTypes.COMBINED_BRIDGE, minSystemLevel);
                 log.info("桥梁卡片数据处理完成");
             } catch (Exception e) {
                 log.error("处理桥梁卡片数据失败", e);
@@ -580,6 +592,10 @@ public class ReportServiceImpl implements IReportService {
                             } catch (Exception e) {
                                 log.error("处理第七章病害表格出错: key={}, value={}, error={}", key, value, e.getMessage());
                                 // 如果处理失败，降级为普通文本替换
+                                replaceText(document, key, value);
+                            }
+                        } else if (isSpatialDisplacementConclusionKey(key)) {
+                            if (!replaceParagraphPlaceholderAfterFollowingTable(document, key, value)) {
                                 replaceText(document, key, value);
                             }
                         } else {
@@ -704,6 +720,60 @@ public class ReportServiceImpl implements IReportService {
 
         // 替换页脚中的文本
         replaceTextInFooters(document, oldText, newText);
+
+        // 覆盖文本框、形状等普通段落 API 无法遍历到的 w:t 文本节点。
+        replaceTextInXmlTextNodes(document.getDocument(), oldText, newText, "正文XML");
+    }
+
+    private void replaceTextInXmlTextNodes(XmlObject root, String oldText, String newText, String location) {
+        if (root == null || oldText == null || oldText.isEmpty()) {
+            return;
+        }
+        try {
+            XmlObject[] textNodes = root.selectPath(
+                    "declare namespace w='http://schemas.openxmlformats.org/wordprocessingml/2006/main' .//w:t");
+            for (XmlObject textNode : textNodes) {
+                XmlCursor cursor = textNode.newCursor();
+                try {
+                    String text = cursor.getTextValue();
+                    if (text != null && text.contains(oldText)) {
+                        cursor.setTextValue(text.replace(oldText, newText));
+                        log.debug("在{}中替换XML文本节点占位符: {}", location, oldText);
+                    }
+                } finally {
+                    cursor.dispose();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("处理{}文本节点时发生错误: {}", location, e.getMessage());
+        }
+    }
+
+    private Building resolveCombinedBridgeCardBuilding(Building combinedBuilding, List<Task> tasks) {
+        if (combinedBuilding == null || combinedBuilding.getRootPropertyId() != null || tasks == null) {
+            return combinedBuilding;
+        }
+        Optional<Building> propertySource = tasks.stream()
+                .filter(Objects::nonNull)
+                .map(Task::getBuilding)
+                .filter(Objects::nonNull)
+                .filter(taskBuilding -> taskBuilding.getRootPropertyId() != null)
+                .findFirst();
+        if (propertySource.isEmpty()) {
+            log.warn("组合桥及子任务均未找到rootPropertyId，桥梁卡片将仅使用Building基础字段兜底。buildingId={}", combinedBuilding.getId());
+            return combinedBuilding;
+        }
+
+        Building source = propertySource.get();
+        Building bridgeCardBuilding = new Building();
+        BeanUtils.copyProperties(combinedBuilding, bridgeCardBuilding);
+        bridgeCardBuilding.setRootPropertyId(source.getRootPropertyId());
+        if (bridgeCardBuilding.getRootObjectId() == null) {
+            bridgeCardBuilding.setRootObjectId(source.getRootObjectId());
+        }
+        log.info("组合桥父级建筑缺少rootPropertyId，桥梁卡片使用子桥属性根兜底。combinedBuildingId={}, sourceBuildingId={}, rootPropertyId={}",
+                combinedBuilding.getId(), source.getId(), source.getRootPropertyId());
+        return bridgeCardBuilding;
     }
 
     /**
@@ -743,6 +813,135 @@ public class ReportServiceImpl implements IReportService {
         }
     }
 
+    private void setParagraphTextWithLineBreaks(XWPFParagraph paragraph, XWPFRun run, String text) {
+        if (text == null || !text.matches("(?s).*\\R.*")) {
+            setTextWithLineBreaks(run, text);
+            return;
+        }
+
+        String[] lines = text.split("\\R", -1);
+        ReportRunsStyle runStyle = ReportRunsStyle.snapshot(run);
+        run.setText(lines[0], 0);
+
+        XWPFParagraph anchor = paragraph;
+        for (int i = 1; i < lines.length; i++) {
+            XWPFParagraph nextParagraph = insertParagraphAfter(anchor);
+            if (nextParagraph == null) {
+                run.addBreak();
+                run.setText(lines[i]);
+                continue;
+            }
+            copyParagraphStyle(paragraph, nextParagraph);
+            XWPFRun nextRun = nextParagraph.createRun();
+            runStyle.apply(nextRun);
+            nextRun.setText(lines[i]);
+            anchor = nextParagraph;
+        }
+    }
+
+    private XWPFParagraph insertParagraphAfter(XWPFParagraph paragraph) {
+        XmlCursor cursor = paragraph.getCTP().newCursor();
+        try {
+            cursor.toEndToken();
+            cursor.toNextToken();
+            IBody body = paragraph.getBody();
+            if (body instanceof XWPFDocument) {
+                return ((XWPFDocument) body).insertNewParagraph(cursor);
+            }
+            if (body instanceof XWPFTableCell) {
+                return ((XWPFTableCell) body).insertNewParagraph(cursor);
+            }
+            return null;
+        } finally {
+            cursor.dispose();
+        }
+    }
+
+    private void copyParagraphStyle(XWPFParagraph source, XWPFParagraph target) {
+        if (source.getStyle() != null) {
+            target.setStyle(source.getStyle());
+        }
+        target.setAlignment(source.getAlignment());
+        target.setVerticalAlignment(source.getVerticalAlignment());
+        if (source.getCTP().isSetPPr()) {
+            target.getCTP().setPPr((CTPPr) source.getCTP().getPPr().copy());
+        }
+    }
+
+    private boolean isSpatialDisplacementConclusionKey(String key) {
+        // 临时回退：按用户反馈，先关闭“表后插入”特殊处理，恢复为普通占位符替换。
+        return false;
+    }
+
+    private boolean replaceParagraphPlaceholderAfterFollowingTable(XWPFDocument document, String key, String value) {
+        List<IBodyElement> bodyElements = document.getBodyElements();
+        for (int i = 0; i < bodyElements.size(); i++) {
+            IBodyElement element = bodyElements.get(i);
+            if (!(element instanceof XWPFParagraph)) {
+                continue;
+            }
+            XWPFParagraph placeholderParagraph = (XWPFParagraph) element;
+            String text = placeholderParagraph.getText();
+            if (text == null || !text.contains(key)) {
+                continue;
+            }
+            int tableIndex = ReportTemplateValueUtils.findNearestFollowingTableIndex(
+                    bodyElements.stream().map(this::bodyElementType).collect(Collectors.toList()), i, 8);
+            if (tableIndex < 0) {
+                return false;
+            }
+            XWPFTable followingTable = (XWPFTable) bodyElements.get(tableIndex);
+
+            XWPFParagraph conclusionParagraph = insertParagraphAfter(followingTable);
+            if (conclusionParagraph == null) {
+                return false;
+            }
+            copyParagraphStyle(placeholderParagraph, conclusionParagraph);
+            XWPFRun conclusionRun = conclusionParagraph.createRun();
+            if (!placeholderParagraph.getRuns().isEmpty()) {
+                ReportRunsStyle.snapshot(placeholderParagraph.getRuns().get(0)).apply(conclusionRun);
+            }
+            setParagraphTextWithLineBreaks(conclusionParagraph, conclusionRun, value);
+
+            int pos = document.getPosOfParagraph(placeholderParagraph);
+            if (pos >= 0) {
+                document.removeBodyElement(pos);
+            } else {
+                clearParagraph(placeholderParagraph);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private String bodyElementType(IBodyElement element) {
+        if (element instanceof XWPFTable) {
+            return "tbl";
+        }
+        if (element instanceof XWPFParagraph) {
+            return "p";
+        }
+        return "";
+    }
+
+    private XWPFParagraph insertParagraphAfter(XWPFTable table) {
+        XmlCursor cursor = table.getCTTbl().newCursor();
+        try {
+            cursor.toEndToken();
+            cursor.toNextToken();
+            IBody body = table.getBody();
+            if (body instanceof XWPFDocument) {
+                return ((XWPFDocument) body).insertNewParagraph(cursor);
+            }
+            if (body instanceof XWPFTableCell) {
+                return ((XWPFTableCell) body).insertNewParagraph(cursor);
+            }
+            return null;
+        } finally {
+            cursor.dispose();
+        }
+    }
+
     /**
      * 替换段落列表中的文本
      *
@@ -752,7 +951,7 @@ public class ReportServiceImpl implements IReportService {
      * @param location   位置描述（用于日志）
      */
     private void replaceTextInParagraphs(List<XWPFParagraph> paragraphs, String oldText, String newText, String location) {
-        for (XWPFParagraph paragraph : paragraphs) {
+        for (XWPFParagraph paragraph : new ArrayList<>(paragraphs)) {
             String paragraphText = paragraph.getText();
             if (paragraphText != null && paragraphText.contains(oldText)) {
                 List<XWPFRun> runs = paragraph.getRuns();
@@ -766,7 +965,7 @@ public class ReportServiceImpl implements IReportService {
                         // 保留原有的字体样式和大小
                         String replacedText = text.replace(oldText, newText);
                         // 使用支持换行符的方法设置文本
-                        setTextWithLineBreaks(run, replacedText);
+                        setParagraphTextWithLineBreaks(paragraph, run, replacedText);
                         replaced = true;
                         log.debug("在{}中替换占位符: {} -> {}", location, oldText, newText);
                         break;
@@ -803,7 +1002,7 @@ public class ReportServiceImpl implements IReportService {
                         log.info("在{}中发现分散占位符: {} 从run[{}]到run[{}]", location, oldText, startRunIndex, endRunIndex);
 
                         // 将第一个run设置为替换后的文本（使用支持换行符的方法）
-                        setTextWithLineBreaks(runs.get(startRunIndex), newText);
+                        setParagraphTextWithLineBreaks(paragraph, runs.get(startRunIndex), newText);
 
                         // 清空其他包含占位符的run
                         for (int i = startRunIndex + 1; i <= endRunIndex; i++) {
@@ -1224,9 +1423,12 @@ public class ReportServiceImpl implements IReportService {
             log.info("开始生成病害小结");
             String diseaseString = "";
             try {
-//                diseaseString = getDiseaseSummary(nodeDiseases);
+                diseaseString = ReportTemplateValueUtils.buildDiseaseSummary(nodeDiseases);
             } catch (Exception e) {
                 log.error("ai小结病害失败，生成报告继续。");
+            }
+            if (diseaseString == null || diseaseString.trim().isEmpty()) {
+                diseaseString = ReportTemplateValueUtils.buildDiseaseSummary(nodeDiseases);
             }
 
 
@@ -1369,6 +1571,7 @@ public class ReportServiceImpl implements IReportService {
 
                 // 防止内容换行（可选）
                 tcPr.addNewNoWrap();
+                setCellVerticalCenter(cell);
             }
 
             // 设置标题行在跨页时重复显示
@@ -1390,6 +1593,7 @@ public class ReportServiceImpl implements IReportService {
                     CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                     tcW.setW(BigInteger.valueOf(columnWidth));
                     tcW.setType(STTblWidth.DXA);
+                    setCellVerticalCenter(cell);
 
                     // 设置单元格内容居中
                     XWPFParagraph cellP = cell.getParagraphs().get(0);
@@ -1485,16 +1689,10 @@ public class ReportServiceImpl implements IReportService {
         }
 
         // 递归写子节点
-        List<BiObject> children = allNodes.stream()
-                .filter(obj -> node.getId().equals(obj.getParentId()))
-                .sorted((a, b) -> a.getName().compareTo(b.getName()))
-                .collect(Collectors.toList());
+        List<BiObject> children = ReportTemplateValueUtils.sortedReportChildren(allNodes, node.getId());
 
         int idx = 1;
         for (BiObject child : children) {
-            if ("附属设施".equals(child.getName())) {
-                continue;
-            }
             writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel);
             idx++;
         }
@@ -3065,8 +3263,7 @@ public class ReportServiceImpl implements IReportService {
 
                     // 如果有标题且不是封面图片，添加标题域
                     if (titleText != null && !titleText.isEmpty() && !isCoverImage) {
-                        // 使用insertNewParagraph在指定位置插入，避免在文档末尾创建
-                        XWPFParagraph titleParagraph = document.insertNewParagraph(paragraph.getCTP().newCursor());
+                        XWPFParagraph titleParagraph = insertParagraphAfter(paragraph);
 
                         // 在现有段落中创建图片标题域
                         WordFieldUtils.createFigureCaptionInParagraph(titleParagraph, titleText, chapterNumber, null);
@@ -3244,8 +3441,7 @@ public class ReportServiceImpl implements IReportService {
 
                     // 如果有标题且不是封面图片，添加标题段落
                     if (imageTitle != null && !imageTitle.isEmpty() && !isCoverImage) {
-                        // 使用insertNewParagraph在指定位置插入，避免在文档末尾创建
-                        XWPFParagraph titleParagraph = document.insertNewParagraph(paragraph.getCTP().newCursor());
+                        XWPFParagraph titleParagraph = insertParagraphAfter(paragraph);
                         titleParagraph.setAlignment(ParagraphAlignment.CENTER);
                         titleParagraph.setStyle("12");
                         titleParagraph.setSpacingBefore(100);
@@ -4251,8 +4447,36 @@ public class ReportServiceImpl implements IReportService {
      * @return 成因分析文本
      */
     private String getCauseAnalysis(Long componentId, List<Long> diseaseTypeIds) {
-        // 目前固定返回"测试"，后续可以根据实际需求实现具体的分析逻辑
-        return "测试";
+        if (componentId == null || diseaseTypeIds == null || diseaseTypeIds.isEmpty()) {
+            return "";
+        }
+        try {
+            BiObject component = biObjectMapper.selectBiObjectById(componentId);
+            if (component == null) {
+                return "";
+            }
+            List<DiseaseType> diseaseTypes = diseaseTypeMapper.selectDiseaseTypeListByIds(diseaseTypeIds);
+            if (diseaseTypes == null || diseaseTypes.isEmpty()) {
+                return "";
+            }
+            return diseaseTypes.stream()
+                    .filter(Objects::nonNull)
+                    .map(diseaseType -> {
+                        CauseQuery causeQuery = new CauseQuery();
+                        causeQuery.setObjectId(componentId);
+                        causeQuery.setObject(component.getName());
+                        causeQuery.setParentObject(component.getParentName());
+                        causeQuery.setType(diseaseType.getName());
+                        return diseaseService.getCauseAnalysis(causeQuery);
+                    })
+                    .filter(text -> text != null && !text.trim().isEmpty())
+                    .distinct()
+                    .collect(Collectors.joining("；"));
+        } catch (Exception e) {
+            log.warn("获取成因分析失败: componentId={}, diseaseTypeIds={}, error={}",
+                    componentId, diseaseTypeIds, e.getMessage());
+            return "";
+        }
     }
 
     /**
@@ -4987,6 +5211,12 @@ public class ReportServiceImpl implements IReportService {
         // 设置单倍行距：240 Twips = 1.0倍
         spacing.setLine(BigInteger.valueOf(240));
         spacing.setLineRule(STLineSpacingRule.AUTO);
+    }
+
+    private void setCellVerticalCenter(XWPFTableCell cell) {
+        CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+        CTVerticalJc vAlign = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
+        vAlign.setVal(STVerticalJc.CENTER);
     }
 
     /**
