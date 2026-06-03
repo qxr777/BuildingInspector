@@ -71,6 +71,13 @@ public interface IPackageService
     AjaxResult generateUserDataPackage(SysUser user);
 
     /**
+     * 生成公共模板数据包，包含桥梁模板JSON和病害标度说明JSON。
+     *
+     * @return 生成结果
+     */
+    AjaxResult generateCommonTemplatePackage();
+
+    /**
      * 用户压缩包信息
      *
      * @param  userIds 异步生成用户压缩包主键

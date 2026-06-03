@@ -109,6 +109,9 @@ public class ApiController {
     private PackageMapper packageMapper;
 
     @Autowired
+    private IPackageService packageService;
+
+    @Autowired
     private UserPackageTask userPackageTask;
 
     @Autowired
@@ -458,6 +461,12 @@ public class ApiController {
         String downloadUrl = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" +
                 prefix + "/" + fileMap.getNewName();
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
+    }
+
+    @GetMapping("/user/commonPackage")
+    @ResponseBody
+    public AjaxResult getCommonPackage() {
+        return packageService.generateCommonTemplatePackage();
     }
 
     @GetMapping("/user/dataPackageTest")

@@ -1,14 +1,19 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import com.alibaba.fastjson.JSONObject;
@@ -16,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
@@ -83,6 +89,9 @@ public class PackageServiceImpl implements IPackageService {
 
     @Autowired
     private IFileMapService fileMapService;
+
+    @Resource
+    private IBiTemplateObjectService biTemplateObjectService;
 
 
     /**
@@ -261,6 +270,135 @@ public class PackageServiceImpl implements IPackageService {
                     log.warn("临时文件删除失败: {}", tempFile.getAbsolutePath());
                 }
             }
+        }
+    }
+
+    /**
+     * 创建项目相关数据
+     */
+    @Override
+    public AjaxResult generateCommonTemplatePackage() {
+        File tempFile = null;
+        try {
+            String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+            String zipFileName = "template-" + timestamp + ".zip";
+            tempFile = File.createTempFile("template_", ".zip");
+
+            byte[] templateZipBytes = biTemplateObjectService.exportTemplateFiles();
+            if (templateZipBytes == null || templateZipBytes.length == 0) {
+                return AjaxResult.error("未找到桥梁模板数据");
+            }
+
+            Path diseaseScalePath = resolveDiseaseScalePath();
+            if (diseaseScalePath == null) {
+                return AjaxResult.error("未找到json/disease_scale.json文件");
+            }
+
+            int templateCount;
+            try (FileOutputStream fos = new FileOutputStream(tempFile);
+                 ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+                templateCount = copyTemplateJsonEntries(templateZipBytes, zipOut);
+                addFileToZip(zipOut, "disease_scale.json", diseaseScalePath);
+            }
+
+            if (templateCount == 0) {
+                return AjaxResult.error("桥梁模板JSON导出为空");
+            }
+            if (templateCount != 17) {
+                log.warn("公共模板包桥梁模板数量不是17个，当前数量={}", templateCount);
+            }
+
+            String packageSize = formatFileSize(tempFile.length());
+            FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, currentLoginNameOrSystem());
+            String newName = fileMap.getNewName();
+            String url = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + newName.substring(0, 2) + "/" + newName;
+
+            return AjaxResult.success()
+                    .put("packageSize", packageSize)
+                    .put("version", zipFileName)
+                    .put("url", url);
+        } catch (Exception e) {
+            log.error("生成公共模板包失败", e);
+            return AjaxResult.error("生成公共模板包失败：" + e.getMessage());
+        } finally {
+            if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+                log.warn("临时公共模板包删除失败: {}", tempFile.getAbsolutePath());
+            }
+        }
+    }
+
+    private int copyTemplateJsonEntries(byte[] templateZipBytes, ZipOutputStream zipOut) throws IOException {
+        int count = 0;
+        Set<String> entryNames = new HashSet<>();
+        try (ZipInputStream zipIn = new ZipInputStream(new ByteArrayInputStream(templateZipBytes))) {
+            ZipEntry sourceEntry;
+            while ((sourceEntry = zipIn.getNextEntry()) != null) {
+                if (sourceEntry.isDirectory()) {
+                    continue;
+                }
+                String entryName = normalizeTemplateEntryName(sourceEntry.getName());
+                if (!entryName.endsWith(".json") || !entryNames.add(entryName)) {
+                    continue;
+                }
+                zipOut.putNextEntry(new ZipEntry(entryName));
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = zipIn.read(buffer)) != -1) {
+                    zipOut.write(buffer, 0, bytesRead);
+                }
+                zipOut.closeEntry();
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private String normalizeTemplateEntryName(String entryName) {
+        String fileName = entryName.replace('\\', '/');
+        int slashIndex = fileName.lastIndexOf('/');
+        if (slashIndex >= 0) {
+            fileName = fileName.substring(slashIndex + 1);
+        }
+        int underlineIndex = fileName.indexOf('_');
+        if (underlineIndex > 0) {
+            String idPart = fileName.substring(0, underlineIndex);
+            if (idPart.chars().allMatch(Character::isDigit)) {
+                return idPart + "_template.json";
+            }
+        }
+        return fileName;
+    }
+
+    private Path resolveDiseaseScalePath() {
+        List<Path> candidates = Arrays.asList(
+                Paths.get("json", "disease_scale.json"),
+                Paths.get("json", "disease-scale.json")
+        );
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void addFileToZip(ZipOutputStream zipOut, String entryName, Path filePath) throws IOException {
+        zipOut.putNextEntry(new ZipEntry(entryName));
+        Files.copy(filePath, zipOut);
+        zipOut.closeEntry();
+    }
+
+    private String formatFileSize(long bytes) {
+        double sizeInMB = bytes / 1024.0 / 1024.0;
+        return new DecimalFormat("0.###").format(sizeInMB) + "MB";
+    }
+
+    private String currentLoginNameOrSystem() {
+        try {
+            String loginName = ShiroUtils.getLoginName();
+            return loginName == null || loginName.trim().isEmpty() ? "system" : loginName;
+        } catch (Exception e) {
+            return "system";
         }
     }
 
