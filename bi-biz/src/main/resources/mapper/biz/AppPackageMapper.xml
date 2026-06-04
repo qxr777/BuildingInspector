@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.AppPackageMapper">
+
+    <resultMap type="AppPackage" id="AppPackageResult">
+        <id property="id" column="id"/>
+        <result property="version" column="version"/>
+        <result property="minioId" column="minio_id"/>
+        <result property="apkName" column="apk_name"/>
+        <result property="packageSize" column="package_size"/>
+        <result property="isPublish" column="is_publish"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectAppPackageVo">
+        select id, version, minio_id, apk_name, package_size, is_publish, del_flag,
+               remark, create_by, create_time, update_by, update_time
+        from bi_app_package
+    </sql>
+
+    <select id="selectAppPackageById" parameterType="Long" resultMap="AppPackageResult">
+        <include refid="selectAppPackageVo"/>
+        where id = #{id} and del_flag = '0'
+    </select>
+
+    <select id="selectAppPackageList" parameterType="AppPackage" resultMap="AppPackageResult">
+        <include refid="selectAppPackageVo"/>
+        <where>
+            del_flag = '0'
+            <if test="version != null and version != ''">
+                and version like concat('%', #{version}, '%')
+            </if>
+            <if test="apkName != null and apkName != ''">
+                and apk_name like concat('%', #{apkName}, '%')
+            </if>
+            <if test="isPublish != null and isPublish != ''">
+                and is_publish = #{isPublish}
+            </if>
+        </where>
+        order by create_time desc, id desc
+    </select>
+
+    <select id="selectPublishedAppPackage" resultMap="AppPackageResult">
+        <include refid="selectAppPackageVo"/>
+        where del_flag = '0' and is_publish = '1'
+        order by update_time desc, create_time desc, id desc
+        limit 1
+    </select>
+
+    <select id="selectMinioIdsByIds" resultType="java.lang.Long">
+        select minio_id from bi_app_package
+        where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and minio_id is not null
+    </select>
+
+    <insert id="insertAppPackage" parameterType="AppPackage" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_app_package
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="version != null and version != ''">version,</if>
+            <if test="minioId != null">minio_id,</if>
+            <if test="apkName != null and apkName != ''">apk_name,</if>
+            <if test="packageSize != null and packageSize != ''">package_size,</if>
+            <if test="isPublish != null and isPublish != ''">is_publish,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            del_flag,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="version != null and version != ''">#{version},</if>
+            <if test="minioId != null">#{minioId},</if>
+            <if test="apkName != null and apkName != ''">#{apkName},</if>
+            <if test="packageSize != null and packageSize != ''">#{packageSize},</if>
+            <if test="isPublish != null and isPublish != ''">#{isPublish},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            '0',
+        </trim>
+    </insert>
+
+    <update id="updateAppPackage" parameterType="AppPackage">
+        update bi_app_package
+        <set>
+            <if test="version != null and version != ''">version = #{version},</if>
+            <if test="minioId != null">minio_id = #{minioId},</if>
+            <if test="apkName != null and apkName != ''">apk_name = #{apkName},</if>
+            <if test="packageSize != null and packageSize != ''">package_size = #{packageSize},</if>
+            <if test="isPublish != null and isPublish != ''">is_publish = #{isPublish},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        where id = #{id} and del_flag = '0'
+    </update>
+
+    <update id="deleteAppPackageByIds" parameterType="String">
+        update bi_app_package set del_flag = '2'
+        where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="clearPublished">
+        update bi_app_package
+        set is_publish = '0', update_time = sysdate()
+        where del_flag = '0'
+        <if test="excludeId != null">
+            and id != #{excludeId}
+        </if>
+    </update>
+
+</mapper>

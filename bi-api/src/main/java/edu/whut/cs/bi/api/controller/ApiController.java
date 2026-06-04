@@ -112,6 +112,9 @@ public class ApiController {
     private IPackageService packageService;
 
     @Autowired
+    private IAppPackageService appPackageService;
+
+    @Autowired
     private UserPackageTask userPackageTask;
 
     @Autowired
@@ -463,10 +466,21 @@ public class ApiController {
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
     }
 
+    
     @GetMapping("/user/commonPackage")
     @ResponseBody
     public AjaxResult getCommonPackage() {
         return packageService.generateCommonTemplatePackage();
+    }
+
+    /**
+     * 获取移动端App当前发布版本信息。
+     * 返回已发布安装包的版本号、APK名称、包大小和MinIO下载地址，用于移动端检查版本更新。
+     */
+    @GetMapping("/user/appUpdate")
+    @ResponseBody
+    public AjaxResult getAppUpdate() {
+        return appPackageService.getPublishedAppUpdate();
     }
 
     @GetMapping("/user/dataPackageTest")
