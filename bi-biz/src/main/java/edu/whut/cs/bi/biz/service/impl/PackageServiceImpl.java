@@ -5,9 +5,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -36,6 +33,7 @@ import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.PackageMapper;
@@ -289,16 +287,16 @@ public class PackageServiceImpl implements IPackageService {
                 return AjaxResult.error("未找到桥梁模板数据");
             }
 
-            Path diseaseScalePath = resolveDiseaseScalePath();
-            if (diseaseScalePath == null) {
-                return AjaxResult.error("未找到json/disease_scale.json文件");
+            org.springframework.core.io.Resource diseaseScaleResource = resolveDiseaseScaleResource();
+            if (diseaseScaleResource == null) {
+                return AjaxResult.error("未找到resources/json/disease_scale.json文件");
             }
 
             int templateCount;
             try (FileOutputStream fos = new FileOutputStream(tempFile);
                  ZipOutputStream zipOut = new ZipOutputStream(fos)) {
                 templateCount = copyTemplateJsonEntries(templateZipBytes, zipOut);
-                addFileToZip(zipOut, "disease_scale.json", diseaseScalePath);
+                addResourceToZip(zipOut, "disease_scale.json", diseaseScaleResource);
             }
 
             if (templateCount == 0) {
@@ -369,22 +367,28 @@ public class PackageServiceImpl implements IPackageService {
         return fileName;
     }
 
-    private Path resolveDiseaseScalePath() {
-        List<Path> candidates = Arrays.asList(
-                Paths.get("json", "disease_scale.json"),
-                Paths.get("json", "disease-scale.json")
+    private org.springframework.core.io.Resource resolveDiseaseScaleResource() {
+        List<org.springframework.core.io.Resource> candidates = Arrays.asList(
+                new ClassPathResource("json/disease_scale.json"),
+                new ClassPathResource("json/disease-scale.json")
         );
-        for (Path candidate : candidates) {
-            if (Files.exists(candidate) && Files.isRegularFile(candidate)) {
+        for (org.springframework.core.io.Resource candidate : candidates) {
+            if (candidate.exists() && candidate.isReadable()) {
                 return candidate;
             }
         }
         return null;
     }
 
-    private void addFileToZip(ZipOutputStream zipOut, String entryName, Path filePath) throws IOException {
+    private void addResourceToZip(ZipOutputStream zipOut, String entryName, org.springframework.core.io.Resource resource) throws IOException {
         zipOut.putNextEntry(new ZipEntry(entryName));
-        Files.copy(filePath, zipOut);
+        try (InputStream inputStream = resource.getInputStream()) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                zipOut.write(buffer, 0, bytesRead);
+            }
+        }
         zipOut.closeEntry();
     }
 
