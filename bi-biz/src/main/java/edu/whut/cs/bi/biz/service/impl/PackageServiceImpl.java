@@ -28,9 +28,12 @@ import edu.whut.cs.bi.biz.domain.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.biz.domain.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.biz.domain.vo.PropertyTreeVo;
 import edu.whut.cs.bi.biz.domain.vo.TasksOfProjectVo;
+import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.service.*;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
+import io.minio.StatObjectArgs;
+import io.minio.StatObjectResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -51,6 +54,9 @@ import javax.annotation.Resource;
 public class PackageServiceImpl implements IPackageService {
     @Autowired
     private PackageMapper packageMapper;
+
+    @Autowired
+    private FileMapMapper fileMapMapper;
 
     @Autowired
     private FileMapServiceImpl fileMapServiceImpl;
@@ -308,13 +314,11 @@ public class PackageServiceImpl implements IPackageService {
 
             String packageSize = formatFileSize(tempFile.length());
             FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, currentLoginNameOrSystem());
-            String newName = fileMap.getNewName();
-            String url = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + newName.substring(0, 2) + "/" + newName;
 
             return AjaxResult.success()
                     .put("packageSize", packageSize)
                     .put("version", zipFileName)
-                    .put("url", url);
+                    .put("url", buildMinioUrl(fileMap.getNewName()));
         } catch (Exception e) {
             log.error("生成公共模板包失败", e);
             return AjaxResult.error("生成公共模板包失败：" + e.getMessage());
@@ -323,6 +327,41 @@ public class PackageServiceImpl implements IPackageService {
                 log.warn("临时公共模板包删除失败: {}", tempFile.getAbsolutePath());
             }
         }
+    }
+
+    @Override
+    public AjaxResult getLatestCommonTemplatePackage() {
+        FileMap fileMap = fileMapMapper.selectLatestCommonTemplatePackage();
+        if (fileMap == null || fileMap.getNewName() == null || fileMap.getOldName() == null) {
+            return AjaxResult.error("暂无公共数据包，请先在后台生成");
+        }
+        Long packageSize = getMinioObjectSize(fileMap.getNewName());
+        if (packageSize == null) {
+            return AjaxResult.error("公共数据包文件不存在，请重新生成");
+        }
+        return AjaxResult.success()
+                .put("packageSize", formatFileSize(packageSize))
+                .put("version", fileMap.getOldName())
+                .put("url", buildMinioUrl(fileMap.getNewName()));
+    }
+
+    @Override
+    public List<FileMap> selectCommonTemplatePackageList(FileMap fileMap) {
+        List<FileMap> fileMaps = fileMapMapper.selectCommonTemplatePackageList(fileMap);
+        for (FileMap item : fileMaps) {
+            if (item.getNewName() == null || item.getNewName().length() < 2) {
+                item.setPackageSize("文件信息不完整");
+                continue;
+            }
+            Long packageSize = getMinioObjectSize(item.getNewName());
+            if (packageSize == null) {
+                item.setPackageSize("文件不存在");
+            } else {
+                item.setPackageSize(formatFileSize(packageSize));
+                item.setUrl(buildMinioUrl(item.getNewName()));
+            }
+        }
+        return fileMaps;
     }
 
     private int copyTemplateJsonEntries(byte[] templateZipBytes, ZipOutputStream zipOut) throws IOException {
@@ -390,6 +429,22 @@ public class PackageServiceImpl implements IPackageService {
             }
         }
         zipOut.closeEntry();
+    }
+
+    private Long getMinioObjectSize(String newName) {
+        try {
+            StatObjectResponse stat = minioClient.statObject(StatObjectArgs.builder()
+                    .bucket(minioConfig.getBucketName())
+                    .object(newName.substring(0, 2) + "/" + newName)
+                    .build());
+            return stat.size();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String buildMinioUrl(String newName) {
+        return minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + newName.substring(0, 2) + "/" + newName;
     }
 
     private String formatFileSize(long bytes) {

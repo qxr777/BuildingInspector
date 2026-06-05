@@ -467,15 +467,21 @@ public class ApiController {
     }
 
     
+    /**
+     * 获取最新公共数据包下载信息。
+     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无公共数据包或文件缺失。
+     * 公共数据包由后台“公共数据包”页面手动生成，本接口只返回最新已生成包的version、packageSize和MinIO下载url。
+     */
     @GetMapping("/user/commonPackage")
     @ResponseBody
     public AjaxResult getCommonPackage() {
-        return packageService.generateCommonTemplatePackage();
+        return packageService.getLatestCommonTemplatePackage();
     }
 
     /**
      * 获取移动端App当前发布版本信息。
-     * 返回已发布安装包的版本号、APK名称、包大小和MinIO下载地址，用于移动端检查版本更新。
+     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无发布包或文件映射缺失。
+     * 成功时返回version、apkName、packageSize和MinIO下载url，用于移动端检查版本更新。
      */
     @GetMapping("/user/appUpdate")
     @ResponseBody

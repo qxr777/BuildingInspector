@@ -77,6 +77,10 @@ public interface IPackageService
      */
     AjaxResult generateCommonTemplatePackage();
 
+    AjaxResult getLatestCommonTemplatePackage();
+
+    List<edu.whut.cs.bi.biz.domain.FileMap> selectCommonTemplatePackageList(edu.whut.cs.bi.biz.domain.FileMap fileMap);
+
     /**
      * 用户压缩包信息
      *
