@@ -97,6 +97,7 @@
     var projectId = [[${projectId}]];
     var prefix = ctx + "biz/task";
     var evaluationPrefix = ctx + "biz/bievaluation";
+    var taskSheetPrefix = ctx + "biz/taskSheet";
 
     $(function () {
         // 若存在项目ID，则隐藏项目相关的查询条件
@@ -185,6 +186,7 @@
                         actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="inspect(\'' + row.id + '\')"><i class="fa fa-search"></i>检查</a> ');
                         actions.push('<a class="btn btn-warning btn-xs ' + evaluateFlag + '" href="javascript:void(0)" onclick="doEvaluate(\'' + row.id + '\', \'' + row.building.rootObjectId + '\', \'' + row.building.name + '\')"><i class="fa fa-calculator"></i>评定</a> ');
                         actions.push('<a class="btn btn-primary btn-xs ' + evaluateDetailFlag + '" href="javascript:void(0)" onclick="viewEvaluateDetail(\'' + row.id + '\', \'' + row.building.name + '\')"><i class="fa fa-list-alt"></i>评定详情</a> ');
+                        actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="openTaskSheets(\'' + row.id + '\', \'' + (row.building.name || '').replace(/'/g, "\\'") + '\')"><i class="fa fa-table"></i>检测记录</a> ');
                         return actions.join('');
                     }
                 }]
@@ -322,6 +324,30 @@
         // 通过URL参数传递桥梁名称
         var url = ctx + "biz/building?name=" + encodeURIComponent(buildingName);
         $.modal.openTab("桥梁建筑管理", url);
+    }
+
+    /**
+     * 打开任务表格数据列表（弹窗）
+     */
+    function openTaskSheets(taskId, buildingName) {
+        var url = taskSheetPrefix + "/sheets/" + taskId;
+        if (buildingName) {
+            url += "?buildingName=" + encodeURIComponent(buildingName);
+        }
+        var title = buildingName ? ("检测记录 - " + buildingName) : "检测记录";
+        top.layer.open({
+            type: 2,
+            title: title,
+            content: url,
+            area: ['960px', '580px'],
+            fix: false,
+            maxmin: true,
+            shade: 0.3,
+            shadeClose: true,
+            btn: ['关闭'],
+            btnAlign: 'r',
+            yes: function (index) { top.layer.close(index); }
+        });
     }
     
     /**
