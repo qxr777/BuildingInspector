@@ -13,6 +13,9 @@ public interface ITaskSheetService {
     /** 数据字典类型：桥梁检测表格 */
     String SHEET_DICT_TYPE = "bi_inspection_sheet";
 
+    /** JGLP05017 桥梁结构桥梁技术状况检测记录表（dict_value） */
+    String SHEET_TYPE_TECHNICAL_CONDITION = "technical_condition";
+
     /**
      * 列出某任务下全部表格类型及提交状态（以字典为准，合并 bi_task_sheets）
      */
@@ -43,12 +46,17 @@ public interface ITaskSheetService {
                            byte[] jsonBytes, String fileName);
 
     /**
-     * 实时生成 JGLP05017 Word 文件字节流（纯生成，不存库、不存文件，供预览使用）
+     * 下载已提交表格的原始 JSON 文件字节流（不含 JGLP05017 Word 生成）
+     */
+    byte[] downloadSheetBytes(Long taskId, String type);
+
+    /**
+     * 实时生成 JGLP05017 Word 文件字节流（纯生成，不存库；预览用，不含页眉页码）
      */
     byte[] generateJglp05017WordBytes(Long taskId);
 
     /**
-     * 实时生成 JGLP05017 Word 文件，保存到 MinIO，返回文件字节流（供下载使用）
+     * 实时生成 JGLP05017 Word 文件，保存到 MinIO，返回文件字节流（下载用，含页眉页码）
      */
     byte[] generateAndSaveJglp05017Word(Long taskId);
 

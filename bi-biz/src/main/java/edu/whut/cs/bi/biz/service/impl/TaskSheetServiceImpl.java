@@ -19,7 +19,16 @@ import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.ITaskSheetService;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.poi.xwpf.usermodel.*;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectType;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STSectionMark;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -34,6 +43,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -46,7 +56,40 @@ import java.util.stream.Collectors;
 @Service
 public class TaskSheetServiceImpl implements ITaskSheetService {
 
-    private static final int JGLP05017_PAGE_DISEASE_COUNT = 15;
+    /** 页码写入位置：预览写正文，下载写页眉 */
+    private enum PageNumberPlacement {
+        BODY,
+        HEADER
+    }
+
+    /** 模板每页固定填写的病害行数（预留备注/footer 空间，避免页内再分页） */
+    private static final int JGLP05017_PAGE_DISEASE_COUNT = 11;
+
+    /** 病害技术状况表（JGLP05017）在字典中的 type */
+    static final String SHEET_TYPE_TECHNICAL_CONDITION = "technical_condition";
+
+    /**
+     * 检测记录表展示顺序与表号（按表名关键词匹配 dict_label）
+     * 第一项固定为桥梁结构桥梁技术状况检测记录表
+     */
+    private static final LinkedHashMap<String, String> INSPECTION_SHEET_CATALOG = new LinkedHashMap<>();
+
+    static {
+        INSPECTION_SHEET_CATALOG.put("桥梁结构桥梁技术状况检测记录表", "JGLP05017");
+        INSPECTION_SHEET_CATALOG.put("碳化深度检测记录表", "JGLP02002");
+        INSPECTION_SHEET_CATALOG.put("钢筋位置和保护层厚度检测记录表", "JGLP02003");
+        INSPECTION_SHEET_CATALOG.put("钢筋锈蚀电位检测记录表", "JGLP02008");
+        INSPECTION_SHEET_CATALOG.put("桥梁结构位移试验检测记录表（全站仪）", "JGLP05001b-1");
+        INSPECTION_SHEET_CATALOG.put("桥梁结构位移试验检测记录表（水准仪）", "JGLP05001b-2");
+        INSPECTION_SHEET_CATALOG.put("桥梁结构结构线形检测记录表（全站仪）", "JGLP05009a-1");
+        INSPECTION_SHEET_CATALOG.put("桥梁结构结构线形测量记录表（水准仪法）", "JGLP05009a-2");
+        INSPECTION_SHEET_CATALOG.put("索力检测记录表（振动法）", "JGLP05012a");
+        INSPECTION_SHEET_CATALOG.put("桥梁结构检测与监测索力试验检测记录表（测力传感器法）", "JGLP05012b");
+        INSPECTION_SHEET_CATALOG.put("混凝土强度检测记录表", "JGLP02001b");
+        INSPECTION_SHEET_CATALOG.put("混凝土电阻率检测记录表", "JGLP02010");
+    }
+
+    private static final List<String> SHEET_CATALOG_ORDER = new ArrayList<>(INSPECTION_SHEET_CATALOG.keySet());
 
     @Autowired
     private TaskSheetMapper taskSheetMapper;
@@ -81,6 +124,7 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
             TaskSheetStatusVo vo = new TaskSheetStatusVo();
             vo.setType(dict.getDictValue());
             vo.setSheetName(dict.getDictLabel());
+            vo.setSheetNo(resolveSheetNo(dict));
             TaskSheet ts = submittedMap.get(dict.getDictValue());
             if (ts != null) {
                 vo.setSubmitted(true);
@@ -91,7 +135,54 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
             }
             result.add(vo);
         }
+        result.sort(Comparator
+                .comparingInt((TaskSheetStatusVo vo) -> sheetDisplayIndex(vo.getType(), vo.getSheetName()))
+                .thenComparing(TaskSheetStatusVo::getSheetName, Comparator.nullsLast(String::compareTo)));
         return result;
+    }
+
+    private String resolveSheetNo(SysDictData dict) {
+        if (StringUtils.isNotEmpty(dict.getRemark())) {
+            return dict.getRemark().trim();
+        }
+        String matched = matchCatalogSheetNo(dict.getDictLabel());
+        return matched != null ? matched : "";
+    }
+
+    private String matchCatalogSheetNo(String sheetLabel) {
+        if (StringUtils.isEmpty(sheetLabel)) {
+            return null;
+        }
+        String normalizedLabel = normalizeSheetLabel(sheetLabel);
+        for (Map.Entry<String, String> entry : INSPECTION_SHEET_CATALOG.entrySet()) {
+            if (normalizedLabel.contains(normalizeSheetLabel(entry.getKey()))) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    private int sheetDisplayIndex(String type, String sheetLabel) {
+        if (SHEET_TYPE_TECHNICAL_CONDITION.equals(type)) {
+            return 0;
+        }
+        if (StringUtils.isNotEmpty(sheetLabel)
+                && sheetLabel.contains("桥梁结构桥梁技术状况检测记录表")) {
+            return 0;
+        }
+        String normalizedLabel = normalizeSheetLabel(sheetLabel);
+        for (int i = 0; i < SHEET_CATALOG_ORDER.size(); i++) {
+            if (normalizedLabel.contains(normalizeSheetLabel(SHEET_CATALOG_ORDER.get(i)))) {
+                return i;
+            }
+        }
+        return 1000;
+    }
+
+    private String normalizeSheetLabel(String label) {
+        return label.replaceAll("\\s+", "")
+                .replace('（', '(')
+                .replace('）', ')');
     }
 
     @Override
@@ -111,6 +202,19 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         } catch (Exception e) {
             return new String(bytes, StandardCharsets.UTF_8);
         }
+    }
+
+    @Override
+    public byte[] downloadSheetBytes(Long taskId, String type) {
+        TaskSheet taskSheet = taskSheetMapper.selectByTaskIdAndType(taskId, type);
+        if (taskSheet == null || taskSheet.getSheetMinioId() == null) {
+            throw new ServiceException("该表格尚未提交，无法下载");
+        }
+        byte[] bytes = fileMapService.handleFileDownload(taskSheet.getSheetMinioId());
+        if (bytes == null || bytes.length == 0) {
+            throw new ServiceException("表格文件不存在或已删除");
+        }
+        return bytes;
     }
 
     @Override
@@ -193,14 +297,14 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
 
     @Override
     public byte[] generateJglp05017WordBytes(Long taskId) {
-        return buildDocxBytes(getJglp05017Data(taskId));
+        return buildDocxBytes(getJglp05017Data(taskId), PageNumberPlacement.BODY);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public byte[] generateAndSaveJglp05017Word(Long taskId) {
         Jglp05017Vo vo = getJglp05017Data(taskId);
-        byte[] bytes = buildDocxBytes(vo);
+        byte[] bytes = buildDocxBytes(vo, PageNumberPlacement.HEADER);
 
         String docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         String fileName = "JGLP05017_" + taskId + ".docx";
@@ -230,29 +334,32 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
     }
 
     /** 加载模板 → 填充数据 → 返回 DOCX 字节流（不涉及任何存储） */
-    private byte[] buildDocxBytes(Jglp05017Vo vo) {
+    private byte[] buildDocxBytes(Jglp05017Vo vo, PageNumberPlacement pageNumberPlacement) {
         List<Disease> diseases = vo.getDiseases() != null ? vo.getDiseases() : new ArrayList<>();
         int totalPages = Math.max(1, (int) Math.ceil(diseases.size() / (double) JGLP05017_PAGE_DISEASE_COUNT));
         XWPFDocument document = loadJglp05017Template();
         try {
-            centerDocumentTitle(document);
-            fillInfoCells(document, vo);
-            fillPageNumber(document, 1, totalPages);
-            fillDiseaseTable(document, pageDiseases(diseases, 0));
-            normalizeTextStyles(document);
-            centerDocumentTitle(document);
+            fillPageContent(document, vo, pageDiseases(diseases, 0));
 
+            int pageNo = 1;
             for (int start = JGLP05017_PAGE_DISEASE_COUNT; start < diseases.size(); start += JGLP05017_PAGE_DISEASE_COUNT) {
-                int pageNo = start / JGLP05017_PAGE_DISEASE_COUNT + 1;
+                pageNo++;
                 XWPFDocument pageDocument = loadJglp05017Template();
-                centerDocumentTitle(pageDocument);
-                fillInfoCells(pageDocument, vo);
-                fillPageNumber(pageDocument, pageNo, totalPages);
-                fillDiseaseTable(pageDocument, pageDiseases(diseases, start));
-                normalizeTextStyles(pageDocument);
-                centerDocumentTitle(pageDocument);
-                appendDocumentPage(document, pageDocument);
+                fillPageContent(pageDocument, vo, pageDiseases(diseases, start));
+                if (pageNumberPlacement == PageNumberPlacement.HEADER) {
+                    addSectionEndWithPageHeader(document, pageNo - 1, totalPages);
+                    appendDocumentBody(document, pageDocument);
+                } else {
+                    appendDocumentPageWithBodyNumber(document, pageDocument, pageNo, totalPages);
+                }
                 pageDocument.close();
+            }
+
+            if (pageNumberPlacement == PageNumberPlacement.HEADER) {
+                applyLastSectionPageHeader(document, pageNo, totalPages);
+            } else {
+                clearHeaderPageNumbers(document);
+                insertBodyPageNumberAtStart(document, 1, totalPages);
             }
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -266,6 +373,14 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         }
     }
 
+    private void fillPageContent(XWPFDocument document, Jglp05017Vo vo, List<Disease> diseases) {
+        centerDocumentTitle(document);
+        fillInfoCells(document, vo);
+        fillDiseaseTable(document, diseases);
+        normalizeTextStyles(document);
+        centerDocumentTitle(document);
+    }
+
     private List<Disease> pageDiseases(List<Disease> diseases, int start) {
         if (start >= diseases.size()) {
             return new ArrayList<>();
@@ -274,10 +389,7 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         return diseases.subList(start, end);
     }
 
-    private void appendDocumentPage(XWPFDocument target, XWPFDocument pageDocument) {
-        XWPFParagraph pageBreak = target.createParagraph();
-        pageBreak.setPageBreak(true);
-
+    private void appendDocumentBody(XWPFDocument target, XWPFDocument pageDocument) {
         for (IBodyElement element : pageDocument.getBodyElements()) {
             if (element instanceof XWPFParagraph) {
                 XWPFParagraph paragraph = (XWPFParagraph) element;
@@ -287,6 +399,115 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
                 target.getDocument().getBody().addNewTbl().set(table.getCTTbl().copy());
             }
         }
+    }
+
+    /** 预览：分页后在正文插入页码行 */
+    private void appendDocumentPageWithBodyNumber(XWPFDocument target, XWPFDocument pageDocument,
+                                                  int pageNo, int totalPages) {
+        XWPFParagraph breakPara = target.createParagraph();
+        breakPara.setPageBreak(true);
+        writePageNumberParagraph(target.createParagraph(), pageNo, totalPages);
+        appendDocumentBody(target, pageDocument);
+    }
+
+    /** 下载：分节结束处绑定上一节页眉页码（sectPr 描述的是该节属性） */
+    private void addSectionEndWithPageHeader(XWPFDocument document, int pageNo, int totalPages) {
+        XWPFParagraph sectionBreak = document.createParagraph();
+        CTPPr pPr = sectionBreak.getCTP().addNewPPr();
+        CTSectPr sectPr = pPr.addNewSectPr();
+        sectPr.addNewType().setVal(STSectionMark.NEXT_PAGE);
+        copyPageLayoutFromBody(document, sectPr);
+
+        XWPFHeader header = createHeaderForSection(document, sectPr);
+        writePageNumberToHeader(header, pageNo, totalPages);
+    }
+
+    /** 下载：最后一节页眉页码写入 body.sectPr */
+    private void applyLastSectionPageHeader(XWPFDocument document, int pageNo, int totalPages) {
+        CTBody body = document.getDocument().getBody();
+        CTSectPr sectPr = body.isSetSectPr() ? body.getSectPr() : body.addNewSectPr();
+        XWPFHeader header = createHeaderForSection(document, sectPr);
+        writePageNumberToHeader(header, pageNo, totalPages);
+    }
+
+    private XWPFHeader createHeaderForSection(XWPFDocument document, CTSectPr sectPr) {
+        clearDefaultHeaderReference(sectPr);
+        XWPFHeaderFooterPolicy policy = new XWPFHeaderFooterPolicy(document, sectPr);
+        return policy.createHeader(STHdrFtr.DEFAULT);
+    }
+
+    private void clearDefaultHeaderReference(CTSectPr sectPr) {
+        for (int i = sectPr.sizeOfHeaderReferenceArray() - 1; i >= 0; i--) {
+            if (sectPr.getHeaderReferenceArray(i).getType() == STHdrFtr.DEFAULT) {
+                sectPr.removeHeaderReference(i);
+            }
+        }
+    }
+
+    private void copyPageLayoutFromBody(XWPFDocument document, CTSectPr targetSectPr) {
+        CTBody body = document.getDocument().getBody();
+        if (!body.isSetSectPr()) {
+            return;
+        }
+        CTSectPr source = body.getSectPr();
+        if (source.isSetPgSz()) {
+            targetSectPr.setPgSz((CTPageSz) source.getPgSz().copy());
+        }
+        if (source.isSetPgMar()) {
+            targetSectPr.setPgMar((CTPageMar) source.getPgMar().copy());
+        }
+    }
+
+    private void writePageNumberToHeader(XWPFHeader header, int pageNo, int totalPages) {
+        for (int i = header.getParagraphs().size() - 1; i >= 0; i--) {
+            header.removeParagraph(header.getParagraphs().get(i));
+        }
+        // 下载页眉中的页码下移两行，避免顶到页面最上沿。
+        header.createParagraph();
+        header.createParagraph();
+        writePageNumberParagraph(header.createParagraph(), pageNo, totalPages);
+    }
+
+    private void writePageNumberParagraph(XWPFParagraph para, int pageNo, int totalPages) {
+        para.setAlignment(ParagraphAlignment.RIGHT);
+        clearRuns(para);
+        XWPFRun run = para.createRun();
+        run.setText("第 " + pageNo + " 页 共 " + totalPages + " 页");
+        setNormalRunStyle(run);
+    }
+
+    /** 预览：正文首页顶部插入页码 */
+    private void insertBodyPageNumberAtStart(XWPFDocument document, int pageNo, int totalPages) {
+        if (document.getBodyElements().isEmpty()) {
+            writePageNumberParagraph(document.createParagraph(), pageNo, totalPages);
+            return;
+        }
+        IBodyElement first = document.getBodyElements().get(0);
+        XWPFParagraph para;
+        if (first instanceof XWPFParagraph) {
+            para = document.insertNewParagraph(((XWPFParagraph) first).getCTP().newCursor());
+        } else if (first instanceof XWPFTable) {
+            para = document.insertNewParagraph(((XWPFTable) first).getCTTbl().newCursor());
+        } else {
+            para = document.createParagraph();
+        }
+        writePageNumberParagraph(para, pageNo, totalPages);
+    }
+
+    /** 预览：清除页眉中的页码占位，避免与正文页码重复 */
+    private void clearHeaderPageNumbers(XWPFDocument document) {
+        for (XWPFHeader header : document.getHeaderList()) {
+            for (XWPFParagraph para : new ArrayList<>(header.getParagraphs())) {
+                if (isPageNumberParagraph(para)) {
+                    header.removeParagraph(para);
+                }
+            }
+        }
+    }
+
+    private boolean isPageNumberParagraph(XWPFParagraph para) {
+        String text = para.getText().replaceAll("\\s+", "");
+        return text.contains("第") && text.contains("页") && text.contains("共");
     }
 
     private XWPFDocument loadJglp05017Template() {
@@ -327,34 +548,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
                 }
             }
         }
-    }
-
-    private void fillPageNumber(XWPFDocument document, int pageNo, int totalPages) {
-        String pageText = "第 " + pageNo + " 页 共 " + totalPages + " 页";
-        for (XWPFParagraph para : document.getParagraphs()) {
-            replacePageNumberText(para, pageText);
-        }
-        for (XWPFTable table : document.getTables()) {
-            for (XWPFTableRow row : table.getRows()) {
-                for (XWPFTableCell cell : row.getTableCells()) {
-                    for (XWPFParagraph para : cell.getParagraphs()) {
-                        replacePageNumberText(para, pageText);
-                    }
-                }
-            }
-        }
-    }
-
-    private void replacePageNumberText(XWPFParagraph para, String pageText) {
-        String text = para.getText().replaceAll("\\s+", "");
-        if (!text.contains("第") || !text.contains("页") || !text.contains("共")) {
-            return;
-        }
-        para.setAlignment(ParagraphAlignment.RIGHT);
-        clearRuns(para);
-        XWPFRun run = para.createRun();
-        run.setText(pageText);
-        setNormalRunStyle(run);
     }
 
     private void fillDiseaseTable(XWPFDocument document, List<Disease> diseases) {

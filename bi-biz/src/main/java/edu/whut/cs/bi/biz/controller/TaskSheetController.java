@@ -37,6 +37,8 @@ public class TaskSheetController extends BaseController {
         mmap.put("buildingName", buildingName != null ? buildingName : "");
         boolean hasDiseaseData = taskSheetService.hasDiseaseDataByTaskId(taskId);
         mmap.put("hasDiseaseData", hasDiseaseData);
+        mmap.put("sheets", taskSheetService.listSheetStatusByTaskId(taskId));
+        mmap.put("sheetTypeTechnicalCondition", ITaskSheetService.SHEET_TYPE_TECHNICAL_CONDITION);
         return prefix + "/sheets";
     }
 
@@ -107,7 +109,26 @@ public class TaskSheetController extends BaseController {
     }
 
     /**
-     * JGLP05017 Word 下载（后续开发，预留接口）
+     * 已提交表格 JSON 文件下载（App 端提交的检测记录表）
+     */
+    @RequiresPermissions("biz:task:view")
+    @GetMapping("/download/{taskId}/{type}")
+    public void downloadSheet(@PathVariable("taskId") Long taskId,
+                              @PathVariable("type") String type,
+                              @RequestParam(value = "sheetName", required = false) String sheetName,
+                              HttpServletResponse response) throws IOException {
+        byte[] bytes = taskSheetService.downloadSheetBytes(taskId, type);
+        String baseName = sheetName != null && !sheetName.isEmpty() ? sheetName : type;
+        String fileName = URLEncoder.encode(baseName + "_" + taskId + ".json", "UTF-8");
+        response.setContentType("application/json;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + fileName);
+        response.setContentLength(bytes.length);
+        response.getOutputStream().write(bytes);
+        response.getOutputStream().flush();
+    }
+
+    /**
+     * JGLP05017 Word 下载
      */
     @RequiresPermissions("biz:task:view")
     @GetMapping("/download/jglp05017/{taskId}")

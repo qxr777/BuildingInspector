@@ -14,6 +14,9 @@ public class TaskSheetStatusVo {
     /** 表格名称 dict_label */
     private String sheetName;
 
+    /** 表号（来自字典 remark，未配置时为空） */
+    private String sheetNo;
+
     /** 是否已提交 */
     private boolean submitted;
 

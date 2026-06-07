@@ -1,109 +1,283 @@
 <!DOCTYPE html>
+
 <html lang="zh" xmlns:th="http://www.thymeleaf.org">
+
 <head>
+
     <th:block th:include="include :: header('检测记录')"/>
+
     <style>
+
         .sheet-table { width: 100%; border-collapse: collapse; }
+
         .sheet-table th, .sheet-table td {
+
             border: 1px solid #dee2e6;
+
             padding: 8px 12px;
+
             vertical-align: middle;
+
             text-align: center;
+
         }
+
         .sheet-table thead th { background: #f5f5f5; font-weight: 600; }
+
     </style>
+
 </head>
+
 <body class="gray-bg">
+
 <div class="container-div">
+
     <div class="row">
+
         <div class="col-sm-12" style="margin-bottom: 10px;">
+
             <span class="text-muted" th:if="${buildingName != null and buildingName != ''}">
+
                 桥梁：<strong th:text="${buildingName}"></strong>
+
                 &nbsp;&nbsp;|&nbsp;&nbsp;
+
             </span>
+
             <span class="text-muted">任务ID：<strong th:text="${taskId}"></strong></span>
+
         </div>
+
         <div class="col-sm-12">
+
             <table class="sheet-table">
+
                 <thead>
+
                     <tr>
+
                         <th style="width:60px;">序号</th>
+
                         <th style="width:130px;">表号</th>
+
                         <th>表名</th>
+
                         <th style="width:90px;">数据</th>
+
                         <th style="width:150px;">操作</th>
+
                     </tr>
+
                 </thead>
+
                 <tbody>
-                    <tr>
-                        <td>1</td>
-                        <td>JGLP05017</td>
-                        <td>桥梁结构桥梁技术状况检测记录表</td>
+
+                    <tr th:each="sheet, stat : ${sheets}">
+
+                        <td th:text="${stat.count}"></td>
+
+                        <td th:text="${sheet.sheetNo != null && sheet.sheetNo != '' ? sheet.sheetNo : '-'}"></td>
+
+                        <td th:text="${sheet.sheetName}"></td>
+
                         <td>
-                            <span th:if="${!hasDiseaseData}" class="badge badge-default">未提交</span>
-                            <span th:if="${hasDiseaseData}" class="badge badge-success">已提交</span>
+
+                            <span th:if="${sheet.type == sheetTypeTechnicalCondition and !hasDiseaseData}"
+
+                                  class="badge badge-default">未提交</span>
+
+                            <span th:if="${sheet.type == sheetTypeTechnicalCondition and hasDiseaseData}"
+
+                                  class="badge badge-success">已提交</span>
+
+                            <span th:if="${sheet.type != sheetTypeTechnicalCondition and !sheet.submitted}"
+
+                                  class="badge badge-default">未提交</span>
+
+                            <span th:if="${sheet.type != sheetTypeTechnicalCondition and sheet.submitted}"
+
+                                  class="badge badge-success">已提交</span>
+
                         </td>
+
                         <td>
-                            <a class="btn btn-info btn-xs"
-                               href="javascript:void(0)" onclick="viewJglp05017()">
+
+                            <a class="btn btn-info btn-xs sheet-view-btn" href="javascript:void(0)"
+
+                               th:attr="data-type=${sheet.type},data-name=${sheet.sheetName},data-ready=${sheet.type == sheetTypeTechnicalCondition ? hasDiseaseData : sheet.submitted}">
+
                                 <i class="fa fa-eye"></i> 查看
+
                             </a>
-                            <!-- 暂时隐藏下载按钮
-                            <a class="btn btn-success btn-xs"
-                               href="javascript:void(0)" onclick="downloadJglp05017()">
+
+                            <a class="btn btn-success btn-xs sheet-download-btn" href="javascript:void(0)"
+
+                               th:attr="data-type=${sheet.type},data-name=${sheet.sheetName},data-ready=${sheet.type == sheetTypeTechnicalCondition ? hasDiseaseData : sheet.submitted}">
+
                                 <i class="fa fa-download"></i> 下载
+
                             </a>
-                            -->
+
                         </td>
+
                     </tr>
+
+                    <tr th:if="${#lists.isEmpty(sheets)}">
+
+                        <td colspan="5" class="text-muted">暂无表格配置，请在系统字典 bi_inspection_sheet 中维护</td>
+
+                    </tr>
+
                 </tbody>
+
             </table>
+
         </div>
+
     </div>
+
 </div>
+
 <th:block th:include="include :: footer"/>
+
 <script th:inline="javascript">
+
     var taskId = /*[[${taskId}]]*/ null;
-    var hasDiseaseData = /*[[${hasDiseaseData}]]*/ false;    var sheetPrefix = ctx + "biz/taskSheet";
-    var noDataTip = "该任务尚未提交病害数据，无法查看或下载表格";
 
-    function ensureDiseaseData() {
-        if (!hasDiseaseData) {
+    var sheetTypeTechnicalCondition = /*[[${sheetTypeTechnicalCondition}]]*/ 'technical_condition';
+
+    var sheetPrefix = ctx + "biz/taskSheet";
+
+    var noDataTip = "该表格尚未提交，无法查看或下载";
+
+
+
+    function isSheetReady(el) {
+
+        return el.getAttribute('data-ready') === 'true';
+
+    }
+
+
+
+    function ensureSheetReady(el) {
+
+        if (!isSheetReady(el)) {
+
             $.modal.alertWarning(noDataTip);
+
             return false;
+
         }
+
         return true;
+
     }
 
-    function viewJglp05017() {
-        if (!ensureDiseaseData()) {
-            return;
-        }
-        var url = sheetPrefix + "/preview/jglp05017/" + taskId;
+
+
+    function openSheetLayer(url, title) {
+
         top.layer.open({
+
             type: 2,
-            title: "桥梁结构桥梁技术状况检测记录表",
+
+            title: title,
+
             content: url,
+
             area: ['1000px', '720px'],
+
             fix: false,
+
             maxmin: true,
+
             shade: 0.3,
+
             shadeClose: true,
+
             btn: ['关闭'],
+
             btnAlign: 'r',
+
             yes: function (index) { top.layer.close(index); }
+
         });
+
     }
 
-    // 暂时隐藏下载功能
-    /*
-    function downloadJglp05017() {
-        if (!ensureDiseaseData()) {
+
+
+    function viewSheet(el) {
+
+        if (!ensureSheetReady(el)) {
+
             return;
+
         }
-        window.location.href = sheetPrefix + "/download/jglp05017/" + taskId;
+
+        var type = el.getAttribute('data-type');
+
+        var sheetName = el.getAttribute('data-name') || type;
+
+        if (type === sheetTypeTechnicalCondition) {
+
+            openSheetLayer(sheetPrefix + "/preview/jglp05017/" + taskId, sheetName);
+
+            return;
+
+        }
+
+        var url = sheetPrefix + "/view/" + taskId + "/" + encodeURIComponent(type)
+
+            + "?sheetName=" + encodeURIComponent(sheetName);
+
+        openSheetLayer(url, sheetName);
+
     }
-    */
+
+
+
+    function downloadSheet(el) {
+
+        if (!ensureSheetReady(el)) {
+
+            return;
+
+        }
+
+        var type = el.getAttribute('data-type');
+
+        var sheetName = el.getAttribute('data-name') || type;
+
+        if (type === sheetTypeTechnicalCondition) {
+
+            window.location.href = sheetPrefix + "/download/jglp05017/" + taskId;
+
+            return;
+
+        }
+
+        window.location.href = sheetPrefix + "/download/" + taskId + "/"
+
+            + encodeURIComponent(type) + "?sheetName=" + encodeURIComponent(sheetName);
+
+    }
+
+
+
+    $(function () {
+
+        $('.sheet-view-btn').on('click', function () { viewSheet(this); });
+
+        $('.sheet-download-btn').on('click', function () { downloadSheet(this); });
+
+    });
+
 </script>
+
 </body>
+
 </html>
+
+
