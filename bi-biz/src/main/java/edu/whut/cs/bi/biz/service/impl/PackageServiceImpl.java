@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -84,6 +85,9 @@ public class PackageServiceImpl implements IPackageService {
 
     @Resource
     private IDiseaseService diseaseService;
+
+    @Resource
+    private IDiseaseTypeService diseaseTypeService;
 
     @Resource
     private AttachmentService attachmentService;
@@ -288,7 +292,7 @@ public class PackageServiceImpl implements IPackageService {
             String zipFileName = "template-" + timestamp + ".zip";
             tempFile = File.createTempFile("template_", ".zip");
 
-            byte[] templateZipBytes = biTemplateObjectService.exportTemplateFiles();
+            byte[] templateZipBytes = exportCommonTemplateFiles();
             if (templateZipBytes == null || templateZipBytes.length == 0) {
                 return AjaxResult.error("未找到桥梁模板数据");
             }
@@ -362,6 +366,76 @@ public class PackageServiceImpl implements IPackageService {
             }
         }
         return fileMaps;
+    }
+
+    private byte[] exportCommonTemplateFiles() {
+        BiTemplateObject query = new BiTemplateObject();
+        query.setParentId(0L);
+        List<BiTemplateObject> rootList = biTemplateObjectService.selectBiTemplateObjectList(query);
+
+        if (rootList == null || rootList.isEmpty()) {
+            return new byte[0];
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+
+            for (BiTemplateObject root : rootList) {
+                if (root == null || root.getName() == null || root.getName().contains("-")) {
+                    continue;
+                }
+
+                BiTemplateObject fullTree = buildCompleteCommonTemplateTree(root);
+                String updateTime = fullTree.getUpdateTime() == null
+                        ? sdf.format(new Date())
+                        : sdf.format(fullTree.getUpdateTime());
+                String fileName = fullTree.getId() + "_" + updateTime + ".json";
+                byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter()
+                        .writeValueAsBytes(fullTree);
+
+                zos.putNextEntry(new ZipEntry(fileName));
+                zos.write(jsonBytes);
+                zos.closeEntry();
+            }
+        } catch (IOException e) {
+            log.error("导出公共数据包桥梁模板失败", e);
+            return new byte[0];
+        }
+
+        return baos.toByteArray();
+    }
+
+    private BiTemplateObject buildCompleteCommonTemplateTree(BiTemplateObject root) {
+        List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(root.getId());
+        List<Long> nodeIds = new ArrayList<>();
+        nodeIds.add(root.getId());
+        children.forEach(child -> nodeIds.add(child.getId()));
+
+        Map<Long, List<DiseaseType>> diseaseTypesMap = diseaseTypeService.batchSelectDiseaseTypeListByTemplateObjectIds(nodeIds);
+        if (diseaseTypesMap.containsKey(root.getId())) {
+            root.setDiseaseTypes(diseaseTypesMap.get(root.getId()));
+        }
+
+        Map<Long, BiTemplateObject> nodeMap = new HashMap<>();
+        nodeMap.put(root.getId(), root);
+
+        for (BiTemplateObject child : children) {
+            if (diseaseTypesMap.containsKey(child.getId())) {
+                child.setDiseaseTypes(diseaseTypesMap.get(child.getId()));
+            }
+            nodeMap.put(child.getId(), child);
+        }
+
+        for (BiTemplateObject node : children) {
+            BiTemplateObject parent = nodeMap.get(node.getParentId());
+            if (parent != null) {
+                parent.getChildren().add(node);
+            }
+        }
+
+        return root;
     }
 
     private int copyTemplateJsonEntries(byte[] templateZipBytes, ZipOutputStream zipOut) throws IOException {
