@@ -60,6 +60,16 @@
         </where>
     </select>
 
+    <select id="selectBuildingExactList" parameterType="Building" resultMap="BuildingResult">
+        <include refid="selectBuildingVo"/>
+        <where>
+            b.del_flag = '0'
+            <if test="name != null  and name != ''"> and b.name = #{name}</if>
+            <if test="area != null  and area != ''"> and b.area = #{area}</if>
+            <if test="line != null  and line != ''"> and b.line = #{line}</if>
+        </where>
+    </select>
+
     <select id="selectBuildingById" parameterType="Long" resultMap="BuildingResult">
         <include refid="selectBuildingVo"/>
         where b.id = #{id} and b.del_flag = '0'

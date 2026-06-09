@@ -33,6 +33,14 @@ public interface BuildingMapper {
     public List<Building> selectBuildingList(Building building);
 
     /**
+     * 按名称、片区、线路精确查询建筑
+     *
+     * @param building 建筑
+     * @return 建筑集合
+     */
+    public List<Building> selectBuildingExactList(Building building);
+
+    /**
      * 查询建筑列表
      *
      * @param building 建筑

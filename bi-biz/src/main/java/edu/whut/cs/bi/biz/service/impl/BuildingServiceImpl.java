@@ -93,7 +93,7 @@ public class BuildingServiceImpl implements IBuildingService {
         query.setName(building.getName());
         query.setArea(building.getArea());
         query.setLine(building.getLine());
-        List<Building> buildings = this.selectBuildingList(query);
+        List<Building> buildings = buildingMapper.selectBuildingExactList(query);
         if (CollUtil.isNotEmpty(buildings)) {
             log.error("该片区线路桥梁已存在");
             throw new RuntimeException("该片区线路桥梁已存在");
