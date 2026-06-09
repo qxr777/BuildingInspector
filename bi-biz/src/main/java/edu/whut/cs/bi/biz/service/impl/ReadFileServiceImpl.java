@@ -794,15 +794,16 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     @Override
     @Transactional
-    public void ReadBuildingFile(MultipartFile file, Long projectId) {
+    public int ReadBuildingFile(MultipartFile file, Long projectId) {
         List<Long> buildingList = new ArrayList<>();
+        int importCount = 0;
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             for (int j = 0; j < 7; j++) {
 //            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
                 Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
 
-                for (int i = 1; i < sheet.getLastRowNum(); i++) {
+                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                     Row row = sheet.getRow(i);
                     if (row == null) continue;
 
@@ -812,6 +813,18 @@ public class ReadFileServiceImpl implements ReadFileService {
                     String area = getCellValueAsString(row.getCell(3));
                     String line = getCellValueAsString(row.getCell(4));
                     String template = getCellValueAsString(row.getCell(5));
+                    int excelRowNum = i + 1;
+
+                    if (StringUtils.isEmpty(buildingName) && StringUtils.isEmpty(type)
+                            && StringUtils.isEmpty(fatherBuilding) && StringUtils.isEmpty(area)
+                            && StringUtils.isEmpty(line) && StringUtils.isEmpty(template)) {
+                        continue;
+                    }
+
+                    if (!"组合桥".equals(type) && !"桥幅".equals(type)) {
+                        throw new RuntimeException("第" + excelRowNum + "行桥梁类型不支持：" + type
+                                + "，桥梁：" + buildingName + "，仅支持：组合桥、桥幅");
+                    }
 
                     Building building = new Building();
 
@@ -839,9 +852,14 @@ public class ReadFileServiceImpl implements ReadFileService {
                             building.setStatus("0");
                             building.setIsLeaf("0");
                         } else if (type.equals("桥幅")) {
+                            Long templateId = BRIDGE_TYPE_MAP.get(template);
+                            if (templateId == null) {
+                                throw new RuntimeException("第" + excelRowNum + "行桥幅模板未匹配：" + template
+                                        + "，桥梁：" + buildingName);
+                            }
                             building.setStatus("0");
                             building.setIsLeaf("1");
-                            building.setTemplateId(BRIDGE_TYPE_MAP.get(template));
+                            building.setTemplateId(templateId);
                             if (!fatherBuilding.equals(buildingName)) {
                                 Building parent = new Building();
                                 parent.setName(fatherBuilding);
@@ -857,11 +875,20 @@ public class ReadFileServiceImpl implements ReadFileService {
                             }
                         }
 
-                        buildingService.insertBuilding(building);
+                        try {
+                            buildingService.insertBuilding(building);
+                        } catch (RuntimeException e) {
+                            if ("该片区线路桥梁已存在".equals(e.getMessage())) {
+                                throw new RuntimeException("第" + (i + 1) + "行桥梁已存在：" + buildingName
+                                        + "，片区：" + area + "，线路：" + line);
+                            }
+                            throw e;
+                        }
 
                         if (type.equals("桥幅")) {
                             buildingList.add(building.getId());
                         }
+                        importCount++;
 
                     } else {
                         if (type.equals("桥幅")) {
@@ -875,7 +902,15 @@ public class ReadFileServiceImpl implements ReadFileService {
                                 List<Building> parentBuildings = buildingMapper.selectBuildingList(parent);
                                 if (parentBuildings != null && parentBuildings.size() > 0) {
                                     building.setParentId(parentBuildings.get(0).getId());
-                                    buildingService.updateBuilding(building);
+                                    try {
+                                        buildingService.updateBuilding(building);
+                                    } catch (RuntimeException e) {
+                                        if ("该片区线路桥梁已存在".equals(e.getMessage())) {
+                                            throw new RuntimeException("第" + (i + 1) + "行桥梁已存在：" + buildingName
+                                                    + "，片区：" + area + "，线路：" + line);
+                                        }
+                                        throw e;
+                                    }
 //                                    throw new RuntimeException("请检查桥梁数据: " +  buildingName + " 父桥梁: " + fatherBuilding);
                                 }
 
@@ -892,6 +927,7 @@ public class ReadFileServiceImpl implements ReadFileService {
         }
 //        if (buildingList.size() > 0)
 //            taskService.batchInsertTasks(projectId, buildingList);
+        return importCount;
     }
 
 

@@ -701,9 +701,10 @@ public class ApiController {
     @PostMapping("/batchAddBuilding")
     @ResponseBody
     public AjaxResult batchAddBuilding(MultipartFile file, Long projectId) {
-        readFileService.ReadBuildingFile(file, projectId);
-
-        return AjaxResult.success();
+        int importCount = readFileService.ReadBuildingFile(file, projectId);
+        AjaxResult ajax = AjaxResult.success("导入成功，共新增 " + importCount + " 座桥梁");
+        ajax.put("importCount", importCount);
+        return ajax;
     }
 
 

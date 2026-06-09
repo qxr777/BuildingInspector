@@ -34,7 +34,7 @@ public interface ReadFileService {
      *
      * @param file
      */
-    void ReadBuildingFile(MultipartFile file, Long projectId);
+    int ReadBuildingFile(MultipartFile file, Long projectId);
 
     /**
      * 匹配生成缩略图
