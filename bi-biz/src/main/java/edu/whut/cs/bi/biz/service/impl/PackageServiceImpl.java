@@ -642,15 +642,21 @@ public class PackageServiceImpl implements IPackageService {
                     log.info(userId + " 桥梁正立面照收集完成" + buildingId);
                 }
                 Map<String, List<String>> frontAndSide = getFrontAndSide(propertyPhotoAttachments, zipOut, buildingId, rootDirName);
-                Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
+                
+                // 检查rootPropertyId是否存在，避免空指针异常
+                if (building.getRootPropertyId() != null) {
+                    Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
 
-                PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
-                propertyTreeVo.setProperty(property);
-                propertyTreeVo.setImages(frontAndSide);
+                    PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
+                    propertyTreeVo.setProperty(property);
+                    propertyTreeVo.setImages(frontAndSide);
 
-                String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
-                addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
-                log.info(userId + " 桥梁属性卡片收集完成" + buildingId);
+                    String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
+                    addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
+                    log.info(userId + " 桥梁属性卡片收集完成" + buildingId);
+                } else {
+                    log.warn(userId + " 建筑物没有关联属性树，跳过属性卡片生成，buildingId=" + buildingId);
+                }
             } catch (Exception e) {
                 // 记录错误但继续处理
                 log.error("获取建筑物照片数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
@@ -700,6 +706,7 @@ public class PackageServiceImpl implements IPackageService {
                     log.info(userId + "近三年内未找到病害数据，buildingId=" + buildingId);
                 }
                 // 收集所有需要处理的路径和对应的文件名
+                /* 暂时不打包历史病害的照片
                 List<String> allFileNames = new ArrayList<>();
                 List<Long> ids = new ArrayList<>();
                 if (diseases != null && !diseases.isEmpty()) {
@@ -733,6 +740,7 @@ public class PackageServiceImpl implements IPackageService {
                     addDiseaseImages(zipOut, rootDirName, buildingId, allFileNames, ids);
                 }
                 log.info(userId + "图片信息收集完成" + buildingId);
+                 end of 暂时不打包历史病害的照片 */
             } catch (Exception e) {
                 // 记录错误但继续处理
                 log.error("获取建筑物病害数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
