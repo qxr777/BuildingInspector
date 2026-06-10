@@ -619,12 +619,15 @@ public class PackageServiceImpl implements IPackageService {
                 List<Attachment> attachments = attachmentService.getAttachmentBySubjectId(buildingId);
 
                 // 过滤出与桥梁照片相关的附件
+                /* 暂时不打包桥梁的正立面照
                 List<Attachment> bridgePhotoAttachments = attachments.stream()
                         .filter(e -> {
                             String name = e.getName();
                             return name != null && name.matches("^\\d+_(newfront|newside)_.*$");
                         })
                         .collect(Collectors.toList());
+                  end of 暂时不打包桥梁的正立面照*/
+                List<Attachment> bridgePhotoAttachments = new ArrayList<Attachment>();
 
                 List<Attachment> propertyPhotoAttachments = attachments.stream()
                         .filter(e -> {
@@ -687,7 +690,7 @@ public class PackageServiceImpl implements IPackageService {
                 if (diseases != null && !diseases.isEmpty()) {
                     log.info(userId + "病害信息开始收集" + buildingId + "，年份：" + targetYear);
                     log.info(userId + " 病害信息数据完成" + buildingId);
-                    log.info(userId + "图片信息开始收集" + buildingId);
+//                    log.info(userId + "图片信息开始收集" + buildingId);
 
                     // 创建年份病害数据对象，此时Disease对象中的图片路径已更新为相对路径
                     DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
@@ -707,6 +710,7 @@ public class PackageServiceImpl implements IPackageService {
                 }
                 // 收集所有需要处理的路径和对应的文件名
                 /* 暂时不打包历史病害的照片
+                log.info(userId + "图片信息开始收集" + buildingId);
                 List<String> allFileNames = new ArrayList<>();
                 List<Long> ids = new ArrayList<>();
                 if (diseases != null && !diseases.isEmpty()) {
