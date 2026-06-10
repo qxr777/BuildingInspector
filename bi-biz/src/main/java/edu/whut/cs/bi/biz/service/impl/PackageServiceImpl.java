@@ -598,9 +598,25 @@ public class PackageServiceImpl implements IPackageService {
             }
         }
 
+        // 打印总体进度信息
+        log.info("用户" + userId + " 开始处理建筑物数据，共需处理 " + buildingIds.size() + " 座建筑物");
+        
+        // 用于计数已处理的建筑物
+        int processedCount = 0;
+        int successCount = 0;
+        int skipCount = 0;
+
         // 处理每个建筑物的数据
         for (Long buildingId : buildingIds) {
+            processedCount++;
+            log.info("用户" + userId + " 正在处理第 " + processedCount + "/" + buildingIds.size() + " 座建筑物，buildingId=" + buildingId);
+            
             Building building = buildingService.selectBuildingById(buildingId);
+            if (building == null) {
+                log.warn(userId + " 建筑物不存在，跳过处理，buildingId=" + buildingId);
+                skipCount++;
+                continue;
+            }
             // 1. 获取建筑物对象树
             try {
                 if (building != null && building.getRootObjectId() != null) {
@@ -656,7 +672,7 @@ public class PackageServiceImpl implements IPackageService {
 
                     String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
                     addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
-                    log.info(userId + " 桥梁属性卡片收集完成" + buildingId);
+                    log.debug(userId + " 桥梁属性卡片收集完成，buildingId=" + buildingId);
                 } else {
                     log.warn(userId + " 建筑物没有关联属性树，跳过属性卡片生成，buildingId=" + buildingId);
                 }
@@ -682,14 +698,14 @@ public class PackageServiceImpl implements IPackageService {
                     List<Disease> yearDiseases = diseaseService.selectDiseaseListForZip(disease);
                     if (yearDiseases != null && !yearDiseases.isEmpty()) {
                         diseases = yearDiseases;
-                        log.info(userId + "找到" + targetYear + "年的病害数据，共" + diseases.size() + "条");
+                        log.debug(userId + "找到" + targetYear + "年的病害数据，共" + diseases.size() + "条，buildingId=" + buildingId);
                         break;
                     }
                 }
 
                 if (diseases != null && !diseases.isEmpty()) {
-                    log.info(userId + "病害信息开始收集" + buildingId + "，年份：" + targetYear);
-                    log.info(userId + " 病害信息数据完成" + buildingId);
+                    log.debug(userId + "病害信息开始收集" + buildingId + "，年份：" + targetYear);
+                    log.debug(userId + " 病害信息数据完成" + buildingId);
 //                    log.info(userId + "图片信息开始收集" + buildingId);
 
                     // 创建年份病害数据对象，此时Disease对象中的图片路径已更新为相对路径
@@ -705,8 +721,9 @@ public class PackageServiceImpl implements IPackageService {
                     // 添加到zip文件
                     String diseaseJsonPath = rootDirName + "/building/" + buildingId + "/disease/" + targetYear + ".json";
                     addJsonToZip(zipOut, diseaseJsonPath, jsonString);
+                    log.debug(userId + " 病害数据处理完成，buildingId=" + buildingId + "，年份=" + targetYear);
                 } else {
-                    log.info(userId + "近三年内未找到病害数据，buildingId=" + buildingId);
+                    log.debug(userId + "近三年内未找到病害数据，buildingId=" + buildingId);
                 }
                 // 收集所有需要处理的路径和对应的文件名
                 /* 暂时不打包历史病害的照片
@@ -745,11 +762,17 @@ public class PackageServiceImpl implements IPackageService {
                 }
                 log.info(userId + "图片信息收集完成" + buildingId);
                  end of 暂时不打包历史病害的照片 */
+                // 成功处理完一个建筑物
+                successCount++;
             } catch (Exception e) {
                 // 记录错误但继续处理
                 log.error("获取建筑物病害数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
+                skipCount++;
             }
         }
+        
+        // 打印总体处理结果
+        log.info("用户" + userId + " 建筑物数据处理完成！总计: " + buildingIds.size() + " 座，成功: " + successCount + " 座，跳过: " + skipCount + " 座");
     }
 
 
