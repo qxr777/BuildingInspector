@@ -33,6 +33,14 @@ public interface BuildingMapper {
     public List<Building> selectBuildingList(Building building);
 
     /**
+     * 查询异常桥幅及可确定的父级组合桥
+     *
+     * @param building 查询条件
+     * @return 建筑集合
+     */
+    public List<Building> selectAbnormalBridgeSpanList(Building building);
+
+    /**
      * 按名称、片区、线路精确查询建筑
      *
      * @param building 建筑
@@ -65,22 +73,22 @@ public interface BuildingMapper {
     public int updateBuilding(Building building);
 
     /**
+     * 更新建筑根对象ID
+     *
+     * @param id 建筑ID
+     * @param rootObjectId 根对象ID
+     * @param updateBy 更新人
+     * @return 结果
+     */
+    public int updateBuildingRootObjectId(@Param("id") Long id, @Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
+
+    /**
      * 删除建筑
      *
      * @param id 建筑主键
      * @return 结果
      */
     public int deleteBuildingById(Long id);
-
-    /**
-     * ???????ID
-     *
-     * @param id ??ID
-     * @param rootObjectId ???ID
-     * @param updateBy ???
-     * @return ??
-     */
-    public int updateBuildingRootObjectId(@Param("id") Long id, @Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
 
     /**
      * 批量删除建筑

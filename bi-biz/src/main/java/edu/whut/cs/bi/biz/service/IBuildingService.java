@@ -31,6 +31,14 @@ public interface IBuildingService {
     public List<Building> selectBuildingList(Building building);
 
     /**
+     * 查询异常桥幅及可确定的父级组合桥
+     *
+     * @param building 建筑
+     * @return 建筑集合
+     */
+    public List<Building> selectAbnormalBridgeSpanList(Building building);
+
+    /**
      * 新增建筑
      *
      * @param building 建筑
@@ -97,19 +105,19 @@ public interface IBuildingService {
     public Building selectBuildingWithParentInfo(Long id);
 
     /**
+     * 为已存在且缺少构件树的桥幅补建构件树
+     *
+     * @param building 桥幅信息，需包含id、templateId，可选parentId
+     * @return 更新结果
+     */
+    public int repairBridgeSpanObjectTree(Building building);
+
+    /**
      * excel导入建筑信息
      *
      * @param file
      */
     public void readBuildingExcel(MultipartFile file, Long projectId);
     
-
-    /**
-     * ??????????????????
-     *
-     * @param building ????????id?templateId???parentId
-     * @return ????
-     */
-    public int repairBridgeSpanObjectTree(Building building);
     Building getUniqueBuilding(String bridgeName, String lineCode, String zipCode);
 }

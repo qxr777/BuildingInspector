@@ -70,6 +70,18 @@ public class BuildingController extends BaseController {
     }
 
     /**
+     * 查询异常桥幅及其父级组合桥列表
+     */
+    @RequiresPermissions("biz:building:list")
+    @PostMapping("/abnormalList")
+    @ResponseBody
+    public TableDataInfo abnormalList(Building building) {
+        startPage();
+        List<Building> list = buildingService.selectAbnormalBridgeSpanList(building);
+        return getDataTable(list);
+    }
+
+    /**
      * 查询建筑列表
      */
     @RequiresPermissions("biz:building:list")

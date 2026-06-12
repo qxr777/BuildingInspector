@@ -80,10 +80,12 @@
     var isLeafDatas = [[${@dict.getType('bi_building_is_leaf')}]];
 
     var prefix = ctx + "biz/building";
+    var urlParams = new URLSearchParams(window.location.search);
+    var abnormalMode = urlParams.get('abnormal') === '1';
 
     $(function() {
         var options = {
-            url: prefix + "/list",
+            url: abnormalMode ? prefix + "/abnormalList" : prefix + "/list",
             createUrl: prefix + "/add",
             updateUrl: prefix + "/edit/{id}",
             removeUrl: prefix + "/remove",
@@ -100,6 +102,13 @@
                 {
                     field: 'name',
                     title: '名称'
+                },
+                {
+                    field: 'parentName',
+                    title: '父级组合桥',
+                    formatter: function(value, row, index) {
+                        return value || '';
+                    }
                 },
                 {
                     field: 'isLeaf',
@@ -160,7 +169,6 @@
         $.table.init(options);
 
         // 检查是否有传递的名称参数，如果有则自动填入搜索框并执行搜索
-        var urlParams = new URLSearchParams(window.location.search);
         var buildingName = urlParams.get('name');
         if (buildingName) {
             $('#formId input[name="name"]').val(buildingName);
@@ -202,6 +210,22 @@
             }
         });
     });
+
+    function showAbnormalBridgeSpans() {
+        refreshBuildingTable(prefix + "/abnormalList");
+    }
+
+    function showAllBuildings() {
+        refreshBuildingTable(prefix + "/list");
+    }
+
+    function refreshBuildingTable(url) {
+        table.options.url = url;
+        var options = $("#bootstrap-table").bootstrapTable('getOptions');
+        options.url = url;
+        options.pageNumber = 1;
+        $("#bootstrap-table").bootstrapTable('refresh', {url: url, pageNumber: 1});
+    }
 
     function maintainObject(rootObjectId) {
         var url = ctx + "biz/biobject?rootObjectId=" + rootObjectId;

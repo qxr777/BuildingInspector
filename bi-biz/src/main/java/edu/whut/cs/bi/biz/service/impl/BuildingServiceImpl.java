@@ -78,6 +78,11 @@ public class BuildingServiceImpl implements IBuildingService {
     public List<Building> selectBuildingList(Building building) {
         return buildingMapper.selectBuildingList(building);
     }
+
+    @Override
+    public List<Building> selectAbnormalBridgeSpanList(Building building) {
+        return buildingMapper.selectAbnormalBridgeSpanList(building);
+    }
     
     /**
      * 新增建筑
@@ -727,41 +732,41 @@ public class BuildingServiceImpl implements IBuildingService {
     @Transactional
     public int repairBridgeSpanObjectTree(Building building) {
         if (building == null || building.getId() == null) {
-            throw new RuntimeException("????ID????");
+            throw new RuntimeException("修复桥幅ID不能为空");
         }
         if (building.getTemplateId() == null) {
-            throw new RuntimeException("??????ID????");
+            throw new RuntimeException("修复桥幅模板ID不能为空");
         }
 
         Building existing = buildingMapper.selectBuildingById(building.getId());
         if (existing == null) {
-            throw new RuntimeException("???????????" + building.getName());
+            throw new RuntimeException("未找到需要修复的桥梁：" + building.getName());
         }
         if (!"1".equals(existing.getIsLeaf())) {
-            throw new RuntimeException("????????" + existing.getName());
+            throw new RuntimeException("仅支持修复桥幅：" + existing.getName());
         }
         if (existing.getRootObjectId() != null) {
-            throw new RuntimeException("??????????????" + existing.getName());
+            throw new RuntimeException("桥幅已存在构件树，无需修复：" + existing.getName());
         }
 
         Long parentRootObjectId = 0L;
         if (building.getParentId() != null) {
             Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
             if (parentBridge == null || parentBridge.getRootObjectId() == null) {
-                throw new RuntimeException("?????????????" + existing.getName());
+                throw new RuntimeException("父桥不存在或未生成构件树：" + existing.getName());
             }
             parentRootObjectId = parentBridge.getRootObjectId();
         }
 
         BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
         if (template == null) {
-            throw new RuntimeException("????????" + building.getTemplateId());
+            throw new RuntimeException("未找到指定模版：" + building.getTemplateId());
         }
         List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
         Long rootObjectId = generateMaintenanceTree(existing.getName(), template, children, parentRootObjectId);
         int rows = buildingMapper.updateBuildingRootObjectId(existing.getId(), rootObjectId, ShiroUtils.getLoginName());
         if (rows <= 0) {
-            throw new RuntimeException("??????????" + existing.getName());
+            throw new RuntimeException("回写桥幅构件树失败：" + existing.getName());
         }
         return rows;
     }
