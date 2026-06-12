@@ -930,6 +930,122 @@ public class ReadFileServiceImpl implements ReadFileService {
         return importCount;
     }
 
+    @Override
+    @Transactional
+    public int resumeBuildingFile(MultipartFile file) {
+        int resumeCount = 0;
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
+                Sheet sheet = workbook.getSheetAt(j);
+
+                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null) {
+                        continue;
+                    }
+
+                    String buildingName = getCellValueAsString(row.getCell(0));
+                    String type = getCellValueAsString(row.getCell(1));
+                    String fatherBuilding = getCellValueAsString(row.getCell(2));
+                    String area = getCellValueAsString(row.getCell(3));
+                    String line = getCellValueAsString(row.getCell(4));
+                    String template = getCellValueAsString(row.getCell(5));
+                    int excelRowNum = i + 1;
+
+                    if (StringUtils.isEmpty(buildingName) && StringUtils.isEmpty(type)
+                            && StringUtils.isEmpty(fatherBuilding) && StringUtils.isEmpty(area)
+                            && StringUtils.isEmpty(line) && StringUtils.isEmpty(template)) {
+                        continue;
+                    }
+
+                    if (!"组合桥".equals(type) && !"桥幅".equals(type)) {
+                        throw new RuntimeException("第" + excelRowNum + "行桥梁类型不支持：" + type
+                                + "，桥梁：" + buildingName + "，仅支持：组合桥、桥幅");
+                    }
+                    if (!"桥幅".equals(type)) {
+                        continue;
+                    }
+
+                    Long templateId = BRIDGE_TYPE_MAP.get(template);
+                    if (templateId == null) {
+                        throw new RuntimeException("第" + excelRowNum + "行桥幅模板未匹配：" + template
+                                + "，桥梁：" + buildingName);
+                    }
+
+                    SysDictData areaQuery = new SysDictData();
+                    areaQuery.setDictType("bi_building_area");
+                    areaQuery.setDictLabel(area);
+                    List<SysDictData> areaCode = sysDictDataService.selectDictDataList(areaQuery);
+                    if (areaCode == null || CollUtil.isEmpty(areaCode)) {
+                        throw new RuntimeException("第" + excelRowNum + "行片区字典未匹配：" + area
+                                + "，桥梁：" + buildingName);
+                    }
+
+                    SysDictData lineQuery = new SysDictData();
+                    lineQuery.setDictType("bi_buildeing_line");
+                    lineQuery.setDictLabel(line);
+                    List<SysDictData> lineCode = sysDictDataService.selectDictDataList(lineQuery);
+                    if (lineCode == null || CollUtil.isEmpty(lineCode)) {
+                        throw new RuntimeException("第" + excelRowNum + "行线路字典未匹配：" + line
+                                + "，桥梁：" + buildingName);
+                    }
+
+                    Building query = new Building();
+                    query.setName(buildingName);
+                    query.setArea(String.valueOf(areaCode.get(0).getDictValue()));
+                    query.setLine(String.valueOf(lineCode.get(0).getDictValue()));
+                    List<Building> matchedBuildings = buildingMapper.selectBuildingExactList(query).stream()
+                            .filter(item -> "1".equals(item.getIsLeaf()))
+                            .collect(Collectors.toList());
+                    if (CollUtil.isEmpty(matchedBuildings)) {
+                        throw new RuntimeException("第" + excelRowNum + "行未找到待修复桥幅：" + buildingName
+                                + "，片区：" + area + "，线路：" + line);
+                    }
+                    if (matchedBuildings.size() > 1) {
+                        throw new RuntimeException("第" + excelRowNum + "行匹配到多座桥幅，无法自动修复：" + buildingName
+                                + "，片区：" + area + "，线路：" + line);
+                    }
+
+                    Building building = matchedBuildings.get(0);
+                    if (building.getRootObjectId() != null) {
+                        continue;
+                    }
+
+                    if (StringUtils.isNotEmpty(fatherBuilding) && !fatherBuilding.equals(buildingName)) {
+                        Building parentQuery = new Building();
+                        parentQuery.setName(fatherBuilding);
+                        parentQuery.setIsLeaf("0");
+                        parentQuery.setArea(String.valueOf(areaCode.get(0).getDictValue()));
+                        parentQuery.setLine(String.valueOf(lineCode.get(0).getDictValue()));
+                        List<Building> parentBuildings = buildingMapper.selectBuildingList(parentQuery).stream()
+                                .filter(item -> fatherBuilding.equals(item.getName()))
+                                .collect(Collectors.toList());
+                        if (CollUtil.isEmpty(parentBuildings)) {
+                            throw new RuntimeException("第" + excelRowNum + "行未找到父桥：" + fatherBuilding
+                                    + "，桥幅：" + buildingName);
+                        }
+                        if (parentBuildings.size() > 1) {
+                            throw new RuntimeException("第" + excelRowNum + "行匹配到多个父桥：" + fatherBuilding
+                                    + "，桥幅：" + buildingName);
+                        }
+                        building.setParentId(parentBuildings.get(0).getId());
+                    } else {
+                        building.setParentId(null);
+                    }
+
+                    building.setTemplateId(templateId);
+                    resumeCount += buildingService.repairBridgeSpanObjectTree(building);
+                }
+            }
+        } catch (IOException e) {
+            log.error("读取桥梁修复文件时出错", e);
+            throw new RuntimeException(e);
+        }
+
+        return resumeCount;
+    }
+
 
     int BATCH_SIZE = 50;
 

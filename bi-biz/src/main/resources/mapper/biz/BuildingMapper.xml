@@ -188,6 +188,15 @@
     </update>
 
     <delete id="deleteBuildingById" parameterType="Long">
+
+    <update id="updateBuildingRootObjectId">
+        update bi_building
+        set root_object_id = #{rootObjectId},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where id = #{id}
+          and del_flag = '0'
+    </update>
         update bi_building set del_flag = '1' where id = #{id}
     </delete>
 

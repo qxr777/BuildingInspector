@@ -103,5 +103,13 @@ public interface IBuildingService {
      */
     public void readBuildingExcel(MultipartFile file, Long projectId);
     
+
+    /**
+     * ??????????????????
+     *
+     * @param building ????????id?templateId???parentId
+     * @return ????
+     */
+    public int repairBridgeSpanObjectTree(Building building);
     Building getUniqueBuilding(String bridgeName, String lineCode, String zipCode);
 }

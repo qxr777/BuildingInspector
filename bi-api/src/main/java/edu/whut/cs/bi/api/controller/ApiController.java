@@ -707,6 +707,15 @@ public class ApiController {
         return ajax;
     }
 
+    @PostMapping("/batchResumeBuilding")
+    @ResponseBody
+    public AjaxResult batchResumeBuilding(MultipartFile file) {
+        int resumeCount = readFileService.resumeBuildingFile(file);
+        AjaxResult ajax = AjaxResult.success("修复成功，共修复 " + resumeCount + " 座桥梁");
+        ajax.put("resumeCount", resumeCount);
+        return ajax;
+    }
+
 
     /**
      * 修复病害与构件的关联关系

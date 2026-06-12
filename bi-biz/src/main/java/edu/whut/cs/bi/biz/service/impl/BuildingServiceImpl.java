@@ -722,6 +722,49 @@ public class BuildingServiceImpl implements IBuildingService {
     public Building selectBuildingWithParentInfo(Long id) {
         return buildingMapper.selectBuildingWithParentInfo(id);
     }
+
+    @Override
+    @Transactional
+    public int repairBridgeSpanObjectTree(Building building) {
+        if (building == null || building.getId() == null) {
+            throw new RuntimeException("????ID????");
+        }
+        if (building.getTemplateId() == null) {
+            throw new RuntimeException("??????ID????");
+        }
+
+        Building existing = buildingMapper.selectBuildingById(building.getId());
+        if (existing == null) {
+            throw new RuntimeException("???????????" + building.getName());
+        }
+        if (!"1".equals(existing.getIsLeaf())) {
+            throw new RuntimeException("????????" + existing.getName());
+        }
+        if (existing.getRootObjectId() != null) {
+            throw new RuntimeException("??????????????" + existing.getName());
+        }
+
+        Long parentRootObjectId = 0L;
+        if (building.getParentId() != null) {
+            Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+            if (parentBridge == null || parentBridge.getRootObjectId() == null) {
+                throw new RuntimeException("?????????????" + existing.getName());
+            }
+            parentRootObjectId = parentBridge.getRootObjectId();
+        }
+
+        BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
+        if (template == null) {
+            throw new RuntimeException("????????" + building.getTemplateId());
+        }
+        List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
+        Long rootObjectId = generateMaintenanceTree(existing.getName(), template, children, parentRootObjectId);
+        int rows = buildingMapper.updateBuildingRootObjectId(existing.getId(), rootObjectId, ShiroUtils.getLoginName());
+        if (rows <= 0) {
+            throw new RuntimeException("??????????" + existing.getName());
+        }
+        return rows;
+    }
     
     private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();
     

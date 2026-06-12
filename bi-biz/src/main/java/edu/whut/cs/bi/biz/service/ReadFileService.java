@@ -37,6 +37,14 @@ public interface ReadFileService {
     int ReadBuildingFile(MultipartFile file, Long projectId);
 
     /**
+     * 批量修复已存在桥幅的构件树
+     *
+     * @param file 桥梁Excel文件
+     * @return 修复数量
+     */
+    int resumeBuildingFile(MultipartFile file);
+
+    /**
      * 匹配生成缩略图
      *
      * @param attachmentList

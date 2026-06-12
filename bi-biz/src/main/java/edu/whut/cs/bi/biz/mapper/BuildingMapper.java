@@ -73,6 +73,16 @@ public interface BuildingMapper {
     public int deleteBuildingById(Long id);
 
     /**
+     * ???????ID
+     *
+     * @param id ??ID
+     * @param rootObjectId ???ID
+     * @param updateBy ???
+     * @return ??
+     */
+    public int updateBuildingRootObjectId(@Param("id") Long id, @Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
+
+    /**
      * 批量删除建筑
      *
      * @param ids 需要删除的数据主键集合
