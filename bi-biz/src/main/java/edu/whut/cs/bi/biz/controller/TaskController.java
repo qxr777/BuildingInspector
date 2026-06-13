@@ -375,10 +375,15 @@ public class TaskController extends BaseController {
         }
 
         // 调整列宽
+        int maxColumnWidth = 255 * 256;
         for (int i = 0; i < headers.length; i++) {
             sheet.autoSizeColumn(i);
             int currentWidth = sheet.getColumnWidth(i);
-            sheet.setColumnWidth(i, currentWidth + 10 * 256); // 256是POI中一个字符的基准宽度
+            if (currentWidth > maxColumnWidth) {
+                currentWidth = maxColumnWidth;
+            }
+            int newWidth = Math.min(currentWidth + 10 * 256, maxColumnWidth);
+            sheet.setColumnWidth(i, newWidth);
         }
 
         workbook.write(excelBaos);
