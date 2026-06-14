@@ -293,7 +293,7 @@ public class FileMapServiceImpl implements IFileMapService {
             try (
                     InputStream stream = minioClient.getObject(GetObjectArgs.builder()
                             .bucket(minioConfig.getBucketName())
-                            .object(fileMap.getNewName())
+                            .object(toMinioObjectKey(fileMap.getNewName()))
                             .build());
                     ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
                 // 将InputStream转换为byte数组
