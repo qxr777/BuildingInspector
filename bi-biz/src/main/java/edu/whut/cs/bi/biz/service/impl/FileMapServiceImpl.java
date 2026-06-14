@@ -293,7 +293,7 @@ public class FileMapServiceImpl implements IFileMapService {
             try (
                     InputStream stream = minioClient.getObject(GetObjectArgs.builder()
                             .bucket(minioConfig.getBucketName())
-                            .object(toMinioObjectKey(fileMap.getNewName()))
+                            .object(fileMap.getNewName().substring(0,2) + "/" + fileMap.getNewName())
                             .build());
                     ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
                 // 将InputStream转换为byte数组
@@ -592,13 +592,5 @@ public class FileMapServiceImpl implements IFileMapService {
             return new ArrayList<>();
         }
         return fileMapMapper.selectFileMapByIds(ids);
-    }
-
-    /** MinIO 对象 key：与上传时 objectName.substring(0,2)+"/"+objectName 保持一致 */
-    private static String toMinioObjectKey(String newName) {
-        if (newName == null || newName.length() < 2) {
-            return newName;
-        }
-        return newName.substring(0, 2) + "/" + newName;
     }
 }
