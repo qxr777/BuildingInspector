@@ -593,4 +593,12 @@ public class FileMapServiceImpl implements IFileMapService {
         }
         return fileMapMapper.selectFileMapByIds(ids);
     }
+
+    /** MinIO 对象 key：与上传时 objectName.substring(0,2)+"/"+objectName 保持一致 */
+    private static String toMinioObjectKey(String newName) {
+        if (newName == null || newName.length() < 2) {
+            return newName;
+        }
+        return newName.substring(0, 2) + "/" + newName;
+    }
 }
