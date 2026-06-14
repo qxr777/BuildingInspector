@@ -56,14 +56,42 @@ public interface ITaskSheetService {
     byte[] generateJglp05017WordBytes(Long taskId);
 
     /**
-     * 实时生成 JGLP05017 Word 文件，保存到 MinIO，返回文件字节流（下载用，含页眉页码）
+     * 实时生成 JGLP05017 Word 文件字节流（下载用，含页眉页码；不存 MinIO、不写 bi_task_sheets）
      */
-    byte[] generateAndSaveJglp05017Word(Long taskId);
+    byte[] generateJglp05017WordDownloadBytes(Long taskId);
 
     /**
      * 查询 JGLP05017 桥梁结构桥梁技术状况检测记录表所需数据
      */
     Jglp05017Vo getJglp05017Data(Long taskId);
+
+    /** App 上传 JSON 表格类型：碳化深度检测记录表 */
+    String SHEET_TYPE_CARBON_DEPTH = "carbon_depth";
+
+    /**
+     * 判断表格类型是否支持 JSON → Word 预览/下载
+     */
+    boolean supportsJsonSheetWord(String type);
+
+    /**
+     * 返回所有支持 JSON → Word 的表格 type 列表
+     */
+    List<String> listJsonSheetWordTypes();
+
+    /**
+     * 从 MinIO JSON 实时生成 Word 字节流（预览用，页码在正文）
+     */
+    byte[] generateJsonSheetWordBytes(Long taskId, String type);
+
+    /**
+     * 从 MinIO JSON 实时生成 Word 字节流（下载用，页码在页眉）
+     */
+    byte[] generateJsonSheetWordDownloadBytes(Long taskId, String type);
+
+    /**
+     * JSON 表格 Word 下载默认文件名（不含扩展名）
+     */
+    String resolveJsonSheetDownloadBaseName(String type);
 
     /**
      * 判断任务病害数据是否已由 App 端提交（bi_task.type == 1）

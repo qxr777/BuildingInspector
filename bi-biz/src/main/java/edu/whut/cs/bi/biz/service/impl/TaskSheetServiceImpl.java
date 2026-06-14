@@ -17,7 +17,9 @@ import edu.whut.cs.bi.biz.mapper.TaskSheetMapper;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.ITaskSheetService;
+import edu.whut.cs.bi.biz.service.sheet.JsonSheetWordRendererRegistry;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
+import edu.whut.cs.bi.biz.utils.WordSheetPoiUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.poi.xwpf.usermodel.*;
@@ -48,6 +50,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.setCellText;
 
 /**
  * 任务表格数据 Service 实现
@@ -85,8 +89,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         INSPECTION_SHEET_CATALOG.put("桥梁结构结构线形测量记录表（水准仪法）", "JGLP05009a-2");
         INSPECTION_SHEET_CATALOG.put("索力检测记录表（振动法）", "JGLP05012a");
         INSPECTION_SHEET_CATALOG.put("桥梁结构检测与监测索力试验检测记录表（测力传感器法）", "JGLP05012b");
-        INSPECTION_SHEET_CATALOG.put("混凝土强度检测记录表", "JGLP02001b");
-        INSPECTION_SHEET_CATALOG.put("混凝土电阻率检测记录表", "JGLP02010");
     }
 
     private static final List<String> SHEET_CATALOG_ORDER = new ArrayList<>(INSPECTION_SHEET_CATALOG.keySet());
@@ -102,6 +104,9 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
 
     @Autowired
     private DiseaseMapper diseaseMapper;
+
+    @Autowired
+    private JsonSheetWordRendererRegistry jsonSheetWordRendererRegistry;
 
     // ─────────────────── 通用表格数据方法 ───────────────────────────────
 
@@ -270,7 +275,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
             if (d.getId() != null) uniqueMap.putIfAbsent(d.getId(), d);
         }
         List<Disease> diseases = new ArrayList<>(uniqueMap.values());
-        log.info("JGLP05017 taskId={} 病害查询: 原始={} 去重后={}", taskId, rawList.size(), diseases.size());
 
         // 试验检测日期：取该任务下病害数据上传/更新的最新时间
         Date latestUploadDate = diseases.stream()
@@ -296,41 +300,71 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
     }
 
     @Override
+    public boolean supportsJsonSheetWord(String type) {
+        return jsonSheetWordRendererRegistry.supports(type);
+    }
+
+    @Override
+    public List<String> listJsonSheetWordTypes() {
+        return jsonSheetWordRendererRegistry.supportedTypes();
+    }
+
+    @Override
+    public byte[] generateJsonSheetWordBytes(Long taskId, String type) {
+        return renderJsonSheetWord(taskId, type, WordSheetPoiUtils.PageNumberPlacement.BODY);
+    }
+
+    @Override
+    public byte[] generateJsonSheetWordDownloadBytes(Long taskId, String type) {
+        return renderJsonSheetWord(taskId, type, WordSheetPoiUtils.PageNumberPlacement.HEADER);
+    }
+
+    private byte[] renderJsonSheetWord(Long taskId, String type, WordSheetPoiUtils.PageNumberPlacement placement) {
+        TaskSheet taskSheet = taskSheetMapper.selectByTaskIdAndType(taskId, type);
+        if (taskSheet == null || taskSheet.getSheetMinioId() == null) {
+            throw new ServiceException("该表格尚未提交，无法查看");
+        }
+        byte[] jsonBytes;
+        try {
+            jsonBytes = fileMapService.handleFileDownload(taskSheet.getSheetMinioId());
+        } catch (Exception e) {
+            throw new ServiceException("表格 JSON 文件下载失败，type=" + type
+                    + "，sheetMinioId=" + taskSheet.getSheetMinioId()
+                    + "，请重新上传该任务的表格数据");
+        }
+        if (jsonBytes == null || jsonBytes.length == 0) {
+            throw new ServiceException("表格 JSON 文件不存在或已删除");
+        }
+        try {
+            com.alibaba.fastjson.JSONObject sheetJson =
+                    JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
+            return jsonSheetWordRendererRegistry.getRequired(type).render(sheetJson, placement);
+        } catch (ServiceException se) {
+            throw se;
+        } catch (Exception e) {
+            String detail = e.getMessage();
+            if (detail == null || detail.trim().isEmpty()) {
+                detail = e.getClass().getSimpleName();
+            }
+            ServiceException se = new ServiceException("生成表格 Word 失败：" + detail);
+            se.initCause(e);
+            throw se;
+        }
+    }
+
+    @Override
+    public String resolveJsonSheetDownloadBaseName(String type) {
+        return jsonSheetWordRendererRegistry.getRequired(type).defaultDownloadBaseName();
+    }
+
+    @Override
     public byte[] generateJglp05017WordBytes(Long taskId) {
         return buildDocxBytes(getJglp05017Data(taskId), PageNumberPlacement.BODY);
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public byte[] generateAndSaveJglp05017Word(Long taskId) {
-        Jglp05017Vo vo = getJglp05017Data(taskId);
-        byte[] bytes = buildDocxBytes(vo, PageNumberPlacement.HEADER);
-
-        String docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        String fileName = "JGLP05017_" + taskId + ".docx";
-        MultipartFile mockFile = new MockMultipartFile("file", fileName, docxMime, bytes);
-        FileMap newFileMap;
-        try {
-            newFileMap = fileMapService.handleFileUpload(mockFile);
-        } catch (Exception ex) {
-            throw new ServiceException("JGLP05017 Word 文件上传 MinIO 失败：" + ex.getMessage());
-        }
-        Long newMinioId = Long.valueOf(newFileMap.getId());
-
-        TaskSheet existing = taskSheetMapper.selectByTaskIdAndType(taskId, "technical_condition");
-        if (existing != null) {
-            try { fileMapService.deleteFileMapById(existing.getSheetMinioId()); } catch (Exception ignored) {}
-            existing.setSheetMinioId(newMinioId);
-            taskSheetMapper.updateSheetMinioId(existing);
-        } else {
-            TaskSheet ts = new TaskSheet();
-            ts.setTaskId(taskId);
-            ts.setBuildingId(vo.getBuildingId());
-            ts.setType("technical_condition");
-            ts.setSheetMinioId(newMinioId);
-            taskSheetMapper.insert(ts);
-        }
-        return bytes;
+    public byte[] generateJglp05017WordDownloadBytes(Long taskId) {
+        return buildDocxBytes(getJglp05017Data(taskId), PageNumberPlacement.HEADER);
     }
 
     /** 加载模板 → 填充数据 → 返回 DOCX 字节流（不涉及任何存储） */
@@ -542,7 +576,8 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
             for (int i = 0; i < cells.size(); i++) {
                 if (cells.get(i).getText().contains(labelKeyword)) {
                     if (i + 1 < cells.size() && cells.get(i + 1).getText().trim().isEmpty()) {
-                        setCellText(cells.get(i + 1), value);
+                        setCellText(cells.get(i + 1), value,
+                                ParagraphAlignment.CENTER, XWPFTableCell.XWPFVertAlign.CENTER, cells.get(i));
                     }
                     return;
                 }
@@ -572,8 +607,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         int dataAreaEnd = (remarkRowIndex > headerRowCount) ? remarkRowIndex : diseaseTable.getRows().size();
         int existingDataRows = dataAreaEnd - headerRowCount;
         int fillCount = Math.min(diseases.size(), existingDataRows);
-        log.info("JGLP05017 fillDiseaseTable: 总行={} headerRows={} remarkRow={} 数据行={} 填入={}",
-                diseaseTable.getRows().size(), headerRowCount, remarkRowIndex, existingDataRows, fillCount);
 
         // 每一页只填模板预留的数据行；超过容量的数据由 buildDocxBytes 拆到下一整页模板
         for (int i = 0; i < fillCount; i++) {
@@ -624,7 +657,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         List<XWPFTableCell> cells = row.getTableCells();
         int n = cells.size();
         if (n < 4) return;
-        log.debug("fillDiseaseRow: cellCount={}", n);
 
         // 缺损位置：直接用 bi_disease.position 字段
         String positionText = nvl(d.getPosition());
@@ -657,24 +689,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
             if (n > 2) setCellText(cells.get(2), qty);
             if (n > 3) setCellText(cells.get(3), nvl(d.getDescription()));
         }
-    }
-
-    private void setCellText(XWPFTableCell cell, String text) {
-        cell.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
-        for (int i = cell.getParagraphs().size() - 1; i > 0; i--) {
-            cell.removeParagraph(i);
-        }
-        XWPFParagraph para = cell.getParagraphs().isEmpty()
-                ? cell.addParagraph() : cell.getParagraphArray(0);
-        para.setAlignment(ParagraphAlignment.CENTER);
-        para.setSpacingBefore(0);
-        para.setSpacingAfter(0);
-        for (int i = para.getRuns().size() - 1; i >= 0; i--) {
-            para.removeRun(i);
-        }
-        XWPFRun run = para.createRun();
-        run.setText(text != null ? text : "");
-        ReportGenerateTools.setMixedFontFamily(run, 21);
     }
 
     private void removeRowsAfterRemark(XWPFTable table) {
@@ -822,12 +836,29 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         if (text.contains("桥梁结构桥梁技术状况检测记录表")) {
             return;
         }
+        if (isFooterSignatureText(text)) {
+            return;
+        }
         // 只清除装饰（颜色/阴影等），不修改字号，避免 footer 等行字体放大后换行
         for (XWPFRun run : para.getRuns()) {
             clearRunDecoration(run);
             run.setBold(false);
             run.setColor("000000");
         }
+    }
+
+    private boolean isFooterSignatureText(String text) {
+        if (text == null) {
+            return false;
+        }
+        String normalized = text.replaceAll("\\s+", "");
+        if (normalized.contains("试验检测日期") || normalized.contains("检测依据")) {
+            return false;
+        }
+        return normalized.contains("检测：") || normalized.contains("检测:")
+                || normalized.contains("记录：") || normalized.contains("记录:")
+                || normalized.contains("复核：") || normalized.contains("复核:")
+                || normalized.contains("日期：") || normalized.contains("日期:");
     }
 
     private String nvl(String s) {

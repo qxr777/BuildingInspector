@@ -109,12 +109,6 @@ public class ApiController {
     private PackageMapper packageMapper;
 
     @Autowired
-    private IPackageService packageService;
-
-    @Autowired
-    private IAppPackageService appPackageService;
-
-    @Autowired
     private UserPackageTask userPackageTask;
 
     @Autowired
@@ -352,12 +346,15 @@ public class ApiController {
 
     /**
      * 上传桥梁压缩包数据（包含结构和病害）
+     * 压缩包命名：taskId.zip 或 taskId_year.zip
      * 压缩包结构：
-     * - buildingId目录
+     * - taskId/
      * - object.json (桥梁结构数据)
-     * - disease目录
-     * - 2025.json (病害数据)
-     * - 图片文件
+     * - disease/年份.json (病害数据)
+     * - disease/images/ (病害图片)
+     * - images/ (桥梁外观照)
+     * - frontPhoto.json
+     * - sheets/*.json (检测记录表)
      */
     @Log(title = "上传桥梁数据", businessType = BusinessType.INSERT)
     @PostMapping("/upload/bridgeData")
@@ -464,29 +461,6 @@ public class ApiController {
         String downloadUrl = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" +
                 prefix + "/" + fileMap.getNewName();
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
-    }
-
-    
-    /**
-     * 获取最新公共数据包下载信息。
-     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无公共数据包或文件缺失。
-     * 公共数据包由后台“公共数据包”页面手动生成，本接口只返回最新已生成包的version、packageSize和MinIO下载url。
-     */
-    @GetMapping("/user/commonPackage")
-    @ResponseBody
-    public AjaxResult getCommonPackage() {
-        return packageService.getLatestCommonTemplatePackage();
-    }
-
-    /**
-     * 获取移动端App当前发布版本信息。
-     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无发布包或文件映射缺失。
-     * 成功时返回version、apkName、packageSize和MinIO下载url，用于移动端检查版本更新。
-     */
-    @GetMapping("/user/appUpdate")
-    @ResponseBody
-    public AjaxResult getAppUpdate() {
-        return appPackageService.getPublishedAppUpdate();
     }
 
     @GetMapping("/user/dataPackageTest")
@@ -701,19 +675,9 @@ public class ApiController {
     @PostMapping("/batchAddBuilding")
     @ResponseBody
     public AjaxResult batchAddBuilding(MultipartFile file, Long projectId) {
-        int importCount = readFileService.ReadBuildingFile(file, projectId);
-        AjaxResult ajax = AjaxResult.success("导入成功，共新增 " + importCount + " 座桥梁");
-        ajax.put("importCount", importCount);
-        return ajax;
-    }
+        readFileService.ReadBuildingFile(file, projectId);
 
-    @PostMapping("/batchResumeBuilding")
-    @ResponseBody
-    public AjaxResult batchResumeBuilding(MultipartFile file) {
-        int resumeCount = readFileService.resumeBuildingFile(file);
-        AjaxResult ajax = AjaxResult.success("修复成功，共修复 " + resumeCount + " 座桥梁");
-        ajax.put("resumeCount", resumeCount);
-        return ajax;
+        return AjaxResult.success();
     }
 
 

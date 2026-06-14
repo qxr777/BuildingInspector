@@ -1,3 +1,4 @@
+
 package edu.whut.cs.bi.api.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
@@ -57,6 +58,8 @@ public class ApiServiceImpl implements ApiService {
     private TaskServiceImpl taskServiceImpl;
     @Autowired
     private TaskMapper taskMapper;
+    @Autowired
+    private edu.whut.cs.bi.biz.service.ITaskSheetService taskSheetService;
 
     /**
      * 上传桥梁压缩包
@@ -74,6 +77,7 @@ public class ApiServiceImpl implements ApiService {
         }
 
         Path tempDir = null;
+        Long taskId = null;
         Long buildingId = null;
         Calendar calendar = Calendar.getInstance();
         int currentYear = calendar.get(Calendar.YEAR);
@@ -83,14 +87,13 @@ public class ApiServiceImpl implements ApiService {
             String[] fileNameParts = fileNameWithoutSuffix.split("_");
             try {
                 if (fileNameParts.length > 0) {
-                    buildingId = Long.parseLong(fileNameParts[0]);
+                    taskId = Long.parseLong(fileNameParts[0]);
                 }
-                // 4. 提取year（如果有下划线分隔，第二个部分就是year）
                 if (fileNameParts.length >= 2) {
                     currentYear = Integer.parseInt(fileNameParts[1]);
                 }
             } catch (NumberFormatException e) {
-                throw new ServiceException("压缩包文件名格式错误，应为：buildingId.zip 或 buildingId_year.zip");
+                throw new ServiceException("压缩包文件名格式错误，应为：taskId.zip 或 taskId_year.zip");
             }
 
             // 创建临时目录存放解压文件
@@ -113,18 +116,28 @@ public class ApiServiceImpl implements ApiService {
                 }
             }
 
-            // 验证buildingId是否有效
+            if (taskId == null) {
+                throw new ServiceException("压缩包结构无效：未找到有效的 taskId");
+            }
+
+            Task task = taskMapper.selectTaskById(taskId);
+            if (task == null) {
+                throw new ServiceException("未找到ID为 " + taskId + " 的检测任务");
+            }
+            buildingId = task.getBuildingId();
             if (buildingId == null) {
-                throw  new ServiceException("压缩包结构无效：未找到有效的buildingId目录");
+                throw new ServiceException("检测任务未关联桥梁，taskId=" + taskId);
             }
 
             Building building = buildingService.selectBuildingById(buildingId);
             if (building == null) {
-                throw  new ServiceException("未找到ID为 " + buildingId + " 的建筑物");
+                throw new ServiceException("未找到ID为 " + buildingId + " 的建筑物");
             }
 
+            String zipRoot = taskId + "/";
+
             // 处理桥梁结构数据
-            String objectJsonPath = buildingId + "/object.json";
+            String objectJsonPath = zipRoot + "object.json";
             if (extractedFiles.containsKey(objectJsonPath)) {
                 String objectJson = new String(Files.readAllBytes(extractedFiles.get(objectJsonPath)));
                 BiObject rootObject = JSONObject.parseObject(objectJson, BiObject.class);
@@ -137,7 +150,7 @@ public class ApiServiceImpl implements ApiService {
             }
 
             // 处理病害数据 - 根据当前年份获取对应的JSON文件
-            String diseaseDir = buildingId + "/disease/";
+            String diseaseDir = zipRoot + "disease/";
             String yearJsonFileName = currentYear + ".json";
 
             Optional<String> jsonFilePathOpt = extractedFiles.keySet().stream()
@@ -169,9 +182,7 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
                 // 批量保存病害数据
-                Long projectId = null;
                 if (!diseases.isEmpty()) {
-                    projectId =diseases.get(0).getProjectId();
                     diseaseService.batchSaveDiseases(diseases);
                 }
                 // 处理病害图片
@@ -185,11 +196,8 @@ public class ApiServiceImpl implements ApiService {
                         if (images != null && !images.isEmpty()) {
                             for (String imagePath : images) {
                                 if (imagePath != null && !imagePath.isEmpty()) {
-                                    // 检查路径是否已经包含buildingId
                                     String fullPath = imagePath;
-                                    // 尝试查找文件
                                     if (extractedFiles.containsKey(fullPath)) {
-                                        // 处理图片附件
                                         File imageFile = extractedFiles.get(fullPath).toFile();
                                         imagesFiles.add(imageFile);
                                     }
@@ -203,11 +211,8 @@ public class ApiServiceImpl implements ApiService {
                         if (ADImages != null && !ADImages.isEmpty()) {
                             for (String imagePath : ADImages) {
                                 if (imagePath != null && !imagePath.isEmpty()) {
-                                    // 检查路径是否已经包含buildingId
                                     String fullPath = imagePath;
-                                    // 尝试查找文件
                                     if (extractedFiles.containsKey(fullPath)) {
-                                        // 处理图片附件
                                         File imageFile = extractedFiles.get(fullPath).toFile();
                                         adImagesFiles.add(imageFile);
                                     }
@@ -223,7 +228,7 @@ public class ApiServiceImpl implements ApiService {
                 }
                 // 处理桥梁图片数据
 
-                String frontPhotoJsonPath = buildingId + "/frontPhoto.json";
+                String frontPhotoJsonPath = zipRoot + "frontPhoto.json";
                 if (extractedFiles.containsKey(frontPhotoJsonPath)) {
                     String frontPhotoJson = new String(Files.readAllBytes(extractedFiles.get(frontPhotoJsonPath)));
                     JSONObject jsonObject2 = JSONObject.parseObject(frontPhotoJson);
@@ -324,17 +329,47 @@ public class ApiServiceImpl implements ApiService {
                         uploadBridgeDataImage(buildingId, frontArray, sideArray);
                     }
                 }
-                if (projectId != null) {
-                    Task queryTask = new Task();
-                    queryTask.setBuildingId(buildingId);
-                    queryTask.setProjectId(projectId);
-                    List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
-                    if(!tasks.isEmpty()) {
-                        Task task = tasks.get(0);
-                        task.setType(1);
-                        task.setUpdateBy(ShiroUtils.getLoginName());
-                        taskMapper.updateTask(task);
+                if (!diseases.isEmpty()) {
+                    task.setType(1);
+                    task.setUpdateBy(ShiroUtils.getLoginName());
+                    taskMapper.updateTask(task);
+                }
+            }
+
+            // 处理表格数据（sheets 文件夹，与 disease 等文件夹平级）
+            String sheetsDir = zipRoot + "sheets/";
+            List<String> sheetFilePaths = extractedFiles.keySet().stream()
+                    .filter(path -> path.startsWith(sheetsDir) && path.endsWith(".json"))
+                    .collect(java.util.stream.Collectors.toList());
+
+            if (!sheetFilePaths.isEmpty()) {
+                for (String sheetFilePath : sheetFilePaths) {
+                    String sheetJson = new String(
+                            Files.readAllBytes(extractedFiles.get(sheetFilePath)),
+                            java.nio.charset.StandardCharsets.UTF_8);
+                    JSONObject sheetObj;
+                    try {
+                        sheetObj = JSONObject.parseObject(sheetJson);
+                    } catch (Exception e) {
+                        throw new ServiceException(
+                                "表格JSON解析失败，路径=" + sheetFilePath + "：" + e.getMessage());
                     }
+
+                    // 仅处理 commitType == 1 的表格（新增或有改动）
+                    Integer commitType = sheetObj.getInteger("commitType");
+                    if (commitType == null || commitType != 1) {
+                        continue;
+                    }
+
+                    String sheetId = sheetObj.getString("sheetId");
+                    if (sheetId == null || sheetId.trim().isEmpty()) {
+                        throw new ServiceException(
+                                "表格JSON缺少sheetId字段，路径=" + sheetFilePath);
+                    }
+
+                    byte[] jsonBytes = sheetJson.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    taskSheetService.saveOrUpdateSheet(taskId, buildingId, sheetId.trim(),
+                            jsonBytes, sheetId.trim() + ".json");
                 }
             }
 
