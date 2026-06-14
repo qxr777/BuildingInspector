@@ -228,11 +228,11 @@
 
         }
 
-        var url = sheetPrefix + "/view/" + taskId + "/" + encodeURIComponent(type)
+        var previewUrl = sheetPrefix + "/preview/sheet/" + taskId + "/"
 
-            + "?sheetName=" + encodeURIComponent(sheetName);
+            + encodeURIComponent(type) + "?sheetName=" + encodeURIComponent(sheetName);
 
-        openSheetLayer(url, sheetName);
+        openSheetLayer(previewUrl, sheetName);
 
     }
 
@@ -258,7 +258,7 @@
 
         }
 
-        window.location.href = sheetPrefix + "/download/" + taskId + "/"
+        window.location.href = sheetPrefix + "/download/sheet/" + taskId + "/"
 
             + encodeURIComponent(type) + "?sheetName=" + encodeURIComponent(sheetName);
 
