@@ -1,0 +1,122 @@
+{
+    "sheetId": "alignment_total_station",
+    "sheetCode": "JGLP05009a-1",
+    "sheetName": "桥梁结构结构线形检测记录表(全站仪)",
+    "pages": [
+        {
+            "pageIndex": 0,
+            "header": {
+                "inspectionUnitName": "湖北交投智能检测股份有限公司",
+                "recordNumber": "666",
+                "projectName": "666",
+                "partUse": "666",
+                "sampleInfo": "666",
+                "testDate": "2026-06-12",
+                "testCondition": "666",
+                "inspectionBasis": "GB 50026-2020",
+                "judgementBasis": "666",
+                "equipment": "666",
+                "workCondition": "",
+                "basePointElevation": ""
+            },
+            "records": [
+                {
+                    "rowIndex": 1,
+                    "coordinateName": "测站坐标",
+                    "coordinateX": "66",
+                    "coordinateY": "66",
+                    "coordinateZ": "66"
+                },
+                {
+                    "rowIndex": 2,
+                    "coordinateName": "后视点坐标",
+                    "coordinateX": "6",
+                    "coordinateY": "6",
+                    "coordinateZ": "6"
+                },
+                {
+                    "rowIndex": 3,
+                    "coordinateName": "校核点坐标",
+                    "coordinateX": "666",
+                    "coordinateY": "666",
+                    "coordinateZ": "666"
+                },
+                {
+                    "rowIndex": 4,
+                    "coordinateName": "1",
+                    "coordinateX": "6",
+                    "coordinateY": "6",
+                    "coordinateZ": "6"
+                },
+                {
+                    "rowIndex": 5,
+                    "coordinateName": "2",
+                    "coordinateX": "66",
+                    "coordinateY": "66",
+                    "coordinateZ": "66"
+                }
+            ],
+            "remark": "6666666"
+        },
+        {
+            "pageIndex": 1,
+            "header": {
+                "inspectionUnitName": "湖北交投智能检测股份有限公司",
+                "recordNumber": "666",
+                "projectName": "666",
+                "partUse": "666",
+                "sampleInfo": "666",
+                "testDate": "2026-06-12",
+                "testCondition": "666",
+                "inspectionBasis": "GB 50026-2020",
+                "judgementBasis": "666",
+                "equipment": "666",
+                "workCondition": "",
+                "basePointElevation": ""
+            },
+            "records": [
+                {
+                    "rowIndex": 1,
+                    "coordinateName": "测站坐标",
+                    "coordinateX": "66",
+                    "coordinateY": "66",
+                    "coordinateZ": "66"
+                },
+                {
+                    "rowIndex": 2,
+                    "coordinateName": "后视点坐标",
+                    "coordinateX": "6",
+                    "coordinateY": "6",
+                    "coordinateZ": "6"
+                },
+                {
+                    "rowIndex": 3,
+                    "coordinateName": "校核点坐标",
+                    "coordinateX": "666",
+                    "coordinateY": "666",
+                    "coordinateZ": "666"
+                },
+                {
+                    "rowIndex": 4,
+                    "coordinateName": "1",
+                    "coordinateX": "6",
+                    "coordinateY": "6",
+                    "coordinateZ": "6"
+                },
+                {
+                    "rowIndex": 5,
+                    "coordinateName": "2",
+                    "coordinateX": "66",
+                    "coordinateY": "66",
+                    "coordinateZ": "66"
+                }
+            ],
+            "remark": "6666666"
+        }
+    ],
+    "createBy": "inspector2@znjc",
+    "createTime": "2026-06-12T11:38:45.280+0800",
+    "updateBy": "inspector2@znjc",
+    "updateTime": "2026-06-12T11:43:44.820+0800",
+    "commitType": 1
+}

@@ -1,0 +1,124 @@
+{
+    "sheetId": "cable_force_vibration",
+    "sheetCode": "JGLP05012a",
+    "sheetName": "索力检测记录表(振动法)",
+    "pages": [
+        {
+            "pageIndex": 0,
+            "header": {
+                "inspectionUnitName": "湖北交投智能检测股份有限公司",
+                "recordNumber": "888",
+                "projectName": "888",
+                "partUse": "888",
+                "sampleInfo": "888",
+                "testDate": "2026-06-12",
+                "testCondition": "888",
+                "inspectionBasis": "JTG/T J21-01-2015",
+                "judgementBasis": "JTG/T 5122-2021",
+                "equipment": "888",
+                "workCondition": "",
+                "basePointElevation": ""
+            },
+            "records": [
+                {
+                    "rowIndex": 1,
+                    "cableNo": "1",
+                    "serialNumber": "1",
+                    "frequencySummary": "2",
+                    "frequencyOrder1": "1",
+                    "frequencyValue1": "2",
+                    "frequencyOrder2": "1",
+                    "frequencyValue2": "2",
+                    "frequencyOrder3": "1",
+                    "frequencyValue3": "2",
+                    "frequencyOrder4": "1",
+                    "frequencyValue4": "2",
+                    "frequencyOrder5": "1",
+                    "frequencyValue5": "2",
+                    "frequencyOrder6": "1",
+                    "frequencyValue6": "2"
+                },
+                {
+                    "rowIndex": 2,
+                    "cableNo": "2",
+                    "serialNumber": "2",
+                    "frequencySummary": "2",
+                    "frequencyOrder1": "2",
+                    "frequencyValue1": "3",
+                    "frequencyOrder2": "2",
+                    "frequencyValue2": "3",
+                    "frequencyOrder3": "2",
+                    "frequencyValue3": "3",
+                    "frequencyOrder4": "2",
+                    "frequencyValue4": "3",
+                    "frequencyOrder5": "2",
+                    "frequencyValue5": "3",
+                    "frequencyOrder6": "2",
+                    "frequencyValue6": "3"
+                }
+            ],
+            "remark": "8888888"
+        },
+        {
+            "pageIndex": 1,
+            "header": {
+                "inspectionUnitName": "湖北交投智能检测股份有限公司",
+                "recordNumber": "888",
+                "projectName": "888",
+                "partUse": "888",
+                "sampleInfo": "888",
+                "testDate": "2026-06-12",
+                "testCondition": "888",
+                "inspectionBasis": "JTG/T J21-01-2015",
+                "judgementBasis": "JTG/T 5122-2021",
+                "equipment": "888",
+                "workCondition": "",
+                "basePointElevation": ""
+            },
+            "records": [
+                {
+                    "rowIndex": 1,
+                    "cableNo": "1",
+                    "serialNumber": "1",
+                    "frequencySummary": "2",
+                    "frequencyOrder1": "1",
+                    "frequencyValue1": "2",
+                    "frequencyOrder2": "1",
+                    "frequencyValue2": "2",
+                    "frequencyOrder3": "1",
+                    "frequencyValue3": "2",
+                    "frequencyOrder4": "1",
+                    "frequencyValue4": "2",
+                    "frequencyOrder5": "1",
+                    "frequencyValue5": "2",
+                    "frequencyOrder6": "1",
+                    "frequencyValue6": "2"
+                },
+                {
+                    "rowIndex": 2,
+                    "cableNo": "2",
+                    "serialNumber": "2",
+                    "frequencySummary": "2",
+                    "frequencyOrder1": "2",
+                    "frequencyValue1": "3",
+                    "frequencyOrder2": "2",
+                    "frequencyValue2": "3",
+                    "frequencyOrder3": "2",
+                    "frequencyValue3": "3",
+                    "frequencyOrder4": "2",
+                    "frequencyValue4": "3",
+                    "frequencyOrder5": "2",
+                    "frequencyValue5": "3",
+                    "frequencyOrder6": "2",
+                    "frequencyValue6": "3"
+                }
+            ],
+            "remark": "8888888"
+        }
+    ],
+    "createBy": "inspector2@znjc",
+    "createTime": "2026-06-12T11:40:52.774+0800",
+    "updateBy": "inspector2@znjc",
+    "updateTime": "2026-06-12T11:43:44.820+0800",
+    "commitType": 1
+}

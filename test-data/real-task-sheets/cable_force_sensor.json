@@ -1,0 +1,92 @@
+{
+    "sheetId": "cable_force_sensor",
+    "sheetCode": "JGLP05012b",
+    "sheetName": "桥梁结构检测与监测索力试验检测记录表(测力传感器法)",
+    "pages": [
+        {
+            "pageIndex": 0,
+            "header": {
+                "inspectionUnitName": "湖北交投智能检测股份有限公司",
+                "recordNumber": "999",
+                "projectName": "999",
+                "partUse": "999",
+                "sampleInfo": "999",
+                "testDate": "2026-06-12",
+                "testCondition": "999",
+                "inspectionBasis": "999",
+                "judgementBasis": "999",
+                "equipment": "999",
+                "workCondition": "999",
+                "basePointElevation": ""
+            },
+            "records": [
+                {
+                    "rowIndex": 1,
+                    "cableNo": "1",
+                    "sensorNumber": "9",
+                    "testTemperature": "9",
+                    "frequency": "9",
+                    "measuredCableForce": "9",
+                    "theoreticalCableForce": "9",
+                    "note": "9"
+                },
+                {
+                    "rowIndex": 2,
+                    "cableNo": "2",
+                    "sensorNumber": "99",
+                    "testTemperature": "99",
+                    "frequency": "99",
+                    "measuredCableForce": "99",
+                    "theoreticalCableForce": "99",
+                    "note": "99"
+                }
+            ],
+            "remark": "999999"
+        },
+        {
+            "pageIndex": 1,
+            "header": {
+                "inspectionUnitName": "湖北交投智能检测股份有限公司",
+                "recordNumber": "999",
+                "projectName": "999",
+                "partUse": "999",
+                "sampleInfo": "999",
+                "testDate": "2026-06-12",
+                "testCondition": "999",
+                "inspectionBasis": "999",
+                "judgementBasis": "999",
+                "equipment": "999",
+                "workCondition": "999",
+                "basePointElevation": ""
+            },
+            "records": [
+                {
+                    "rowIndex": 1,
+                    "cableNo": "1",
+                    "sensorNumber": "9",
+                    "testTemperature": "9",
+                    "frequency": "9",
+                    "measuredCableForce": "9",
+                    "theoreticalCableForce": "9",
+                    "note": "9"
+                },
+                {
+                    "rowIndex": 2,
+                    "cableNo": "2",
+                    "sensorNumber": "99",
+                    "testTemperature": "99",
+                    "frequency": "99",
+                    "measuredCableForce": "99",
+                    "theoreticalCableForce": "99",
+                    "note": "99"
+                }
+            ],
+            "remark": "999999"
+        }
+    ],
+    "createBy": "inspector2@znjc",
+    "createTime": "2026-06-12T11:42:15.465+0800",
+    "updateBy": "inspector2@znjc",
+    "updateTime": "2026-06-12T11:43:44.820+0800",
+    "commitType": 1
+}
