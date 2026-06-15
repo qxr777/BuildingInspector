@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,6 +59,8 @@ public class ApiServiceImpl implements ApiService {
     private TaskServiceImpl taskServiceImpl;
     @Autowired
     private TaskMapper taskMapper;
+    @Autowired
+    private ITaskSheetService taskSheetService;
 
     /**
      * 上传桥梁压缩包
@@ -76,6 +79,7 @@ public class ApiServiceImpl implements ApiService {
 
         Path tempDir = null;
         Long buildingId = null;
+        Long projectId = null;
         Calendar calendar = Calendar.getInstance();
         int currentYear = calendar.get(Calendar.YEAR);
 
@@ -164,7 +168,7 @@ public class ApiServiceImpl implements ApiService {
                 } catch (Exception e) {
                     log.error("病害JSON解析失败，原始内容前500字符: {}",
                             diseaseJson.substring(0, Math.min(500, diseaseJson.length())), e);
-                    throw  new ServiceException("病害数据JSON格式错误: " + e.getMessage());
+                    throw new ServiceException("病害数据JSON格式错误: " + e.getMessage());
                 }
 
                 for (Disease disease : diseases) {
@@ -173,7 +177,6 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
                 // 批量保存病害数据
-                Long projectId = null;
                 if (!diseases.isEmpty()) {
                     projectId =diseases.get(0).getProjectId();
                     diseaseService.batchSaveDiseases(diseases);
@@ -341,6 +344,8 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
             }
+            //处理检测任务的表格数据
+            importInspectionSheets(extractedFiles, buildingId, projectId);
 
             return AjaxResult.success("桥梁数据上传成功");
         } catch (Exception e) {
@@ -378,6 +383,82 @@ public class ApiServiceImpl implements ApiService {
         }
     }
 
+    private void importInspectionSheets(Map<String, Path> extractedFiles, Long buildingId, Long projectId) throws IOException {
+        String sheetsPrefix = buildingId + "/sheets/";
+        List<Map.Entry<String, Path>> sheetEntries = extractedFiles.entrySet().stream()
+                .filter(entry -> isInspectionSheetJson(entry.getKey(), sheetsPrefix))
+                .sorted(Map.Entry.comparingByKey())
+                .toList();
+        if (sheetEntries.isEmpty()) {
+            return;
+        }
+
+        if (projectId == null) {
+            throw new ServiceException("检测记录表导入失败：无法通过病害数据获取projectId，不能定位检测任务");
+        }
+
+        Task task = resolveUniqueTaskForSheets(projectId, buildingId);
+        for (Map.Entry<String, Path> entry : sheetEntries) {
+            String sheetType = extractSheetType(entry.getKey(), sheetsPrefix);
+            validateSheetType(sheetType);
+
+            byte[] jsonBytes = Files.readAllBytes(entry.getValue());
+            validateSheetJson(sheetType, jsonBytes);
+            taskSheetService.saveOrUpdateSheet(task.getId(), buildingId, sheetType, jsonBytes, sheetType + ".json");
+        }
+    }
+
+    private boolean isInspectionSheetJson(String path, String sheetsPrefix) {
+        if (path == null || !path.startsWith(sheetsPrefix) || !path.endsWith(".json")) {
+            return false;
+        }
+        String relativePath = path.substring(sheetsPrefix.length());
+        return !relativePath.isEmpty() && !relativePath.contains("/");
+    }
+
+    private String extractSheetType(String path, String sheetsPrefix) {
+        String fileName = path.substring(sheetsPrefix.length());
+        return fileName.substring(0, fileName.length() - ".json".length());
+    }
+
+    private Task resolveUniqueTaskForSheets(Long projectId, Long buildingId) {
+        Task queryTask = new Task();
+        queryTask.setProjectId(projectId);
+        queryTask.setBuildingId(buildingId);
+        List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
+        if (tasks == null || tasks.isEmpty()) {
+            throw new ServiceException("检测记录表导入失败：未找到projectId=" + projectId + "、buildingId=" + buildingId + "对应的检测任务");
+        }
+        if (tasks.size() > 1) {
+            throw new ServiceException("检测记录表导入失败：projectId=" + projectId + "、buildingId=" + buildingId + "匹配到多个检测任务");
+        }
+        return tasks.get(0);
+    }
+
+    private void validateSheetType(String sheetType) {
+        if (!taskSheetService.supportsJsonSheetWord(sheetType)) {
+            throw new ServiceException("检测记录表导入失败：不支持的表格类型 " + sheetType);
+        }
+    }
+
+    private void validateSheetJson(String sheetType, byte[] jsonBytes) {
+        try {
+            JSONObject sheetJson = JSONObject.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
+            String jsonSheetId = sheetJson.getString("sheetId");
+            String jsonType = sheetJson.getString("type");
+            if (jsonSheetId != null && !sheetType.equals(jsonSheetId)) {
+                throw new ServiceException("检测记录表导入失败：文件名类型" + sheetType + "与JSON sheetId " + jsonSheetId + "不一致");
+            }
+            if (jsonType != null && !sheetType.equals(jsonType)) {
+                throw new ServiceException("检测记录表导入失败：文件名类型" + sheetType + "与JSON type " + jsonType + "不一致");
+            }
+        } catch (ServiceException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceException("检测记录表导入失败：" + sheetType + ".json不是合法JSON");
+        }
+    }
+
     public void uploadBridgeDataImage(long id, MultipartFile frontFile[], MultipartFile sideFile[]) {
         for (int i = 0; i < frontFile.length; i++) {
             fileMapController.uploadAttachment(id, frontFile[i], "newfront", i);
@@ -394,5 +475,4 @@ public class ApiServiceImpl implements ApiService {
         Object parsed = JSON.parse(json);
         return JSON.toJSONString(parsed);
     }
-
 }
