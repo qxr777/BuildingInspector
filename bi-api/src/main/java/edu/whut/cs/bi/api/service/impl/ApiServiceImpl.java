@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.api.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.exception.ServiceException;
@@ -147,6 +148,7 @@ public class ApiServiceImpl implements ApiService {
             if (jsonFilePathOpt.isPresent()) {
                 String jsonFilePath = jsonFilePathOpt.get();
                 String diseaseJson = new String(Files.readAllBytes(extractedFiles.get(jsonFilePath)));
+                diseaseJson = sanitizeDiseaseJson(diseaseJson);
                 // 检查JSON格式，处理可能的包装对象
                 JSONObject jsonObject;
                 List<Disease> diseases;
@@ -160,6 +162,8 @@ public class ApiServiceImpl implements ApiService {
                         diseases = JSONObject.parseArray(diseaseJson, Disease.class);
                     }
                 } catch (Exception e) {
+                    log.error("病害JSON解析失败，原始内容前500字符: {}",
+                            diseaseJson.substring(0, Math.min(500, diseaseJson.length())), e);
                     throw  new ServiceException("病害数据JSON格式错误: " + e.getMessage());
                 }
 
@@ -382,4 +386,13 @@ public class ApiServiceImpl implements ApiService {
             fileMapController.uploadAttachment(id, sideFile[i], "newside", i);
         }
     }
+
+    private String sanitizeDiseaseJson(String json) {
+        json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"普通\"", "\"areaIdentifier\":0");
+        json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"平均\"", "\"areaIdentifier\":1");
+        json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"总计\"", "\"areaIdentifier\":2");
+        Object parsed = JSON.parse(json);
+        return JSON.toJSONString(parsed);
+    }
+
 }
