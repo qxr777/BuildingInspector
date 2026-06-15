@@ -109,6 +109,12 @@ public class ApiController {
     private PackageMapper packageMapper;
 
     @Autowired
+    private IPackageService packageService;
+
+    @Autowired
+    private IAppPackageService appPackageService;
+
+    @Autowired
     private UserPackageTask userPackageTask;
 
     @Autowired
@@ -346,15 +352,12 @@ public class ApiController {
 
     /**
      * 上传桥梁压缩包数据（包含结构和病害）
-     * 压缩包命名：taskId.zip 或 taskId_year.zip
      * 压缩包结构：
-     * - taskId/
+     * - buildingId目录
      * - object.json (桥梁结构数据)
-     * - disease/年份.json (病害数据)
-     * - disease/images/ (病害图片)
-     * - images/ (桥梁外观照)
-     * - frontPhoto.json
-     * - sheets/*.json (检测记录表)
+     * - disease目录
+     * - 2025.json (病害数据)
+     * - 图片文件
      */
     @Log(title = "上传桥梁数据", businessType = BusinessType.INSERT)
     @PostMapping("/upload/bridgeData")
@@ -463,6 +466,29 @@ public class ApiController {
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
     }
 
+
+    /**
+     * 获取最新公共数据包下载信息。
+     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无公共数据包或文件缺失。
+     * 公共数据包由后台“公共数据包”页面手动生成，本接口只返回最新已生成包的version、packageSize和MinIO下载url。
+     */
+    @GetMapping("/user/commonPackage")
+    @ResponseBody
+    public AjaxResult getCommonPackage() {
+        return packageService.getLatestCommonTemplatePackage();
+    }
+
+    /**
+     * 获取移动端App当前发布版本信息。
+     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无发布包或文件映射缺失。
+     * 成功时返回version、apkName、packageSize和MinIO下载url，用于移动端检查版本更新。
+     */
+    @GetMapping("/user/appUpdate")
+    @ResponseBody
+    public AjaxResult getAppUpdate() {
+        return appPackageService.getPublishedAppUpdate();
+    }
+
     @GetMapping("/user/dataPackageTest")
     @ResponseBody
     public AjaxResult getUserDataPackageTest() {
@@ -480,9 +506,9 @@ public class ApiController {
         }
         return AjaxResult.success("查询成功", building);
     }
-    
-    
-    
+
+
+
     /**
      * 通过word文件添加
      */
@@ -501,14 +527,14 @@ public class ApiController {
         Property property = new Property();
         property.setCreateBy(ShiroUtils.getLoginName());
         property.setUpdateBy(ShiroUtils.getLoginName());
-        
+
         Boolean read = propertyService.readWordFile(file, property, buildingId);
         if (read == null || !read) {
             throw new ServiceException("读取Word并写入属性失败");
         }
         Building building = null;
         building = buildingService.selectBuildingById(buildingId);
-        
+
         return building;
     }
 
@@ -552,8 +578,8 @@ public class ApiController {
                     BiTemplateObject biTemplateObject = collect.get(templateObjectId);
                     children.stream().filter(child -> child.getParentId().equals(child_3.getId()) && child.getName().equals(biTemplateObject.getName()))
                             .findFirst().ifPresent(child -> {
-                        templateToDiseaseTypeIds.computeIfAbsent(child.getId(), k -> new ArrayList<>()).add(diseaseTypeId);
-                    });
+                                templateToDiseaseTypeIds.computeIfAbsent(child.getId(), k -> new ArrayList<>()).add(diseaseTypeId);
+                            });
                 }
             });
         });
@@ -570,7 +596,7 @@ public class ApiController {
      */
     @PostMapping("/reassignComponentsFromOthers/{rootObjectId}")
     public AjaxResult reassignComponentsFromOthers(
-                                             @PathVariable("rootObjectId") Long rootObjectId) {
+            @PathVariable("rootObjectId") Long rootObjectId) {
         return AjaxResult.success(biObjectService.reassignComponentsFromOthers(rootObjectId));
     }
 
@@ -675,9 +701,19 @@ public class ApiController {
     @PostMapping("/batchAddBuilding")
     @ResponseBody
     public AjaxResult batchAddBuilding(MultipartFile file, Long projectId) {
-        readFileService.ReadBuildingFile(file, projectId);
+        int importCount = readFileService.ReadBuildingFile(file, projectId);
+        AjaxResult ajax = AjaxResult.success("导入成功，共新增 " + importCount + " 座桥梁");
+        ajax.put("importCount", importCount);
+        return ajax;
+    }
 
-        return AjaxResult.success();
+    @PostMapping("/batchResumeBuilding")
+    @ResponseBody
+    public AjaxResult batchResumeBuilding(MultipartFile file) {
+        int resumeCount = readFileService.resumeBuildingFile(file);
+        AjaxResult ajax = AjaxResult.success("修复成功，共修复 " + resumeCount + " 座桥梁");
+        ajax.put("resumeCount", resumeCount);
+        return ajax;
     }
 
 
