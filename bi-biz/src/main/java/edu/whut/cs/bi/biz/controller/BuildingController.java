@@ -194,6 +194,21 @@ public class BuildingController extends BaseController {
     }
 
     /**
+     * 批量修改桥梁线路
+     */
+    @RequiresPermissions("biz:building:edit")
+    @Log(title = "建筑", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchUpdateLine")
+    @ResponseBody
+    public AjaxResult batchUpdateLine(@RequestParam("originalLine") String originalLine,
+                                      @RequestParam("targetLine") String targetLine) {
+        int updateCount = buildingService.batchUpdateLine(originalLine, targetLine);
+        AjaxResult ajax = AjaxResult.success("修改成功，共更新 " + updateCount + " 座桥梁");
+        ajax.put("updateCount", updateCount);
+        return ajax;
+    }
+
+    /**
      * 删除建筑
      */
     @RequiresPermissions("biz:building:remove")

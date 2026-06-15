@@ -722,6 +722,16 @@ public class ApiController {
      * 扫描2025-09-13至2025-09-14期间的病害数据，
      * 清理不一致的构件关联，并重新匹配或创建正确的构件
      */
+    @PostMapping("/building/batchUpdateLine")
+    @ResponseBody
+    public AjaxResult batchUpdateBuildingLine(@RequestParam("originalLine") String originalLine,
+                                              @RequestParam("targetLine") String targetLine) {
+        int updateCount = buildingService.batchUpdateLine(originalLine, targetLine);
+        AjaxResult ajax = AjaxResult.success("修改成功，共更新 " + updateCount + " 座桥梁");
+        ajax.put("updateCount", updateCount);
+        return ajax;
+    }
+
     @PostMapping("/fixDiseaseComponents")
     @ResponseBody
     @Transactional

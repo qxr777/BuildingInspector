@@ -80,6 +80,10 @@ public interface BuildingMapper {
      * @param updateBy 更新人
      * @return 结果
      */
+    public List<Building> selectBatchUpdateLineConflicts(@Param("originalLine") String originalLine, @Param("targetLine") String targetLine);
+
+    public int batchUpdateLine(@Param("originalLine") String originalLine, @Param("targetLine") String targetLine, @Param("updateBy") String updateBy);
+
     public int updateBuildingRootObjectId(@Param("id") Long id, @Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
 
     /**

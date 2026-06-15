@@ -191,7 +191,7 @@ public class BuildingServiceImpl implements IBuildingService {
         query.setName(building.getName());
         query.setArea(building.getArea());
         query.setLine(building.getLine());
-        List<Building> buildings = this.selectBuildingList(query);
+        List<Building> buildings = buildingMapper.selectBuildingExactList(query);
         List<Long> queryIds = buildings.stream().map(Building::getId).filter(id -> !id.equals(building.getId())).toList();
         if (CollUtil.isNotEmpty(queryIds)) {
             log.error("该片区线路桥梁已存在");
@@ -305,6 +305,28 @@ public class BuildingServiceImpl implements IBuildingService {
      * @param ids 需要删除的建筑主键
      * @return 结果
      */
+    @Override
+    @Transactional
+    public int batchUpdateLine(String originalLine, String targetLine) {
+        if (StringUtils.isEmpty(originalLine) || StringUtils.isEmpty(targetLine)) {
+            throw new RuntimeException("原线路和修改后的线路不能为空");
+        }
+        if (originalLine.equals(targetLine)) {
+            return 0;
+        }
+
+        List<Building> conflicts = buildingMapper.selectBatchUpdateLineConflicts(originalLine, targetLine);
+        if (CollUtil.isNotEmpty(conflicts)) {
+            String conflictNames = conflicts.stream()
+                    .limit(5)
+                    .map(Building::getName)
+                    .collect(Collectors.joining("、"));
+            throw new RuntimeException("修改后会产生同片区同线路同名桥梁：" + conflictNames);
+        }
+
+        return buildingMapper.batchUpdateLine(originalLine, targetLine, ShiroUtils.getLoginName());
+    }
+
     @Override
     @Transactional
     public int deleteBuildingByIds(String ids) {

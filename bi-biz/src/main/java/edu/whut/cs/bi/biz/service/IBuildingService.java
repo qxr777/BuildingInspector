@@ -60,6 +60,8 @@ public interface IBuildingService {
      * @param ids 需要删除的建筑主键集合
      * @return 结果
      */
+    public int batchUpdateLine(String originalLine, String targetLine);
+
     public int deleteBuildingByIds(String ids);
 
     /**

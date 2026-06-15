@@ -70,6 +70,24 @@
         </where>
     </select>
 
+    <select id="selectBatchUpdateLineConflicts" resultMap="BuildingResult">
+        SELECT old_b.id, old_b.name, old_b.is_leaf, old_b.status, old_b.del_flag,
+               old_b.longitude, old_b.latitude, old_b.altitude, old_b.address,
+               old_b.area, old_b.line, old_b.admin_dept, old_b.weight, old_b.video_feed,
+               old_b.root_object_id, old_b.root_property_id, old_b.remark,
+               old_b.create_by, old_b.create_time, old_b.update_by, old_b.update_time
+        FROM bi_building old_b
+                 INNER JOIN bi_building target_b
+                            ON target_b.del_flag = '0'
+                           AND target_b.line = #{targetLine}
+                           AND target_b.name = old_b.name
+                           AND target_b.area = old_b.area
+                           AND target_b.id != old_b.id
+        WHERE old_b.del_flag = '0'
+          AND old_b.line = #{originalLine}
+        LIMIT 10
+    </select>
+
     <select id="selectAbnormalBridgeSpanList" parameterType="Building" resultMap="BuildingWithParentResult">
         SELECT result.*
         FROM (
@@ -239,6 +257,15 @@
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
         where id = #{id}
+    </update>
+
+    <update id="batchUpdateLine">
+        update bi_building
+        set line = #{targetLine},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where del_flag = '0'
+          and line = #{originalLine}
     </update>
 
     <update id="updateBuildingRootObjectId">
