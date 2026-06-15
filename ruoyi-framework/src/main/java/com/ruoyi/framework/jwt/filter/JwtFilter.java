@@ -53,10 +53,6 @@ public class JwtFilter extends AccessControlFilter
         String token = WebUtils.toHttp(request).getHeader(AUTHZ_HEADER);
         if (StringUtils.isEmpty(token))
         {
-            token = WebUtils.toHttp(request).getParameter("token");
-        }
-        if (StringUtils.isEmpty(token))
-        {
             MSG_HOLDER.set("消息头不正确，header需要携带token参数");
             return false;
         }
