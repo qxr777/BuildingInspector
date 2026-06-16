@@ -351,6 +351,10 @@ public class TaskServiceImpl implements ITaskService {
         Project project = projectMapper.selectProjectById(projectId);
         project.setUpdateTime(DateUtils.getNowDate());
         projectMapper.updateProject(project);
+        List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
+        if (!users.isEmpty()) {
+            packageMapper.batchUpdateUpdateTimeNow(users);
+        }
 
         return taskMapper.batchInsertTask(projectId, buildingIds, ShiroUtils.getLoginName());
     }
