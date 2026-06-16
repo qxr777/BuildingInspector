@@ -166,8 +166,7 @@ public class ApiServiceImpl implements ApiService {
                         diseases = JSONObject.parseArray(diseaseJson, Disease.class);
                     }
                 } catch (Exception e) {
-                    log.error("病害JSON解析失败，原始内容前500字符: {}",
-                            diseaseJson.substring(0, Math.min(500, diseaseJson.length())), e);
+                    log.error("病害JSON解析失败，原始JSON: {}", diseaseJson, e);
                     throw new ServiceException("病害数据JSON格式错误: " + e.getMessage());
                 }
 
