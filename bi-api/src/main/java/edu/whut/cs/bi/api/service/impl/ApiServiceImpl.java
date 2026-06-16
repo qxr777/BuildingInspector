@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.api.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.exception.ServiceException;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import java.io.*;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -467,11 +469,54 @@ public class ApiServiceImpl implements ApiService {
         }
     }
 
+    private static final Set<String> NUMERIC_FIELDS = new HashSet<>(Arrays.asList(
+            "reference1LocationStart", "reference1LocationEnd",
+            "reference2LocationStart", "reference2LocationEnd",
+            "length1", "length2", "length3", "width", "heightDepth", "crackWidth",
+            "areaLength", "areaWidth", "deformation",
+            "lengthRangeStart", "lengthRangeEnd",
+            "widthRangeStart", "widthRangeEnd",
+            "heightDepthRangeStart", "heightDepthRangeEnd",
+            "crackWidthRangeStart", "crackWidthRangeEnd",
+            "areaRangeStart", "areaRangeEnd",
+            "deformationRangeStart", "deformationRangeEnd",
+            "areaIdentifier", "angle", "numeratorRatio", "denominatorRatio"
+    ));
+
     private String sanitizeDiseaseJson(String json) {
         json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"普通\"", "\"areaIdentifier\":0");
         json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"平均\"", "\"areaIdentifier\":1");
         json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"总计\"", "\"areaIdentifier\":2");
         Object parsed = JSON.parse(json);
+        sanitizeNumericFields(parsed);
         return JSON.toJSONString(parsed);
+    }
+
+    private void sanitizeNumericFields(Object obj) {
+        if (obj instanceof JSONObject) {
+            JSONObject jsonObj = (JSONObject) obj;
+            for (String key : new HashSet<>(jsonObj.keySet())) {
+                Object value = jsonObj.get(key);
+                if (value instanceof String) {
+                    String s = ((String) value).trim();
+                    if (s.isEmpty()) {
+                        jsonObj.put(key, null);
+                    } else if (NUMERIC_FIELDS.contains(key)) {
+                        try {
+                            new BigDecimal(s);
+                        } catch (NumberFormatException e) {
+                            jsonObj.put(key, null);
+                        }
+                    }
+                } else if (value instanceof JSONObject || value instanceof JSONArray) {
+                    sanitizeNumericFields(value);
+                }
+            }
+        } else if (obj instanceof JSONArray) {
+            JSONArray arr = (JSONArray) obj;
+            for (int i = 0; i < arr.size(); i++) {
+                sanitizeNumericFields(arr.get(i));
+            }
+        }
     }
 }
