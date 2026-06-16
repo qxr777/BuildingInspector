@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -1789,6 +1790,15 @@ public class DiseaseServiceImpl implements IDiseaseService {
             if (disease.getCommitType() == 1) {
                 // 通过构件名称查找构件ID
                 Component component = disease.getComponent();
+                if (component == null) {
+                    log.warn("构件为null，跳过不完整病害，localId: {}", disease.getLocalId());
+                    continue;
+                }
+                if (component.getBiObject() == null) {
+                    log.warn("构件缺少biObject，跳过不完整病害，component: {}, localId: {}",
+                            JSON.toJSONString(component), disease.getLocalId());
+                    continue;
+                }
                 component.setCreateBy(ShiroUtils.getLoginName());
                 component.setUpdateBy(ShiroUtils.getLoginName());
                 Long root = component.getBiObject().getId();
