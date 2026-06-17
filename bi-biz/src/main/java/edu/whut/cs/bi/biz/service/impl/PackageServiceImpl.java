@@ -383,7 +383,7 @@ public class PackageServiceImpl implements IPackageService {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
 
             for (BiTemplateObject root : rootList) {
-                if (root == null || root.getName() == null || root.getName().contains("-")) {
+                if (root == null || root.getName() == null || "梁桥 - 整体式板".equals(root.getName())) {
                     continue;
                 }
 
