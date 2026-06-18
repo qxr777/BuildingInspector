@@ -15,6 +15,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
+import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
@@ -764,6 +765,33 @@ public class ReportController extends BaseController {
             Set<Long> parentObjectIds = new HashSet<>();
             ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
             if(template.getName().contains("斜拉桥、悬索桥通用")) {
+                for (Task task : tasks) {
+                    Building building = task.getBuilding();
+                    if (building == null) {
+                        return AjaxResult.error("任务关联的建筑不存在：任务ID " + task.getId());
+                    }
+
+                    // 查询建筑的根对象
+                    if (building.getRootObjectId() == null) {
+                        return AjaxResult.error("建筑未关联根对象：" + building.getName());
+                    }
+
+                    BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                    if (rootObject == null) {
+                        return AjaxResult.error("建筑的根对象不存在：" + building.getName());
+                    }
+
+                    // 检查是否为子桥（parentId不为0）
+                    if (rootObject.getParentId() == null || rootObject.getParentId() == 0) {
+                        return AjaxResult.error("请选择组合桥的桥幅，建筑【" + building.getName() + "】不是组合桥桥幅");
+                    }
+                    rootParentId = rootObject.getParentId();
+                    parentObjectIds.add(rootObject.getParentId());
+                }
+            }
+
+            // 测试模板也需要验证是否为同一组合桥下的子桥
+            if(template.getName().contains("测试")) {
                 for (Task task : tasks) {
                     Building building = task.getBuilding();
                     if (building == null) {

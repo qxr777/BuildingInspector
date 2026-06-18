@@ -4,7 +4,8 @@ public enum ReportTemplateTypes {
     COMBINED_BRIDGE(0, new String[]{"组合桥"}),
     LEVEL_2_BEAM_BRIDGE(1, new String[]{"梁桥", "二级"}),
     LEVEL_2_ARCH_BRIDGE(2, new String[]{"拱桥", "二级"}),
-    LEVEL_1_BEAM_BRIDGE(3, new String[]{"梁桥", "一级"});
+    LEVEL_1_BEAM_BRIDGE(3, new String[]{"梁桥", "一级"}),
+    TEST_TEMPLATE(99, new String[]{"测试"});
 
     private Integer type;
     private String[] desc;
@@ -35,6 +36,13 @@ public enum ReportTemplateTypes {
         if (type.equals(LEVEL_1_BEAM_BRIDGE.getType())
 
         ) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isTestTemplate(Integer type) {
+        if (type != null && type.equals(TEST_TEMPLATE.getType())) {
             return true;
         }
         return false;

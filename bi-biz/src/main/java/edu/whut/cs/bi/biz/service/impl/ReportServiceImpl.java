@@ -165,6 +165,9 @@ public class ReportServiceImpl implements IReportService {
     @Autowired
     private AttachmentService attachmentService;
 
+    @Autowired
+    private IPropertyService propertyService;
+
     /**
      * 查询检测报告
      *
@@ -389,6 +392,10 @@ public class ReportServiceImpl implements IReportService {
                     log.info("检测到一级单桥模板：{}，使用一级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
                     return report1LevelSingleBridgeService.generateReportDocument(report, tasks.get(0), templateType);
+                } else if (template != null && templateType != null && ReportTemplateTypes.isTestTemplate(templateType.getType())) {
+                    log.info("检测到测试模板：{}，使用测试模板独立生成逻辑", template.getName());
+                    // 调用测试模板独立生成方法
+                    return generateTestTemplateReportDocument(report, tasks, rootParentId, template);
                 }
             } catch (Exception e) {
                 log.error("获取模板信息失败，使用默认生成逻辑", e);
@@ -698,6 +705,269 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
+     * 测试模板独立生成方法
+     * 复用组合桥逻辑，但使用测试模板特有的处理方式
+     */
+    public String generateTestTemplateReportDocument(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
+        // 获取任务关联的建筑ID和项目ID
+        Building buildingQry = new Building();
+        buildingQry.setRootObjectId(rootParentId);
+        List<Building> buildings = buildingService.selectBuildingList(buildingQry);
+        if (CollectionUtils.isEmpty(buildings)) {
+            log.error("测试模板：未找到组合桥的建筑物");
+            return null;
+        }
+        Building building = buildings.get(0);
+        InputStream templateStream = null;
+        FileOutputStream out = null;
+        XWPFDocument document = null;
+        File outputFile = null;
+
+        try {
+            if (report == null) {
+                return null;
+            }
+            // 查询项目信息
+            Project project = null;
+            if (report.getProjectId() != null) {
+                project = projectService.selectProjectById(report.getProjectId());
+            }
+            log.info("测试模板 - project: {}", project);
+
+            // 查询报告模板信息
+            if (template == null || template.getMinioId() == null) {
+                return null;
+            }
+
+            // 通过模板文件ID获取文件信息
+            FileMap fileMap = fileMapService.selectFileMapById(template.getMinioId());
+            if (fileMap == null) {
+                return null;
+            }
+
+            // 拼接Minio下载地址
+            String s = fileMap.getNewName();
+
+            // 从Minio下载模板文件
+            templateStream = minioClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(minioConfig.getBucketName())
+                            .object(s.substring(0, 2) + "/" + s)
+                            .build()
+            );
+
+            // 加载Word文档
+            document = new XWPFDocument(templateStream);
+
+            // 重置域计数器（开始新文档）
+            WordFieldUtils.resetCounters();
+
+            // 查询报告数据
+            ReportData queryParam = new ReportData();
+            queryParam.setReportId(report.getId());
+            List<ReportData> reportDataList = reportDataService.selectReportDataList(queryParam);
+
+            // 创建数据映射
+            Map<String, String> dataMap = new HashMap<>();
+            for (ReportData data : reportDataList) {
+                dataMap.put(data.getKey(), data.getValue());
+            }
+
+            // 获取当前日期
+            Calendar calendar = Calendar.getInstance();
+            int year = calendar.get(Calendar.YEAR);
+            int month = calendar.get(Calendar.MONTH) + 1;
+            int day = calendar.get(Calendar.DAY_OF_MONTH);
+
+            // 替换日期相关占位符
+            replaceText(document, "${year}", String.valueOf(year));
+            replaceText(document, "${month}", String.valueOf(month));
+            replaceText(document, "${day}", String.valueOf(day));
+
+            // 测试模板封面字段：用户填报值优先，项目数据只作为默认值
+            Map<String, String> defaultValues = new LinkedHashMap<>();
+            if (project != null) {
+                defaultValues.put("${project-name}", project.getName());
+                if (project.getDept() != null && project.getDept().getDeptName() != null) {
+                    defaultValues.put("${client-unit}", project.getDept().getDeptName());
+                }
+            }
+            Map<String, String> placeholderValues = ReportTemplateValueUtils.buildPlaceholderValues(reportDataList, defaultValues);
+            List<String> earlyTextKeys = Arrays.asList(
+                    "${project-name}", "${client-unit}", "${委托单位}",
+                    "${engineering-name}", "${工程名称}", "${detection-category}", "${检测类别}"
+            );
+            for (String key : earlyTextKeys) {
+                if (placeholderValues.containsKey(key)) {
+                    replaceText(document, key, placeholderValues.get(key));
+                }
+            }
+
+            // 处理桥梁图片
+            insertBridgeImages(document, building.getId());
+            log.info("测试模板 - 桥梁照片处理结束");
+
+            // 清空第十章病害汇总缓存，准备重新缓存第三章的结果
+            testConclusionService.clearDiseaseSummaryCache();
+
+            // 处理第一章特殊结构桥梁一览表（测试模板特有）
+            try {
+                processChapter1SpecialStructureBridgeList(document, building, rootParentId);
+                log.info("测试模板 - 第一章特殊结构桥梁一览表处理完成");
+            } catch (Exception e) {
+                log.error("测试模板 - 处理第一章特殊结构桥梁一览表出错: error={}", e.getMessage());
+            }
+
+            // 处理第二章部件划分及构件数量（测试模板特有）
+            try {
+                processChapter2ComponentDivision(document, tasks, rootParentId, building.getName());
+                log.info("测试模板 - 第二章部件划分及构件数量处理完成");
+            } catch (Exception e) {
+                log.error("测试模板 - 处理第二章部件划分及构件数量出错: error={}", e.getMessage());
+            }
+
+            // 处理第三章外观检测结果
+            processChapter3(document, tasks, rootParentId);
+            Integer minSystemLevel = null;
+            Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
+            // 处理第八章评定结果（不依赖ReportData）
+            try {
+                biEvaluationMap = handleChapter8EvaluationResults(document, "${chapter-8-evaluationResults}", tasks, building.getName());
+                Optional<Integer> systemLevel = biEvaluationMap.values().stream()
+                        .filter(biEvaluation -> biEvaluation != null && biEvaluation.getSystemLevel() != null)
+                        .map(BiEvaluation::getSystemLevel)
+                        .min(Integer::compareTo);
+                if (systemLevel.isPresent()) {
+                    minSystemLevel = systemLevel.get();
+                }
+            } catch (Exception e) {
+                log.error("测试模板 - 处理第八章评定结果出错: error={}", e.getMessage());
+                replaceText(document, "${chapter-8-evaluationResults}", "评定结果数据获取失败");
+            }
+
+            // 处理桥梁卡片数据
+            try {
+                Map<String, Object> additionalData = new HashMap<>();
+                additionalData.put("report", report);
+                additionalData.put("project", project);
+                Building bridgeCardBuilding = resolveCombinedBridgeCardBuilding(building, tasks);
+                bridgeCardService.processBridgeCardData(document, bridgeCardBuilding, ReportTemplateTypes.TEST_TEMPLATE, minSystemLevel);
+                log.info("测试模板 - 桥梁卡片数据处理完成");
+            } catch (Exception e) {
+                log.error("测试模板 - 处理桥梁卡片数据失败", e);
+            }
+
+            // 处理第九章比较分析（多桥版本）
+            try {
+                handleChapter9ComparisonAnalysisForMultiBridge(document, "${chapter-9-comparativeAnalysisOfEvaluationResults}", tasks);
+            } catch (Exception e) {
+                log.error("测试模板 - 处理第九章比较分析出错: error={}", e.getMessage());
+                replaceText(document, "${chapter-9-comparativeAnalysisOfEvaluationResults}", "比较分析数据获取失败");
+            }
+
+            // 处理第十章检测结论（不依赖ReportData）
+            try {
+                handleChapter10TestConclusion(document, "${chapter-10-testConclusion}", tasks, building.getName(), biEvaluationMap, minSystemLevel);
+                handleChapter10TestConclusionBridge(document, "${chapter-10-testConclusionBridge}", tasks);
+            } catch (Exception e) {
+                log.error("测试模板 - 处理第十章检测结论出错: error={}", e.getMessage());
+                replaceText(document, "${chapter-10-testConclusion}", "检测结论数据获取失败");
+                replaceText(document, "${chapter-10-testConclusionBridge}", "检测结论详情数据获取失败");
+            }
+
+            // 处理第11章定期检查记录表占位符
+            try {
+                regularInspectionService.generateRegularInspectionTable(document, "${chapter-11-regularInspectionRecord}", tasks);
+            } catch (Exception e) {
+                log.error("测试模板 - 处理第11章定期检查记录表失败: error={}", e.getMessage(), e);
+            }
+
+            // 替换其他占位符（包括用户自定义的 ${chapter-2-componentCodeRule} 等）
+            for (ReportData data : reportDataList) {
+                String key = data.getKey();
+                String value = data.getValue();
+                Integer type = data.getType();
+
+                if (value == null || value.isEmpty()) {
+                    continue;
+                }
+
+                try {
+                    // 根据类型处理不同的数据
+                    if (type != null && type == 1) {
+                        // 图片类型
+                        try {
+                            handleImagePlaceholder(document, key, value, building);
+                        } catch (Exception e) {
+                            log.error("测试模板 - 处理图片占位符出错: key={}, value={}, error={}", key, value, e.getMessage());
+                        }
+                    } else {
+                        // 文本类型（默认）
+                        if (key.contains("${chapter-7-1-focusOnDiseases}") || key.contains("${chapter-7-2-analysisOfTheCausesOfMajorDiseases}")) {
+                            try {
+                                handleChapter7DiseaseTable(document, key, value, tasks);
+                            } catch (Exception e) {
+                                log.error("测试模板 - 处理第七章病害表格出错: key={}, value={}, error={}", key, value, e.getMessage());
+                                replaceText(document, key, value);
+                            }
+                        } else if (isSpatialDisplacementConclusionKey(key)) {
+                            if (!replaceParagraphPlaceholderAfterFollowingTable(document, key, value)) {
+                                replaceText(document, key, value);
+                            }
+                        } else {
+                            replaceText(document, key, value);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("测试模板 - 替换占位符出错: key={}, value={}, type={}, error={}", key, value, type, e.getMessage());
+                }
+            }
+
+            // 更新文档中的所有域
+            WordFieldUtils.updateAllFields(document);
+
+            // 创建临时文件保存生成的文档
+            String fileName = report.getName() + "_" + ".docx";
+            outputFile = File.createTempFile("report_" + report.getId(), ".docx");
+            out = new FileOutputStream(outputFile);
+            document.write(out);
+            out.close();
+
+            // 上传到MinIO
+            FileMap reportFileMap = fileMapService.handleFileUploadFromFile(outputFile, fileName, ShiroUtils.getLoginName());
+
+            // 更新报告状态和MinioId已生成
+            report.setStatus(1);
+            report.setMinioId(Long.valueOf(reportFileMap.getId()));
+            reportMapper.updateReport(report);
+
+            return reportFileMap.getId().toString();
+        } catch (Exception e) {
+            log.error("测试模板 - 生成报告报错：{}", e.getMessage());
+            return null;
+        } finally {
+            // 关闭资源
+            try {
+                if (templateStream != null) {
+                    templateStream.close();
+                }
+                if (out != null) {
+                    out.close();
+                }
+                if (document != null) {
+                    document.close();
+                }
+                // 删除临时文件
+                if (outputFile != null && outputFile.exists()) {
+                    outputFile.delete();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
      * 替换Word文档中的文本
      *
      * @param document Word文档
@@ -741,7 +1011,7 @@ public class ReportServiceImpl implements IReportService {
                         log.debug("在{}中替换XML文本节点占位符: {}", location, oldText);
                     }
                 } finally {
-                    cursor.dispose();
+                    // cursor.dispose() 已过时，不再调用
                 }
             }
         } catch (Exception e) {
@@ -853,7 +1123,7 @@ public class ReportServiceImpl implements IReportService {
             }
             return null;
         } finally {
-            cursor.dispose();
+            // cursor.dispose() 已过时，不再调用
         }
     }
 
@@ -938,7 +1208,7 @@ public class ReportServiceImpl implements IReportService {
             }
             return null;
         } finally {
-            cursor.dispose();
+            // cursor.dispose() 已过时，不再调用
         }
     }
 
@@ -1164,6 +1434,500 @@ public class ReportServiceImpl implements IReportService {
         }
     }
 
+    /**
+     * 处理第一章特殊结构桥梁一览表（测试模板特有）
+     * 生成表1.1 洪监高速特殊结构桥梁一览表
+     *
+     * @param document     Word文档
+     * @param building     组合桥建筑物
+     * @param rootParentId 组合桥根对象ID
+     */
+    private void processChapter1SpecialStructureBridgeList(XWPFDocument document, Building building, Long rootParentId) throws Exception {
+        // 找到占位符所在的段落
+        XWPFParagraph placeholderParagraph = null;
+        for (int i = 0; i < document.getParagraphs().size(); i++) {
+            XWPFParagraph paragraph = document.getParagraphs().get(i);
+            if (paragraph.getText().contains("${chapter-1-specialStructureBridgeList}")) {
+                placeholderParagraph = paragraph;
+                break;
+            }
+        }
+
+        // 如果找不到占位符，直接返回
+        if (placeholderParagraph == null) {
+            log.warn("测试模板 - 未找到 ${chapter-1-specialStructureBridgeList} 占位符");
+            return;
+        }
+
+        // 获取占位符段落的XML游标
+        XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
+
+        // 获取组合桥的跨径组合属性
+        String spanCombination = "/";
+        try {
+            if (building.getRootPropertyId() != null) {
+                Property rootProperty = propertyService.selectPropertyById(building.getRootPropertyId());
+                if (rootProperty != null) {
+                    List<Property> properties = propertyService.selectPropertyList(rootProperty);
+                    if (properties != null) {
+                        for (Property prop : properties) {
+                            if ("跨径组合".equals(prop.getName()) && prop.getValue() != null) {
+                                spanCombination = prop.getValue().replace('*', '×');
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("测试模板 - 获取跨径组合属性失败: {}", e.getMessage());
+        }
+
+        // 添加表格标题（五号黑体，1.5倍行距）
+        XWPFParagraph tableTitlePara;
+        if (cursor != null) {
+            tableTitlePara = document.insertNewParagraph(cursor);
+            cursor.toNextToken();
+        } else {
+            tableTitlePara = document.createParagraph();
+        }
+        tableTitlePara.setAlignment(ParagraphAlignment.CENTER);
+
+        // 设置1.5倍行距
+        CTPPr titlePpr = tableTitlePara.getCTP().getPPr();
+        if (titlePpr == null) titlePpr = tableTitlePara.getCTP().addNewPPr();
+        CTSpacing titleSpacing = titlePpr.isSetSpacing() ? titlePpr.getSpacing() : titlePpr.addNewSpacing();
+        titleSpacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距
+
+        XWPFRun tableTitleRun = tableTitlePara.createRun();
+        tableTitleRun.setText("表1.1 洪监高速特殊结构桥梁一览表");
+        tableTitleRun.setBold(true);
+        tableTitleRun.setFontFamily("黑体");
+        tableTitleRun.setFontSize(10.5); // 五号
+
+        // 创建表格（2行5列：表头+1行数据）
+        XWPFTable table;
+        if (cursor != null) {
+            table = document.insertNewTbl(cursor);
+            cursor.toNextToken();
+        } else {
+            table = document.createTable();
+        }
+
+        // 初始化表格结构（2行5列）
+        for (int i = 0; i < 2; i++) {
+            XWPFTableRow row = table.getRow(i);
+            if (row == null) {
+                row = table.createRow();
+            }
+            for (int j = 0; j < 5; j++) {
+                XWPFTableCell cell = row.getCell(j);
+                if (cell == null) {
+                    row.createCell();
+                }
+            }
+        }
+
+        // 设置表格样式
+        table.setWidth("100%");
+        table.setTableAlignment(TableRowAlign.CENTER);
+
+        // 设置表头（五号黑体）
+        XWPFTableRow headerRow = table.getRow(0);
+        setTableCell(headerRow, 0, "序号", true);
+        setTableCell(headerRow, 1, "桥梁名称", true);
+        setTableCell(headerRow, 2, "中心桩号", true);
+        setTableCell(headerRow, 3, "桥梁全长", true);
+        setTableCell(headerRow, 4, "跨径组合", true);
+
+        // 填充数据（组合桥信息）
+        XWPFTableRow dataRow = table.getRow(1);
+        setTableCell(dataRow, 0, "1");
+        setTableCell(dataRow, 1, building.getName());
+        setTableCell(dataRow, 2, building.getBridgePileNumber() != null ? building.getBridgePileNumber() : "/");
+        setTableCell(dataRow, 3, building.getBridgeLength() != null ? building.getBridgeLength() : "/");
+        setTableCell(dataRow, 4, spanCombination);
+
+        // 删除占位符段落
+        placeholderParagraph.removeRun(0);
+        if (placeholderParagraph.getRuns().size() == 0) {
+            for (int i = 0; i < document.getParagraphs().size(); i++) {
+                if (document.getParagraphs().get(i) == placeholderParagraph) {
+                    document.removeBodyElement(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * 处理第二章部件划分及构件数量（测试模板特有）
+     * 生成 2.2.部件划分及构件数量 章节
+     *
+     * @param document     Word文档
+     * @param tasks        任务列表
+     * @param rootParentId 组合桥根对象ID
+     * @param bridgeName   组合桥名称
+     */
+    private void processChapter2ComponentDivision(XWPFDocument document, List<Task> tasks, Long rootParentId, String bridgeName) throws Exception {
+        // 找到占位符所在的段落
+        XWPFParagraph placeholderParagraph = null;
+        for (int i = 0; i < document.getParagraphs().size(); i++) {
+            XWPFParagraph paragraph = document.getParagraphs().get(i);
+            if (paragraph.getText().contains("${chapter-2-componentDivision}")) {
+                placeholderParagraph = paragraph;
+                break;
+            }
+        }
+
+        // 如果找不到占位符，直接返回
+        if (placeholderParagraph == null) {
+            log.warn("测试模板 - 未找到 ${chapter-2-componentDivision} 占位符");
+            return;
+        }
+
+        // 获取占位符段落的XML游标
+        XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
+
+        // 获取所有子部件
+        List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootParentId);
+
+        // 获取子桥的根对象
+        List<BiObject> biObjects = biObjectMapper.selectBiObjectsByIds(
+                tasks.stream()
+                        .filter(t -> Objects.nonNull(t) && Objects.nonNull(t.getBuilding()) && Objects.nonNull(t.getBuilding().getRootObjectId()))
+                        .map(t -> t.getBuilding().getRootObjectId())
+                        .distinct()
+                        .collect(Collectors.toList())
+        );
+
+        Map<Long, BiObject> biObjectMap = biObjects.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(BiObject::getId, Function.identity(), (a, b) -> a));
+
+        // 为每个子桥生成部件划分及构件数量表
+        int subChapterNum = 1;
+        for (Task task : tasks) {
+            Building subBuilding = task.getBuilding();
+            BiObject subBridge = biObjectMap.get(subBuilding.getRootObjectId());
+            if (subBridge == null) {
+                log.warn("测试模板 - 未找到子桥的根对象：{}", subBuilding.getName());
+                continue;
+            }
+
+            // 生成子桥标题（不使用标题样式，使用普通段落）
+            XWPFParagraph titlePara;
+            if (cursor != null) {
+                titlePara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                titlePara = document.createParagraph();
+            }
+            titlePara.setAlignment(ParagraphAlignment.LEFT);
+
+            // 创建标题运行（加粗，黑体）
+            XWPFRun titleRun = titlePara.createRun();
+            titleRun.setText("2.2." + subChapterNum + " " + subBridge.getName());
+            titleRun.setBold(true);
+            titleRun.setFontFamily("黑体");
+            titleRun.setFontSize(14);
+
+            // 添加说明段落（小四宋体，1.5倍行距）
+            XWPFParagraph introPara;
+            if (cursor != null) {
+                introPara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                introPara = document.createParagraph();
+            }
+
+            // 设置1.5倍行距
+            CTPPr introPpr = introPara.getCTP().getPPr();
+            if (introPpr == null) introPpr = introPara.getCTP().addNewPPr();
+            CTSpacing introSpacing = introPpr.isSetSpacing() ? introPpr.getSpacing() : introPpr.addNewSpacing();
+            introSpacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距
+
+            XWPFRun introRun = introPara.createRun();
+            introRun.setText("各桥梁部件划分及构件数量如下表所示：");
+            introRun.setFontFamily("宋体");
+            introRun.setFontSize(12); // 小四
+
+            // 收集该子桥的构件数据，按层级结构分组
+            Map<String, List<BiObject>> structureMap = collectComponentStructure(subBridge, allObjects);
+
+            // 添加表格标题（五号黑体，1.5倍行距）
+            XWPFParagraph tableTitlePara;
+            if (cursor != null) {
+                tableTitlePara = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+            } else {
+                tableTitlePara = document.createParagraph();
+            }
+            tableTitlePara.setAlignment(ParagraphAlignment.CENTER);
+
+            // 设置1.5倍行距
+            CTPPr tableTitlePpr = tableTitlePara.getCTP().getPPr();
+            if (tableTitlePpr == null) tableTitlePpr = tableTitlePara.getCTP().addNewPPr();
+            CTSpacing tableTitleSpacing = tableTitlePpr.isSetSpacing() ? tableTitlePpr.getSpacing() : tableTitlePpr.addNewSpacing();
+            tableTitleSpacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距
+
+            XWPFRun tableTitleRun = tableTitlePara.createRun();
+            tableTitleRun.setText("表3." + subChapterNum + " " + subBridge.getName() + "桥梁部件划分及构件数量表");
+            tableTitleRun.setBold(true);
+            tableTitleRun.setFontFamily("黑体");
+            tableTitleRun.setFontSize(10.5); // 五号
+
+            // 生成表格
+            generateComponentTable(document, cursor, subBridge.getName(), structureMap);
+
+            subChapterNum++;
+        }
+
+        // 删除占位符段落
+        placeholderParagraph.removeRun(0);
+        if (placeholderParagraph.getRuns().size() == 0) {
+            for (int i = 0; i < document.getParagraphs().size(); i++) {
+                if (document.getParagraphs().get(i) == placeholderParagraph) {
+                    document.removeBodyElement(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * 收集构件结构数据，按桥梁结构分组
+     *
+     * @param subBridge 子桥根对象
+     * @param allObjects 所有对象
+     * @return 按桥梁结构分组的构件数据
+     */
+    private Map<String, List<BiObject>> collectComponentStructure(BiObject subBridge, List<BiObject> allObjects) {
+        Map<String, List<BiObject>> structureMap = new LinkedHashMap<>();
+
+        // 获取子桥的直接子节点（第一层：上部结构、下部结构、桥面系）
+        List<BiObject> level1Children = allObjects.stream()
+                .filter(o -> subBridge.getId().equals(o.getParentId()))
+                .sorted(Comparator.comparing(BiObject::getOrderNum, Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
+
+        for (BiObject level1 : level1Children) {
+            String structureName = level1.getName(); // 上部结构、下部结构、桥面系
+            List<BiObject> components = new ArrayList<>();
+
+            // 获取第二层构件（桥梁部件）
+            List<BiObject> level2Children = allObjects.stream()
+                    .filter(o -> level1.getId().equals(o.getParentId()))
+                    .sorted(Comparator.comparing(BiObject::getOrderNum, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .collect(Collectors.toList());
+
+            for (BiObject level2 : level2Children) {
+                // 获取第三层构件（如果有）
+                List<BiObject> level3Children = allObjects.stream()
+                        .filter(o -> level2.getId().equals(o.getParentId()))
+                        .sorted(Comparator.comparing(BiObject::getOrderNum, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .collect(Collectors.toList());
+
+                if (level3Children.isEmpty()) {
+                    // 没有第三层，直接添加第二层
+                    components.add(level2);
+                } else {
+                    // 有第三层，添加第三层
+                    components.addAll(level3Children);
+                }
+            }
+
+            structureMap.put(structureName, components);
+        }
+
+        return structureMap;
+    }
+
+    /**
+     * 生成部件划分及构件数量表格（带单元格合并）
+     *
+     * @param document     Word文档
+     * @param cursor       XML游标
+     * @param bridgeName   桥梁名称
+     * @param structureMap 构件数据
+     */
+    private void generateComponentTable(XWPFDocument document, XmlCursor cursor, String bridgeName, Map<String, List<BiObject>> structureMap) {
+        // 计算总行数（表头 + 数据行）
+        int totalRows = 1; // 表头
+        for (Map.Entry<String, List<BiObject>> entry : structureMap.entrySet()) {
+            totalRows += entry.getValue().size();
+        }
+
+        // 创建表格
+        XWPFTable table;
+        if (cursor != null) {
+            table = document.insertNewTbl(cursor);
+            cursor.toNextToken();
+        } else {
+            table = document.createTable();
+        }
+
+        // 初始化表格结构（添加行和单元格）
+        for (int i = 0; i < totalRows; i++) {
+            XWPFTableRow row = table.getRow(i);
+            if (row == null) {
+                row = table.createRow();
+            }
+            // 确保每行有5个单元格
+            for (int j = 0; j < 5; j++) {
+                XWPFTableCell cell = row.getCell(j);
+                if (cell == null) {
+                    row.createCell();
+                }
+            }
+        }
+
+        // 设置表格样式
+        table.setWidth("100%");
+        table.setTableAlignment(TableRowAlign.CENTER);
+
+        // 设置表头
+        XWPFTableRow headerRow = table.getRow(0);
+        setTableCell(headerRow, 0, "序号", true);
+        setTableCell(headerRow, 1, "桥梁结构", true);
+        setTableCell(headerRow, 2, "桥梁部件", true);
+        setTableCell(headerRow, 3, "构件数量", true);
+        setTableCell(headerRow, 4, "说明", true);
+
+        // 填充数据，并记录需要合并的单元格范围
+        int rowIndex = 1;
+        int sequenceNum = 1;
+        // 记录每个桥梁结构的起始行和结束行
+        List<int[]> mergeRanges = new ArrayList<>();
+
+        for (Map.Entry<String, List<BiObject>> entry : structureMap.entrySet()) {
+            String structureName = entry.getKey();
+            List<BiObject> components = entry.getValue();
+
+            int startRow = rowIndex;
+            for (int i = 0; i < components.size(); i++) {
+                BiObject component = components.get(i);
+                XWPFTableRow row = table.getRow(rowIndex);
+
+                // 序号
+                setTableCell(row, 0, String.valueOf(sequenceNum));
+
+                // 桥梁结构（先设置文本，后面再合并）
+                setTableCell(row, 1, structureName);
+
+                // 桥梁部件
+                setTableCell(row, 2, component.getName());
+
+                // 构件数量
+                Integer count = component.getCount();
+                setTableCell(row, 3, count != null ? String.valueOf(count) : "/");
+
+                // 说明
+                String remark = component.getRemark();
+                setTableCell(row, 4, remark != null ? remark : "/");
+
+                rowIndex++;
+                sequenceNum++;
+            }
+            int endRow = rowIndex - 1;
+
+            // 如果该结构有多个构件，记录合并范围
+            if (components.size() > 1) {
+                mergeRanges.add(new int[]{startRow, endRow});
+            }
+        }
+
+        // 合并第二列（桥梁结构）相同的单元格
+        for (int[] range : mergeRanges) {
+            mergeVerticalCells(table, range[0], range[1], 1);
+        }
+    }
+
+    /**
+     * 垂直合并单元格
+     *
+     * @param table    表格
+     * @param startRow 起始行
+     * @param endRow   结束行
+     * @param col      列索引
+     */
+    private void mergeVerticalCells(XWPFTable table, int startRow, int endRow, int col) {
+        if (startRow >= endRow) {
+            return;
+        }
+
+        // 获取起始单元格
+        XWPFTableCell startCell = table.getRow(startRow).getCell(col);
+        if (startCell == null) {
+            return;
+        }
+
+        // 设置合并：从startRow到endRow
+        for (int i = startRow + 1; i <= endRow; i++) {
+            XWPFTableCell cell = table.getRow(i).getCell(col);
+            if (cell != null) {
+                // 设置垂直合并
+                cell.getCTTc().addNewTcPr().addNewVMerge().setVal(STMerge.CONTINUE);
+            }
+        }
+
+        // 设置起始单元格的垂直合并为开始
+        CTTcPr tcPr = startCell.getCTTc().getTcPr();
+        if (tcPr == null) {
+            tcPr = startCell.getCTTc().addNewTcPr();
+        }
+        CTVMerge vMerge = tcPr.isSetVMerge() ? tcPr.getVMerge() : tcPr.addNewVMerge();
+        vMerge.setVal(STMerge.RESTART);
+    }
+
+    /**
+     * 设置表格单元格内容（五号宋体，1倍行距）
+     */
+    private void setTableCell(XWPFTableRow row, int cellIndex, String text) {
+        setTableCell(row, cellIndex, text, false);
+    }
+
+    /**
+     * 设置表格单元格内容
+     *
+     * @param row       表格行
+     * @param cellIndex 单元格索引
+     * @param text      文本内容
+     * @param isHeader  是否为表头（表头使用黑体，数据使用宋体）
+     */
+    private void setTableCell(XWPFTableRow row, int cellIndex, String text, boolean isHeader) {
+        XWPFTableCell cell = row.getCell(cellIndex);
+        if (cell == null) {
+            cell = row.createCell();
+        }
+
+        // 清空单元格内容
+        cell.removeParagraph(0);
+
+        // 创建段落
+        XWPFParagraph paragraph = cell.addParagraph();
+        paragraph.setAlignment(ParagraphAlignment.CENTER);
+
+        // 设置1倍行距
+        CTPPr ppr = paragraph.getCTP().getPPr();
+        if (ppr == null) ppr = paragraph.getCTP().addNewPPr();
+        CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
+        spacing.setLine(BigInteger.valueOf(240)); // 1倍行距
+
+        // 创建文本运行（五号）
+        XWPFRun run = paragraph.createRun();
+        run.setText(text != null ? text : "");
+        run.setFontSize(10.5); // 五号
+
+        if (isHeader) {
+            // 表头：黑体加粗
+            run.setFontFamily("黑体");
+            run.setBold(true);
+        } else {
+            // 数据：宋体
+            run.setFontFamily("宋体");
+        }
+    }
 
     /**
      * 处理第三章外观检测结果

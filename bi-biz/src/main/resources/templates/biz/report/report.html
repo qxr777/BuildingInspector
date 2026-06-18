@@ -152,6 +152,11 @@
                         url = ctx + "biz/report_data/fill_single_beam_level1/" + id;
                         tabTitle = "一级单桥梁桥报告填充";
                     }
+                    // 测试模板判断
+                    else if (templateName.indexOf("测试") !== -1) {
+                        url = ctx + "biz/report_data/fill_test/" + id;
+                        tabTitle = "测试模板报告填充";
+                    }
                 }
 
                 $.modal.openTab(tabTitle, url);
