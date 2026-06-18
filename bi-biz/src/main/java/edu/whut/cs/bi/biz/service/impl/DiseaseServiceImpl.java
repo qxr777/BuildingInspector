@@ -566,6 +566,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
 
         Integer result = diseaseMapper.insertDisease(disease);
+        if (disease.getLocalId() == null) {
+            disease.setLocalId(disease.getId());
+            diseaseMapper.updateDisease(disease);
+        }
 
         // 添加病害详情
         List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();

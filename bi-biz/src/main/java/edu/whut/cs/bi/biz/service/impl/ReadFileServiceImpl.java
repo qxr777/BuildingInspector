@@ -223,7 +223,9 @@ public class ReadFileServiceImpl implements ReadFileService {
         }
 
         if (!diseaseSet.isEmpty()) {
-            diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
+            List<Disease> diseaseList = new ArrayList<>(diseaseSet);
+            diseaseMapper.batchInsertDiseases(diseaseList);
+            diseaseMapper.fillLocalIdWithId(diseaseList.stream().map(Disease::getId).toList());
         }
     }
 
@@ -522,7 +524,9 @@ public class ReadFileServiceImpl implements ReadFileService {
 
         if (!diseaseSet.isEmpty()) {
             transactionTemplate.execute(status -> {
-                diseaseMapper.batchInsertDiseases(new ArrayList<>(diseaseSet));
+                List<Disease> diseaseList = new ArrayList<>(diseaseSet);
+                diseaseMapper.batchInsertDiseases(diseaseList);
+                diseaseMapper.fillLocalIdWithId(diseaseList.stream().map(Disease::getId).toList());
 
                 List<DiseaseDetail> allDetails = diseaseSet.stream().flatMap(disease -> disease.getDiseaseDetails().stream().peek(detail -> detail.setDiseaseId(disease.getId()))).collect(Collectors.toList());
                 if (!allDetails.isEmpty()) {

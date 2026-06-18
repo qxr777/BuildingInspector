@@ -122,4 +122,5 @@ public interface DiseaseMapper {
     List<Disease> selectDiseasesByTimeRange(@Param("startTime") String startTime,
                                             @Param("endTime") String endTime);
 
+    int fillLocalIdWithId(@Param("list") List<Long> ids);
 }

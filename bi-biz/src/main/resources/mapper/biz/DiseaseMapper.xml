@@ -529,4 +529,12 @@
         and d.create_time &lt;= #{endTime}
         order by d.create_time desc
     </select>
+
+    <update id="fillLocalIdWithId" parameterType="java.util.List">
+        UPDATE bi_disease SET local_id = id
+        WHERE local_id IS NULL AND id IN
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
 </mapper>
