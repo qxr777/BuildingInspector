@@ -772,7 +772,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
                 obj.setWeight(obj.getStandardWeight());
             }
             //  如果一开始是停用但是构件数量不为0则启用
-            if (obj.getCount() != null && obj.getCount() > 0 && "1".equals(obj.getStatus())) {
+            if (hasComponentsInSubtree(obj.getId()) && "1".equals(obj.getStatus())) {
                 obj.setStatus("0");
             }
             obj.setUpdateTime(DateUtils.getNowDate());
@@ -804,7 +804,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
         // 4. 处理第3层部件
         for (BiObject obj : thirdLevelObjects) {
             // 对构件数量为0或者为null的部件，将权重分配给同级节点并设置为停用
-            if ((obj.getCount() == null || obj.getCount() == 0) && obj.getStandardWeight() != null) {
+            if (shouldDisableForWeightCorrection(obj)) {
                 // 重新查询该部件的最新信息，确保获取最新的权重值
                 BiObject latestObj = biObjectMapper.selectBiObjectById(obj.getId());
                 if (latestObj == null) {
@@ -827,6 +827,20 @@ public class BiObjectServiceImpl implements IBiObjectService {
         }
 
         return updateCount;
+    }
+
+    boolean shouldDisableForWeightCorrection(BiObject obj) {
+        return obj != null
+                && obj.getStandardWeight() != null
+                && !hasComponentsInSubtree(obj.getId());
+    }
+
+    private boolean hasComponentsInSubtree(Long biObjectId) {
+        if (biObjectId == null) {
+            return false;
+        }
+        List<Component> components = componentMapper.selectComponentsByBiObjectIdAndChildren(biObjectId);
+        return components != null && !components.isEmpty();
     }
 
     /**

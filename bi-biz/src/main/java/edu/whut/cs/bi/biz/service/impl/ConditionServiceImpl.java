@@ -129,16 +129,16 @@ public class ConditionServiceImpl implements IConditionService {
                 condition.setScore(new BigDecimal("0"));
                 condition.setLevel(0);
             }
-            condition.setComponentsCount(biObject.getCount());
+            condition.setComponentsCount(resolveComponentsCount(biObject, components));
             condition.setUpdateBy(ShiroUtils.getLoginName());
             condition.setUpdateTime(new Date());
-            condition.setComponentsCount(biObject.getCount()==null?0:biObject.getCount());
+            condition.setComponentsCount(resolveComponentsCount(biObject, components));
             updateCondition(condition);
             return condition;
         }
 
         // 获取构件数量（用于查找t值）
-        Integer count = biObject.getCount();
+        Integer count = resolveComponentsCount(biObject, components);
         if (count == null || count <= 0) {
             throw new RuntimeException("计算失败：部件 " + biObject.getName() + " 构件数量为0");
         }
@@ -200,6 +200,13 @@ public class ConditionServiceImpl implements IConditionService {
         updateCondition(condition);
 
         return condition;
+    }
+
+    int resolveComponentsCount(BiObject biObject, List<Component> components) {
+        if (components != null && !components.isEmpty()) {
+            return components.size();
+        }
+        return biObject.getCount() == null ? 0 : biObject.getCount();
     }
 
     /**

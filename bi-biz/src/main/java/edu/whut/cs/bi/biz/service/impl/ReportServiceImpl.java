@@ -826,8 +826,16 @@ public class ReportServiceImpl implements IReportService {
                 log.error("测试模板 - 处理第二章部件划分及构件数量出错: error={}", e.getMessage());
             }
 
-            // 处理第三章外观检测结果
-            processChapter3(document, tasks, rootParentId);
+            // 处理第三章外观检测结果（测试模板版本）
+            // baseHeadingLevel=2：子桥标题为 Heading 3（比"外观检测结果"低一级），结构 Heading 4，构件 Heading 5
+            // startSubChapterNum=1：从 3.2.1 开始编号（3.2 是"外观检测结果"）
+            processChapter3ForTestTemplate(document, tasks, rootParentId, 2, 1);
+
+            // 处理与上一次检查病害变化情况分析（独立占位符 ${chapter-3-3-diseaseComparison}）
+            // baseHeadingLevel=2：标题为 Heading 2（与"外观检测结果"同级）
+            // startSubChapterNum=1：子桥编号从 1 开始
+            processDiseaseComparisonForTestTemplate(document, tasks, 2, 1);
+
             Integer minSystemLevel = null;
             Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
             // 处理第八章评定结果（不依赖ReportData）
@@ -2003,7 +2011,7 @@ public class ReportServiceImpl implements IReportService {
 
             // 在游标位置生成内容 - 将baseHeadingLevel设为3，使其成为第三章的子章节
             writeBiObjectTreeToWord(document, subBridge, allObjects,
-                    bridgeDiseaseMap, prefix, 1, chapter3ImageCounter, chapter3TableCounter, subCursor, 2);
+                    bridgeDiseaseMap, prefix, 1, chapter3ImageCounter, chapter3TableCounter, subCursor, 2, false);
 
             subChapterNum++;
         }
@@ -2024,6 +2032,190 @@ public class ReportServiceImpl implements IReportService {
         }
     }
 
+    /**
+     * 处理第三章外观检测结果（测试模板版本）
+     * 支持可配置的标题级别和起始子章节号，适用于不同模板的目录结构
+     * <p>
+     * 标题级别说明（baseHeadingLevel 控制子桥标题级别 = baseHeadingLevel + 1）：
+     * - baseHeadingLevel = 1：子桥 Heading 2、结构 Heading 3、构件 Heading 4（与"外观检测结果"同级）
+     * - baseHeadingLevel = 2：子桥 Heading 3、结构 Heading 4、构件 Heading 5（"外观检测结果"的下一级）
+     *
+     * @param document           Word文档
+     * @param tasks              建筑物信息
+     * @param rootParentId       根父对象ID
+     * @param baseHeadingLevel   基础标题级别
+     * @param startSubChapterNum 起始子章节号（如 1 表示从 3.2.1 开始编号）
+     * @throws Exception 异常
+     */
+    private void processChapter3ForTestTemplate(XWPFDocument document, List<Task> tasks, Long rootParentId,
+                                                int baseHeadingLevel, int startSubChapterNum) throws Exception {
+
+        // 获取所有子部件
+        List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootParentId);
+
+        List<BiObject> biObjects = biObjectMapper.selectBiObjectsByIds(
+                tasks.stream()
+                        .filter(t -> Objects.nonNull(t) && Objects.nonNull(t.getBuilding()) && Objects.nonNull(t.getBuilding().getRootObjectId()))
+                        .map(t -> t.getBuilding().getRootObjectId())
+                        .distinct()
+                        .collect(Collectors.toList())
+        );
+
+        Map<Long, BiObject> biObjectMap = biObjects.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(BiObject::getId, Function.identity(), (a, b) -> a));
+
+        // 找到占位符所在的段落
+        XWPFParagraph placeholderParagraph = null;
+
+        for (int i = 0; i < document.getParagraphs().size(); i++) {
+            XWPFParagraph paragraph = document.getParagraphs().get(i);
+            String paragraphText = paragraph.getText();
+            if (paragraphText.contains("${chapter-3-2-appearanceInspection}")
+                    || paragraphText.contains("${chapter-3-2-appearanceInspectionResults}")) {
+                placeholderParagraph = paragraph;
+                break;
+            }
+        }
+
+        // 如果找不到占位符，直接返回
+        if (placeholderParagraph == null) {
+            return;
+        }
+
+        // 获取占位符段落的XML游标，用于指定内容插入位置
+        XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
+
+        // 为每个子桥生成章节
+        int chapterNum = 3;
+        int subChapterNum = startSubChapterNum;
+
+        AtomicInteger chapter3ImageCounter = new AtomicInteger(1);
+        AtomicInteger chapter3TableCounter = new AtomicInteger(1);
+
+        // 直接在文档中指定位置生成内容
+        for (Task task : tasks) {
+            XmlCursor subCursor = cursor.newCursor();
+            Building subBuilding = task.getBuilding();
+            Long projectId = task.getProjectId();
+            // 收集病害数据
+            List<Disease> subBridgeDiseases;
+            // 获取子桥的所有病害
+            Disease queryParam = new Disease();
+            queryParam.setBuildingId(subBuilding.getId());
+            queryParam.setProjectId(projectId);
+            subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
+
+            BiObject subBridge = biObjectMap.get(subBuilding.getRootObjectId());
+            // 为每个子桥收集病害
+            Map<Long, List<Disease>> bridgeDiseaseMap = new LinkedHashMap<>();
+            collectDiseases(subBridge, allObjects, subBridgeDiseases, 4, bridgeDiseaseMap);
+
+            // 在指定位置生成内容
+            String prefix = chapterNum + "." + subChapterNum;
+
+            // 使用传入的 baseHeadingLevel 控制标题级别
+            writeBiObjectTreeToWord(document, subBridge, allObjects,
+                    bridgeDiseaseMap, prefix, 1, chapter3ImageCounter, chapter3TableCounter, subCursor, baseHeadingLevel, true);
+
+            subChapterNum++;
+        }
+
+        // 删除占位符段落
+        placeholderParagraph.removeRun(0); // 清除占位符文本
+        if (placeholderParagraph.getRuns().size() == 0) {
+            // 如果段落为空，找到它的索引并删除
+            for (int i = 0; i < document.getParagraphs().size(); i++) {
+                if (document.getParagraphs().get(i) == placeholderParagraph) {
+                    document.removeBodyElement(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * 处理"与上一次检查病害变化情况分析"章节（测试模板独立版本）
+     * 使用独立占位符 ${chapter-3-3-diseaseComparison}，可单独放置在模板中
+     *
+     * @param document         Word文档
+     * @param tasks            任务列表
+     * @param baseHeadingLevel 标题级别（如 2 表示 Heading 2）
+     * @param startSubChapterNum 起始子章节号（如 1 表示从 3.3.1 开始编号）
+     */
+    private void processDiseaseComparisonForTestTemplate(XWPFDocument document, List<Task> tasks,
+                                                         int baseHeadingLevel, int startSubChapterNum) {
+        try {
+            // 找到占位符所在的段落
+            XWPFParagraph placeholderParagraph = null;
+
+            for (int i = 0; i < document.getParagraphs().size(); i++) {
+                XWPFParagraph paragraph = document.getParagraphs().get(i);
+                if (paragraph.getText().contains("${chapter-3-3-diseaseComparison}")) {
+                    placeholderParagraph = paragraph;
+                    break;
+                }
+            }
+
+            // 如果找不到占位符，直接返回
+            if (placeholderParagraph == null) {
+                return;
+            }
+
+            // 获取占位符段落的XML游标
+            XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
+
+            // 获取子桥BiObject映射
+            List<BiObject> biObjects = biObjectMapper.selectBiObjectsByIds(
+                    tasks.stream()
+                            .filter(t -> Objects.nonNull(t) && Objects.nonNull(t.getBuilding()) && Objects.nonNull(t.getBuilding().getRootObjectId()))
+                            .map(t -> t.getBuilding().getRootObjectId())
+                            .distinct()
+                            .collect(Collectors.toList())
+            );
+
+            Map<Long, BiObject> biObjectMap = biObjects.stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(BiObject::getId, Function.identity(), (a, b) -> a));
+
+            int chapterNum = 3;
+            int currentSubChapterNum = startSubChapterNum;
+            AtomicInteger tableCounter = new AtomicInteger(1);
+
+            // 为每个task生成病害对比表格
+            for (Task task : tasks) {
+                BiObject subBridge = biObjectMap.get(task.getBuilding().getRootObjectId());
+                Long projectId = task.getProjectId();
+                Building building = task.getBuilding();
+
+                // 生成病害对比数据
+                List<DiseaseComparisonData> comparisonData = diseaseComparisonService.generateComparisonData(subBridge, projectId, building.getId());
+
+                if (!comparisonData.isEmpty()) {
+                    // 为每个桥单独生成横向表格
+                    generateSingleDiseaseComparisonTable(document, placeholderParagraph, comparisonData,
+                            tableCounter, chapterNum, currentSubChapterNum, subBridge.getName());
+
+                    currentSubChapterNum++;
+                    log.info("已生成病害对比表格: {}", subBridge.getName());
+                }
+            }
+
+            // 删除占位符段落
+            placeholderParagraph.removeRun(0);
+            if (placeholderParagraph.getRuns().size() == 0) {
+                for (int i = 0; i < document.getParagraphs().size(); i++) {
+                    if (document.getParagraphs().get(i) == placeholderParagraph) {
+                        document.removeBodyElement(i);
+                        break;
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("处理与上一次检查病害变化情况分析出错", e);
+        }
+    }
 
     /**
      * 收集病害数据，参考ReportControllertest.java中的collectDiseases方法
@@ -2099,7 +2291,7 @@ public class ReportServiceImpl implements IReportService {
     private void writeBiObjectTreeToWord(XWPFDocument document, BiObject node, List<BiObject> allNodes,
                                          Map<Long, List<Disease>> diseaseMap, String prefix, int level,
                                          AtomicInteger chapterImageCounter, AtomicInteger chapter3TableCounter,
-                                         XmlCursor cursor, int baseHeadingLevel) throws Exception {
+                                         XmlCursor cursor, int baseHeadingLevel, boolean resolveHeadingStyleByName) throws Exception {
         if (level > 3) {
             return; // 不再写标题，也不再递归写标题
         }
@@ -2113,8 +2305,11 @@ public class ReportServiceImpl implements IReportService {
             p = document.createParagraph();
         }
         int actualHeadingLevel = baseHeadingLevel + level;
-        String headingStyle = String.valueOf(Math.min(actualHeadingLevel, 9));
-        p.setStyle(headingStyle);
+        if (resolveHeadingStyleByName) {
+            setHeadingStyleByLevel(document, p, actualHeadingLevel);
+        } else {
+            p.setStyle(String.valueOf(Math.min(actualHeadingLevel, 9)));
+        }
 
         // 设置段落左对齐
         p.setAlignment(ParagraphAlignment.LEFT);
@@ -2187,9 +2382,10 @@ public class ReportServiceImpl implements IReportService {
             log.info("开始生成病害小结");
             String diseaseString = "";
             try {
-                diseaseString = ReportTemplateValueUtils.buildDiseaseSummary(nodeDiseases);
+                diseaseString = getDiseaseSummary(nodeDiseases);
+                diseaseString = normalizeDiseaseSummary(diseaseString, node.getName());
             } catch (Exception e) {
-                log.error("ai小结病害失败，生成报告继续。");
+                log.error("ai小结病害失败，使用原始病害拼接兜底，生成报告继续。", e);
             }
             if (diseaseString == null || diseaseString.trim().isEmpty()) {
                 diseaseString = ReportTemplateValueUtils.buildDiseaseSummary(nodeDiseases);
@@ -2457,9 +2653,80 @@ public class ReportServiceImpl implements IReportService {
 
         int idx = 1;
         for (BiObject child : children) {
-            writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel);
+            writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel, resolveHeadingStyleByName);
             idx++;
         }
+    }
+
+    private String normalizeDiseaseSummary(String diseaseSummary, String nodeName) {
+        if (diseaseSummary == null) {
+            return "";
+        }
+
+        String[] lines = diseaseSummary.replace("\r\n", "\n").replace("\r", "\n").split("\\n+");
+        StringBuilder builder = new StringBuilder();
+        for (String line : lines) {
+            String cleanedLine = line.trim().replaceFirst("^\\d+[）).、，,]\\s*", "");
+            if (cleanedLine.isEmpty()) {
+                continue;
+            }
+            builder.append(cleanedLine);
+        }
+        String normalized = builder.toString();
+
+        if (nodeName != null) {
+            String[] prefixes = {
+                    nodeName + "：",
+                    nodeName + ":",
+                    nodeName + "，",
+                    nodeName + ","
+            };
+            for (String prefix : prefixes) {
+                if (normalized.startsWith(prefix)) {
+                    normalized = normalized.substring(prefix.length());
+                    break;
+                }
+            }
+        }
+
+        return normalized.trim();
+    }
+
+    /**
+     * 根据当前模板中的样式名称解析真实 styleId，避免不同 Word 模板中 Heading 样式 ID 不一致。
+     */
+    private void setHeadingStyleByLevel(XWPFDocument document, XWPFParagraph paragraph, int headingLevel) {
+        int normalizedLevel = Math.max(1, Math.min(headingLevel, 9));
+        String fallbackStyleId = String.valueOf(normalizedLevel);
+        String resolvedStyleId = null;
+
+        XWPFStyles styles = document.getStyles();
+        if (styles != null) {
+            XWPFStyle style = findHeadingStyle(styles, normalizedLevel);
+            if (style != null) {
+                resolvedStyleId = style.getStyleId();
+            }
+        }
+
+        paragraph.setStyle(resolvedStyleId != null && !resolvedStyleId.trim().isEmpty()
+                ? resolvedStyleId
+                : fallbackStyleId);
+    }
+
+    private XWPFStyle findHeadingStyle(XWPFStyles styles, int headingLevel) {
+        List<String> headingNames = Arrays.asList(
+                "Heading " + headingLevel,
+                "heading " + headingLevel,
+                "标题 " + headingLevel,
+                "标题" + headingLevel
+        );
+        for (String headingName : headingNames) {
+            XWPFStyle style = styles.getStyleWithName(headingName);
+            if (style != null) {
+                return style;
+            }
+        }
+        return null;
     }
 
     /**

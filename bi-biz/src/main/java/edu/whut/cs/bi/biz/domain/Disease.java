@@ -94,7 +94,7 @@ public class Disease extends BaseEntity {
     private String detectionMethod;
 
     /**
-     * 是否参与评定  0是 1否
+     * 是否参与评定 1是 0否
      */
     private String participateAssess;
 

@@ -105,7 +105,7 @@ public class ScoreServiceImpl implements IScoreService {
     /**
      * 计算单个构件的得分
      */
-    private Score calculateComponentScore(Component component, List<Disease> diseases, Long conditionId) {
+    Score calculateComponentScore(Component component, List<Disease> diseases, Long conditionId) {
         // 初始化得分为100
         BigDecimal finalScore = new BigDecimal("100");
 
@@ -220,18 +220,10 @@ public class ScoreServiceImpl implements IScoreService {
         }
 
         // 创建得分对象
-        Score score = scoreMapper.selectScoreBycomponentId(component.getId());
-        if(score==null) {
-            score = new Score();
-            score.setCreateBy(ShiroUtils.getLoginName());
-            score.setCreateTime(new Date());
-            insertScore(score);
-        }
+        Score score = new Score();
         score.setScore(finalScore);
         score.setComponentId(component.getId());
         score.setConditionId(conditionId);
-        score.setUpdateBy(ShiroUtils.getLoginName());
-        score.setUpdateTime(new Date());
 
         return score;
     }
@@ -239,7 +231,10 @@ public class ScoreServiceImpl implements IScoreService {
     /**
      * 根据病害类型最大等级和当前等级获取扣分值
      */
-    private BigDecimal getDeductionValue(Integer maxScale, Integer currentLevel) {
+    BigDecimal getDeductionValue(Integer maxScale, Integer currentLevel) {
+        if (maxScale == null || currentLevel == null) {
+            throw new IllegalArgumentException("病害标度不能为空");
+        }
         // 根据表4.1.1实现扣分逻辑
         int deduction = 0;
 
@@ -255,6 +250,8 @@ public class ScoreServiceImpl implements IScoreService {
                     case 3:
                         deduction = 35;
                         break;
+                    default:
+                        throw new IllegalArgumentException("最大标度为3时，评定等级只能为1、2或3");
                 }
                 break;
             case 4:
@@ -271,6 +268,8 @@ public class ScoreServiceImpl implements IScoreService {
                     case 4:
                         deduction = 50;
                         break;
+                    default:
+                        throw new IllegalArgumentException("最大标度为4时，评定等级只能为1、2、3或4");
                 }
                 break;
             case 5:
@@ -290,8 +289,12 @@ public class ScoreServiceImpl implements IScoreService {
                     case 5:
                         deduction = 100;
                         break;
+                    default:
+                        throw new IllegalArgumentException("最大标度为5时，评定等级只能为1、2、3、4或5");
                 }
                 break;
+            default:
+                throw new IllegalArgumentException("最大标度只能为3、4或5");
         }
 
         return new BigDecimal(deduction);
