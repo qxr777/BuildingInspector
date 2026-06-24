@@ -99,8 +99,6 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
         }
 
         // 1. 获取或创建评定记录
-        biObjectService.correctAllWeights(rootObjectId);
-
         BiEvaluation biEvaluation = selectBiEvaluationByTaskId(taskId);
         if (biEvaluation == null) {
             biEvaluation = new BiEvaluation();
