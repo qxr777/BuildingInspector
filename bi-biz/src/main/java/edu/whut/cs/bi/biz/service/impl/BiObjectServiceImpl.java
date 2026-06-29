@@ -360,6 +360,70 @@ public class BiObjectServiceImpl implements IBiObjectService {
         return list;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int repairCountsFromSubtree(Long rootObjectId) {
+        if (rootObjectId == null) {
+            throw new ServiceException("根对象ID不能为空");
+        }
+
+        List<BiObject> allObjects = selectBiObjectAndChildren(rootObjectId);
+        if (allObjects == null || allObjects.isEmpty()) {
+            return 0;
+        }
+
+        Map<Long, BiObject> objectMap = allObjects.stream()
+                .filter(Objects::nonNull)
+                .filter(object -> object.getId() != null)
+                .collect(Collectors.toMap(BiObject::getId, object -> object, (left, right) -> left));
+        BiObject rootObject = objectMap.get(rootObjectId);
+        if (rootObject == null) {
+            return 0;
+        }
+
+        Map<Long, List<BiObject>> childrenMap = objectMap.values().stream()
+                .filter(object -> object.getParentId() != null)
+                .collect(Collectors.groupingBy(BiObject::getParentId));
+
+        List<BiObject> objectsToUpdate = new ArrayList<>();
+        calculateSubtreeCount(rootObject, childrenMap, objectsToUpdate);
+
+        int updatedCount = 0;
+        for (BiObject object : objectsToUpdate) {
+            BiObject updateObject = new BiObject();
+            updateObject.setId(object.getId());
+            updateObject.setCount(object.getCount());
+            updateObject.setUpdateTime(DateUtils.getNowDate());
+            updatedCount += biObjectMapper.updateBiObject(updateObject);
+        }
+        return updatedCount;
+    }
+
+    private int calculateSubtreeCount(BiObject object, Map<Long, List<BiObject>> childrenMap, List<BiObject> objectsToUpdate) {
+        List<BiObject> children = childrenMap.get(object.getId());
+        int currentCount = object.getCount() == null ? 0 : object.getCount();
+        int childTotalCount = 0;
+        if (children != null && !children.isEmpty()) {
+            for (BiObject child : children) {
+                childTotalCount += calculateSubtreeCount(child, childrenMap, objectsToUpdate);
+            }
+        }
+
+        if (currentCount > 0) {
+            if (childTotalCount > 0 && childTotalCount != currentCount) {
+                throw new ServiceException(String.format("count数量冲突：对象%s(id=%d) count=%d，子树合计=%d",
+                        object.getName(), object.getId(), currentCount, childTotalCount));
+            }
+            return currentCount;
+        }
+
+        if (!Objects.equals(object.getCount(), childTotalCount)) {
+            object.setCount(childTotalCount);
+            objectsToUpdate.add(object);
+        }
+        return childTotalCount;
+    }
+
     /**
      * 根据根节点ID逻辑删除对象及其所有子节点
      *

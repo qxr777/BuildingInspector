@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.exception.ServiceException;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -237,6 +238,26 @@ public class BiObjectController extends BaseController {
             return AjaxResult.error("未找到根节点");
         }
         return toAjax(biObjectService.correctAllWeights(rootObjectId));
+    }
+
+    /**
+     * 修正构件数量
+     */
+    @RequiresPermissions("biz:object:edit")
+    @Log(title = "修正构件数量", businessType = BusinessType.UPDATE)
+    @PostMapping("/repairCounts")
+    @ResponseBody
+    public AjaxResult repairCounts(Long rootObjectId) {
+        if (rootObjectId == null) {
+            return AjaxResult.error("未找到根节点");
+        }
+
+        try {
+            int updatedCount = biObjectService.repairCountsFromSubtree(rootObjectId);
+            return AjaxResult.success("构件数量修正完成，共更新" + updatedCount + "条记录");
+        } catch (ServiceException e) {
+            return AjaxResult.error(e.getMessage());
+        }
     }
 
     /**
