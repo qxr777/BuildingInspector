@@ -717,12 +717,13 @@ public class PropertyServiceImpl implements IPropertyService {
 //        String host = "59.110.81.142";
 //        int port = 8081;
         String url = springAiRagEndpoint + "/api-ai/word2Json";
+        long startTime = System.currentTimeMillis();
+        String originalFilename = file == null ? null : file.getOriginalFilename();
 
         try {
             // 构建Multipart请求体
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             byte[] bytes = file.getBytes();
-            String originalFilename = file.getOriginalFilename();
             ByteArrayResource resource = new ByteArrayResource(bytes) {
                 @Override
                 public String getFilename() {
@@ -741,9 +742,12 @@ public class PropertyServiceImpl implements IPropertyService {
                     .bodyToMono(String.class)
                     .block();
 
+            log.info("Word文件转换JSON完成，fileName={}, size={} bytes, cost={}ms",
+                    originalFilename, bytes.length, System.currentTimeMillis() - startTime);
             return response;
         } catch (Exception e) {
-            log.error("Word文件转换JSON失败", e);
+            log.error("Word文件转换JSON失败，fileName={}, cost={}ms",
+                    originalFilename, System.currentTimeMillis() - startTime, e);
             throw new RuntimeException("文件处理失败: " + e.getMessage());
         }
     }

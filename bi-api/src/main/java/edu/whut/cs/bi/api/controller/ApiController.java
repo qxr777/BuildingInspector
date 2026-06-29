@@ -25,6 +25,7 @@ import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
@@ -713,6 +714,22 @@ public class ApiController {
         int resumeCount = readFileService.resumeBuildingFile(file);
         AjaxResult ajax = AjaxResult.success("修复成功，共修复 " + resumeCount + " 座桥梁");
         ajax.put("resumeCount", resumeCount);
+        return ajax;
+    }
+
+    @PostMapping("/batchImportBridgeCards")
+    @ResponseBody
+    public AjaxResult batchImportBridgeCards(MultipartFile file, Long projectId) {
+        BatchBridgeCardImportResult result = readFileService.batchImportBridgeCards(file, projectId);
+        AjaxResult ajax = AjaxResult.success("导入完成，成功 " + result.getSuccessCount()
+                + " 个，跳过 " + result.getSkippedCount()
+                + " 个，失败 " + result.getFailureCount() + " 个");
+        ajax.put("result", result);
+        ajax.put("successCount", result.getSuccessCount());
+        ajax.put("skippedCount", result.getSkippedCount());
+        ajax.put("failureCount", result.getFailureCount());
+        ajax.put("skipped", result.getSkipped());
+        ajax.put("failures", result.getFailures());
         return ajax;
     }
 

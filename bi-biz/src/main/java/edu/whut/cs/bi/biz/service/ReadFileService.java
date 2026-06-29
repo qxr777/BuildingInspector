@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.service;
 
 import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -43,6 +44,15 @@ public interface ReadFileService {
      * @return 修复数量
      */
     int resumeBuildingFile(MultipartFile file);
+
+    /**
+     * 批量导入桥梁基本状况卡Word压缩包
+     *
+     * @param file      包含Word文件的zip压缩包
+     * @param projectId 可选项目ID，用于限定桥梁匹配范围
+     * @return 导入结果
+     */
+    BatchBridgeCardImportResult batchImportBridgeCards(MultipartFile file, Long projectId);
 
     /**
      * 匹配生成缩略图

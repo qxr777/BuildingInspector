@@ -7,12 +7,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysDictDataService;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import io.minio.GetObjectArgs;
@@ -40,11 +42,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @Slf4j
 @Service
@@ -95,6 +101,13 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     @Resource
     private IFileMapService fileMapService;
+
+    @Resource
+    private IPropertyService propertyService;
+
+    private static final Charset ZIP_UTF8_CHARSET = StandardCharsets.UTF_8;
+
+    private static final Charset ZIP_GBK_CHARSET = Charset.forName("GBK");
 
     @Override
     public void readCBMSDiseaseExcel(MultipartFile file, Long taskId) {
@@ -1048,6 +1061,184 @@ public class ReadFileServiceImpl implements ReadFileService {
         }
 
         return resumeCount;
+    }
+
+    @Override
+    public BatchBridgeCardImportResult batchImportBridgeCards(MultipartFile file, Long projectId) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("上传文件不能为空");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (StringUtils.isEmpty(originalFilename) || !originalFilename.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            throw new ServiceException("请上传zip格式的桥梁卡片压缩包");
+        }
+
+        try {
+            return batchImportBridgeCards(file, projectId, ZIP_UTF8_CHARSET);
+        } catch (IllegalArgumentException e) {
+            if (!isZipCharsetMalformed(e)) {
+                throw e;
+            }
+            return batchImportBridgeCards(file, projectId, ZIP_GBK_CHARSET);
+        }
+    }
+
+    private BatchBridgeCardImportResult batchImportBridgeCards(MultipartFile file, Long projectId, Charset charset) {
+        BatchBridgeCardImportResult result = new BatchBridgeCardImportResult();
+        try (ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream(), charset)) {
+            ZipEntry entry;
+            while ((entry = zipInputStream.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+
+                String fileName = getZipEntryFileName(entry.getName());
+                if (!isWordFile(fileName)) {
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+
+                byte[] wordBytes = readZipEntry(zipInputStream);
+                log.info("开始批量导入桥梁卡片Word，fileName={}", fileName);
+                importSingleBridgeCard(fileName, wordBytes, projectId, result);
+                zipInputStream.closeEntry();
+            }
+        } catch (IOException e) {
+            throw new ServiceException("读取桥梁卡片压缩包失败：" + e.getMessage());
+        }
+        return result;
+    }
+
+    private boolean isZipCharsetMalformed(IllegalArgumentException e) {
+        return e.getCause() instanceof java.nio.charset.MalformedInputException
+                || (e.getMessage() != null && e.getMessage().contains("malformed input"));
+    }
+
+    private void importSingleBridgeCard(String fileName, byte[] wordBytes, Long projectId, BatchBridgeCardImportResult result) {
+        long startTime = System.currentTimeMillis();
+        String bridgeName = extractBridgeNameFromCardFileName(fileName);
+        if (StringUtils.isEmpty(bridgeName)) {
+            result.addFailure(fileName, bridgeName, "无法从文件名解析桥梁名称");
+            log.warn("批量导入桥梁卡片失败，fileName={}, reason=无法从文件名解析桥梁名称", fileName);
+            return;
+        }
+
+        Building building = resolveBridgeCardBuilding(bridgeName, projectId);
+        if (building == null) {
+            result.addFailure(fileName, bridgeName, "未找到桥梁：" + bridgeName);
+            log.warn("批量导入桥梁卡片失败，fileName={}, bridgeName={}, projectId={}, reason=未找到唯一桥梁",
+                    fileName, bridgeName, projectId);
+            return;
+        }
+        if (building.getRootPropertyId() != null) {
+            result.addSkipped(fileName, bridgeName, building.getId(), "已存在桥梁卡片");
+            log.info("跳过批量导入桥梁卡片，fileName={}, bridgeName={}, buildingId={}, rootPropertyId={}, reason=已存在桥梁卡片",
+                    fileName, bridgeName, building.getId(), building.getRootPropertyId());
+            return;
+        }
+
+        try {
+            log.info("批量导入桥梁卡片匹配成功，fileName={}, bridgeName={}, buildingId={}",
+                    fileName, bridgeName, building.getId());
+            MultipartFile wordFile = new MockMultipartFile(
+                    "file",
+                    fileName,
+                    getWordContentType(fileName),
+                    wordBytes);
+            Property property = new Property();
+            Boolean imported = propertyService.readWordFile(wordFile, property, building.getId());
+            if (imported == null || !imported) {
+                result.addFailure(fileName, bridgeName, "桥梁卡片导入失败");
+                log.warn("批量导入桥梁卡片失败，fileName={}, bridgeName={}, buildingId={}, cost={}ms, reason=readWordFile返回失败",
+                        fileName, bridgeName, building.getId(), System.currentTimeMillis() - startTime);
+                return;
+            }
+            result.addSuccess();
+            log.info("批量导入桥梁卡片成功，fileName={}, bridgeName={}, buildingId={}, cost={}ms",
+                    fileName, bridgeName, building.getId(), System.currentTimeMillis() - startTime);
+        } catch (Exception e) {
+            result.addFailure(fileName, bridgeName, "桥梁卡片导入异常：" + e.getMessage());
+            log.error("批量导入桥梁卡片异常，fileName={}, bridgeName={}, buildingId={}, cost={}ms",
+                    fileName, bridgeName, building.getId(), System.currentTimeMillis() - startTime, e);
+        }
+    }
+
+    private Building resolveBridgeCardBuilding(String bridgeName, Long projectId) {
+        List<Building> buildings;
+        if (projectId != null) {
+            Task queryTask = new Task();
+            queryTask.setProjectId(projectId);
+            Building queryBuilding = new Building();
+            queryBuilding.setName(bridgeName);
+            queryTask.setBuilding(queryBuilding);
+            List<Task> tasks = taskService.selectTaskList(queryTask);
+            buildings = tasks == null ? Collections.emptyList() : tasks.stream()
+                    .map(Task::getBuilding)
+                    .filter(Objects::nonNull)
+                    .filter(building -> bridgeName.equals(building.getName()))
+                    .collect(Collectors.toList());
+        } else {
+            Building queryBuilding = new Building();
+            queryBuilding.setName(bridgeName);
+            buildings = buildingMapper.selectBuildingExactList(queryBuilding);
+            if (buildings != null) {
+                buildings = buildings.stream()
+                        .filter(building -> bridgeName.equals(building.getName()))
+                        .collect(Collectors.toList());
+            }
+        }
+
+        if (CollUtil.isEmpty(buildings) || buildings.size() != 1) {
+            return null;
+        }
+        return buildings.get(0);
+    }
+
+    private String getZipEntryFileName(String entryName) {
+        String normalized = entryName == null ? "" : entryName.replace('\\', '/');
+        int index = normalized.lastIndexOf('/');
+        return index >= 0 ? normalized.substring(index + 1) : normalized;
+    }
+
+    private boolean isWordFile(String fileName) {
+        if (StringUtils.isEmpty(fileName) || fileName.startsWith("~$")) {
+            return false;
+        }
+        String lowerName = fileName.toLowerCase(Locale.ROOT);
+        return lowerName.endsWith(".docx") || lowerName.endsWith(".doc");
+    }
+
+    private byte[] readZipEntry(ZipInputStream zipInputStream) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int length;
+        while ((length = zipInputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, length);
+        }
+        return outputStream.toByteArray();
+    }
+
+    private String extractBridgeNameFromCardFileName(String fileName) {
+        String name = fileName;
+        int dotIndex = name.lastIndexOf('.');
+        if (dotIndex > 0) {
+            name = name.substring(0, dotIndex);
+        }
+
+        int separatorIndex = Math.max(
+                Math.max(name.lastIndexOf('-'), name.lastIndexOf('－')),
+                Math.max(name.lastIndexOf('—'), name.lastIndexOf('–')));
+        if (separatorIndex >= 0 && separatorIndex < name.length() - 1) {
+            name = name.substring(separatorIndex + 1);
+        }
+        return name.trim();
+    }
+
+    private String getWordContentType(String fileName) {
+        return fileName.toLowerCase(Locale.ROOT).endsWith(".doc")
+                ? "application/msword"
+                : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     }
 
 

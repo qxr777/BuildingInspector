@@ -1069,7 +1069,7 @@
                 }
 
                 if (showCrackType) {
-                    detailDiv.find(`select[name="diseaseDetails[${i}].crackType"]`).val(disease.crackType || "纵向");
+                    $("#crackType").val(disease.crackType || "纵向");
                 }
 
                 // 如果有对应的diseaseDetails数据，设置表单值
@@ -1349,7 +1349,7 @@
 
             // 设置裂缝特征
             if (showCrackType) {
-                detailDiv.find(`select[name="diseaseDetails[0].crackType"]`).val(disease.crackType || "纵向");
+                $("#crackType").val(disease.crackType || "纵向");
             }
 
             // 如果有对应的diseaseDetails数据，设置批量模式下的表单值
