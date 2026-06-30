@@ -15,6 +15,7 @@ import com.ruoyi.system.service.ISysDictDataService;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
+import edu.whut.cs.bi.biz.domain.vo.BatchCbmsDiseaseImportResult;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import io.minio.GetObjectArgs;
@@ -58,6 +59,9 @@ public class ReadFileServiceImpl implements ReadFileService {
 
     @Resource
     private ITaskService taskService;
+
+    @Resource
+    private TaskMapper taskMapper;
 
     @Resource
     private IComponentService componentService;
@@ -980,15 +984,6 @@ public class ReadFileServiceImpl implements ReadFileService {
                         throw new RuntimeException("第" + excelRowNum + "行桥梁类型不支持：" + type
                                 + "，桥梁：" + buildingName + "，仅支持：组合桥、桥幅");
                     }
-                    if (!"桥幅".equals(type)) {
-                        continue;
-                    }
-
-                    Long templateId = BRIDGE_TYPE_MAP.get(template);
-                    if (templateId == null) {
-                        throw new RuntimeException("第" + excelRowNum + "行桥幅模板未匹配：" + template
-                                + "，桥梁：" + buildingName);
-                    }
 
                     SysDictData areaQuery = new SysDictData();
                     areaQuery.setDictType("bi_building_area");
@@ -1007,17 +1002,91 @@ public class ReadFileServiceImpl implements ReadFileService {
                         throw new RuntimeException("第" + excelRowNum + "行线路字典未匹配：" + line
                                 + "，桥梁：" + buildingName);
                     }
+                    String areaValue = String.valueOf(areaCode.get(0).getDictValue());
+                    String lineValue = String.valueOf(lineCode.get(0).getDictValue());
+
+                    if ("组合桥".equals(type)) {
+                        Building query = new Building();
+                        query.setName(buildingName);
+                        query.setArea(areaValue);
+                        query.setLine(lineValue);
+                        List<Building> matchedBuildings = buildingMapper.selectBuildingExactList(query);
+                        if (CollUtil.isEmpty(matchedBuildings)) {
+                            Building building = new Building();
+                            building.setName(buildingName);
+                            building.setStatus("0");
+                            building.setIsLeaf("0");
+                            building.setArea(areaValue);
+                            building.setLine(lineValue);
+                            resumeCount += buildingService.insertBuilding(building);
+                            continue;
+                        }
+                        if (matchedBuildings.size() > 1) {
+                            throw new RuntimeException("第" + excelRowNum + "行匹配到多座桥梁，无法自动修复为组合桥：" + buildingName
+                                    + "，片区：" + area + "，线路：" + line);
+                        }
+
+                        Building building = matchedBuildings.get(0);
+                        if (StringUtils.isNotEmpty(fatherBuilding) && !fatherBuilding.equals(buildingName)) {
+                            Building parentQuery = new Building();
+                            parentQuery.setName(fatherBuilding);
+                            parentQuery.setIsLeaf("0");
+                            parentQuery.setArea(areaValue);
+                            parentQuery.setLine(lineValue);
+                            List<Building> parentBuildings = buildingMapper.selectBuildingList(parentQuery).stream()
+                                    .filter(item -> fatherBuilding.equals(item.getName()))
+                                    .collect(Collectors.toList());
+                            if (CollUtil.isEmpty(parentBuildings)) {
+                                throw new RuntimeException("第" + excelRowNum + "行未找到父桥：" + fatherBuilding
+                                        + "，组合桥：" + buildingName);
+                            }
+                            if (parentBuildings.size() > 1) {
+                                throw new RuntimeException("第" + excelRowNum + "行匹配到多个父桥：" + fatherBuilding
+                                        + "，组合桥：" + buildingName);
+                            }
+                            building.setParentId(parentBuildings.get(0).getId());
+                        } else {
+                            building.setParentId(null);
+                        }
+
+                        resumeCount += buildingService.repairCombinationBridgeRoot(building);
+                        continue;
+                    }
+
+                    Long templateId = BRIDGE_TYPE_MAP.get(template);
+                    if (templateId == null) {
+                        throw new RuntimeException("第" + excelRowNum + "行桥幅模板未匹配：" + template
+                                + "，桥梁：" + buildingName);
+                    }
 
                     Building query = new Building();
                     query.setName(buildingName);
-                    query.setArea(String.valueOf(areaCode.get(0).getDictValue()));
-                    query.setLine(String.valueOf(lineCode.get(0).getDictValue()));
+                    query.setArea(areaValue);
+                    query.setLine(lineValue);
                     List<Building> matchedBuildings = buildingMapper.selectBuildingExactList(query).stream()
                             .filter(item -> "1".equals(item.getIsLeaf()))
                             .collect(Collectors.toList());
                     if (CollUtil.isEmpty(matchedBuildings)) {
-                        throw new RuntimeException("第" + excelRowNum + "行未找到待修复桥幅：" + buildingName
-                                + "，片区：" + area + "，线路：" + line);
+                        Building building = new Building();
+                        building.setName(buildingName);
+                        building.setStatus("0");
+                        building.setIsLeaf("1");
+                        building.setArea(areaValue);
+                        building.setLine(lineValue);
+                        building.setTemplateId(templateId);
+                        if (StringUtils.isNotEmpty(fatherBuilding) && !fatherBuilding.equals(buildingName)) {
+                            Building parentQuery = new Building();
+                            parentQuery.setName(fatherBuilding);
+                            parentQuery.setIsLeaf("0");
+                            parentQuery.setArea(areaValue);
+                            parentQuery.setLine(lineValue);
+                            List<Building> parentBuildings = buildingMapper.selectBuildingList(parentQuery);
+                            if (parentBuildings != null && !parentBuildings.isEmpty()) {
+                                building.setParentId(parentBuildings.get(0).getId());
+                            }
+                        }
+                        resumeCount += buildingService.insertBuilding(building);
+                        continue;
                     }
                     if (matchedBuildings.size() > 1) {
                         throw new RuntimeException("第" + excelRowNum + "行匹配到多座桥幅，无法自动修复：" + buildingName
@@ -1033,8 +1102,8 @@ public class ReadFileServiceImpl implements ReadFileService {
                         Building parentQuery = new Building();
                         parentQuery.setName(fatherBuilding);
                         parentQuery.setIsLeaf("0");
-                        parentQuery.setArea(String.valueOf(areaCode.get(0).getDictValue()));
-                        parentQuery.setLine(String.valueOf(lineCode.get(0).getDictValue()));
+                        parentQuery.setArea(areaValue);
+                        parentQuery.setLine(lineValue);
                         List<Building> parentBuildings = buildingMapper.selectBuildingList(parentQuery).stream()
                                 .filter(item -> fatherBuilding.equals(item.getName()))
                                 .collect(Collectors.toList());
@@ -1239,6 +1308,285 @@ public class ReadFileServiceImpl implements ReadFileService {
         return fileName.toLowerCase(Locale.ROOT).endsWith(".doc")
                 ? "application/msword"
                 : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+
+    @Override
+    public BatchCbmsDiseaseImportResult batchImportCBMSDiseases(MultipartFile file, Long projectId, String projectName) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("上传文件不能为空");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (StringUtils.isEmpty(originalFilename) || !originalFilename.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            throw new ServiceException("请上传zip格式的CBMS病害压缩包");
+        }
+        if (projectId == null && StringUtils.isEmpty(projectName)) {
+            throw new ServiceException("项目ID或项目名称不能为空");
+        }
+
+        try {
+            return batchImportCBMSDiseases(file, projectId, projectName, ZIP_UTF8_CHARSET);
+        } catch (IllegalArgumentException e) {
+            if (!isZipCharsetMalformed(e)) {
+                throw e;
+            }
+            return batchImportCBMSDiseases(file, projectId, projectName, ZIP_GBK_CHARSET);
+        }
+    }
+
+    private BatchCbmsDiseaseImportResult batchImportCBMSDiseases(MultipartFile file, Long projectId, String projectName, Charset charset) {
+        BatchCbmsDiseaseImportResult result = new BatchCbmsDiseaseImportResult();
+        try (ZipInputStream zipInputStream = new ZipInputStream(file.getInputStream(), charset)) {
+            ZipEntry entry;
+            while ((entry = zipInputStream.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+
+                String fileName = getZipEntryFileName(entry.getName());
+                if (!isExcelFile(fileName)) {
+                    zipInputStream.closeEntry();
+                    continue;
+                }
+
+                byte[] excelBytes = readZipEntry(zipInputStream);
+                log.info("开始批量导入CBMS病害Excel，fileName={}", fileName);
+                importSingleCBMSDisease(fileName, excelBytes, projectId, projectName, result);
+                zipInputStream.closeEntry();
+            }
+        } catch (IOException e) {
+            throw new ServiceException("读取CBMS病害压缩包失败：" + e.getMessage());
+        }
+        return result;
+    }
+
+    private void importSingleCBMSDisease(String fileName, byte[] excelBytes, Long projectId, String projectName,
+                                         BatchCbmsDiseaseImportResult result) {
+        long startTime = System.currentTimeMillis();
+        String bridgeName = extractBridgeNameFromCBMSDiseaseFileName(fileName);
+        if (StringUtils.isEmpty(bridgeName)) {
+            result.addFailure(fileName, bridgeName, "无法从文件名解析桥梁名称");
+            log.warn("批量导入CBMS病害失败，fileName={}, reason=无法从文件名解析桥梁名称", fileName);
+            return;
+        }
+
+        TaskMatchResult matchResult = resolveCBMSDiseaseTasks(bridgeName, projectId, projectName);
+        if (CollUtil.isEmpty(matchResult.getTasks())) {
+            result.addFailure(fileName, bridgeName, matchResult.getReason());
+            log.warn("批量导入CBMS病害失败，fileName={}, bridgeName={}, projectId={}, projectName={}, reason={}",
+                    fileName, bridgeName, projectId, projectName, matchResult.getReason());
+            return;
+        }
+
+        for (Task task : matchResult.getTasks()) {
+            importMatchedCBMSDiseaseTask(fileName, excelBytes, bridgeName, task, result, startTime);
+        }
+    }
+
+    private void importMatchedCBMSDiseaseTask(String fileName, byte[] excelBytes, String bridgeName, Task task,
+                                              BatchCbmsDiseaseImportResult result, long startTime) {
+        Building building = task.getBuilding();
+        if (hasExistingDiseases(task.getId())) {
+            result.addSkipped(fileName, bridgeName, task.getId(), building == null ? null : building.getId(),
+                    building == null ? null : building.getName(), "任务已存在病害信息");
+            log.info("跳过批量导入CBMS病害，fileName={}, bridgeName={}, taskId={}, reason=任务已存在病害信息",
+                    fileName, bridgeName, task.getId());
+            return;
+        }
+
+        try {
+            MultipartFile excelFile = new MockMultipartFile(
+                    "file",
+                    fileName,
+                    getExcelContentType(fileName),
+                    excelBytes);
+            transactionTemplate.execute(status -> {
+                readCBMSDiseaseExcel(excelFile, task.getId());
+                return null;
+            });
+            Project project = task.getProject();
+            result.addSuccess(fileName, bridgeName, task.getId(), building == null ? null : building.getId(),
+                    building == null ? null : building.getName(), task.getProjectId(), project == null ? null : project.getName());
+            log.info("批量导入CBMS病害成功，fileName={}, bridgeName={}, taskId={}, cost={}ms",
+                    fileName, bridgeName, task.getId(), System.currentTimeMillis() - startTime);
+        } catch (Exception e) {
+            result.addFailure(fileName, bridgeName, "CBMS病害导入异常：" + e.getMessage());
+            log.error("批量导入CBMS病害异常，fileName={}, bridgeName={}, taskId={}, cost={}ms",
+                    fileName, bridgeName, task.getId(), System.currentTimeMillis() - startTime, e);
+        }
+    }
+
+    private TaskMatchResult resolveCBMSDiseaseTasks(String bridgeName, Long projectId, String projectName) {
+        Task queryTask = new Task();
+        queryTask.setProjectId(projectId);
+        if (StringUtils.isNotEmpty(projectName)) {
+            Project project = new Project();
+            project.setName(projectName.trim());
+            queryTask.setProject(project);
+        }
+        Building queryBuilding = new Building();
+        queryBuilding.setName(bridgeName);
+        queryTask.setBuilding(queryBuilding);
+
+        List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
+        if (CollUtil.isEmpty(tasks)) {
+            return TaskMatchResult.failure("未找到匹配任务：" + bridgeName);
+        }
+
+        List<Task> matchedTasks = tasks.stream()
+                .filter(task -> projectMatches(task, projectId, projectName))
+                .map(task -> new ScoredTask(task, scoreBridgeMatch(bridgeName, task.getBuilding())))
+                .filter(scoredTask -> scoredTask.getScore() > 0)
+                .sorted(Comparator.comparingInt(ScoredTask::getScore).reversed())
+                .map(ScoredTask::getTask)
+                .collect(Collectors.toList());
+
+        if (CollUtil.isEmpty(matchedTasks)) {
+            return TaskMatchResult.failure("未找到匹配任务：" + bridgeName);
+        }
+        return TaskMatchResult.success(matchedTasks);
+    }
+
+    private boolean hasExistingDiseases(Long taskId) {
+        Disease query = new Disease();
+        query.setTaskId(taskId);
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(query);
+        return CollUtil.isNotEmpty(diseases);
+    }
+
+    private boolean projectMatches(Task task, Long projectId, String projectName) {
+        if (projectId != null && !Objects.equals(projectId, task.getProjectId())) {
+            return false;
+        }
+        if (StringUtils.isEmpty(projectName)) {
+            return true;
+        }
+        Project project = task.getProject();
+        String taskProjectName = project == null ? null : project.getName();
+        return fuzzyContains(taskProjectName, projectName);
+    }
+
+    private int scoreBridgeMatch(String bridgeName, Building building) {
+        if (building == null || StringUtils.isEmpty(building.getName())) {
+            return 0;
+        }
+        String fileBridgeName = normalizeMatchName(bridgeName);
+        String taskBridgeName = normalizeMatchName(building.getName());
+        if (StringUtils.isEmpty(fileBridgeName) || StringUtils.isEmpty(taskBridgeName)) {
+            return 0;
+        }
+        if (taskBridgeName.equals(fileBridgeName)) {
+            return 1000;
+        }
+        if (taskBridgeName.startsWith(fileBridgeName)) {
+            return 800 - Math.max(0, taskBridgeName.length() - fileBridgeName.length());
+        }
+        if (taskBridgeName.contains(fileBridgeName)) {
+            return 600 - Math.max(0, taskBridgeName.length() - fileBridgeName.length());
+        }
+        if (fileBridgeName.contains(taskBridgeName)) {
+            return 400 - Math.max(0, fileBridgeName.length() - taskBridgeName.length());
+        }
+        return 0;
+    }
+
+    private boolean fuzzyContains(String source, String target) {
+        String normalizedSource = normalizeMatchName(source);
+        String normalizedTarget = normalizeMatchName(target);
+        return StringUtils.isNotEmpty(normalizedSource)
+                && StringUtils.isNotEmpty(normalizedTarget)
+                && (normalizedSource.contains(normalizedTarget) || normalizedTarget.contains(normalizedSource));
+    }
+
+    private boolean isExcelFile(String fileName) {
+        return StringUtils.isNotEmpty(fileName)
+                && !fileName.startsWith("~$")
+                && fileName.toLowerCase(Locale.ROOT).endsWith(".xlsx");
+    }
+
+    private String extractBridgeNameFromCBMSDiseaseFileName(String fileName) {
+        String name = fileName;
+        int dotIndex = name.lastIndexOf('.');
+        if (dotIndex > 0) {
+            name = name.substring(0, dotIndex);
+        }
+        for (String suffix : new String[]{"病害信息", "病害清单", "病害"}) {
+            if (name.endsWith(suffix)) {
+                name = name.substring(0, name.length() - suffix.length());
+                break;
+            }
+        }
+        return trimSeparators(name);
+    }
+
+    private String trimSeparators(String value) {
+        if (value == null) {
+            return "";
+        }
+        String result = value.trim();
+        while (result.endsWith("-") || result.endsWith("－") || result.endsWith("—")
+                || result.endsWith("–") || result.endsWith("_") || result.endsWith(" ")) {
+            result = result.substring(0, result.length() - 1).trim();
+        }
+        return result;
+    }
+
+    private String normalizeMatchName(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\s+", "")
+                .replace("（", "(")
+                .replace("）", ")")
+                .trim();
+    }
+
+    private String getExcelContentType(String fileName) {
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    }
+
+    private static class TaskMatchResult {
+        private final List<Task> tasks;
+        private final String reason;
+
+        private TaskMatchResult(List<Task> tasks, String reason) {
+            this.tasks = tasks;
+            this.reason = reason;
+        }
+
+        private static TaskMatchResult success(List<Task> tasks) {
+            return new TaskMatchResult(tasks, null);
+        }
+
+        private static TaskMatchResult failure(String reason) {
+            return new TaskMatchResult(Collections.emptyList(), reason);
+        }
+
+        private List<Task> getTasks() {
+            return tasks;
+        }
+
+        private String getReason() {
+            return reason;
+        }
+    }
+
+    private static class ScoredTask {
+        private final Task task;
+        private final int score;
+
+        private ScoredTask(Task task, int score) {
+            this.task = task;
+            this.score = score;
+        }
+
+        private Task getTask() {
+            return task;
+        }
+
+        private int getScore() {
+            return score;
+        }
     }
 
 

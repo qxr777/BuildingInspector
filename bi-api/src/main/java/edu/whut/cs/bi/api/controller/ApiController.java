@@ -5,6 +5,8 @@ import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.core.domain.entity.SysDept;
+import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
@@ -12,7 +14,9 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
+import com.ruoyi.system.service.ISysDeptService;
 import com.ruoyi.system.service.ISysDictDataService;
+import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.api.task.UserPackageTask;
@@ -26,6 +30,7 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
 import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
+import edu.whut.cs.bi.biz.domain.vo.BatchCbmsDiseaseImportResult;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
@@ -39,6 +44,13 @@ import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
 import org.apache.commons.compress.utils.Lists;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,6 +105,12 @@ public class ApiController {
 
     @Resource
     private ISysUserService userService;
+
+    @Resource
+    private ISysDeptService deptService;
+
+    @Resource
+    private ISysRoleService roleService;
 
     @Resource
     private SysPasswordService passwordService;
@@ -349,6 +367,266 @@ public class ApiController {
             return AjaxResult.success("修改密码成功");
         }
         return AjaxResult.error("修改密码异常，请联系管理员");
+    }
+
+    /**
+     * 批量导入用户账号。
+     *
+     * Excel 前四列固定为：片区、姓名、手机号、登录账号。密码固定为 123456。
+     */
+    @Log(title = "API批量导入用户", businessType = BusinessType.IMPORT)
+    @PostMapping("/user/importAccounts")
+    @RequiresPermissions("system:user:add")
+    @ResponseBody
+    @Transactional
+    public AjaxResult batchImportUsers(@RequestParam("file") MultipartFile file,
+                                       @RequestParam(value = "skipExisting", defaultValue = "true") boolean skipExisting,
+                                       @RequestParam(value = "roleNames", defaultValue = "") String roleNames) throws Exception {
+        List<AccountImportRow> rows = readAccountImportRows(file);
+        if (rows.isEmpty()) {
+            return AjaxResult.error("导入用户数据不能为空");
+        }
+
+        Map<String, SysDept> deptByName = buildDeptByName();
+        Long[] roleIds = resolveAccountImportRoleIds(roleNames);
+        AccountImportResult result = new AccountImportResult();
+
+        for (AccountImportRow row : rows) {
+            AccountImportRowResult rowResult = new AccountImportRowResult(row);
+            try {
+                validateAccountImportRow(row);
+                SysDept dept = deptByName.get(row.getArea());
+                if (dept == null) {
+                    throw new IllegalArgumentException("未找到归属部门：" + row.getArea());
+                }
+
+                SysUser loginUser = userService.selectUserByLoginName(row.getLoginName());
+                if (loginUser != null) {
+                    if (skipExisting) {
+                        rowResult.skip("登录账号已存在");
+                        result.add(rowResult);
+                        continue;
+                    }
+                    throw new IllegalArgumentException("登录账号已存在");
+                }
+
+                if (!isEmpty(row.getPhone()) && userService.selectUserByPhoneNumber(row.getPhone()) != null) {
+                    if (skipExisting) {
+                        rowResult.skip("手机号已存在");
+                        result.add(rowResult);
+                        continue;
+                    }
+                    throw new IllegalArgumentException("手机号已存在");
+                }
+
+                deptService.checkDeptDataScope(dept.getDeptId());
+                roleService.checkRoleDataScope(roleIds);
+
+                SysUser user = new SysUser();
+                user.setDeptId(dept.getDeptId());
+                user.setLoginName(row.getLoginName());
+                user.setUserName(row.getName());
+                user.setPhonenumber(row.getPhone());
+                user.setSex("2");
+                user.setStatus("0");
+                user.setRoleIds(roleIds);
+                user.setPostIds(new Long[0]);
+                user.setRemark("API批量导入：" + row.getArea());
+                user.setSalt(ShiroUtils.randomSalt());
+                user.setPassword(passwordService.encryptPassword(user.getLoginName(), "123456", user.getSalt()));
+                user.setPwdUpdateDate(DateUtils.getNowDate());
+                user.setCreateBy(currentLoginName());
+                userService.insertUser(user);
+
+                rowResult.create();
+            } catch (Exception e) {
+                rowResult.fail(e.getMessage());
+            }
+            result.add(rowResult);
+        }
+
+        AjaxResult ajax = AjaxResult.success("导入完成，成功 " + result.getSuccessCount()
+                + " 个，跳过 " + result.getSkippedCount()
+                + " 个，失败 " + result.getFailureCount() + " 个");
+        ajax.put("successCount", result.getSuccessCount());
+        ajax.put("skippedCount", result.getSkippedCount());
+        ajax.put("failureCount", result.getFailureCount());
+        ajax.put("rows", result.getRows());
+        return ajax;
+    }
+
+    private List<AccountImportRow> readAccountImportRows(MultipartFile file) throws Exception {
+        List<AccountImportRow> rows = new ArrayList<>();
+        DataFormatter formatter = new DataFormatter();
+        try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row excelRow = sheet.getRow(i);
+                if (excelRow == null) {
+                    continue;
+                }
+                AccountImportRow row = new AccountImportRow();
+                row.setRowNum(i + 1);
+                row.setArea(cellString(excelRow, 0, formatter));
+                row.setName(cellString(excelRow, 1, formatter));
+                row.setPhone(cellString(excelRow, 2, formatter));
+                row.setLoginName(cellString(excelRow, 3, formatter));
+                if (isEmpty(row.getArea()) && isEmpty(row.getName()) && isEmpty(row.getPhone()) && isEmpty(row.getLoginName())) {
+                    continue;
+                }
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    private String cellString(Row row, int index, DataFormatter formatter) {
+        Cell cell = row.getCell(index);
+        if (cell == null) {
+            return "";
+        }
+        if (cell.getCellType() == CellType.NUMERIC) {
+            double value = cell.getNumericCellValue();
+            if (Math.rint(value) == value) {
+                return java.math.BigDecimal.valueOf(value).toPlainString().replaceFirst("\\.0$", "").trim();
+            }
+        }
+        return formatter.formatCellValue(cell).trim();
+    }
+
+    private void validateAccountImportRow(AccountImportRow row) {
+        if (isEmpty(row.getArea())) {
+            throw new IllegalArgumentException("片区不能为空");
+        }
+        if (isEmpty(row.getName())) {
+            throw new IllegalArgumentException("姓名不能为空");
+        }
+        if (isEmpty(row.getLoginName())) {
+            throw new IllegalArgumentException("登录账号不能为空");
+        }
+        if (!isEmpty(row.getPhone()) && !row.getPhone().matches("\\d{11}")) {
+            throw new IllegalArgumentException("手机号必须为11位数字");
+        }
+    }
+
+    private Map<String, SysDept> buildDeptByName() {
+        Map<String, SysDept> deptByName = new HashMap<>();
+        for (SysDept dept : deptService.selectDeptList(new SysDept())) {
+            if (dept.getDeptName() != null && !deptByName.containsKey(dept.getDeptName())) {
+                deptByName.put(dept.getDeptName(), dept);
+            }
+        }
+        return deptByName;
+    }
+
+    private Long[] resolveAccountImportRoleIds(String roleNames) {
+        Map<String, Long> roleByName = roleService.selectRoleAll().stream()
+                .filter(role -> !role.isAdmin())
+                .collect(Collectors.toMap(SysRole::getRoleName, SysRole::getRoleId, (left, right) -> left));
+        List<String> names = parseRoleNames(roleNames);
+        List<Long> roleIds = new ArrayList<>();
+        for (String roleName : names) {
+            Long roleId = "普通职员".equals(roleName)
+                    ? resolveRoleId(roleByName, "普通职员", "普通角色")
+                    : resolveRoleId(roleByName, roleName);
+            if (!roleIds.contains(roleId)) {
+                roleIds.add(roleId);
+            }
+        }
+        return roleIds.toArray(new Long[0]);
+    }
+
+    private List<String> parseRoleNames(String roleNames) {
+        String effectiveRoleNames = isEmpty(roleNames) ? "部门业务管理员,部门职员" : roleNames;
+        return Arrays.stream(effectiveRoleNames.split("[,，]"))
+                .map(String::trim)
+                .filter(name -> !name.isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    private Long resolveRoleId(Map<String, Long> roleByName, String... aliases) {
+        for (String alias : aliases) {
+            Long roleId = roleByName.get(alias);
+            if (roleId != null) {
+                return roleId;
+            }
+        }
+        throw new IllegalArgumentException("未找到角色：" + String.join("/", aliases));
+    }
+
+    private String currentLoginName() {
+        try {
+            String loginName = ShiroUtils.getLoginName();
+            return isEmpty(loginName) ? "api" : loginName;
+        } catch (Exception e) {
+            return "api";
+        }
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    @Data
+    private static class AccountImportRow {
+        private int rowNum;
+        private String area;
+        private String name;
+        private String phone;
+        private String loginName;
+    }
+
+    @Data
+    private static class AccountImportResult {
+        private int successCount;
+        private int skippedCount;
+        private int failureCount;
+        private List<AccountImportRowResult> rows = new ArrayList<>();
+
+        private void add(AccountImportRowResult row) {
+            rows.add(row);
+            if ("created".equals(row.getStatus())) {
+                successCount++;
+            } else if ("skipped".equals(row.getStatus())) {
+                skippedCount++;
+            } else {
+                failureCount++;
+            }
+        }
+    }
+
+    @Data
+    private static class AccountImportRowResult {
+        private int rowNum;
+        private String area;
+        private String name;
+        private String phone;
+        private String loginName;
+        private String status;
+        private String message;
+
+        private AccountImportRowResult(AccountImportRow row) {
+            this.rowNum = row.getRowNum();
+            this.area = row.getArea();
+            this.name = row.getName();
+            this.phone = row.getPhone();
+            this.loginName = row.getLoginName();
+        }
+
+        private void create() {
+            this.status = "created";
+            this.message = "创建成功";
+        }
+
+        private void skip(String message) {
+            this.status = "skipped";
+            this.message = message;
+        }
+
+        private void fail(String message) {
+            this.status = "failed";
+            this.message = message;
+        }
     }
 
     /**
@@ -725,11 +1003,17 @@ public class ApiController {
                 + " 个，跳过 " + result.getSkippedCount()
                 + " 个，失败 " + result.getFailureCount() + " 个");
         ajax.put("result", result);
-        ajax.put("successCount", result.getSuccessCount());
-        ajax.put("skippedCount", result.getSkippedCount());
-        ajax.put("failureCount", result.getFailureCount());
-        ajax.put("skipped", result.getSkipped());
-        ajax.put("failures", result.getFailures());
+        return ajax;
+    }
+
+    @PostMapping("/batchImportCBMSDiseases")
+    @ResponseBody
+    public AjaxResult batchImportCBMSDiseases(MultipartFile file, Long projectId, String projectName) {
+        BatchCbmsDiseaseImportResult result = readFileService.batchImportCBMSDiseases(file, projectId, projectName);
+        AjaxResult ajax = AjaxResult.success("导入完成，成功 " + result.getSuccessCount()
+                + " 个，跳过 " + result.getSkippedCount()
+                + " 个，失败 " + result.getFailureCount() + " 个");
+        ajax.put("result", result);
         return ajax;
     }
 

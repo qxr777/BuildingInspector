@@ -115,6 +115,14 @@ public interface IBuildingService {
     public int repairBridgeSpanObjectTree(Building building);
 
     /**
+     * 修复组合桥根节点。若历史数据把组合桥保存为无构件树的桥幅，则转换为组合桥并补建根节点。
+     *
+     * @param building 组合桥信息，需包含id，可选parentId
+     * @return 更新结果
+     */
+    public int repairCombinationBridgeRoot(Building building);
+
+    /**
      * excel导入建筑信息
      *
      * @param file
