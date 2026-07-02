@@ -128,6 +128,11 @@ public interface IDiseaseService {
      */
     public int deleteDiseaseByDiseaseIds(String ids);
 
+    /**
+     * Delete all diseases of every task under the project identified by name, year and code.
+     */
+    int deleteDiseasesByProjectIdentity(String projectName, Integer year, String code);
+
 
     /**
      * 批量导入病害信息

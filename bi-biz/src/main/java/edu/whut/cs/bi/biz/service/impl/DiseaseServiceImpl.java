@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
@@ -738,6 +739,68 @@ public class DiseaseServiceImpl implements IDiseaseService {
         executor.shutdown();
 
         return diseaseMapper.deleteDiseaseByIds(strArray);
+    }
+
+    @Override
+    @Transactional
+    public int deleteDiseasesByProjectIdentity(String projectName, Integer year, String code) {
+        if (projectName == null || projectName.trim().isEmpty()) {
+            throw new ServiceException("项目名称不能为空");
+        }
+        if (year == null) {
+            throw new ServiceException("年份不能为空");
+        }
+        if (code == null || code.trim().isEmpty()) {
+            throw new ServiceException("项目编号不能为空");
+        }
+
+        String normalizedProjectName = projectName.trim();
+        String normalizedCode = code.trim();
+        Project query = new Project();
+        query.setName(normalizedProjectName);
+        query.setYear(year);
+        query.setCode(normalizedCode);
+
+        List<Project> projects = projectMapper.selectProjectList(query, null, null);
+        List<Project> matchedProjects = (projects == null ? Collections.<Project>emptyList() : projects).stream()
+                .filter(project -> normalizedProjectName.equals(project.getName()))
+                .filter(project -> Objects.equals(year, project.getYear()))
+                .filter(project -> normalizedCode.equals(project.getCode()))
+                .collect(Collectors.toList());
+
+        if (matchedProjects.isEmpty()) {
+            throw new ServiceException("未找到匹配的项目");
+        }
+        if (matchedProjects.size() > 1) {
+            throw new ServiceException("匹配到多个项目，请检查项目名称、年份、编号是否唯一");
+        }
+
+        List<Task> tasks = taskMapper.selectTaskListByProjectId(matchedProjects.get(0).getId());
+        if (CollUtil.isEmpty(tasks)) {
+            return 0;
+        }
+
+        List<String> diseaseIds = new ArrayList<>();
+        for (Task task : tasks) {
+            if (task.getId() == null) {
+                continue;
+            }
+            Disease diseaseQuery = new Disease();
+            diseaseQuery.setTaskId(task.getId());
+            List<Disease> diseases = diseaseMapper.selectDiseaseList(diseaseQuery);
+            if (CollUtil.isNotEmpty(diseases)) {
+                diseases.stream()
+                        .map(Disease::getId)
+                        .filter(Objects::nonNull)
+                        .map(String::valueOf)
+                        .forEach(diseaseIds::add);
+            }
+        }
+
+        if (diseaseIds.isEmpty()) {
+            return 0;
+        }
+        return deleteDiseaseByIds(String.join(",", diseaseIds));
     }
 
     private void deleteDiseaseImage(Disease disease) {
