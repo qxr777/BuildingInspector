@@ -299,21 +299,21 @@ public class ApiController {
     /**
      * 根据项目 ProjectId 查询任务列表
      */
-    @PostMapping("/disease/deleteByProject")
-    @RequiresPermissions("biz:disease:remove")
-    @Log(title = "批量删除项目任务病害", businessType = BusinessType.DELETE)
-    public AjaxResult deleteDiseasesByProject(@RequestParam("projectName") String projectName,
-                                              @RequestParam("year") Integer year,
-                                              @RequestParam(value = "code", required = false) String code,
-                                              @RequestParam(value = "projectCode", required = false) String projectCode) {
-        try {
-            String targetCode = code != null && !code.trim().isEmpty() ? code : projectCode;
-            int deleted = diseaseService.deleteDiseasesByProjectIdentity(projectName, year, targetCode);
-            return AjaxResult.success("删除成功").put("deletedCount", deleted);
-        } catch (ServiceException e) {
-            return AjaxResult.error(e.getMessage());
-        }
-    }
+//    @PostMapping("/disease/deleteByProject")
+//    @RequiresPermissions("biz:disease:remove")
+//    @Log(title = "批量删除项目任务病害", businessType = BusinessType.DELETE)
+//    public AjaxResult deleteDiseasesByProject(@RequestParam("projectName") String projectName,
+//                                              @RequestParam("year") Integer year,
+//                                              @RequestParam(value = "code", required = false) String code,
+//                                              @RequestParam(value = "projectCode", required = false) String projectCode) {
+//        try {
+//            String targetCode = code != null && !code.trim().isEmpty() ? code : projectCode;
+//            int deleted = diseaseService.deleteDiseasesByProjectIdentity(projectName, year, targetCode);
+//            return AjaxResult.success("删除成功").put("deletedCount", deleted);
+//        } catch (ServiceException e) {
+//            return AjaxResult.error(e.getMessage());
+//        }
+//    }
 
     @GetMapping("/project/{pid}/task")
     @RequiresPermissions("biz:task:list")

@@ -11,6 +11,7 @@
             id="form-disease-edit"
             th:object="${disease}"
     >
+        <input name="id" type="hidden" th:field="*{id}"/>
         <h4 class="form-header h4">基本信息</h4>
         <!-- 病害基本信息 -->
         <div class="row mb-4">
@@ -2145,13 +2146,6 @@
                                     '</a>'
                                 );
                             }
-
-                            // 添加删除按钮
-                            thumbnail.append(
-                                '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"' +
-                                'data-id="' + attachment.id + '" onclick="removeExistingFile(this)">' +
-                                '<i class="fa fa-trash"></i></button>'
-                            );
 
                             // 添加隐藏字段保存附件信息
                             thumbnail.append(
