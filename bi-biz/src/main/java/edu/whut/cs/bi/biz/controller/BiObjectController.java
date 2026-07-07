@@ -237,7 +237,13 @@ public class BiObjectController extends BaseController {
         if (rootObjectId == null) {
             return AjaxResult.error("未找到根节点");
         }
-        return toAjax(biObjectService.correctAllWeights(rootObjectId));
+        try {
+            // 一键修正权重前先修复构件数量，避免错误 count 影响后续权重分配。
+            biObjectService.repairCountsFromSubtree(rootObjectId);
+            return toAjax(biObjectService.correctAllWeights(rootObjectId));
+        } catch (ServiceException e) {
+            return AjaxResult.error(e.getMessage());
+        }
     }
 
     /**

@@ -360,6 +360,13 @@ public class BiObjectServiceImpl implements IBiObjectService {
         return list;
     }
 
+    /**
+     * 修复构件数量：从传入根节点开始，第4级作为业务构件数量叶子保留自身count，
+     * 第1至第3级按下级合计回算，保证节点count数量正常。
+     *
+     * @param rootObjectId 桥梁根节点ID
+     * @return 更新的节点数量
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int repairCountsFromSubtree(Long rootObjectId) {
@@ -386,7 +393,7 @@ public class BiObjectServiceImpl implements IBiObjectService {
                 .collect(Collectors.groupingBy(BiObject::getParentId));
 
         List<BiObject> objectsToUpdate = new ArrayList<>();
-        calculateSubtreeCount(rootObject, childrenMap, objectsToUpdate);
+        calculateSubtreeCount(rootObject, childrenMap, objectsToUpdate, 1);
 
         int updatedCount = 0;
         for (BiObject object : objectsToUpdate) {
@@ -399,22 +406,18 @@ public class BiObjectServiceImpl implements IBiObjectService {
         return updatedCount;
     }
 
-    private int calculateSubtreeCount(BiObject object, Map<Long, List<BiObject>> childrenMap, List<BiObject> objectsToUpdate) {
+    private int calculateSubtreeCount(BiObject object, Map<Long, List<BiObject>> childrenMap, List<BiObject> objectsToUpdate,
+                                      int level) {
         List<BiObject> children = childrenMap.get(object.getId());
         int currentCount = object.getCount() == null ? 0 : object.getCount();
-        int childTotalCount = 0;
-        if (children != null && !children.isEmpty()) {
-            for (BiObject child : children) {
-                childTotalCount += calculateSubtreeCount(child, childrenMap, objectsToUpdate);
-            }
+        // 业务上从桥梁根节点算第4级为构件数量叶子，不能再用更深层数据库子节点回算。
+        if (level >= 4 || children == null || children.isEmpty()) {
+            return currentCount;
         }
 
-        if (currentCount > 0) {
-            if (childTotalCount > 0 && childTotalCount != currentCount) {
-                throw new ServiceException(String.format("count数量冲突：对象%s(id=%d) count=%d，子树合计=%d",
-                        object.getName(), object.getId(), currentCount, childTotalCount));
-            }
-            return currentCount;
+        int childTotalCount = 0;
+        for (BiObject child : children) {
+            childTotalCount += calculateSubtreeCount(child, childrenMap, objectsToUpdate, level + 1);
         }
 
         if (!Objects.equals(object.getCount(), childTotalCount)) {
