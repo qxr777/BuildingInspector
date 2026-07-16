@@ -100,11 +100,6 @@ public interface ITaskSheetService {
     boolean hasDiseaseDataByTaskId(Long taskId);
 
     /**
-     * 表格 JSON 合法性校验（与移动端导入规则一致，不做必填/业务校验）。
-     */
-    void validateSheetJsonLegality(String sheetType, byte[] jsonBytes);
-
-    /**
      * 读取表格 JSON 供网页编辑；未提交时返回 pages 为空的结构。
      */
     String getSheetJsonForEdit(Long taskId, String type);

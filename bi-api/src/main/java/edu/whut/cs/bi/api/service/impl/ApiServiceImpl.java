@@ -22,7 +22,6 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import java.io.*;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -404,7 +403,6 @@ public class ApiServiceImpl implements ApiService {
             validateSheetType(sheetType);
 
             byte[] jsonBytes = Files.readAllBytes(entry.getValue());
-            validateSheetJson(sheetType, jsonBytes);
             taskSheetService.saveOrUpdateSheet(task.getId(), buildingId, sheetType, jsonBytes, sheetType + ".json");
         }
     }
@@ -439,24 +437,6 @@ public class ApiServiceImpl implements ApiService {
     private void validateSheetType(String sheetType) {
         if (!taskSheetService.supportsJsonSheetWord(sheetType)) {
             throw new ServiceException("检测记录表导入失败：不支持的表格类型 " + sheetType);
-        }
-    }
-
-    private void validateSheetJson(String sheetType, byte[] jsonBytes) {
-        try {
-            JSONObject sheetJson = JSONObject.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
-            String jsonSheetId = sheetJson.getString("sheetId");
-            String jsonType = sheetJson.getString("type");
-            if (jsonSheetId != null && !sheetType.equals(jsonSheetId)) {
-                throw new ServiceException("检测记录表导入失败：文件名类型" + sheetType + "与JSON sheetId " + jsonSheetId + "不一致");
-            }
-            if (jsonType != null && !sheetType.equals(jsonType)) {
-                throw new ServiceException("检测记录表导入失败：文件名类型" + sheetType + "与JSON type " + jsonType + "不一致");
-            }
-        } catch (ServiceException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ServiceException("检测记录表导入失败：" + sheetType + ".json不是合法JSON");
         }
     }
 

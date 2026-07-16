@@ -66,7 +66,7 @@
         rebar_corrosion: {
             recordsTitle: "测点数据",
             layout: "corrosion",
-            maxRecordsPerPage: 8,
+            maxRecordsPerPage: 7,
             headerFields: buildHeader(["workCondition"]),
             recordFixedColumns: [
                 { key: "componentName", label: "构件名称" },
@@ -149,7 +149,7 @@
         },
         alignment_level: {
             recordsTitle: "测点数据",
-            maxRecordsPerPage: 22,
+            maxRecordsPerPage: 20,
             headerFields: buildHeader(["workCondition"], [
                 { key: "basePointElevation", label: "基准点高程（m）", col: 6, altKeys: ["benchmarkElevation"] }
             ]),

@@ -444,55 +444,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
     }
 
     @Override
-    public void validateSheetJsonLegality(String sheetType, byte[] jsonBytes) {
-        if (StringUtils.isEmpty(sheetType)) {
-            throw new ServiceException("表格类型不能为空");
-        }
-        if (jsonBytes == null || jsonBytes.length == 0) {
-            throw new ServiceException("表格 JSON 不能为空");
-        }
-        JSONObject sheetJson;
-        try {
-            sheetJson = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            throw new ServiceException("不是合法 JSON");
-        }
-        if (sheetJson == null) {
-            throw new ServiceException("JSON 根对象不能为空");
-        }
-        String jsonSheetId = sheetJson.getString("sheetId");
-        String jsonType = sheetJson.getString("type");
-        if (jsonSheetId != null && !sheetType.equals(jsonSheetId)) {
-            throw new ServiceException("JSON sheetId 与表格类型 " + sheetType + " 不一致");
-        }
-        if (jsonType != null && !sheetType.equals(jsonType)) {
-            throw new ServiceException("JSON type 与表格类型 " + sheetType + " 不一致");
-        }
-        JSONArray pages = sheetJson.getJSONArray("pages");
-        if (pages != null) {
-            for (int i = 0; i < pages.size(); i++) {
-                Object pageObj = pages.get(i);
-                if (!(pageObj instanceof JSONObject)) {
-                    throw new ServiceException("pages[" + i + "] 必须是对象");
-                }
-                JSONObject page = (JSONObject) pageObj;
-                Object header = page.get("header");
-                if (header != null && !(header instanceof JSONObject)) {
-                    throw new ServiceException("pages[" + i + "].header 必须是对象");
-                }
-                Object records = page.get("records");
-                if (records != null && !(records instanceof JSONArray)) {
-                    throw new ServiceException("pages[" + i + "].records 必须是数组");
-                }
-                Object remark = page.get("remark");
-                if (remark != null && !(remark instanceof String)) {
-                    throw new ServiceException("pages[" + i + "].remark 必须是字符串");
-                }
-            }
-        }
-    }
-
-    @Override
     public boolean supportsWebJsonEdit(String type) {
         return supportsJsonSheetWord(type)
                 && !SHEET_TYPE_TECHNICAL_CONDITION.equals(type);
@@ -537,7 +488,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         if (jsonBytes == null) {
             throw new ServiceException("请求体不能为空");
         }
-        validateSheetJsonLegality(SHEET_TYPE_TECHNICAL_CONDITION, jsonBytes);
         JSONObject sheetJson = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
         JSONObject snapshotJson = buildTechnicalConditionSnapshotJson(taskId, sheetJson);
         JSONArray pages = snapshotJson.getJSONArray("pages");
@@ -779,7 +729,6 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveSheetFromWeb(Long taskId, Long buildingId, String type, byte[] jsonBytes) {
-        validateSheetJsonLegality(type, jsonBytes);
         JSONObject sheetJson = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
         JSONArray pages = sheetJson.getJSONArray("pages");
         if (pages == null || pages.isEmpty()) {
