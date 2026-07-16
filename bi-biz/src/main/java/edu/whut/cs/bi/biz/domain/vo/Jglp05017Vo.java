@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.domain.vo;
 
+import com.alibaba.fastjson.JSONObject;
 import edu.whut.cs.bi.biz.domain.Disease;
 import lombok.Data;
 
@@ -29,4 +30,12 @@ public class Jglp05017Vo {
 
     /** 病害记录列表 */
     private List<Disease> diseases;
+
+    /** 网页编辑保存的表头信息 */
+    private JSONObject header;
+
+    private List<JSONObject> pageHeaders;
+
+    /** 网页编辑保存的每页备注 */
+    private List<String> pageRemarks;
 }

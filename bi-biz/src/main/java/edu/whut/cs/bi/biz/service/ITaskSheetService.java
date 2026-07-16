@@ -1,5 +1,6 @@
 package edu.whut.cs.bi.biz.service;
 
+import com.alibaba.fastjson.JSONObject;
 import edu.whut.cs.bi.biz.domain.vo.Jglp05017Vo;
 import edu.whut.cs.bi.biz.domain.vo.TaskSheetStatusVo;
 
@@ -94,7 +95,62 @@ public interface ITaskSheetService {
     String resolveJsonSheetDownloadBaseName(String type);
 
     /**
-     * 判断任务病害数据是否已由 App 端提交（bi_task.type == 1）
+     * 判断任务是否存在可生成技术状况表的病害数据。
      */
     boolean hasDiseaseDataByTaskId(Long taskId);
+
+    /**
+     * 表格 JSON 合法性校验（与移动端导入规则一致，不做必填/业务校验）。
+     */
+    void validateSheetJsonLegality(String sheetType, byte[] jsonBytes);
+
+    /**
+     * 读取表格 JSON 供网页编辑；未提交时返回 pages 为空的结构。
+     */
+    String getSheetJsonForEdit(Long taskId, String type);
+
+    /**
+     * 删除任务下某类型的已提交表格（清除 MinIO 文件与 bi_task_sheets 记录）。
+     */
+    void deleteSheetByTaskIdAndType(Long taskId, String type);
+
+    /**
+     * 保存网页端提交的表格 JSON；pages 为空时清除已提交记录。
+     */
+    void saveSheetFromWeb(Long taskId, Long buildingId, String type, byte[] jsonBytes);
+
+    /**
+     * 判断表格类型是否支持网页端 JSON 编辑（不含 technical_condition）。
+     */
+    boolean supportsWebJsonEdit(String type);
+
+    /**
+     * 判断表格类型是否支持网页端编辑（JSON 表格 + 技术状况表）。
+     */
+    boolean supportsWebEdit(String type);
+
+    /**
+     * 读取技术状况表编辑数据（由 bi_disease 组装为 pages 结构）。
+     */
+    String getTechnicalConditionJsonForEdit(Long taskId);
+
+    /**
+     * 保存网页端提交的技术状况表表头/备注，并用当前 bi_disease 生成只读病害快照。
+     */
+    boolean saveTechnicalConditionFromWeb(Long taskId, byte[] jsonBytes);
+
+    /**
+     * 技术状况表网页编辑默认表头。
+     */
+    JSONObject buildTechnicalConditionDefaultHeader(Long taskId);
+
+    /**
+     * 网页编辑新建页时使用的默认表头（预填工程/桥梁名称）。
+     */
+    JSONObject buildDefaultSheetHeader(Long taskId);
+
+    /**
+     * 读取该表格类型模板中已固定的表头字段（如检测依据、判定依据），供网页编辑只读展示。
+     */
+    JSONObject getSheetTemplateFixedFields(String type);
 }

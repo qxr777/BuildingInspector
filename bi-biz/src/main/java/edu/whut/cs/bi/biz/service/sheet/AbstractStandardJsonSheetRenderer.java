@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.cellDisplayValue;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.fillCellAfterLabel;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.fillRemarkRow;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.findHeaderRowCountBySubHeader;
@@ -129,8 +130,8 @@ public abstract class AbstractStandardJsonSheetRenderer implements JsonSheetWord
                         || para.getText().contains("记录编号")))
                 .findFirst()
                 .ifPresent(para -> replaceParagraphText(para,
-                        resolveUnitLabel(para.getText()) + nvl(header.getString("inspectionUnitName"))
-                                + "                               记录编号：" + nvl(header.getString("recordNumber"))));
+                        resolveUnitLabel(para.getText()) + cellDisplayValue(header.getString("inspectionUnitName"))
+                                + "                               记录编号：" + cellDisplayValue(header.getString("recordNumber"))));
     }
 
     private String resolveUnitLabel(String paragraphText) {
@@ -158,9 +159,6 @@ public abstract class AbstractStandardJsonSheetRenderer implements JsonSheetWord
     }
 
     private void fillCellAfterLabelIfBlank(XWPFTable table, String labelKeyword, String value) {
-        if (value == null || value.isEmpty()) {
-            return;
-        }
         for (XWPFTableRow row : table.getRows()) {
             List<XWPFTableCell> cells = row.getTableCells();
             for (int i = 0; i < cells.size(); i++) {
@@ -170,7 +168,7 @@ public abstract class AbstractStandardJsonSheetRenderer implements JsonSheetWord
                     }
                     int end = findNextInfoLabelIndex(cells, i + 1);
                     if (i + 1 < end && isBlankRange(cells, i + 1, end)) {
-                        setCellText(cells.get(i + 1), value);
+                        setCellText(cells.get(i + 1), cellDisplayValue(value));
                     }
                     return;
                 }
@@ -248,18 +246,22 @@ public abstract class AbstractStandardJsonSheetRenderer implements JsonSheetWord
 
     private void fillDataRowsWithoutChangingTemplateRows(XWPFTable table, int headerRowCount, int remarkRowIndex,
                                                          List<JSONObject> records) {
-        if (records == null || records.isEmpty()) {
-            return;
+        if (records == null) {
+            records = new ArrayList<>();
         }
         int end = remarkRowIndex > headerRowCount ? remarkRowIndex : table.getRows().size();
         int recordIndex = 0;
-        for (int rowIndex = headerRowCount; rowIndex < end && recordIndex < records.size(); rowIndex++) {
+        for (int rowIndex = headerRowCount; rowIndex < end; rowIndex++) {
             XWPFTableRow row = table.getRow(rowIndex);
             if (!isDataRow(row)) {
                 continue;
             }
-            fillRecordRow(row, records.get(recordIndex));
-            recordIndex++;
+            if (recordIndex < records.size()) {
+                fillRecordRow(row, records.get(recordIndex));
+                recordIndex++;
+            } else {
+                WordSheetPoiUtils.fillPlaceholderInEmptyRowCells(row);
+            }
         }
     }
 
@@ -286,10 +288,7 @@ public abstract class AbstractStandardJsonSheetRenderer implements JsonSheetWord
     private void fillRecordRow(XWPFTableRow row, JSONObject record) {
         List<XWPFTableCell> cells = row.getTableCells();
         for (int i = 0; i < cells.size(); i++) {
-            String value = valueAt(record, i);
-            if (value != null) {
-                setCellText(cells.get(i), value);
-            }
+            setCellText(cells.get(i), cellDisplayValue(valueAt(record, i)));
         }
     }
 

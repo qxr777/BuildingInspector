@@ -144,11 +144,15 @@ public class AlignmentLevelJsonSheetRenderer extends AbstractStandardJsonSheetRe
                 continue;
             }
             if (cells.size() > 1) {
-                setCellText(cells.get(1), remark,
+                setCellText(cells.get(1), WordSheetPoiUtils.cellDisplayValue(remark),
                         ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
             } else {
-                setCellText(cells.get(0), "备注：" + (remark == null ? "" : remark),
-                        ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
+                if (remark == null || remark.trim().isEmpty()) {
+                    WordSheetPoiUtils.fillRemarkPlaceholderCells(row);
+                } else {
+                    setCellText(cells.get(0), "备注：" + remark,
+                            ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
+                }
             }
             return;
         }

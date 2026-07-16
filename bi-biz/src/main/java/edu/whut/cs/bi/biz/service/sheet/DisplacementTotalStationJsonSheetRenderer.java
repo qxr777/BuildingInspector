@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.service.sheet;
 import com.alibaba.fastjson.JSONObject;
 import edu.whut.cs.bi.biz.utils.WordSheetPoiUtils;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
@@ -15,6 +16,8 @@ import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.fillRemarkRow;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.formatSheetTitle;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.getRowText;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.normalizeTextStyles;
+import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.centerTableCell;
+import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.rewriteCenteredHeaderCell;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.setCellText;
 
 /**
@@ -68,6 +71,8 @@ public class DisplacementTotalStationJsonSheetRenderer extends AbstractStandardJ
         if (start < 0) {
             return;
         }
+        rewriteCoordinateLabelCell(table.getRow(start), label);
+        centerCoordinateRows(table, start);
         setValueAfterAxis(table.getRow(start), "X", coordinateValue(record, header, prefix, "X"));
         setValueAfterAxis(table.getRow(start + 1), "Y", coordinateValue(record, header, prefix, "Y"));
         setValueAfterAxis(table.getRow(start + 2), "Z", coordinateValue(record, header, prefix, "Z"));
@@ -155,6 +160,39 @@ public class DisplacementTotalStationJsonSheetRenderer extends AbstractStandardJ
             }
         }
         setFirstBlankCellText(cells, 1, value);
+    }
+
+    private void rewriteCoordinateLabelCell(XWPFTableRow row, String label) {
+        if (row == null || label == null) {
+            return;
+        }
+        String normalizedLabel = label.replaceAll("\\s+", "");
+        for (XWPFTableCell cell : row.getTableCells()) {
+            String cellText = cell.getText() == null ? "" : cell.getText().replaceAll("\\s+", "");
+            if (cellText.contains(normalizedLabel)) {
+                rewriteCenteredHeaderCell(cell, label);
+                return;
+            }
+        }
+    }
+
+    private void centerCoordinateRows(XWPFTable table, int start) {
+        for (int rowIndex = start; rowIndex < start + 3 && rowIndex < table.getRows().size(); rowIndex++) {
+            XWPFTableRow row = table.getRow(rowIndex);
+            if (row == null) {
+                continue;
+            }
+            for (XWPFTableCell cell : row.getTableCells()) {
+                centerTableCell(cell);
+                for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                    paragraph.setIndentationLeft(0);
+                    paragraph.setIndentationRight(0);
+                    paragraph.setIndentationFirstLine(0);
+                    paragraph.setSpacingBefore(0);
+                    paragraph.setSpacingAfter(0);
+                }
+            }
+        }
     }
 
     private void setFirstBlankCellText(List<XWPFTableCell> cells, int start, String value) {

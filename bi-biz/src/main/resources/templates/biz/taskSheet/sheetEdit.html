@@ -1,0 +1,1633 @@
+﻿<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('编辑表格数据')"/>
+    <style>
+        .sheet-edit-section { margin-bottom: 18px; }
+        .sheet-edit-section h5 {
+            margin: 0 0 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e7eaec;
+            font-weight: 600;
+        }
+        .page-toolbar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e7eaec;
+        }
+        .page-toolbar h5.page-toolbar-label {
+            margin: 0;
+            padding: 0;
+            border: none;
+            font-weight: 600;
+            line-height: 22px;
+            white-space: nowrap;
+        }
+        .page-toolbar .btn-group { margin-right: 0; }
+        .page-toolbar-actions { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
+        #page-empty-tip {
+            display: none;
+            padding: 24px 0 8px;
+            text-align: center;
+            color: #888;
+            font-size: 13px;
+        }
+        .record-toolbar { margin-bottom: 8px; }
+        .record-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .record-table th, .record-table td,
+        .nested-items-table th, .nested-items-table td {
+            border: 1px solid #e7eaec;
+            padding: 6px 8px;
+            vertical-align: middle;
+            text-align: center;
+        }
+        .record-table .record-multiline-cell {
+            vertical-align: middle;
+            text-align: left;
+        }
+        .record-table thead th, .nested-items-table thead th { background: #f5f5f5; text-align: center; }
+        .record-table input.form-control,
+        .nested-items-table input.form-control,
+        .nested-record-block input.form-control,
+        .coordinate-fixed-table input.form-control,
+        .corrosion-record-block input.form-control {
+            height: 30px;
+            padding: 4px 8px;
+            font-size: 13px;
+            text-align: center;
+        }
+        .record-table textarea.form-control {
+            min-height: 30px;
+            height: 30px;
+            padding: 4px 8px;
+            font-size: 13px;
+            text-align: left;
+            white-space: pre-wrap;
+            word-break: break-word;
+            resize: none;
+            overflow: hidden;
+            line-height: 1.4;
+        }
+        .record-table textarea.form-control[data-key="position"],
+        .record-table textarea.form-control[data-key="type"],
+        .record-table textarea.form-control[data-key="quantity"],
+        .record-table textarea.form-control[data-key="level"] {
+            text-align: center;
+        }
+        .record-table .record-narrow-col input.form-control {
+            max-width: 72px;
+            margin: 0 auto;
+        }
+        .record-table.technical-condition-table th {
+            height: 48px;
+            line-height: 1.35;
+            vertical-align: middle;
+        }
+        .record-table.technical-condition-table td {
+            padding: 8px 10px;
+            background: #fff;
+        }
+        .record-table .record-readonly-cell {
+            vertical-align: middle;
+        }
+        .record-table .record-readonly-text {
+            min-height: 24px;
+            line-height: 1.45;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .record-table .record-readonly-center {
+            text-align: center;
+        }
+        .record-table .record-readonly-left {
+            text-align: left;
+        }
+        .record-table .record-readonly-empty {
+            color: #999;
+        }
+        .record-table .col-check { width: 36px; text-align: center; }
+        .nested-record-block {
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .nested-record-block .block-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nested-items-table { width: 100%; margin-top: 8px; }
+        .coordinate-fixed-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .coordinate-fixed-table th,
+        .coordinate-fixed-table td {
+            border: 1px solid #e7eaec;
+            padding: 6px 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .coordinate-fixed-table th { background: #f5f5f5; }
+        .coordinate-fixed-table .coordinate-label-cell {
+            width: 140px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .nested-record-block .control-label,
+        .corrosion-record-block .control-label {
+            display: block;
+            text-align: center;
+        }
+        .vibration-record-block {
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .vibration-record-block .block-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .vibration-block-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+        .vibration-block-table th, .vibration-block-table td {
+            border: 1px solid #e7eaec;
+            padding: 6px 8px;
+            vertical-align: middle;
+            text-align: center;
+        }
+        .vibration-block-table thead th { background: #f5f5f5; }
+        .vibration-block-table .row-label-cell {
+            background: #f9f9f9;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .vibration-block-table input.form-control {
+            height: 30px;
+            padding: 4px 8px;
+            font-size: 13px;
+            text-align: center;
+        }
+        .coordinate-measure-section { margin-top: 12px; }
+        .corrosion-record-block {
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .corrosion-record-block .block-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .corrosion-values-row { margin-top: 8px; }
+        .corrosion-values-row .row-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+            text-align: center;
+        }
+        .corrosion-values-grid {
+            display: grid;
+            grid-template-columns: repeat(10, minmax(0, 1fr));
+            gap: 6px;
+        }
+        .corrosion-values-grid .form-group { margin-bottom: 6px; }
+        .corrosion-values-grid .control-label {
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+        .nested-item-actions { width: 48px; text-align: center; }
+        .edit-footer {
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            background: #fff;
+            border-top: 1px solid #e7eaec;
+            padding: 10px 20px;
+            text-align: right;
+            z-index: 100;
+        }
+        .edit-body { padding-bottom: 60px; }
+        #unsupported-tip { display: none; padding: 40px 20px; text-align: center; color: #888; }
+    </style>
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content edit-body">
+    <div id="unsupported-tip"></div>
+
+    <div id="edit-panel" style="display:none;">
+        <div class="ibox-title" style="padding-left:0;">
+            <h5 th:text="${sheetName}">检测记录表</h5>
+            <span class="text-muted" style="font-size:12px;margin-left:8px;">任务ID：<span th:text="${taskId}"></span></span>
+        </div>
+
+        <div class="sheet-edit-section" id="page-section">
+            <div class="page-toolbar">
+                <h5 class="page-toolbar-label">页码：</h5>
+                <div class="btn-group" id="page-tabs"></div>
+                <div class="page-toolbar-actions">
+                    <button type="button" class="btn btn-success btn-xs" id="btn-add-page"><i class="fa fa-plus"></i> 新增页</button>
+                    <button type="button" class="btn btn-danger btn-xs" id="btn-del-page"><i class="fa fa-trash"></i> 删除当前页</button>
+                </div>
+            </div>
+            <div id="page-empty-tip">暂无页面，请点击「新增页」开始录入</div>
+        </div>
+
+        <div id="sheet-form-sections">
+            <div class="sheet-edit-section">
+                <h5>表头信息</h5>
+                <div class="row" id="header-fields"></div>
+            </div>
+
+            <div class="sheet-edit-section">
+                <h5 id="records-section-title">测点数据</h5>
+                <div id="coordinate-records-wrap" style="display:none;">
+                    <div id="coordinate-fixed-sections"></div>
+                    <div class="coordinate-measure-section">
+                        <h5 style="margin:0 0 8px;font-size:14px;font-weight:600;">测点坐标</h5>
+                        <div class="record-toolbar coordinate-record-toolbar">
+                            <button type="button" class="btn btn-success btn-xs btn-add-coordinate-row"><i class="fa fa-plus"></i> <span class="btn-add-coordinate-text">新增测点</span></button>
+                            <button type="button" class="btn btn-danger btn-xs btn-del-coordinate-row"><i class="fa fa-trash"></i> <span class="btn-del-coordinate-text">删除选中测点</span></button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="record-table">
+                                <thead id="coordinate-thead"></thead>
+                                <tbody id="coordinate-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="record-toolbar" id="common-record-toolbar">
+                    <button type="button" class="btn btn-success btn-xs" id="btn-add-row"><i class="fa fa-plus"></i> <span id="btn-add-row-text">新增行</span></button>
+                    <button type="button" class="btn btn-danger btn-xs" id="btn-del-row"><i class="fa fa-trash"></i> <span id="btn-del-row-text">删除选中</span></button>
+                </div>
+                <div id="corrosion-records-wrap" style="display:none;"></div>
+                <div id="vibration-records-wrap" style="display:none;"></div>
+                <div id="nested-records-wrap" style="display:none;"></div>
+                <div id="flat-records-wrap" class="table-responsive">
+                    <table class="record-table">
+                        <thead id="record-thead"></thead>
+                        <tbody id="record-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sheet-edit-section">
+                <h5>备注</h5>
+                <textarea id="sheet-remark" class="form-control" rows="2" placeholder="备注"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="edit-footer" id="edit-footer" style="display:none;">
+    <button type="button" class="btn btn-primary btn-sm" id="btn-save"><i class="fa fa-check"></i> 保存</button>
+    <button type="button" class="btn btn-info btn-sm" id="btn-preview"><i class="fa fa-eye"></i> 预览 Word</button>
+</div>
+
+<th:block th:include="include :: footer"/>
+<script th:src="@{/ajax/libs/biz/sheet-edit-schemas.js}"></script>
+<script th:inline="javascript">
+    var taskId = /*[[${taskId}]]*/ null;
+    var sheetType = /*[[${type}]]*/ null;
+    var sheetPrefix = ctx + "biz/taskSheet";
+
+    var sheetData = null;
+    var schema = window.WEB_EDIT_SCHEMAS ? window.WEB_EDIT_SCHEMAS[sheetType] : null;
+    var currentPageIndex = 0;
+    var defaultHeader = {};
+    var templateFixedFields = {};
+    var savingSheet = false;
+
+    function isNestedLayout() {
+        return schema && schema.layout === "nested";
+    }
+
+    function isCoordinateLayout() {
+        return schema && schema.layout === "coordinate";
+    }
+
+    function isCorrosionLayout() {
+        return schema && schema.layout === "corrosion";
+    }
+
+    function isVibrationLayout() {
+        return schema && schema.layout === "vibration";
+    }
+
+    function isTechnicalConditionSheet() {
+        return sheetType === "technical_condition";
+    }
+
+    var FIXED_COORDINATE_NAMES = ["测站坐标", "后视点坐标", "校核点坐标"];
+
+    function isFixedCoordinateRecord(record) {
+        if (!record) {
+            return false;
+        }
+        var name = record.coordinateName || record.point || "";
+        return FIXED_COORDINATE_NAMES.indexOf(name) >= 0;
+    }
+
+    function normalizeCoordinatePage(page) {
+        if (!isCoordinateLayout() || !page) {
+            return;
+        }
+        var header = page.header || (page.header = {});
+        var measurementRecords = [];
+        (page.records || []).forEach(function (record) {
+            if (!record) {
+                return;
+            }
+            if (isFixedCoordinateRecord(record)) {
+                var prefix = coordinatePrefixByName(record.coordinateName || record.point);
+                if (prefix) {
+                    ["X", "Y", "Z"].forEach(function (axis) {
+                        var lower = axis.toLowerCase();
+                        var val = record["coordinate" + axis] || record[lower];
+                        if (val != null && String(val) !== "") {
+                            header[prefix + axis] = val;
+                        }
+                    });
+                }
+                return;
+            }
+            measurementRecords.push(record);
+        });
+        page.records = measurementRecords;
+    }
+
+    function coordinatePrefixByName(name) {
+        if (name === "测站坐标") {
+            return "station";
+        }
+        if (name === "后视点坐标") {
+            return "backSight";
+        }
+        if (name === "校核点坐标") {
+            return "checkPoint";
+        }
+        return null;
+    }
+
+    function countEditableRecords(page) {
+        if (!page || !page.records) {
+            return 0;
+        }
+        if (isCoordinateLayout()) {
+            return page.records.filter(function (r) { return !isFixedCoordinateRecord(r); }).length;
+        }
+        return page.records.length;
+    }
+
+    function countRenderedRecords() {
+        if (isNestedLayout()) {
+            return $("#nested-records-wrap .nested-record-block").length;
+        }
+        if (isCoordinateLayout()) {
+            return $("#coordinate-tbody tr").length;
+        }
+        if (isCorrosionLayout()) {
+            return $("#corrosion-records-wrap .corrosion-record-block").length;
+        }
+        if (isVibrationLayout()) {
+            return $("#vibration-records-wrap .vibration-record-block").length;
+        }
+        return $("#record-tbody tr").length;
+    }
+
+    function canAddRecord(currentCount) {
+        var max = schema.maxRecordsPerPage;
+        if (max && currentCount >= max) {
+            $.modal.alertWarning("当前页最多填写 " + max + " 条数据");
+            return false;
+        }
+        return true;
+    }
+
+    function validatePageCapacity(page, pageIndex) {
+        var max = schema.maxRecordsPerPage;
+        if (!max || !page) {
+            return true;
+        }
+        var count = page.records ? page.records.length : 0;
+        if (count > max) {
+            $.modal.alertWarning("第 " + (pageIndex + 1) + " 页最多填写 " + max + " 条数据，当前为 " + count + " 条");
+            return false;
+        }
+        if (isNestedLayout() && schema.maxNestedItemsPerRecord && page.records) {
+            for (var i = 0; i < page.records.length; i++) {
+                var items = getNestedItems(page.records[i]);
+                if (items.length > schema.maxNestedItemsPerRecord) {
+                    $.modal.alertWarning("第 " + (pageIndex + 1) + " 页第 " + (i + 1) + " 个测区最多填写 "
+                        + schema.maxNestedItemsPerRecord + " 条钢筋测点");
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    function validateAllPageCapacity() {
+        if (!sheetData || !sheetData.pages) {
+            return true;
+        }
+        for (var i = 0; i < sheetData.pages.length; i++) {
+            if (!validatePageCapacity(sheetData.pages[i], i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function canAddNestedItem(block) {
+        var max = schema.maxNestedItemsPerRecord;
+        if (!max) {
+            return true;
+        }
+        var count = block.find(".nested-items-table tbody tr").length;
+        if (count >= max) {
+            $.modal.alertWarning("每个测区最多填写 " + max + " 条钢筋测点");
+            return false;
+        }
+        return true;
+    }
+
+    function isFieldTemplateFixed(field) {
+        return field.templateFixed
+            && templateFixedFields[field.key] != null
+            && String(templateFixedFields[field.key]).length > 0;
+    }
+
+    function isHeaderReadonly(field) {
+        return field.readonly || isFieldTemplateFixed(field);
+    }
+
+    function recordFieldValue(record, col) {
+        if (!record) {
+            return "";
+        }
+        var val = record[col.key];
+        if (val != null && String(val) !== "") {
+            return val;
+        }
+        if (col.altKeys) {
+            for (var i = 0; i < col.altKeys.length; i++) {
+                val = record[col.altKeys[i]];
+                if (val != null && String(val) !== "") {
+                    return val;
+                }
+            }
+        }
+        return "";
+    }
+
+    function recordHasValue(record, columns) {
+        if (!record) {
+            return false;
+        }
+        for (var i = 0; i < columns.length; i++) {
+            if (recordFieldValue(record, columns[i]) !== "") {
+                return true;
+            }
+        }
+        if (isNestedLayout() && schema.nestedKey) {
+            var items = record[schema.nestedKey] || (schema.nestedAltKey ? record[schema.nestedAltKey] : null);
+            if (items && items.length > 0) {
+                return true;
+            }
+        }
+        if (isCorrosionLayout() && schema.recordValueColumns) {
+            for (var j = 0; j < schema.recordValueColumns.length; j++) {
+                if (recordFieldValue(record, schema.recordValueColumns[j]) !== "") {
+                    return true;
+                }
+            }
+        }
+        if (isCorrosionLayout() && schema.recordFixedColumns) {
+            for (var k = 0; k < schema.recordFixedColumns.length; k++) {
+                if (recordFieldValue(record, schema.recordFixedColumns[k]) !== "") {
+                    return true;
+                }
+            }
+        }
+        if (isVibrationLayout()) {
+            var vibrationCols = getVibrationFieldColumns();
+            for (var v = 0; v < vibrationCols.length; v++) {
+                if (recordFieldValue(record, vibrationCols[v]) !== "") {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function getVibrationFieldColumns() {
+        var cols = [];
+        var vf = schema.vibrationFields;
+        if (!vf) {
+            return cols;
+        }
+        cols.push({ key: vf.indexKey });
+        cols.push({ key: vf.cableKey });
+        cols.push({ key: vf.summaryKey, altKeys: vf.summaryAltKeys || [] });
+        var i;
+        for (i = 1; i <= vf.orderCount; i++) {
+            cols.push({ key: vf.orderPrefix + i, altKeys: [vf.orderAltPrefix + i] });
+        }
+        for (i = 1; i <= vf.frequencyCount; i++) {
+            cols.push({ key: vf.frequencyPrefix + i, altKeys: [vf.frequencyAltPrefix + i] });
+        }
+        return cols;
+    }
+
+    function showUnsupported(message) {
+        $("#unsupported-tip").text(message).show();
+        $("#edit-panel, #edit-footer").hide();
+    }
+
+    function hasPages() {
+        return sheetData && sheetData.pages && sheetData.pages.length > 0;
+    }
+
+    function normalizePagesArray() {
+        if (!sheetData.pages) {
+            sheetData.pages = [];
+        }
+        for (var i = 0; i < sheetData.pages.length; i++) {
+            sheetData.pages[i] = normalizePage(sheetData.pages[i]);
+            if (isCoordinateLayout()) {
+                normalizeCoordinatePage(sheetData.pages[i]);
+            }
+        }
+    }
+
+    function showEmptyPageState() {
+        $("#page-empty-tip")
+            .text(isTechnicalConditionSheet() ? "暂无病害记录" : "暂无页面，请点击「新增页」开始录入")
+            .show();
+        $("#sheet-form-sections").hide();
+        $("#page-tabs").html("");
+        $(".page-toolbar-actions").toggle(!isTechnicalConditionSheet());
+        $("#btn-save, #btn-preview").prop("disabled", true);
+        $("#btn-del-page").prop("disabled", true);
+    }
+
+    function hideEmptyPageState() {
+        $("#page-empty-tip").hide();
+        $("#sheet-form-sections").show();
+        $("#btn-save, #btn-preview").prop("disabled", false);
+        $("#btn-del-page").prop("disabled", false);
+    }
+
+    function refreshEditorView() {
+        normalizePagesArray();
+        renderPageTabs();
+        if (!hasPages()) {
+            currentPageIndex = 0;
+            showEmptyPageState();
+            return;
+        }
+        hideEmptyPageState();
+        if (currentPageIndex >= sheetData.pages.length) {
+            currentPageIndex = sheetData.pages.length - 1;
+        }
+        if (currentPageIndex < 0) {
+            currentPageIndex = 0;
+        }
+        loadPageIntoForm(currentPageIndex);
+    }
+
+    function normalizePage(page) {
+        if (!page) {
+            page = {};
+        }
+        if (!page.header) {
+            page.header = {};
+        }
+        if (!page.records) {
+            page.records = [];
+        }
+        if (page.remark == null) {
+            page.remark = "";
+        }
+        return page;
+    }
+
+    function isCoordinateHeaderKey(key) {
+        if (!schema || !schema.coordinateSections) {
+            return false;
+        }
+        for (var i = 0; i < schema.coordinateSections.length; i++) {
+            var prefix = schema.coordinateSections[i].prefix;
+            if (key === prefix + "X" || key === prefix + "Y" || key === prefix + "Z") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function cloneHeader(header) {
+        var copy = {};
+        if (header) {
+            Object.keys(header).forEach(function (key) {
+                if (isCoordinateHeaderKey(key)) {
+                    return;
+                }
+                copy[key] = header[key];
+            });
+        }
+        return copy;
+    }
+
+    function createEmptyPage(copyHeaderFrom) {
+        return normalizePage({
+            header: copyHeaderFrom ? cloneHeader(copyHeaderFrom) : {},
+            records: [],
+            remark: ""
+        });
+    }
+
+    function syncCurrentPageToData() {
+        if (!sheetData || !hasPages()) {
+            return;
+        }
+        if (currentPageIndex < 0 || currentPageIndex >= sheetData.pages.length) {
+            return;
+        }
+        var page = sheetData.pages[currentPageIndex];
+        $(".header-field").each(function () {
+            if ($(this).data("template-fixed")) {
+                return;
+            }
+            page.header[$(this).data("key")] = $(this).val();
+        });
+        page.remark = $("#sheet-remark").val() || "";
+        if (isCoordinateLayout()) {
+            syncCoordinateHeaderFromForm(page);
+        }
+        if (isTechnicalConditionSheet()) {
+            return;
+        }
+        page.records = collectRecordsFromForm();
+    }
+
+    function collectRecordsFromForm() {
+        if (isNestedLayout()) {
+            return collectNestedRecords();
+        }
+        if (isCoordinateLayout()) {
+            return collectCoordinateRecords();
+        }
+        if (isCorrosionLayout()) {
+            return collectCorrosionRecords();
+        }
+        if (isVibrationLayout()) {
+            return collectVibrationRecords();
+        }
+        var records = [];
+        $("#record-tbody tr").each(function () {
+            var record = {};
+            var hasValue = false;
+            $(this).find(".record-field").each(function () {
+                var key = $(this).data("key");
+                var val = $.trim($(this).val());
+                record[key] = val;
+                if (val !== "") {
+                    hasValue = true;
+                }
+            });
+            if (hasValue) {
+                records.push(record);
+            }
+        });
+        return records;
+    }
+
+    function collectNestedRecords() {
+        var records = [];
+        $("#nested-records-wrap .nested-record-block").each(function () {
+            var record = {};
+            var hasValue = false;
+            $(this).find(".record-fixed-field").each(function () {
+                var key = $(this).data("key");
+                var val = $.trim($(this).val());
+                record[key] = val;
+                if (val !== "") {
+                    hasValue = true;
+                }
+            });
+            var items = [];
+            $(this).find(".nested-items-table tbody tr").each(function () {
+                var item = {};
+                var itemHasValue = false;
+                $(this).find(".nested-item-field").each(function () {
+                    var key = $(this).data("key");
+                    var val = $.trim($(this).val());
+                    item[key] = val;
+                    if (val !== "") {
+                        itemHasValue = true;
+                    }
+                });
+                if (itemHasValue) {
+                    items.push(item);
+                }
+            });
+            if (items.length > 0) {
+                record[schema.nestedKey] = items;
+                hasValue = true;
+            }
+            if (hasValue) {
+                records.push(record);
+            }
+        });
+        return records;
+    }
+
+    function collectCoordinateRecords() {
+        var records = [];
+        $("#coordinate-tbody tr").each(function () {
+            var record = {};
+            var hasValue = false;
+            $(this).find(".coordinate-field").each(function () {
+                var key = $(this).data("key");
+                var val = $.trim($(this).val());
+                record[key] = val;
+                if (val !== "") {
+                    hasValue = true;
+                }
+            });
+            if (hasValue) {
+                records.push(record);
+            }
+        });
+        return records;
+    }
+
+    function collectCorrosionRecords() {
+        var records = [];
+        $("#corrosion-records-wrap .corrosion-record-block").each(function () {
+            var record = {};
+            var hasValue = false;
+            $(this).find(".corrosion-fixed-field, .corrosion-value-field").each(function () {
+                var key = $(this).data("key");
+                var val = $.trim($(this).val());
+                record[key] = val;
+                if (val !== "") {
+                    hasValue = true;
+                }
+            });
+            if (hasValue) {
+                records.push(record);
+            }
+        });
+        return records;
+    }
+
+    function collectVibrationRecords() {
+        var records = [];
+        $("#vibration-records-wrap .vibration-record-block").each(function () {
+            var record = {};
+            var hasValue = false;
+            $(this).find(".vibration-field").each(function () {
+                var key = $(this).data("key");
+                var val = $.trim($(this).val());
+                record[key] = val;
+                if (val !== "") {
+                    hasValue = true;
+                }
+            });
+            if (hasValue) {
+                records.push(record);
+            }
+        });
+        return records;
+    }
+
+    function syncCoordinateHeaderFromForm(page) {
+        if (!isCoordinateLayout() || !page) {
+            return;
+        }
+        $(".coordinate-header-field").each(function () {
+            page.header[$(this).data("key")] = $(this).val();
+        });
+    }
+
+    function renderPageTabs() {
+        if (!hasPages()) {
+            $("#page-tabs").html("");
+            return;
+        }
+        var html = "";
+        for (var i = 0; i < sheetData.pages.length; i++) {
+            var active = i === currentPageIndex ? " active" : "";
+            html += '<button type="button" class="btn btn-default btn-xs page-tab' + active + '" data-page-index="' + i + '">第 ' + (i + 1) + ' 页</button>';
+        }
+        $("#page-tabs").html(html);
+    }
+
+    function loadPageIntoForm(pageIndex) {
+        if (!hasPages() || pageIndex < 0 || pageIndex >= sheetData.pages.length) {
+            return;
+        }
+        currentPageIndex = pageIndex;
+        var page = sheetData.pages[currentPageIndex];
+        normalizeCoordinatePage(page);
+        var addText = "新增行";
+        var delText = "删除选中";
+        if (isNestedLayout()) {
+            addText = "新增测区";
+            delText = "删除选中测区";
+        } else if (isCoordinateLayout()) {
+            addText = "新增测点";
+            delText = "删除选中测点";
+        } else if (isCorrosionLayout()) {
+            addText = "新增测区";
+            delText = "删除选中测区";
+        } else if (isVibrationLayout()) {
+            addText = "新增索";
+            delText = "删除选中";
+        }
+        if (isCoordinateLayout()) {
+            $("#records-section-title").hide();
+        } else {
+            $("#records-section-title").show().text(schema.recordsTitle || "测点数据");
+        }
+        $(".page-toolbar-actions").toggle(!isTechnicalConditionSheet());
+        $("#btn-add-row-text").text(addText);
+        $("#btn-del-row-text").text(delText);
+        renderHeaderFields(page);
+        renderRecordSection(page);
+        $("#sheet-remark")
+            .val(page.remark || "")
+            .prop("readonly", false)
+            .attr("placeholder", "备注")
+            .css({
+                "background": "",
+                "color": ""
+            });
+        renderPageTabs();
+    }
+
+    function switchPage(pageIndex) {
+        if (pageIndex === currentPageIndex) {
+            return;
+        }
+        syncCurrentPageToData();
+        loadPageIntoForm(pageIndex);
+    }
+
+    function renderHeaderFields(page) {
+        var html = "";
+        schema.headerFields.forEach(function (field) {
+            var col = field.col || 6;
+            var fixed = isFieldTemplateFixed(field);
+            var readonly = isHeaderReadonly(field);
+            var val = fixed
+                ? templateFixedFields[field.key]
+                : recordFieldValue(page.header, field);
+            if (val === "" && isFieldTemplateFixed(field)) {
+                val = templateFixedFields[field.key] || "";
+            }
+            var extraAttr = (fixed || readonly)
+                ? ' data-template-fixed="1" readonly style="background:#f5f5f5;color:#888;"'
+                : '';
+            html += '<div class="col-sm-' + col + '">' +
+                '<div class="form-group" style="margin-bottom:10px;">' +
+                '<label class="control-label">' + field.label + '</label>' +
+                '<input type="text" class="form-control header-field" data-key="' + field.key + '"' + extraAttr + ' value="' + escapeAttr(val) + '">' +
+                '</div></div>';
+        });
+        $("#header-fields").html(html);
+    }
+
+    function renderRecordSection(page) {
+        if (!page) {
+            page = { header: {}, records: [], remark: "" };
+        }
+        $("#flat-records-wrap, #coordinate-records-wrap, #corrosion-records-wrap, #vibration-records-wrap, #nested-records-wrap").hide();
+        if (isNestedLayout()) {
+            $("#nested-records-wrap").show();
+            renderNestedRecords(page);
+            return;
+        }
+        if (isCoordinateLayout()) {
+            $("#coordinate-records-wrap").css("display", "block");
+            $("#common-record-toolbar").hide();
+            renderCoordinateRecords(page);
+            return;
+        }
+        $("#common-record-toolbar").toggle(!isTechnicalConditionSheet());
+        if (isCorrosionLayout()) {
+            $("#corrosion-records-wrap").css("display", "block");
+            renderCorrosionRecords(page);
+            return;
+        }
+        if (isVibrationLayout()) {
+            $("#vibration-records-wrap").css("display", "block");
+            renderVibrationRecords(page);
+            return;
+        }
+        $("#flat-records-wrap").show();
+        renderFlatRecordTable(page);
+    }
+
+    function renderCoordinateRecords(page) {
+        if (!schema.coordinateSections || !schema.measurementColumns) {
+            $("#coordinate-fixed-sections").html('<div class="text-danger">页面加载异常，请刷新后重试</div>');
+            return;
+        }
+        var html = '<table class="coordinate-fixed-table"><thead><tr>' +
+            '<th></th><th>X</th><th>Y</th><th>Z</th>' +
+            '</tr></thead><tbody>';
+        schema.coordinateSections.forEach(function (section) {
+            html += '<tr data-prefix="' + section.prefix + '">' +
+                '<td class="coordinate-label-cell">' + section.label + '</td>';
+            ["X", "Y", "Z"].forEach(function (axis) {
+                var key = section.prefix + axis;
+                var val = page.header ? (page.header[key] || "") : "";
+                html += '<td><input type="text" class="form-control coordinate-header-field" data-key="' + key + '" value="' + escapeAttr(val) + '"></td>';
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        $("#coordinate-fixed-sections").html(html);
+
+        var headHtml = '<tr><th class="col-check"><input type="checkbox" id="check-all-rows"></th>';
+        schema.measurementColumns.forEach(function (col) {
+            headHtml += '<th>' + col.label + '</th>';
+        });
+        headHtml += '</tr>';
+        $("#coordinate-thead").html(headHtml);
+
+        var bodyHtml = "";
+        var records = page.records || [];
+        records.forEach(function (record, idx) {
+            bodyHtml += buildCoordinateRow(record, idx);
+        });
+        if (records.length === 0) {
+            bodyHtml += buildCoordinateRow({}, 0);
+        }
+        $("#coordinate-tbody").html(bodyHtml);
+        $("#check-all-rows").prop("checked", false);
+    }
+
+    function buildCoordinateRow(record, idx) {
+        var html = '<tr data-row-index="' + idx + '">' +
+            '<td class="col-check"><input type="checkbox" class="row-check"></td>';
+        schema.measurementColumns.forEach(function (col) {
+            var val = recordFieldValue(record, col);
+            html += '<td><input type="text" class="form-control coordinate-field" data-key="' + col.key + '" value="' + escapeAttr(val) + '"></td>';
+        });
+        html += '</tr>';
+        return html;
+    }
+
+    function renderCorrosionRecords(page) {
+        var html = "";
+        (page.records || []).forEach(function (record, idx) {
+            html += buildCorrosionRecordBlock(record, idx);
+        });
+        if (!page.records || page.records.length === 0) {
+            html += buildCorrosionRecordBlock({}, 0);
+        }
+        $("#corrosion-records-wrap").html(html);
+    }
+
+    function buildCorrosionRecordBlock(record, idx) {
+        var html = '<div class="corrosion-record-block" data-record-index="' + idx + '">' +
+            '<div class="block-title"><span>测区 ' + (idx + 1) + '</span>' +
+            '<label style="font-weight:normal;margin:0;"><input type="checkbox" class="corrosion-block-check"> 选中</label></div>' +
+            '<div class="row">';
+        schema.recordFixedColumns.forEach(function (col) {
+            var val = recordFieldValue(record, col);
+            html += '<div class="col-sm-4"><div class="form-group" style="margin-bottom:8px;">' +
+                '<label class="control-label">' + col.label + '</label>' +
+                '<input type="text" class="form-control corrosion-fixed-field" data-key="' + col.key + '" value="' + escapeAttr(val) + '">' +
+                '</div></div>';
+        });
+        html += '</div>';
+        html += buildCorrosionValuesRow(record, 1, 10, "电位值（mV）");
+        html += buildCorrosionValuesRow(record, 11, 20, "");
+        html += '</div>';
+        return html;
+    }
+
+    function buildCorrosionValuesRow(record, start, end, label) {
+        var html = '<div class="corrosion-values-row">';
+        if (label) {
+            html += '<div class="row-label">' + label + '</div>';
+        }
+        html += '<div class="corrosion-values-grid">';
+        for (var i = start; i <= end; i++) {
+            var col = schema.recordValueColumns[i - 1];
+            var val = recordFieldValue(record, col);
+            html += '<div class="form-group">' +
+                '<label class="control-label">' + i + '</label>' +
+                '<input type="text" class="form-control corrosion-value-field" data-key="' + col.key + '" value="' + escapeAttr(val) + '">' +
+                '</div>';
+        }
+        html += '</div></div>';
+        return html;
+    }
+
+    function renderVibrationRecords(page) {
+        if (!schema.vibrationFields) {
+            $("#vibration-records-wrap").html('<div class="text-danger">页面加载异常，请刷新后重试</div>');
+            return;
+        }
+        var html = "";
+        (page.records || []).forEach(function (record, idx) {
+            html += buildVibrationRecordBlock(record, idx);
+        });
+        if (!page.records || page.records.length === 0) {
+            html += buildVibrationRecordBlock({}, 0);
+        }
+        $("#vibration-records-wrap").html(html);
+    }
+
+    function buildVibrationRecordBlock(record, idx) {
+        var vf = schema.vibrationFields;
+        var orderCount = vf.orderCount || 6;
+        var frequencyCount = vf.frequencyCount || 6;
+        var frequencyColumnSpan = Math.max(orderCount, frequencyCount) + 1;
+        var html = '<div class="vibration-record-block" data-record-index="' + idx + '">' +
+            '<div class="block-title"><span>第 ' + (idx + 1) + ' 组</span>' +
+            '<label style="font-weight:normal;margin:0;"><input type="checkbox" class="vibration-block-check"> 选中</label></div>' +
+            '<table class="vibration-block-table"><thead><tr>' +
+            '<th style="width:70px;">序号</th>' +
+            '<th style="width:100px;">索编号</th>' +
+            '<th colspan="' + frequencyColumnSpan + '">频率（Hz）</th>' +
+            '<th style="min-width:160px;">（fn/n）均值或基频或△f</th>' +
+            '</tr></thead><tbody>';
+
+        html += '<tr>' +
+            '<td rowspan="2">' + buildVibrationInput(vf.indexKey, recordFieldValue(record, { key: vf.indexKey })) + '</td>' +
+            '<td rowspan="2">' + buildVibrationInput(vf.cableKey, recordFieldValue(record, { key: vf.cableKey })) + '</td>' +
+            '<td class="row-label-cell">阶数 n</td>';
+        var i;
+        for (i = 1; i <= orderCount; i++) {
+            html += '<td>' + buildVibrationInput(vf.orderPrefix + i,
+                recordFieldValue(record, { key: vf.orderPrefix + i, altKeys: [vf.orderAltPrefix + i] })) + '</td>';
+        }
+        html += '<td rowspan="2">' + buildVibrationInput(vf.summaryKey,
+            recordFieldValue(record, { key: vf.summaryKey, altKeys: vf.summaryAltKeys || [] })) + '</td></tr>';
+
+        html += '<tr><td class="row-label-cell">频率 fn</td>';
+        for (i = 1; i <= frequencyCount; i++) {
+            html += '<td>' + buildVibrationInput(vf.frequencyPrefix + i,
+                recordFieldValue(record, { key: vf.frequencyPrefix + i, altKeys: [vf.frequencyAltPrefix + i] })) + '</td>';
+        }
+        html += '</tr></tbody></table></div>';
+        return html;
+    }
+
+    function buildVibrationInput(key, val) {
+        return '<input type="text" class="form-control vibration-field" data-key="' + key + '" value="' + escapeAttr(val) + '">';
+    }
+
+    function renderFlatRecordTable(page) {
+        if (!schema.recordColumns) {
+            $("#record-tbody").html('<tr><td class="text-danger">页面加载异常，请刷新后重试</td></tr>');
+            return;
+        }
+        var technicalCondition = isTechnicalConditionSheet();
+        $("#flat-records-wrap .record-table").toggleClass("technical-condition-table", technicalCondition);
+
+        var headHtml = '<tr>';
+        if (!technicalCondition) {
+            headHtml += '<th class="col-check"><input type="checkbox" id="check-all-rows"></th>';
+        }
+        schema.recordColumns.forEach(function (col) {
+            var widthAttr = col.colWidth ? ' style="width:' + col.colWidth + ';"' : '';
+            headHtml += '<th' + widthAttr + '>' + col.label + '</th>';
+        });
+        headHtml += '</tr>';
+        $("#record-thead").html(headHtml);
+
+        var bodyHtml = "";
+        var records = page.records || [];
+        records.forEach(function (record, idx) {
+            bodyHtml += buildFlatRecordRow(record, idx);
+        });
+        if (records.length === 0) {
+            if (technicalCondition) {
+                bodyHtml += '<tr><td class="text-muted" colspan="' + schema.recordColumns.length + '">暂无病害记录</td></tr>';
+            } else {
+                bodyHtml += buildFlatRecordRow({}, 0);
+            }
+        }
+        $("#record-tbody").html(bodyHtml);
+        $("#check-all-rows").prop("checked", false);
+        autoResizeRecordTextareasLater();
+    }
+
+    function autoResizeRecordTextareas(scope) {
+        var root = scope ? $(scope) : $("#record-tbody");
+        var textareas = root.is("textarea.record-field") ? root : root.find("textarea.record-field");
+        textareas.each(function () {
+            this.style.height = "30px";
+            this.style.height = Math.max(30, this.scrollHeight) + "px";
+        });
+    }
+
+    function autoResizeRecordTextareasLater() {
+        setTimeout(function () {
+            autoResizeRecordTextareas();
+        }, 0);
+    }
+
+    function buildFlatRecordRow(record, idx) {
+        var html = '<tr data-row-index="' + idx + '">';
+        if (!isTechnicalConditionSheet()) {
+            html += '<td class="col-check"><input type="checkbox" class="row-check"></td>';
+        }
+        schema.recordColumns.forEach(function (col) {
+            var val = recordFieldValue(record, col);
+            var widthAttr = col.colWidth ? ' style="width:' + col.colWidth + ';"' : '';
+            if (isTechnicalConditionSheet()) {
+                html += buildReadonlyRecordCell(col, val, widthAttr);
+                return;
+            }
+            var narrowClass = (!col.multiline && (col.key === "quantity" || col.key === "level")) ? " record-narrow-col" : "";
+            if (col.multiline) {
+                html += '<td class="record-multiline-cell"' + widthAttr + '><textarea class="form-control record-field" rows="1" data-key="' + col.key + '">' + escapeAttr(val) + '</textarea></td>';
+            } else {
+                html += '<td class="' + narrowClass.trim() + '"' + widthAttr + '><input type="text" class="form-control record-field" data-key="' + col.key + '" value="' + escapeAttr(val) + '"></td>';
+            }
+        });
+        html += '</tr>';
+        return html;
+    }
+
+    function buildReadonlyRecordCell(col, val, widthAttr) {
+        var text = val == null ? "" : String(val);
+        var empty = $.trim(text) === "";
+        var alignClass = empty || isCenteredReadonlyRecordColumn(col) ? "record-readonly-center" : "record-readonly-left";
+        var emptyClass = empty ? " record-readonly-empty" : "";
+        return '<td class="record-readonly-cell ' + alignClass + '"' + widthAttr + '>' +
+            '<div class="record-readonly-text' + emptyClass + '">' + escapeAttr(empty ? "-" : text) + '</div>' +
+            '</td>';
+    }
+
+    function isCenteredReadonlyRecordColumn(col) {
+        return col && ["position", "type", "quantity", "level", "imgNoExp"].indexOf(col.key) >= 0;
+    }
+
+    function getNestedItems(record) {
+        var items = record[schema.nestedKey];
+        if ((!items || !items.length) && schema.nestedAltKey) {
+            items = record[schema.nestedAltKey];
+        }
+        return items || [];
+    }
+
+    function renderNestedRecords(page) {
+        var html = "";
+        page.records.forEach(function (record, idx) {
+            html += buildNestedRecordBlock(record, idx);
+        });
+        if (page.records.length === 0) {
+            html += buildNestedRecordBlock({}, 0);
+        }
+        $("#nested-records-wrap").html(html);
+    }
+
+    function buildNestedRecordBlock(record, idx) {
+        var items = getNestedItems(record);
+        var html = '<div class="nested-record-block" data-record-index="' + idx + '">' +
+            '<div class="block-title"><span>测区 ' + (idx + 1) + '</span>' +
+            '<label style="font-weight:normal;margin:0;"><input type="checkbox" class="nested-block-check"> 选中</label></div>' +
+            '<div class="row">';
+        schema.recordFixedColumns.forEach(function (col) {
+            var val = recordFieldValue(record, col);
+            html += '<div class="col-sm-3"><div class="form-group" style="margin-bottom:8px;">' +
+                '<label class="control-label">' + col.label + '</label>' +
+                '<input type="text" class="form-control record-fixed-field" data-key="' + col.key + '" value="' + escapeAttr(val) + '">' +
+                '</div></div>';
+        });
+        html += '</div><table class="nested-items-table"><thead><tr>';
+        schema.nestedColumns.forEach(function (col) {
+            html += '<th>' + col.label + '</th>';
+        });
+        html += '<th style="width:48px;">操作</th>';
+        html += '</tr></thead><tbody>';
+        items.forEach(function (item, itemIdx) {
+            html += buildNestedItemRow(item, itemIdx);
+        });
+        if (items.length === 0) {
+            html += buildNestedItemRow({}, 0);
+        }
+        html += '</tbody></table>' +
+            '<button type="button" class="btn btn-default btn-xs btn-add-nested-item" style="margin-top:6px;"><i class="fa fa-plus"></i> 新增钢筋测点</button>' +
+            '</div>';
+        return html;
+    }
+
+    function buildNestedItemRow(item, idx) {
+        var html = '<tr data-item-index="' + idx + '">';
+        schema.nestedColumns.forEach(function (col) {
+            var val = recordFieldValue(item, col);
+            html += '<td><input type="text" class="form-control nested-item-field" data-key="' + col.key + '" value="' + escapeAttr(val) + '"></td>';
+        });
+        html += '<td class="nested-item-actions"><button type="button" class="btn btn-danger btn-xs btn-del-nested-item" title="删除"><i class="fa fa-trash"></i></button></td>';
+        html += '</tr>';
+        return html;
+    }
+
+    function escapeAttr(str) {
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    function collectFormData() {
+        syncCurrentPageToData();
+        if (!sheetData.pages) {
+            sheetData.pages = [];
+        }
+        if (isTechnicalConditionSheet()) {
+            return collectTechnicalConditionFormData();
+        }
+        sheetData.sheetId = sheetType;
+        sheetData.type = sheetType;
+        return sheetData;
+    }
+
+    function collectTechnicalConditionFormData() {
+        var rootHeader = sheetData.pages.length > 0
+            ? cloneHeader(sheetData.pages[0].header || {})
+            : cloneHeader(sheetData.header || {});
+        return {
+            sheetId: sheetType,
+            type: sheetType,
+            header: rootHeader,
+            pages: sheetData.pages.map(function (page) {
+                return {
+                    header: cloneHeader(page ? (page.header || {}) : {}),
+                    remark: page ? (page.remark || "") : ""
+                };
+            })
+        };
+    }
+
+    function hasSavableSheetRecords(data) {
+        if (!data || !data.pages || data.pages.length === 0) {
+            return false;
+        }
+        for (var i = 0; i < data.pages.length; i++) {
+            var records = data.pages[i] && data.pages[i].records;
+            if (records && records.length > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function loadSheetData(callback) {
+        $.ajax({
+            type: "GET",
+            url: sheetPrefix + "/load/" + taskId + "/" + encodeURIComponent(sheetType),
+            success: function (result) {
+                if (result.code !== 0) {
+                    $.modal.alertError(result.msg || "加载失败");
+                    return;
+                }
+                try {
+                    sheetData = JSON.parse(result.content || "{}");
+                } catch (e) {
+                    $.modal.alertError("表格 JSON 解析失败");
+                    return;
+                }
+                defaultHeader = result.defaultHeader || {};
+                templateFixedFields = result.templateFixedFields || {};
+                currentPageIndex = 0;
+                refreshEditorView();
+
+                $("#edit-panel, #edit-footer").show();
+                autoResizeRecordTextareasLater();
+                if (typeof callback === "function") {
+                    callback();
+                }
+            },
+            error: function () {
+                $.modal.alertError("加载失败，请稍后重试");
+            }
+        });
+    }
+
+    function setSaveButtonsSaving(saving, saveText) {
+        var saveBtn = $("#btn-save");
+        var previewBtn = $("#btn-preview");
+        if (!saveBtn.data("original-html")) {
+            saveBtn.data("original-html", saveBtn.html());
+        }
+        if (saving) {
+            saveBtn.prop("disabled", true).html('<i class="fa fa-spinner fa-spin"></i> ' + (saveText || "保存中..."));
+            previewBtn.prop("disabled", true);
+            return;
+        }
+        saveBtn.prop("disabled", false).html(saveBtn.data("original-html"));
+        previewBtn.prop("disabled", false);
+    }
+
+    function beginSaveFeedback(message) {
+        savingSheet = true;
+        setSaveButtonsSaving(true);
+        if ($.modal && typeof $.modal.loading === "function") {
+            return $.modal.loading(message || "正在保存数据，请稍候...");
+        }
+        return null;
+    }
+
+    function endSaveFeedback(loadingIndex) {
+        if ($.modal && typeof $.modal.closeLoading === "function") {
+            $.modal.closeLoading(loadingIndex);
+        }
+        savingSheet = false;
+        setSaveButtonsSaving(false);
+    }
+
+    function saveSheet(callback, options) {
+        if (savingSheet) {
+            $.modal.alertWarning("正在保存，请稍候...");
+            return;
+        }
+        if (isTechnicalConditionSheet() && (!sheetData || !sheetData.pages || sheetData.pages.length === 0)) {
+            $.modal.alertWarning("暂无病害记录");
+            return;
+        }
+        var payload = collectFormData();
+        if (!isTechnicalConditionSheet() && !hasSavableSheetRecords(payload)) {
+            $.modal.alertWarning("暂无表格数据");
+            return;
+        }
+        if (!validateAllPageCapacity()) {
+            return;
+        }
+        var loadingIndex = beginSaveFeedback(options && options.message);
+        $.ajax({
+            type: "POST",
+            url: sheetPrefix + "/save/" + taskId + "/" + encodeURIComponent(sheetType),
+            contentType: "application/json;charset=UTF-8",
+            data: JSON.stringify(payload),
+            success: function (result) {
+                if (result.code === 0) {
+                    $.modal.msgSuccess(result.msg || "保存成功");
+                    if (isTechnicalConditionSheet()) {
+                        loadSheetData(function () {
+                            if (typeof callback === "function") {
+                                callback();
+                            }
+                        });
+                    } else if (typeof callback === "function") {
+                        callback();
+                    }
+                } else {
+                    $.modal.alertError(result.msg || "保存失败");
+                }
+            },
+            error: function (xhr) {
+                var msg = "保存失败，请稍后重试";
+                if (xhr.responseJSON && xhr.responseJSON.msg) {
+                    msg = xhr.responseJSON.msg;
+                }
+                $.modal.alertError(msg);
+            },
+            complete: function () {
+                endSaveFeedback(loadingIndex);
+            }
+        });
+    }
+
+    function openPreview() {
+        var url;
+        if (sheetType === "technical_condition") {
+            url = sheetPrefix + "/preview/jglp05017/" + taskId;
+        } else {
+            url = sheetPrefix + "/preview/sheet/" + taskId + "/"
+                + encodeURIComponent(sheetType) + "?sheetName=" + encodeURIComponent(/*[[${sheetName}]]*/ "");
+        }
+        top.layer.open({
+            type: 2,
+            title: "预览",
+            content: url,
+            area: ["1000px", "720px"],
+            fix: false,
+            maxmin: true,
+            shade: 0.3
+        });
+    }
+
+    $(function () {
+        if (!schema) {
+            showUnsupported("该表格类型暂不支持网页编辑：" + sheetType);
+            return;
+        }
+
+        loadSheetData();
+
+        $(document).on("click", ".page-tab", function () {
+            switchPage(parseInt($(this).data("page-index"), 10));
+        });
+
+        $("#btn-add-page").on("click", function () {
+            syncCurrentPageToData();
+            if (!sheetData.pages) {
+                sheetData.pages = [];
+            }
+            var templateHeader = sheetData.pages.length > 0
+                ? sheetData.pages[0].header
+                : defaultHeader;
+            sheetData.pages.push(createEmptyPage(templateHeader));
+            currentPageIndex = sheetData.pages.length - 1;
+            refreshEditorView();
+        });
+
+        $("#btn-del-page").on("click", function () {
+            if (!hasPages()) {
+                return;
+            }
+            var tip = sheetData.pages.length === 1
+                ? "当前页为最后一页，确定删除吗？"
+                : "确定删除第" + (currentPageIndex + 1) + "页吗？";
+            $.modal.confirm(tip, function () {
+                syncCurrentPageToData();
+                sheetData.pages.splice(currentPageIndex, 1);
+                refreshEditorView();
+            });
+        });
+
+        $("#btn-add-row").on("click", function () {
+            handleAddRow();
+        });
+
+        $("#btn-del-row").on("click", function () {
+            handleDelRow();
+        });
+
+        $(document).on("click", ".btn-add-coordinate-row", function () {
+            handleAddRow();
+        });
+
+        $(document).on("click", ".btn-del-coordinate-row", function () {
+            handleDelRow();
+        });
+
+        function handleAddRow() {
+            var currentCount = countRenderedRecords();
+            if (!canAddRecord(currentCount)) {
+                return;
+            }
+
+            if (isNestedLayout()) {
+                $("#nested-records-wrap").append(buildNestedRecordBlock({}, currentCount));
+                return;
+            }
+            if (isCoordinateLayout()) {
+                $("#coordinate-tbody").append(buildCoordinateRow({}, currentCount));
+                return;
+            }
+            if (isCorrosionLayout()) {
+                $("#corrosion-records-wrap").append(buildCorrosionRecordBlock({}, currentCount));
+                return;
+            }
+            if (isVibrationLayout()) {
+                $("#vibration-records-wrap").append(buildVibrationRecordBlock({}, currentCount));
+                return;
+            }
+            $("#record-tbody").append(buildFlatRecordRow({}, $("#record-tbody tr").length));
+            autoResizeRecordTextareas("#record-tbody tr:last");
+        }
+
+        function handleDelRow() {
+            if (isNestedLayout()) {
+                var checkedNested = $("#nested-records-wrap .nested-block-check:checked");
+                if (checkedNested.length === 0) {
+                    $.modal.alertWarning("请先勾选要删除的测区");
+                    return;
+                }
+                checkedNested.closest(".nested-record-block").remove();
+                if ($("#nested-records-wrap .nested-record-block").length === 0) {
+                    $("#nested-records-wrap").html(buildNestedRecordBlock({}, 0));
+                }
+                syncCurrentPageToData();
+                return;
+            }
+            if (isCorrosionLayout()) {
+                var checkedCorrosion = $("#corrosion-records-wrap .corrosion-block-check:checked");
+                if (checkedCorrosion.length === 0) {
+                    $.modal.alertWarning("请先勾选要删除的测区");
+                    return;
+                }
+                checkedCorrosion.closest(".corrosion-record-block").remove();
+                if ($("#corrosion-records-wrap .corrosion-record-block").length === 0) {
+                    $("#corrosion-records-wrap").html(buildCorrosionRecordBlock({}, 0));
+                }
+                syncCurrentPageToData();
+                return;
+            }
+            if (isVibrationLayout()) {
+                var checkedVibration = $("#vibration-records-wrap .vibration-block-check:checked");
+                if (checkedVibration.length === 0) {
+                    $.modal.alertWarning("请先勾选要删除的索");
+                    return;
+                }
+                checkedVibration.closest(".vibration-record-block").remove();
+                if ($("#vibration-records-wrap .vibration-record-block").length === 0) {
+                    $("#vibration-records-wrap").html(buildVibrationRecordBlock({}, 0));
+                }
+                syncCurrentPageToData();
+                return;
+            }
+            var tbodySelector = isCoordinateLayout() ? "#coordinate-tbody" : "#record-tbody";
+            var buildRowFn = isCoordinateLayout() ? buildCoordinateRow : buildFlatRecordRow;
+            var checked = $(tbodySelector + " .row-check:checked");
+            if (checked.length === 0) {
+                $.modal.alertWarning(isCoordinateLayout() ? "请先勾选要删除的测点" : "请先勾选要删除的行");
+                return;
+            }
+            var removeRows = function () {
+                checked.closest("tr").remove();
+                if ($(tbodySelector + " tr").length === 0) {
+                    $(tbodySelector).append(buildRowFn({}, 0));
+                }
+            };
+            removeRows();
+        }
+
+        $(document).on("change", "#check-all-rows", function () {
+            var tbodySelector = isCoordinateLayout() ? "#coordinate-tbody" : "#record-tbody";
+            $(tbodySelector + " .row-check").prop("checked", $(this).prop("checked"));
+        });
+
+        $(document).on("input", "textarea.record-field", function () {
+            autoResizeRecordTextareas(this);
+        });
+
+        $(window).on("resize", function () {
+            autoResizeRecordTextareasLater();
+        });
+
+        $(document).on("click", ".btn-add-nested-item", function () {
+            var block = $(this).closest(".nested-record-block");
+            if (!canAddNestedItem(block)) {
+                return;
+            }
+            var tbody = block.find(".nested-items-table tbody");
+            tbody.append(buildNestedItemRow({}, tbody.find("tr").length));
+        });
+
+        $(document).on("click", ".btn-del-nested-item", function () {
+            var tbody = $(this).closest(".nested-items-table tbody");
+            $(this).closest("tr").remove();
+            if (tbody.find("tr").length === 0) {
+                tbody.append(buildNestedItemRow({}, 0));
+            }
+        });
+
+        $("#btn-save").on("click", function () {
+            saveSheet(function () {
+                if (parent && parent.$ && parent.$(".sheet-table").length) {
+                    parent.location.reload();
+                }
+            });
+        });
+
+        $("#btn-preview").on("click", function () {
+            if (!hasPages()) {
+                $.modal.alertWarning("暂无页面数据，无法预览 Word");
+                return;
+            }
+            saveSheet(function () {
+                openPreview();
+            }, {
+                message: "正在保存并生成预览，请稍候..."
+            });
+        });
+    });
+</script>
+</body>
+</html>

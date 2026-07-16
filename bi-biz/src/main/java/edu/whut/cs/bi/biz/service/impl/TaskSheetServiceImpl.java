@@ -1,57 +1,52 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DictUtils;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.TaskSheet;
 import edu.whut.cs.bi.biz.domain.vo.Jglp05017Vo;
 import edu.whut.cs.bi.biz.domain.vo.TaskSheetStatusVo;
+import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.TaskSheetMapper;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.ITaskSheetService;
+import edu.whut.cs.bi.biz.service.sheet.Jglp05017WordRenderer;
 import edu.whut.cs.bi.biz.service.sheet.JsonSheetWordRendererRegistry;
-import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
-import edu.whut.cs.bi.biz.utils.WordSheetPoiUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
-import org.apache.poi.xwpf.usermodel.*;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectType;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.STSectionMark;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+
+import edu.whut.cs.bi.biz.utils.WordSheetPoiUtils;
+
 import java.text.SimpleDateFormat;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.setCellText;
 
 /**
  * 任务表格数据 Service 实现
@@ -59,18 +54,6 @@ import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.setCellText;
 @Slf4j
 @Service
 public class TaskSheetServiceImpl implements ITaskSheetService {
-
-    /** 页码写入位置：预览写正文，下载写页眉 */
-    private enum PageNumberPlacement {
-        BODY,
-        HEADER
-    }
-
-    /** 模板每页固定填写的病害行数（预留备注/footer 空间，避免页内再分页） */
-    private static final int JGLP05017_PAGE_DISEASE_COUNT = 11;
-
-    /** 病害技术状况表（JGLP05017）在字典中的 type */
-    static final String SHEET_TYPE_TECHNICAL_CONDITION = "technical_condition";
 
     /**
      * 检测记录表展示顺序与表号（按表名关键词匹配 dict_label）
@@ -106,7 +89,13 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
     private DiseaseMapper diseaseMapper;
 
     @Autowired
+    private ComponentMapper componentMapper;
+
+    @Autowired
     private JsonSheetWordRendererRegistry jsonSheetWordRendererRegistry;
+
+    @Autowired
+    private Jglp05017WordRenderer jglp05017WordRenderer;
 
     // ─────────────────── 通用表格数据方法 ───────────────────────────────
 
@@ -275,6 +264,8 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
             if (d.getId() != null) uniqueMap.putIfAbsent(d.getId(), d);
         }
         List<Disease> diseases = new ArrayList<>(uniqueMap.values());
+        attachComponentsForJglp05017(diseases);
+        diseases.sort(this::compareDiseaseDisplayOrder);
 
         // 试验检测日期：取该任务下病害数据上传/更新的最新时间
         Date latestUploadDate = diseases.stream()
@@ -290,13 +281,108 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         vo.setBuildingId(task.getBuildingId());
         vo.setCheckDate(latestUploadDate);
         vo.setDiseases(diseases);
+        applyTechnicalConditionMetadataToVo(taskId, vo);
         return vo;
+    }
+
+    private void applyTechnicalConditionMetadataToVo(Long taskId, Jglp05017Vo vo) {
+        JSONObject saved = readSavedTechnicalConditionJson(taskId);
+        if (saved == null) {
+            return;
+        }
+        JSONObject savedHeader = saved.getJSONObject("header");
+        if (savedHeader != null && !savedHeader.isEmpty()) {
+            vo.setHeader(savedHeader);
+        }
+
+        JSONArray savedPages = saved.getJSONArray("pages");
+        if (savedPages == null || savedPages.isEmpty()) {
+            return;
+        }
+        List<JSONObject> pageHeaders = new ArrayList<>();
+        List<String> remarks = new ArrayList<>();
+        for (int i = 0; i < savedPages.size(); i++) {
+            JSONObject page = savedPages.getJSONObject(i);
+            JSONObject pageHeader = page != null ? page.getJSONObject("header") : null;
+            if (pageHeader != null && !pageHeader.isEmpty()) {
+                pageHeaders.add(pageHeader);
+            } else if (savedHeader != null && !savedHeader.isEmpty()) {
+                pageHeaders.add(savedHeader);
+            } else {
+                pageHeaders.add(new JSONObject());
+            }
+            remarks.add(page != null ? nvl(page.getString("remark")) : "");
+        }
+        vo.setPageHeaders(pageHeaders);
+        if ((savedHeader == null || savedHeader.isEmpty()) && !pageHeaders.isEmpty()) {
+            vo.setHeader(pageHeaders.get(0));
+        }
+        vo.setPageRemarks(remarks);
+    }
+
+    private int compareDiseaseDisplayOrder(Disease a, Disease b) {
+        Long aId = a.getId();
+        Long bId = b.getId();
+        if (aId == null && bId == null) {
+            return 0;
+        }
+        if (aId == null) {
+            return 1;
+        }
+        if (bId == null) {
+            return -1;
+        }
+        return aId.compareTo(bId);
+    }
+
+    /** 为 JGLP05017 缺陷位置补充构件信息（构件编号 + 构件名称） */
+    private void attachComponentsForJglp05017(List<Disease> diseases) {
+        if (diseases == null || diseases.isEmpty()) {
+            return;
+        }
+        List<Long> componentIds = diseases.stream()
+                .map(Disease::getComponentId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+        if (componentIds.isEmpty()) {
+            return;
+        }
+        List<Component> components = componentMapper.selectComponentsByIds(componentIds);
+        if (components == null || components.isEmpty()) {
+            return;
+        }
+        Map<Long, Component> componentMap = components.stream()
+                .filter(c -> c != null && c.getId() != null)
+                .collect(Collectors.toMap(Component::getId, Function.identity(), (a, b) -> a));
+        for (Disease disease : diseases) {
+            if (disease.getComponentId() != null) {
+                disease.setComponent(componentMap.get(disease.getComponentId()));
+            }
+        }
+    }
+
+    @Override
+    public byte[] generateJglp05017WordBytes(Long taskId) {
+        return jglp05017WordRenderer.render(getJglp05017Data(taskId), WordSheetPoiUtils.PageNumberPlacement.BODY);
+    }
+
+    @Override
+    public byte[] generateJglp05017WordDownloadBytes(Long taskId) {
+        return jglp05017WordRenderer.render(getJglp05017Data(taskId), WordSheetPoiUtils.PageNumberPlacement.HEADER);
     }
 
     @Override
     public boolean hasDiseaseDataByTaskId(Long taskId) {
         Task task = taskService.selectTaskById(taskId);
-        return task != null && Integer.valueOf(1).equals(task.getType());
+        if (task == null) {
+            return false;
+        }
+        Disease query = new Disease();
+        query.setProjectId(task.getProjectId());
+        query.setBuildingId(task.getBuildingId());
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(query);
+        return diseases != null && !diseases.isEmpty();
     }
 
     @Override
@@ -358,510 +444,474 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
     }
 
     @Override
-    public byte[] generateJglp05017WordBytes(Long taskId) {
-        return buildDocxBytes(getJglp05017Data(taskId), PageNumberPlacement.BODY);
+    public void validateSheetJsonLegality(String sheetType, byte[] jsonBytes) {
+        if (StringUtils.isEmpty(sheetType)) {
+            throw new ServiceException("表格类型不能为空");
+        }
+        if (jsonBytes == null || jsonBytes.length == 0) {
+            throw new ServiceException("表格 JSON 不能为空");
+        }
+        JSONObject sheetJson;
+        try {
+            sheetJson = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new ServiceException("不是合法 JSON");
+        }
+        if (sheetJson == null) {
+            throw new ServiceException("JSON 根对象不能为空");
+        }
+        String jsonSheetId = sheetJson.getString("sheetId");
+        String jsonType = sheetJson.getString("type");
+        if (jsonSheetId != null && !sheetType.equals(jsonSheetId)) {
+            throw new ServiceException("JSON sheetId 与表格类型 " + sheetType + " 不一致");
+        }
+        if (jsonType != null && !sheetType.equals(jsonType)) {
+            throw new ServiceException("JSON type 与表格类型 " + sheetType + " 不一致");
+        }
+        JSONArray pages = sheetJson.getJSONArray("pages");
+        if (pages != null) {
+            for (int i = 0; i < pages.size(); i++) {
+                Object pageObj = pages.get(i);
+                if (!(pageObj instanceof JSONObject)) {
+                    throw new ServiceException("pages[" + i + "] 必须是对象");
+                }
+                JSONObject page = (JSONObject) pageObj;
+                Object header = page.get("header");
+                if (header != null && !(header instanceof JSONObject)) {
+                    throw new ServiceException("pages[" + i + "].header 必须是对象");
+                }
+                Object records = page.get("records");
+                if (records != null && !(records instanceof JSONArray)) {
+                    throw new ServiceException("pages[" + i + "].records 必须是数组");
+                }
+                Object remark = page.get("remark");
+                if (remark != null && !(remark instanceof String)) {
+                    throw new ServiceException("pages[" + i + "].remark 必须是字符串");
+                }
+            }
+        }
     }
 
     @Override
-    public byte[] generateJglp05017WordDownloadBytes(Long taskId) {
-        return buildDocxBytes(getJglp05017Data(taskId), PageNumberPlacement.HEADER);
+    public boolean supportsWebJsonEdit(String type) {
+        return supportsJsonSheetWord(type)
+                && !SHEET_TYPE_TECHNICAL_CONDITION.equals(type);
     }
 
-    /** 加载模板 → 填充数据 → 返回 DOCX 字节流（不涉及任何存储） */
-    private byte[] buildDocxBytes(Jglp05017Vo vo, PageNumberPlacement pageNumberPlacement) {
+    @Override
+    public boolean supportsWebEdit(String type) {
+        return supportsWebJsonEdit(type) || SHEET_TYPE_TECHNICAL_CONDITION.equals(type);
+    }
+
+    @Override
+    public String getTechnicalConditionJsonForEdit(Long taskId) {
+        return JSON.toJSONString(buildTechnicalConditionSnapshotJson(taskId, null), SerializerFeature.PrettyFormat);
+    }
+
+    private JSONObject buildTechnicalConditionSnapshotJson(Long taskId, JSONObject sourceJson) {
+        Jglp05017Vo vo = getJglp05017Data(taskId);
         List<Disease> diseases = vo.getDiseases() != null ? vo.getDiseases() : new ArrayList<>();
-        int totalPages = Math.max(1, (int) Math.ceil(diseases.size() / (double) JGLP05017_PAGE_DISEASE_COUNT));
-        XWPFDocument document = loadJglp05017Template();
+        JSONArray pages = new JSONArray();
+        JSONObject defaultHeader = buildTechnicalConditionDefaultHeader(taskId);
+        if (vo.getCheckDate() != null) {
+            defaultHeader.put("testDate", new SimpleDateFormat("yyyy-MM-dd").format(vo.getCheckDate()));
+        }
+        if (!diseases.isEmpty()) {
+            for (List<Disease> pageDiseases : jglp05017WordRenderer.paginateForEdit(diseases)) {
+                pages.add(buildTechnicalConditionPage(pageDiseases, defaultHeader));
+            }
+        }
+        applyTechnicalConditionHeaderAndRemark(taskId, sourceJson, defaultHeader, pages);
+        JSONObject root = new JSONObject();
+        root.put("sheetId", SHEET_TYPE_TECHNICAL_CONDITION);
+        root.put("type", SHEET_TYPE_TECHNICAL_CONDITION);
+        root.put("header", pages.isEmpty() ? defaultHeader : pages.getJSONObject(0).getJSONObject("header"));
+        root.put("pages", pages);
+        return root;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean saveTechnicalConditionFromWeb(Long taskId, byte[] jsonBytes) {
+        Task task = requireTask(taskId);
+        if (jsonBytes == null) {
+            throw new ServiceException("请求体不能为空");
+        }
+        validateSheetJsonLegality(SHEET_TYPE_TECHNICAL_CONDITION, jsonBytes);
+        JSONObject sheetJson = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
+        JSONObject snapshotJson = buildTechnicalConditionSnapshotJson(taskId, sheetJson);
+        JSONArray pages = snapshotJson.getJSONArray("pages");
+        if (pages == null || pages.isEmpty()) {
+            deleteSheetByTaskIdAndType(taskId, SHEET_TYPE_TECHNICAL_CONDITION);
+            return false;
+        }
+        saveOrUpdateSheet(taskId, task.getBuildingId(), SHEET_TYPE_TECHNICAL_CONDITION,
+                JSON.toJSONString(snapshotJson, SerializerFeature.PrettyFormat).getBytes(StandardCharsets.UTF_8),
+                SHEET_TYPE_TECHNICAL_CONDITION + ".json");
+        return true;
+    }
+
+    @Override
+    public JSONObject buildTechnicalConditionDefaultHeader(Long taskId) {
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            throw new ServiceException("未找到检测任务，taskId=" + taskId);
+        }
+        JSONObject header = buildDefaultHeader(task);
+        header.put("recordNumber", String.valueOf(taskId));
+        header.put("testDate", new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
+        mergeTechnicalConditionTemplateHeader(header, getSheetTemplateFixedFields(SHEET_TYPE_TECHNICAL_CONDITION));
+        return header;
+    }
+
+    private void mergeTechnicalConditionTemplateHeader(JSONObject header, JSONObject templateFields) {
+        if (templateFields == null || templateFields.isEmpty()) {
+            return;
+        }
+        // Only merge fixed values that really exist in the template.
+        putIfAbsentHeader(header, "inspectionUnitName", templateFields.getString("inspectionUnitName"));
+    }
+
+    private void putIfAbsentHeader(JSONObject header, String key, String value) {
+        if (StringUtils.isEmpty(value)) {
+            return;
+        }
+        if (StringUtils.isEmpty(header.getString(key))) {
+            header.put(key, value.trim());
+        }
+    }
+
+    private JSONObject buildTechnicalConditionPage(List<Disease> diseases, JSONObject defaultHeader) {
+        JSONObject page = new JSONObject();
+        JSONObject header = new JSONObject();
+        header.putAll(defaultHeader);
+        page.put("header", header);
+        JSONArray records = new JSONArray();
+        for (Disease disease : diseases) {
+            records.add(diseaseToTechnicalConditionRecord(disease));
+        }
+        page.put("records", records);
+        page.put("remark", "");
+        return page;
+    }
+
+    private void applyTechnicalConditionHeaderAndRemark(Long taskId, JSONObject sourceJson,
+                                                        JSONObject defaultHeader, JSONArray pages) {
+        if (pages == null || pages.isEmpty()) {
+            return;
+        }
+        JSONArray savedPages = sourceJson != null ? sourceJson.getJSONArray("pages") : null;
+        JSONObject saved = null;
+        if (savedPages == null) {
+            saved = readSavedTechnicalConditionJson(taskId);
+            savedPages = saved != null ? saved.getJSONArray("pages") : null;
+        }
+        JSONObject rootHeader = sourceJson != null ? sourceJson.getJSONObject("header") : null;
+        if (rootHeader == null || rootHeader.isEmpty()) {
+            rootHeader = saved != null ? saved.getJSONObject("header") : null;
+        }
+
+        for (int i = 0; i < pages.size(); i++) {
+            JSONObject page = pages.getJSONObject(i);
+            if (page == null) {
+                continue;
+            }
+            JSONObject header = new JSONObject();
+            header.putAll(defaultHeader);
+            JSONObject savedPage = savedPages != null && i < savedPages.size() ? savedPages.getJSONObject(i) : null;
+            JSONObject pageHeader = savedPage != null ? savedPage.getJSONObject("header") : null;
+            if (pageHeader != null && !pageHeader.isEmpty()) {
+                header.putAll(pageHeader);
+            } else if (rootHeader != null && !rootHeader.isEmpty()) {
+                header.putAll(rootHeader);
+            }
+            page.put("header", header);
+            if (savedPage != null && savedPage.containsKey("remark")) {
+                page.put("remark", nvl(savedPage.getString("remark")));
+            }
+        }
+    }
+
+    private JSONObject readSavedTechnicalConditionJson(Long taskId) {
+        String existing = getSheetJsonContent(taskId, SHEET_TYPE_TECHNICAL_CONDITION);
+        if (StringUtils.isEmpty(existing)) {
+            return null;
+        }
         try {
-            fillPageContent(document, vo, pageDiseases(diseases, 0));
-
-            int pageNo = 1;
-            for (int start = JGLP05017_PAGE_DISEASE_COUNT; start < diseases.size(); start += JGLP05017_PAGE_DISEASE_COUNT) {
-                pageNo++;
-                XWPFDocument pageDocument = loadJglp05017Template();
-                fillPageContent(pageDocument, vo, pageDiseases(diseases, start));
-                if (pageNumberPlacement == PageNumberPlacement.HEADER) {
-                    addSectionEndWithPageHeader(document, pageNo - 1, totalPages);
-                    appendDocumentBody(document, pageDocument);
-                } else {
-                    appendDocumentPageWithBodyNumber(document, pageDocument, pageNo, totalPages);
-                }
-                pageDocument.close();
-            }
-
-            if (pageNumberPlacement == PageNumberPlacement.HEADER) {
-                applyLastSectionPageHeader(document, pageNo, totalPages);
-            } else {
-                clearHeaderPageNumbers(document);
-                insertBodyPageNumberAtStart(document, 1, totalPages);
-            }
-
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            document.write(baos);
-            document.close();
-            return baos.toByteArray();
-        } catch (ServiceException se) {
-            throw se;
+            return JSON.parseObject(existing);
         } catch (Exception e) {
-            throw new ServiceException("生成 JGLP05017 Word 文件失败：" + e.getMessage());
+            log.warn("读取技术状况表已保存 JSON 失败，taskId={}", taskId, e);
+            return null;
         }
     }
 
-    private void fillPageContent(XWPFDocument document, Jglp05017Vo vo, List<Disease> diseases) {
-        centerDocumentTitle(document);
-        fillInfoCells(document, vo);
-        fillDiseaseTable(document, diseases);
-        normalizeTextStyles(document);
-        centerDocumentTitle(document);
-    }
-
-    private List<Disease> pageDiseases(List<Disease> diseases, int start) {
-        if (start >= diseases.size()) {
-            return new ArrayList<>();
-        }
-        int end = Math.min(start + JGLP05017_PAGE_DISEASE_COUNT, diseases.size());
-        return diseases.subList(start, end);
-    }
-
-    private void appendDocumentBody(XWPFDocument target, XWPFDocument pageDocument) {
-        for (IBodyElement element : pageDocument.getBodyElements()) {
-            if (element instanceof XWPFParagraph) {
-                XWPFParagraph paragraph = (XWPFParagraph) element;
-                target.getDocument().getBody().addNewP().set(paragraph.getCTP().copy());
-            } else if (element instanceof XWPFTable) {
-                XWPFTable table = (XWPFTable) element;
-                target.getDocument().getBody().addNewTbl().set(table.getCTTbl().copy());
-            }
-        }
-    }
-
-    /** 预览：分页后在正文插入页码行 */
-    private void appendDocumentPageWithBodyNumber(XWPFDocument target, XWPFDocument pageDocument,
-                                                  int pageNo, int totalPages) {
-        XWPFParagraph breakPara = target.createParagraph();
-        breakPara.setPageBreak(true);
-        writePageNumberParagraph(target.createParagraph(), pageNo, totalPages);
-        appendDocumentBody(target, pageDocument);
-    }
-
-    /** 下载：分节结束处绑定上一节页眉页码（sectPr 描述的是该节属性） */
-    private void addSectionEndWithPageHeader(XWPFDocument document, int pageNo, int totalPages) {
-        XWPFParagraph sectionBreak = document.createParagraph();
-        CTPPr pPr = sectionBreak.getCTP().addNewPPr();
-        CTSectPr sectPr = pPr.addNewSectPr();
-        sectPr.addNewType().setVal(STSectionMark.NEXT_PAGE);
-        copyPageLayoutFromBody(document, sectPr);
-
-        XWPFHeader header = createHeaderForSection(document, sectPr);
-        writePageNumberToHeader(header, pageNo, totalPages);
-    }
-
-    /** 下载：最后一节页眉页码写入 body.sectPr */
-    private void applyLastSectionPageHeader(XWPFDocument document, int pageNo, int totalPages) {
-        CTBody body = document.getDocument().getBody();
-        CTSectPr sectPr = body.isSetSectPr() ? body.getSectPr() : body.addNewSectPr();
-        XWPFHeader header = createHeaderForSection(document, sectPr);
-        writePageNumberToHeader(header, pageNo, totalPages);
-    }
-
-    private XWPFHeader createHeaderForSection(XWPFDocument document, CTSectPr sectPr) {
-        clearDefaultHeaderReference(sectPr);
-        XWPFHeaderFooterPolicy policy = new XWPFHeaderFooterPolicy(document, sectPr);
-        return policy.createHeader(STHdrFtr.DEFAULT);
-    }
-
-    private void clearDefaultHeaderReference(CTSectPr sectPr) {
-        for (int i = sectPr.sizeOfHeaderReferenceArray() - 1; i >= 0; i--) {
-            if (sectPr.getHeaderReferenceArray(i).getType() == STHdrFtr.DEFAULT) {
-                sectPr.removeHeaderReference(i);
-            }
-        }
-    }
-
-    private void copyPageLayoutFromBody(XWPFDocument document, CTSectPr targetSectPr) {
-        CTBody body = document.getDocument().getBody();
-        if (!body.isSetSectPr()) {
-            return;
-        }
-        CTSectPr source = body.getSectPr();
-        if (source.isSetPgSz()) {
-            targetSectPr.setPgSz((CTPageSz) source.getPgSz().copy());
-        }
-        if (source.isSetPgMar()) {
-            targetSectPr.setPgMar((CTPageMar) source.getPgMar().copy());
-        }
-    }
-
-    private void writePageNumberToHeader(XWPFHeader header, int pageNo, int totalPages) {
-        for (int i = header.getParagraphs().size() - 1; i >= 0; i--) {
-            header.removeParagraph(header.getParagraphs().get(i));
-        }
-        // 下载页眉中的页码下移两行，避免顶到页面最上沿。
-        header.createParagraph();
-        header.createParagraph();
-        writePageNumberParagraph(header.createParagraph(), pageNo, totalPages);
-    }
-
-    private void writePageNumberParagraph(XWPFParagraph para, int pageNo, int totalPages) {
-        para.setAlignment(ParagraphAlignment.RIGHT);
-        clearRuns(para);
-        XWPFRun run = para.createRun();
-        run.setText("第 " + pageNo + " 页 共 " + totalPages + " 页");
-        setNormalRunStyle(run);
-    }
-
-    /** 预览：正文首页顶部插入页码 */
-    private void insertBodyPageNumberAtStart(XWPFDocument document, int pageNo, int totalPages) {
-        if (document.getBodyElements().isEmpty()) {
-            writePageNumberParagraph(document.createParagraph(), pageNo, totalPages);
-            return;
-        }
-        IBodyElement first = document.getBodyElements().get(0);
-        XWPFParagraph para;
-        if (first instanceof XWPFParagraph) {
-            para = document.insertNewParagraph(((XWPFParagraph) first).getCTP().newCursor());
-        } else if (first instanceof XWPFTable) {
-            para = document.insertNewParagraph(((XWPFTable) first).getCTTbl().newCursor());
+    private JSONObject diseaseToTechnicalConditionRecord(Disease disease) {
+        JSONObject record = new JSONObject();
+        record.put("id", disease.getId());
+        record.put("position", buildTechnicalConditionPositionText(disease));
+        record.put("type", resolveTechnicalConditionTypeText(disease));
+        if (disease.getQuantity() > 0) {
+            String unit = StringUtils.isNotEmpty(disease.getUnits()) ? disease.getUnits() : "处";
+            record.put("quantity", disease.getQuantity() + unit);
         } else {
-            para = document.createParagraph();
+            record.put("quantity", "");
         }
-        writePageNumberParagraph(para, pageNo, totalPages);
+        record.put("description", nvl(disease.getDescription()));
+        if (disease.getLevel() > 0) {
+            record.put("level", String.valueOf(disease.getLevel()));
+        } else {
+            record.put("level", "");
+        }
+        record.put("imgNoExp", formatImgNoExpForDisplay(disease.getImgNoExp()));
+        return record;
     }
 
-    /** 预览：清除页眉中的页码占位，避免与正文页码重复 */
-    private void clearHeaderPageNumbers(XWPFDocument document) {
-        for (XWPFHeader header : document.getHeaderList()) {
-            for (XWPFParagraph para : new ArrayList<>(header.getParagraphs())) {
-                if (isPageNumberParagraph(para)) {
-                    header.removeParagraph(para);
-                }
+    private String buildTechnicalConditionPositionText(Disease disease) {
+        if (disease == null) {
+            return "";
+        }
+        Component component = disease.getComponent();
+        if (component != null) {
+            String componentName = StringUtils.trim(component.getName());
+            if (StringUtils.isNotEmpty(componentName) && componentName.contains("#")) {
+                return normalizeTechnicalConditionPositionText(componentName);
+            }
+            String code = StringUtils.trim(component.getCode());
+            if (StringUtils.isNotEmpty(code) && code.contains("#")) {
+                return normalizeTechnicalConditionPositionText(code);
+            }
+            String name = StringUtils.isNotEmpty(componentName)
+                    ? componentName
+                    : disease.getBiObjectName();
+            if (StringUtils.isNotEmpty(code) && StringUtils.isNotEmpty(name)) {
+                return code + "#" + name;
+            }
+            if (StringUtils.isNotEmpty(code)) {
+                return code;
+            }
+            if (StringUtils.isNotEmpty(name)) {
+                return name;
             }
         }
+        if (StringUtils.isNotEmpty(disease.getBiObjectName())) {
+            return normalizeTechnicalConditionPositionText(disease.getBiObjectName());
+        }
+        return normalizeTechnicalConditionPositionText(disease.getPosition());
     }
 
-    private boolean isPageNumberParagraph(XWPFParagraph para) {
-        String text = para.getText().replaceAll("\\s+", "");
-        return text.contains("第") && text.contains("页") && text.contains("共");
+    private String resolveTechnicalConditionTypeText(Disease disease) {
+        if (disease == null) {
+            return "";
+        }
+        return nvl(disease.getType());
     }
 
-    private XWPFDocument loadJglp05017Template() {
+    private String normalizeTechnicalConditionPositionText(String text) {
+        String trimmed = StringUtils.trim(text);
+        if (StringUtils.isEmpty(trimmed) || !trimmed.contains("#")) {
+            return nvl(trimmed);
+        }
+        String[] parts = trimmed.split("#", 2);
+        String left = StringUtils.trim(parts[0]);
+        String right = parts.length > 1 ? StringUtils.trim(parts[1]) : "";
+        if (StringUtils.isNotEmpty(left) && StringUtils.isNotEmpty(right)
+                && !isTechnicalConditionCodeLike(left)
+                && isTechnicalConditionCodeLike(right)) {
+            return right + "#" + left;
+        }
+        return trimmed;
+    }
+
+    private boolean isTechnicalConditionCodeLike(String value) {
+        String trimmed = StringUtils.trim(value);
+        return StringUtils.isNotEmpty(trimmed)
+                && !trimmed.matches(".*[\\u4e00-\\u9fa5].*")
+                && trimmed.matches("[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*");
+    }
+
+    private String formatImgNoExpForDisplay(String imgNoExp) {
+        if (StringUtils.isEmpty(imgNoExp)) {
+            return "";
+        }
         try {
-            Resource resource = new ClassPathResource("word.biz/桥梁结构桥梁技术状况检测记录表.docx");
-            return new XWPFDocument(resource.getInputStream());
+            JSONArray arr = JSON.parseArray(imgNoExp);
+            if (arr == null || arr.isEmpty()) {
+                return imgNoExp;
+            }
+            return String.join("、", arr.toJavaList(String.class));
+        } catch (Exception ignored) {
+            return imgNoExp;
+        }
+    }
+
+    private Task requireTask(Long taskId) {
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            throw new ServiceException("未找到检测任务，taskId=" + taskId);
+        }
+        if (task.getBuildingId() == null) {
+            throw new ServiceException("任务未关联桥梁，无法保存表格");
+        }
+        return task;
+    }
+
+    private String nvl(String value) {
+        return value != null ? value : "";
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteSheetByTaskIdAndType(Long taskId, String type) {
+        TaskSheet existing = taskSheetMapper.selectByTaskIdAndType(taskId, type);
+        if (existing == null) {
+            return;
+        }
+        if (existing.getSheetMinioId() != null) {
+            try {
+                fileMapService.deleteFileMapById(existing.getSheetMinioId());
+            } catch (Exception ignored) {
+                log.warn("删除 MinIO 表格文件失败，id={}", existing.getSheetMinioId());
+            }
+        }
+        taskSheetMapper.deleteById(existing.getId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveSheetFromWeb(Long taskId, Long buildingId, String type, byte[] jsonBytes) {
+        validateSheetJsonLegality(type, jsonBytes);
+        JSONObject sheetJson = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
+        JSONArray pages = sheetJson.getJSONArray("pages");
+        if (pages == null || pages.isEmpty()) {
+            deleteSheetByTaskIdAndType(taskId, type);
+            return;
+        }
+        saveOrUpdateSheet(taskId, buildingId, type, jsonBytes, type + ".json");
+    }
+
+    @Override
+    public String getSheetJsonForEdit(Long taskId, String type) {
+        String existing = getSheetJsonContent(taskId, type);
+        if (existing != null) {
+            return existing;
+        }
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            throw new ServiceException("未找到检测任务，taskId=" + taskId);
+        }
+        JSONObject root = new JSONObject();
+        root.put("sheetId", type);
+        root.put("type", type);
+        root.put("pages", new JSONArray());
+        return JSON.toJSONString(root, SerializerFeature.PrettyFormat);
+    }
+
+    /** 模板固定字段缓存：type -> {inspectionBasis, judgementBasis} */
+    private final Map<String, JSONObject> templateFixedFieldsCache = new ConcurrentHashMap<>();
+
+    @Override
+    public JSONObject getSheetTemplateFixedFields(String type) {
+        if (SHEET_TYPE_TECHNICAL_CONDITION.equals(type)) {
+            return templateFixedFieldsCache.computeIfAbsent(type,
+                    t -> readTemplateFixedFieldsFromClasspath(Jglp05017WordRenderer.TEMPLATE_CLASSPATH));
+        }
+        if (!supportsWebJsonEdit(type)) {
+            return new JSONObject();
+        }
+        return templateFixedFieldsCache.computeIfAbsent(type, this::readTemplateFixedFields);
+    }
+
+    private JSONObject readTemplateFixedFields(String type) {
+        return readTemplateFixedFieldsFromClasspath(
+                jsonSheetWordRendererRegistry.getRequired(type).templateClasspath());
+    }
+
+    private JSONObject readTemplateFixedFieldsFromClasspath(String classpath) {
+        JSONObject result = new JSONObject();
+        XWPFDocument doc = null;
+        try {
+            doc = WordSheetPoiUtils.loadTemplate(classpath);
+            readInspectionUnitNameFromTemplate(doc, result);
+            XWPFTable table = WordSheetPoiUtils.findTableContaining(doc, "工程名称");
+            if (table != null) {
+                putTemplateValue(result, "inspectionBasis",
+                        WordSheetPoiUtils.readValueAfterLabel(table, "检测依据"));
+                putTemplateValue(result, "judgementBasis",
+                        WordSheetPoiUtils.readValueAfterLabel(table, "判定依据"));
+            }
         } catch (Exception e) {
-            throw new ServiceException(
-                    "JGLP05017 模板文件未找到，请将模板复制到 bi-biz/src/main/resources/word.biz/桥梁结构桥梁技术状况检测记录表.docx");
-        }
-    }
-
-    // ─────────────────── Apache POI 帮助方法 ───────────────────────────
-
-    private void fillInfoCells(XWPFDocument document, Jglp05017Vo vo) {
-        String dateStr = new SimpleDateFormat("yyyy-MM-dd").format(vo.getCheckDate());
-        for (XWPFTable table : document.getTables()) {
-            String text = getTableText(table);
-            if (text.contains("工程名称") || text.contains("检测单位")) {
-                fillCellAfterLabel(table, "工程名称", vo.getProjectName());
-                fillCellAfterLabel(table, "工程部位", vo.getBuildingName());
-                fillCellAfterLabel(table, "记录编号", String.valueOf(vo.getTaskId()));
-                fillCellAfterLabel(table, "试验检测日期", dateStr);
-                break;
-            }
-        }
-    }
-
-    private void fillCellAfterLabel(XWPFTable table, String labelKeyword, String value) {
-        for (XWPFTableRow row : table.getRows()) {
-            List<XWPFTableCell> cells = row.getTableCells();
-            for (int i = 0; i < cells.size(); i++) {
-                if (cells.get(i).getText().contains(labelKeyword)) {
-                    if (i + 1 < cells.size() && cells.get(i + 1).getText().trim().isEmpty()) {
-                        setCellText(cells.get(i + 1), value,
-                                ParagraphAlignment.CENTER, XWPFTableCell.XWPFVertAlign.CENTER, cells.get(i));
-                    }
-                    return;
+            log.warn("读取模板固定字段失败，classpath={}", classpath, e);
+        } finally {
+            if (doc != null) {
+                try {
+                    doc.close();
+                } catch (Exception ignored) {
                 }
             }
         }
+        return result;
     }
 
-    private void fillDiseaseTable(XWPFDocument document, List<Disease> diseases) {
-        XWPFTable diseaseTable = null;
-        for (XWPFTable table : document.getTables()) {
-            if (getTableText(table).contains("缺损位置")) {
-                diseaseTable = table;
-                break;
+    private void readInspectionUnitNameFromTemplate(XWPFDocument doc, JSONObject result) {
+        for (XWPFParagraph para : doc.getParagraphs()) {
+            String text = para.getText();
+            if (text == null) {
+                continue;
             }
-        }
-        if (diseaseTable == null) {
-            log.warn("JGLP05017 模板中未找到包含「缺损位置」的病害表格，跳过填充");
+            if (!text.contains("检测单位名称") && !text.contains("试验室名称")) {
+                continue;
+            }
+            String label = text.contains("试验室名称") ? "试验室名称" : "检测单位名称";
+            int labelIdx = text.indexOf(label);
+            if (labelIdx < 0) {
+                continue;
+            }
+            String after = text.substring(labelIdx + label.length()).replaceFirst("^[：:\\s]+", "");
+            int recordIdx = after.indexOf("记录编号");
+            String unitName = recordIdx >= 0 ? after.substring(0, recordIdx).trim() : after.trim();
+            putTemplateValue(result, "inspectionUnitName", unitName);
             return;
         }
-        if (diseases == null) {
-            diseases = new ArrayList<>();
-        }
-
-        int headerRowCount = detectHeaderRowCount(diseaseTable);
-        // 备注行不属于数据区，计算数据行时排除它
-        int remarkRowIndex = findRemarkRowIndex(diseaseTable);
-        int dataAreaEnd = (remarkRowIndex > headerRowCount) ? remarkRowIndex : diseaseTable.getRows().size();
-        int existingDataRows = dataAreaEnd - headerRowCount;
-        int fillCount = Math.min(diseases.size(), existingDataRows);
-
-        // 每一页只填模板预留的数据行；超过容量的数据由 buildDocxBytes 拆到下一整页模板
-        for (int i = 0; i < fillCount; i++) {
-            fillDiseaseRow(diseaseTable.getRow(headerRowCount + i), diseases.get(i));
-        }
-
-        // 删除模板多余的空白数据行
-        if (fillCount < existingDataRows) {
-            for (int i = dataAreaEnd - 1; i >= headerRowCount + fillCount; i--) {
-                diseaseTable.removeRow(i);
+        for (XWPFTable table : doc.getTables()) {
+            String tableText = WordSheetPoiUtils.getTableText(table);
+            if (!tableText.contains("检测单位名称") && !tableText.contains("试验室名称")) {
+                continue;
             }
-        }
-
-        removeRowsAfterRemark(diseaseTable);
-        removeEmptyTablesAfter(document, diseaseTable);
-    }
-
-    private int findRemarkRowIndex(XWPFTable table) {
-        for (int i = 0; i < table.getRows().size(); i++) {
-            if (getRowText(table.getRow(i)).replaceAll("\\s+", "").contains("备注")) {
-                return i;
+            putTemplateValue(result, "inspectionUnitName",
+                    WordSheetPoiUtils.readValueAfterLabel(table, "检测单位名称"));
+            if (!result.containsKey("inspectionUnitName")) {
+                putTemplateValue(result, "inspectionUnitName",
+                        WordSheetPoiUtils.readValueAfterLabel(table, "试验室名称"));
             }
-        }
-        return -1;
-    }
-
-    private int detectHeaderRowCount(XWPFTable table) {
-        int rowCount = table.getRows().size();
-        // 扫描全部行（不限前5行），找包含「缺损数量」或「病害描述」的子表头行
-        for (int i = 0; i < rowCount; i++) {
-            String rowText = getRowText(table.getRow(i)).replaceAll("\\s+", "");
-            if (rowText.contains("缺损数量") || rowText.contains("病害描述")
-                    || rowText.contains("性质、范围") || rowText.contains("性质范围")) {
-                return i + 1;
-            }
-        }
-        // 回退：找「缺损情况」行，其紧邻下一行为最后一级表头
-        for (int i = 0; i < rowCount; i++) {
-            String rowText = getRowText(table.getRow(i)).replaceAll("\\s+", "");
-            if (rowText.contains("缺损情况")) {
-                return Math.min(i + 2, rowCount);
-            }
-        }
-        return 1;
-    }
-
-    private void fillDiseaseRow(XWPFTableRow row, Disease d) {
-        List<XWPFTableCell> cells = row.getTableCells();
-        int n = cells.size();
-        if (n < 4) return;
-
-        // 缺损位置：直接用 bi_disease.position 字段
-        String positionText = nvl(d.getPosition());
-
-        String qty = (d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "")
-                + (d.getUnits() != null ? d.getUnits() : "");
-        String typeName = d.getDiseaseType() != null ? nvl(d.getDiseaseType().getName()) : "";
-
-        if (n >= 6) {
-            // 标准6列：缺损位置 | 缺损类型 | 缺损数量 | 病害描述 | 评定类别 | 照片
-            setCellText(cells.get(0), positionText);
-            setCellText(cells.get(1), typeName);
-            setCellText(cells.get(2), qty);
-            setCellText(cells.get(3), nvl(d.getDescription()));
-            setCellText(cells.get(4), d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "");
-            setCellText(cells.get(5), "\\");
-        } else if (n == 5) {
-            // 5列：缺损情况合并为单列
-            setCellText(cells.get(0), positionText);
-            setCellText(cells.get(1), typeName);
-            String qtyDesc = qty.isEmpty() ? nvl(d.getDescription())
-                    : qty + "  " + nvl(d.getDescription());
-            setCellText(cells.get(2), qtyDesc);
-            setCellText(cells.get(3), d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "");
-            setCellText(cells.get(4), "\\");
-        } else {
-            // 4列及其他情况，按序填入
-            setCellText(cells.get(0), positionText);
-            setCellText(cells.get(1), typeName);
-            if (n > 2) setCellText(cells.get(2), qty);
-            if (n > 3) setCellText(cells.get(3), nvl(d.getDescription()));
-        }
-    }
-
-    private void removeRowsAfterRemark(XWPFTable table) {
-        int remarkRowIndex = -1;
-        for (int i = 0; i < table.getRows().size(); i++) {
-            if (getRowText(table.getRow(i)).replaceAll("\\s+", "").contains("备注")) {
-                remarkRowIndex = i;
-                break;
-            }
-        }
-        if (remarkRowIndex < 0) {
-            return;
-        }
-        for (int i = table.getRows().size() - 1; i > remarkRowIndex; i--) {
-            String rowText = getRowText(table.getRow(i)).trim();
-            if (rowText.isEmpty()) {
-                table.removeRow(i);
-            }
-        }
-    }
-
-    private void removeEmptyTablesAfter(XWPFDocument document, XWPFTable anchorTable) {
-        int anchorIndex = document.getPosOfTable(anchorTable);
-        for (int i = document.getTables().size() - 1; i >= 0; i--) {
-            XWPFTable table = document.getTables().get(i);
-            int tableIndex = document.getPosOfTable(table);
-            if (tableIndex > anchorIndex && getTableText(table).trim().isEmpty()) {
-                document.removeBodyElement(tableIndex);
-            }
-        }
-    }
-
-    private String getTableText(XWPFTable table) {
-        StringBuilder sb = new StringBuilder();
-        for (XWPFTableRow row : table.getRows()) {
-            sb.append(getRowText(row));
-        }
-        return sb.toString();
-    }
-
-    private String getRowText(XWPFTableRow row) {
-        StringBuilder sb = new StringBuilder();
-        for (XWPFTableCell cell : row.getTableCells()) {
-            sb.append(cell.getText());
-        }
-        return sb.toString();
-    }
-
-    /** 将文档中的表名和表号分别设置为模板要求的样式 */
-    private void centerDocumentTitle(XWPFDocument document) {
-        for (XWPFParagraph para : document.getParagraphs()) {
-            formatTitleAndSheetNoParagraph(para, null);
-        }
-        for (XWPFTable table : document.getTables()) {
-            for (XWPFTableRow row : table.getRows()) {
-                for (XWPFTableCell cell : row.getTableCells()) {
-                    for (XWPFParagraph para : new ArrayList<>(cell.getParagraphs())) {
-                        formatTitleAndSheetNoParagraph(para, cell);
-                    }
-                }
-            }
-        }
-    }
-
-    private void formatTitleAndSheetNoParagraph(XWPFParagraph para, XWPFTableCell cell) {
-        String text = para.getText().replaceAll("\\s+", "");
-        if (text.contains("桥梁结构桥梁技术状况检测记录表")) {
-            para.setAlignment(ParagraphAlignment.CENTER);
-            para.setIndentationLeft(0);
-            para.setIndentationRight(0);
-            para.setIndentationFirstLine(0);
-            if (para.getRuns().isEmpty()) {
-                XWPFRun run = para.createRun();
-                run.setText("桥梁结构桥梁技术状况检测记录表");
-                setTitleRunStyle(run);
+            if (result.containsKey("inspectionUnitName")) {
                 return;
             }
-            // 不清空 runs，不追加新段落——直接对已有 run 按内容分别样式化，保持同行
-            for (XWPFRun run : para.getRuns()) {
-                String runText = run.text().replaceAll("\\s+", "");
-                if (runText.contains("JGLP05017")) {
-                    setNormalRunStyle(run);
-                } else if (!runText.isEmpty()) {
-                    setTitleRunStyle(run);
-                }
-            }
-            return;
-        }
-        if (text.contains("JGLP05017")) {
-            para.setAlignment(ParagraphAlignment.RIGHT);
-            for (XWPFRun run : para.getRuns()) {
-                setNormalRunStyle(run);
-            }
         }
     }
 
-    private void setTitleRunStyle(XWPFRun run) {
-        clearRunDecoration(run);
-        run.setBold(true);
-        run.setColor("000000");
-        ReportGenerateTools.setMixedFontFamily(run, 28);
-    }
-
-    private void setNormalRunStyle(XWPFRun run) {
-        clearRunDecoration(run);
-        run.setBold(false);
-        run.setColor("000000");
-        ReportGenerateTools.setMixedFontFamily(run, 21);
-    }
-
-    private void clearRuns(XWPFParagraph para) {
-        for (int i = para.getRuns().size() - 1; i >= 0; i--) {
-            para.removeRun(i);
+    private void putTemplateValue(JSONObject result, String key, String value) {
+        if (StringUtils.isNotEmpty(value)) {
+            result.put(key, value.trim());
         }
     }
 
-    private void clearRunDecoration(XWPFRun run) {
-        run.setItalic(false);
-        run.setUnderline(UnderlinePatterns.NONE);
-        run.setStrikeThrough(false);
-        run.setDoubleStrikethrough(false);
-        run.setEmbossed(false);
-        run.setImprinted(false);
-        run.setShadow(false);
-        run.setVanish(false);
+    @Override
+    public JSONObject buildDefaultSheetHeader(Long taskId) {
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            throw new ServiceException("未找到检测任务，taskId=" + taskId);
+        }
+        return buildDefaultHeader(task);
     }
 
-    private void normalizeTextStyles(XWPFDocument document) {
-        for (XWPFParagraph para : document.getParagraphs()) {
-            normalizeParagraphTextStyle(para);
+    private JSONObject buildDefaultHeader(Task task) {
+        JSONObject header = new JSONObject();
+        if (task.getProject() != null && StringUtils.isNotEmpty(task.getProject().getName())) {
+            header.put("projectName", task.getProject().getName());
         }
-        for (XWPFTable table : document.getTables()) {
-            for (XWPFTableRow row : table.getRows()) {
-                for (XWPFTableCell cell : row.getTableCells()) {
-                    for (XWPFParagraph para : cell.getParagraphs()) {
-                        normalizeParagraphTextStyle(para);
-                    }
-                }
-            }
+        if (task.getBuilding() != null && StringUtils.isNotEmpty(task.getBuilding().getName())) {
+            header.put("partUse", task.getBuilding().getName());
         }
-    }
-
-    private void normalizeParagraphTextStyle(XWPFParagraph para) {
-        String text = para.getText().replaceAll("\\s+", "");
-        if (text.contains("桥梁结构桥梁技术状况检测记录表")) {
-            return;
-        }
-        if (isFooterSignatureText(text)) {
-            return;
-        }
-        // 只清除装饰（颜色/阴影等），不修改字号，避免 footer 等行字体放大后换行
-        for (XWPFRun run : para.getRuns()) {
-            clearRunDecoration(run);
-            run.setBold(false);
-            run.setColor("000000");
-        }
-    }
-
-    private boolean isFooterSignatureText(String text) {
-        if (text == null) {
-            return false;
-        }
-        String normalized = text.replaceAll("\\s+", "");
-        if (normalized.contains("试验检测日期") || normalized.contains("检测依据")) {
-            return false;
-        }
-        return normalized.contains("检测：") || normalized.contains("检测:")
-                || normalized.contains("记录：") || normalized.contains("记录:")
-                || normalized.contains("复核：") || normalized.contains("复核:")
-                || normalized.contains("日期：") || normalized.contains("日期:");
-    }
-
-    private String nvl(String s) {
-        return s == null ? "" : s;
+        return header;
     }
 }

@@ -39,6 +39,8 @@ public class RebarCorrosionJsonSheetRenderer extends AbstractStandardJsonSheetRe
                 Arrays.asList("componentName", "point",
                         "value1", "value2", "value3", "value4", "value5",
                         "value6", "value7", "value8", "value9", "value10",
+                        "value11", "value12", "value13", "value14", "value15",
+                        "value16", "value17", "value18", "value19", "value20",
                         "temperature"));
     }
 
@@ -65,23 +67,22 @@ public class RebarCorrosionJsonSheetRenderer extends AbstractStandardJsonSheetRe
         int headerRowCount = findHeaderRowCountBySubHeader(table, "构件名称", "测区编号");
         int remarkRowIndex = findRemarkRowIndex(table);
         int end = remarkRowIndex > headerRowCount ? remarkRowIndex : table.getRows().size();
-        for (int recordIndex = 0; recordIndex < records.size(); recordIndex++) {
+        int slotCount = Math.max(0, (end - headerRowCount) / 2);
+        for (int recordIndex = 0; recordIndex < slotCount; recordIndex++) {
             int rowIndex = headerRowCount + recordIndex * 2;
             if (rowIndex >= end) {
                 break;
             }
-            fillCorrosionRow(table.getRow(rowIndex), records.get(recordIndex), 0);
+            JSONObject record = recordIndex < records.size() ? records.get(recordIndex) : null;
+            fillCorrosionRow(table.getRow(rowIndex), record, 0);
             if (rowIndex + 1 < end) {
-                fillCorrosionRow(table.getRow(rowIndex + 1), records.get(recordIndex), 10);
+                fillCorrosionRow(table.getRow(rowIndex + 1), record, 10);
             }
         }
         fillRemarkRows(document, pageJson != null ? pageJson.getString("remark") : null);
     }
 
     private void fillRemarkRows(XWPFDocument document, String remark) {
-        if (remark == null || remark.isEmpty()) {
-            return;
-        }
         for (XWPFTable table : document.getTables()) {
             String tableText = getTableText(table);
             if (tableText.contains("备注") || tableText.contains("测点布置示意图")) {
@@ -96,12 +97,17 @@ public class RebarCorrosionJsonSheetRenderer extends AbstractStandardJsonSheetRe
             for (XWPFTableCell cell : cells) {
                 String text = cell.getText().replaceAll("\\s+", "");
                 if (text.contains("备注")) {
-                    setCellText(cell, "备注：" + remark,
-                            ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
+                    if (remark == null || remark.trim().isEmpty()) {
+                        WordSheetPoiUtils.fillRemarkPlaceholderCells(row);
+                    } else {
+                        setCellText(cell, "备注：" + remark,
+                                ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
+                    }
                     return;
                 }
                 if (text.contains("测点布置示意图")) {
-                    setCellText(cell, "测点布置示意图：" + remark,
+                    String display = WordSheetPoiUtils.cellDisplayValue(remark);
+                    setCellText(cell, "测点布置示意图：" + display,
                             ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
                     return;
                 }
@@ -110,9 +116,12 @@ public class RebarCorrosionJsonSheetRenderer extends AbstractStandardJsonSheetRe
     }
 
     private void fillCorrosionRow(XWPFTableRow row, JSONObject record, int valueOffset) {
+        if (row == null) {
+            return;
+        }
         List<XWPFTableCell> cells = row.getTableCells();
         if (valueOffset == 0) {
-            setCell(cells, 0, record.getString("componentName"));
+            setCell(cells, 0, valueOf(record, "componentName"));
             setCell(cells, 1, valueOf(record, "areaNumber", "point"));
         }
         for (int i = 1; i <= 10; i++) {
@@ -120,13 +129,13 @@ public class RebarCorrosionJsonSheetRenderer extends AbstractStandardJsonSheetRe
             setCell(cells, i + 1, valueOf(record, "potentialValue" + valueIndex, "value" + valueIndex));
         }
         if (valueOffset == 0) {
-            setCell(cells, 12, record.getString("temperature"));
+            setCell(cells, 12, valueOf(record, "temperature"));
         }
     }
 
     private void setCell(List<XWPFTableCell> cells, int index, String value) {
-        if (value != null && !value.isEmpty() && index >= 0 && index < cells.size()) {
-            setCellText(cells.get(index), value);
+        if (index >= 0 && index < cells.size()) {
+            setCellText(cells.get(index), WordSheetPoiUtils.cellDisplayValue(value));
         }
     }
 

@@ -1,283 +1,158 @@
 <!DOCTYPE html>
-
-<html lang="zh" xmlns:th="http://www.thymeleaf.org">
-
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
 <head>
-
     <th:block th:include="include :: header('检测记录')"/>
-
     <style>
-
         .sheet-table { width: 100%; border-collapse: collapse; }
-
         .sheet-table th, .sheet-table td {
-
             border: 1px solid #dee2e6;
-
             padding: 8px 12px;
-
             vertical-align: middle;
-
             text-align: center;
-
         }
-
         .sheet-table thead th { background: #f5f5f5; font-weight: 600; }
-
+        .sheet-table .sheet-actions { white-space: nowrap; }
+        .sheet-table .sheet-actions .btn { margin: 1px 2px; }
     </style>
-
 </head>
-
 <body class="gray-bg">
-
 <div class="container-div">
-
     <div class="row">
-
         <div class="col-sm-12" style="margin-bottom: 10px;">
-
             <span class="text-muted" th:if="${buildingName != null and buildingName != ''}">
-
                 桥梁：<strong th:text="${buildingName}"></strong>
-
                 &nbsp;&nbsp;|&nbsp;&nbsp;
-
             </span>
-
             <span class="text-muted">任务ID：<strong th:text="${taskId}"></strong></span>
-
         </div>
-
         <div class="col-sm-12">
-
             <table class="sheet-table">
-
                 <thead>
-
                     <tr>
-
                         <th style="width:60px;">序号</th>
-
                         <th style="width:130px;">表号</th>
-
                         <th>表名</th>
-
                         <th style="width:90px;">数据</th>
-
-                        <th style="width:150px;">操作</th>
-
+                        <th style="width:260px;">操作</th>
                     </tr>
-
                 </thead>
-
                 <tbody>
-
                     <tr th:each="sheet, stat : ${sheets}">
-
                         <td th:text="${stat.count}"></td>
-
                         <td th:text="${sheet.sheetNo != null && sheet.sheetNo != '' ? sheet.sheetNo : '-'}"></td>
-
                         <td th:text="${sheet.sheetName}"></td>
-
                         <td>
-
                             <span th:if="${sheet.type == sheetTypeTechnicalCondition and !hasDiseaseData}"
-
                                   class="badge badge-default">未提交</span>
-
                             <span th:if="${sheet.type == sheetTypeTechnicalCondition and hasDiseaseData}"
-
                                   class="badge badge-success">已提交</span>
-
                             <span th:if="${sheet.type != sheetTypeTechnicalCondition and !sheet.submitted}"
-
                                   class="badge badge-default">未提交</span>
-
                             <span th:if="${sheet.type != sheetTypeTechnicalCondition and sheet.submitted}"
-
                                   class="badge badge-success">已提交</span>
-
                         </td>
-
-                        <td>
-
+                        <td class="sheet-actions">
                             <a class="btn btn-info btn-xs sheet-view-btn" href="javascript:void(0)"
-
                                th:attr="data-type=${sheet.type},data-name=${sheet.sheetName},data-ready=${sheet.type == sheetTypeTechnicalCondition ? hasDiseaseData : sheet.submitted}">
-
                                 <i class="fa fa-eye"></i> 查看
-
                             </a>
-
+                            <a shiro:hasPermission="biz:task:edit"
+                               class="btn btn-primary btn-xs sheet-edit-btn" href="javascript:void(0)"
+                               th:if="${#lists.contains(jsonSheetWordTypes, sheet.type) or sheet.type == sheetTypeTechnicalCondition}"
+                               th:attr="data-type=${sheet.type},data-name=${sheet.sheetName}">
+                                <i class="fa fa-edit"></i> 编辑
+                            </a>
                             <a class="btn btn-success btn-xs sheet-download-btn" href="javascript:void(0)"
-
                                th:attr="data-type=${sheet.type},data-name=${sheet.sheetName},data-ready=${sheet.type == sheetTypeTechnicalCondition ? hasDiseaseData : sheet.submitted}">
-
                                 <i class="fa fa-download"></i> 下载
-
                             </a>
-
                         </td>
-
                     </tr>
-
                     <tr th:if="${#lists.isEmpty(sheets)}">
-
                         <td colspan="5" class="text-muted">暂无表格配置，请在系统字典 bi_inspection_sheet 中维护</td>
-
                     </tr>
-
                 </tbody>
-
             </table>
-
         </div>
-
     </div>
-
 </div>
-
 <th:block th:include="include :: footer"/>
-
 <script th:inline="javascript">
-
     var taskId = /*[[${taskId}]]*/ null;
-
     var sheetTypeTechnicalCondition = /*[[${sheetTypeTechnicalCondition}]]*/ 'technical_condition';
-
     var sheetPrefix = ctx + "biz/taskSheet";
-
     var noDataTip = "该表格尚未提交，无法查看或下载";
 
-
-
     function isSheetReady(el) {
-
         return el.getAttribute('data-ready') === 'true';
-
     }
-
-
 
     function ensureSheetReady(el) {
-
         if (!isSheetReady(el)) {
-
             $.modal.alertWarning(noDataTip);
-
             return false;
-
         }
-
         return true;
-
     }
 
-
-
-    function openSheetLayer(url, title) {
-
+    function openSheetLayer(url, title, area) {
         top.layer.open({
-
             type: 2,
-
             title: title,
-
             content: url,
-
-            area: ['1000px', '720px'],
-
+            area: area || ['1000px', '720px'],
             fix: false,
-
             maxmin: true,
-
             shade: 0.3,
-
             shadeClose: true,
-
             btn: ['关闭'],
-
             btnAlign: 'r',
-
             yes: function (index) { top.layer.close(index); }
-
         });
-
     }
-
-
 
     function viewSheet(el) {
-
         if (!ensureSheetReady(el)) {
-
             return;
-
         }
-
         var type = el.getAttribute('data-type');
-
         var sheetName = el.getAttribute('data-name') || type;
-
         if (type === sheetTypeTechnicalCondition) {
-
             openSheetLayer(sheetPrefix + "/preview/jglp05017/" + taskId, sheetName);
-
             return;
-
         }
-
         var previewUrl = sheetPrefix + "/preview/sheet/" + taskId + "/"
-
             + encodeURIComponent(type) + "?sheetName=" + encodeURIComponent(sheetName);
-
         openSheetLayer(previewUrl, sheetName);
-
     }
-
-
 
     function downloadSheet(el) {
-
         if (!ensureSheetReady(el)) {
-
             return;
-
         }
-
         var type = el.getAttribute('data-type');
-
         var sheetName = el.getAttribute('data-name') || type;
-
         if (type === sheetTypeTechnicalCondition) {
-
             window.location.href = sheetPrefix + "/download/jglp05017/" + taskId;
-
             return;
-
         }
-
         window.location.href = sheetPrefix + "/download/sheet/" + taskId + "/"
-
             + encodeURIComponent(type) + "?sheetName=" + encodeURIComponent(sheetName);
-
     }
 
-
+    function editSheet(el) {
+        var type = el.getAttribute('data-type');
+        var sheetName = el.getAttribute('data-name') || type;
+        var editUrl = sheetPrefix + "/edit/" + taskId + "/"
+            + encodeURIComponent(type) + "?sheetName=" + encodeURIComponent(sheetName);
+        openSheetLayer(editUrl, "编辑 - " + sheetName, ['1100px', '780px']);
+    }
 
     $(function () {
-
         $('.sheet-view-btn').on('click', function () { viewSheet(this); });
-
         $('.sheet-download-btn').on('click', function () { downloadSheet(this); });
-
+        $('.sheet-edit-btn').on('click', function () { editSheet(this); });
     });
-
 </script>
-
 </body>
-
 </html>
-
-

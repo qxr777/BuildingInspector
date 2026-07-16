@@ -20,6 +20,7 @@ import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.formatSheetTitle;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.getRowText;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.normalizeTextStyles;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.nvl;
+import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.centerTableCell;
 import static edu.whut.cs.bi.biz.utils.WordSheetPoiUtils.setCellText;
 
 /**
@@ -237,12 +238,14 @@ public class RebarCoverJsonSheetRenderer extends AbstractStandardJsonSheetRender
     }
 
     private void centerCell(XWPFTableCell cell) {
-        cell.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
+        centerTableCell(cell);
         for (XWPFParagraph paragraph : cell.getParagraphs()) {
             paragraph.setAlignment(ParagraphAlignment.CENTER);
             paragraph.setIndentationLeft(0);
             paragraph.setIndentationRight(0);
             paragraph.setIndentationFirstLine(0);
+            paragraph.setSpacingBefore(0);
+            paragraph.setSpacingAfter(0);
         }
     }
 }

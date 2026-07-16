@@ -7,12 +7,18 @@ import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBody;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTP;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTJc;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTc;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTVerticalJc;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STHdrFtr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STJc;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STSectionMark;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STVerticalJc;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
@@ -25,6 +31,9 @@ import java.util.List;
  */
 public final class WordSheetPoiUtils {
 
+    /** 无数据单元格统一占位符（表尾签字区除外） */
+    public static final String EMPTY_CELL_PLACEHOLDER = "-";
+
     /** 页码写入位置：预览写正文，下载写页眉 */
     public enum PageNumberPlacement {
         BODY,
@@ -36,6 +45,14 @@ public final class WordSheetPoiUtils {
 
     public static String nvl(String value) {
         return value != null ? value : "";
+    }
+
+    /** 将空值转为占位符「-」，供数据单元格展示使用 */
+    public static String cellDisplayValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return EMPTY_CELL_PLACEHOLDER;
+        }
+        return value;
     }
 
     public static XWPFDocument loadTemplate(String classpath) {
@@ -65,19 +82,35 @@ public final class WordSheetPoiUtils {
     public static byte[] buildMultiPageDocument(JsonSheetWordRenderer renderer,
                                                 List<com.alibaba.fastjson.JSONObject> pages,
                                                 PageNumberPlacement pageNumberPlacement) {
+        return buildMultiPageDocument(renderer.templateClasspath(), pages,
+                (document, pageJson, pageIndex, totalPages) -> renderer.fillPage(document, pageJson),
+                pageNumberPlacement);
+    }
+
+    /**
+     * 通用多页 Word 组装：按页加载模板、填充内容并写入页码。
+     *
+     * @param pageFiller pageIndex 为 0-based 页序号
+     */
+    public static <T> byte[] buildMultiPageDocument(String templateClasspath,
+                                                    List<T> pages,
+                                                    WordPageFiller<T> pageFiller,
+                                                    PageNumberPlacement pageNumberPlacement) {
         if (pages == null || pages.isEmpty()) {
             pages = new ArrayList<>();
-            pages.add(new com.alibaba.fastjson.JSONObject());
+            pages.add(null);
         }
         int totalPages = pages.size();
-        XWPFDocument document = loadTemplate(renderer.templateClasspath());
+        XWPFDocument document = loadTemplate(templateClasspath);
         try {
-            renderer.fillPage(document, pages.get(0));
+            pageFiller.fillPage(document, pages.get(0), 0, totalPages);
+            applyEmptyCellPlaceholders(document);
             int pageNo = 1;
             for (int i = 1; i < totalPages; i++) {
                 pageNo++;
-                XWPFDocument pageDocument = loadTemplate(renderer.templateClasspath());
-                renderer.fillPage(pageDocument, pages.get(i));
+                XWPFDocument pageDocument = loadTemplate(templateClasspath);
+                pageFiller.fillPage(pageDocument, pages.get(i), i, totalPages);
+                applyEmptyCellPlaceholders(pageDocument);
                 if (pageNumberPlacement == PageNumberPlacement.HEADER) {
                     addSectionEndWithPageHeader(document, pageNo - 1, totalPages);
                     appendDocumentBody(document, pageDocument);
@@ -116,7 +149,7 @@ public final class WordSheetPoiUtils {
             for (int i = 0; i < cells.size(); i++) {
                 if (cells.get(i).getText().contains(labelKeyword)) {
                     if (i + 1 < cells.size()) {
-                        setCellText(cells.get(i + 1), value,
+                        setCellText(cells.get(i + 1), cellDisplayValue(value),
                                 ParagraphAlignment.CENTER, XWPFTableCell.XWPFVertAlign.CENTER, cells.get(i));
                     }
                     return;
@@ -137,14 +170,12 @@ public final class WordSheetPoiUtils {
     public static void setCellText(XWPFTableCell cell, String text,
                                    ParagraphAlignment hAlign, XWPFTableCell.XWPFVertAlign vAlign,
                                    XWPFTableCell styleSourceCell) {
-        cell.setVerticalAlignment(vAlign);
         CTRPr styleRPr = resolveRunStyle(cell, styleSourceCell);
         for (int i = cell.getParagraphs().size() - 1; i > 0; i--) {
             cell.removeParagraph(i);
         }
         XWPFParagraph para = cell.getParagraphs().isEmpty()
                 ? cell.addParagraph() : cell.getParagraphArray(0);
-        para.setAlignment(hAlign);
         para.setSpacingBefore(0);
         para.setSpacingAfter(0);
         for (int i = para.getRuns().size() - 1; i >= 0; i--) {
@@ -153,6 +184,109 @@ public final class WordSheetPoiUtils {
         XWPFRun run = para.createRun();
         run.setText(text != null ? text : "");
         applyRunStyle(run, styleRPr, 21);
+        applyCellAlignment(cell, hAlign, vAlign);
+        if (hAlign == ParagraphAlignment.CENTER) {
+            clearParagraphIndentation(cell);
+        }
+    }
+
+    /** 段落 + 单元格双层居中，确保 Word / docx-preview 均生效 */
+    public static void centerTableCell(XWPFTableCell cell) {
+        applyCellAlignment(cell, ParagraphAlignment.CENTER, XWPFTableCell.XWPFVertAlign.CENTER);
+        clearParagraphIndentation(cell);
+    }
+
+    private static void clearParagraphIndentation(XWPFTableCell cell) {
+        for (XWPFParagraph para : cell.getParagraphs()) {
+            para.setIndentationLeft(0);
+            para.setIndentationRight(0);
+            para.setIndentationFirstLine(0);
+            CTPPr pPr = para.getCTP().isSetPPr() ? para.getCTP().getPPr() : para.getCTP().addNewPPr();
+            if (pPr.isSetInd()) {
+                pPr.unsetInd();
+            }
+            if (pPr.isSetTabs()) {
+                pPr.unsetTabs();
+            }
+            if (pPr.isSetJc()) {
+                pPr.getJc().setVal(STJc.CENTER);
+            } else {
+                pPr.addNewJc().setVal(STJc.CENTER);
+            }
+        }
+    }
+
+    /**
+     * 重写表头单元格为水平居中文字。
+     * 清除模板中的竖排、右对齐、缩进等样式（JGLP05017「缺损位置」「缺损类型」列头常见）。
+     */
+    public static void rewriteCenteredHeaderCell(XWPFTableCell cell, String text) {
+        CTTc tc = cell.getCTTc();
+        CTTcPr tcPr = tc.isSetTcPr() ? tc.getTcPr() : tc.addNewTcPr();
+        if (tcPr.isSetTextDirection()) {
+            tcPr.unsetTextDirection();
+        }
+        while (cell.getParagraphs().size() > 0) {
+            cell.removeParagraph(0);
+        }
+        setCellText(cell, text != null ? text : "", ParagraphAlignment.CENTER, XWPFTableCell.XWPFVertAlign.CENTER);
+        for (XWPFParagraph para : cell.getParagraphs()) {
+            para.setIndentationLeft(0);
+            para.setIndentationRight(0);
+            para.setIndentationFirstLine(0);
+            CTPPr pPr = para.getCTP().isSetPPr() ? para.getCTP().getPPr() : para.getCTP().addNewPPr();
+            if (pPr.isSetInd()) {
+                pPr.unsetInd();
+            }
+            if (pPr.isSetTabs()) {
+                pPr.unsetTabs();
+            }
+            if (pPr.isSetJc()) {
+                pPr.getJc().setVal(STJc.CENTER);
+            } else {
+                pPr.addNewJc().setVal(STJc.CENTER);
+            }
+            ReportGenerateTools.setSingleLineSpacing(para);
+        }
+        applyCellAlignment(cell, ParagraphAlignment.CENTER, XWPFTableCell.XWPFVertAlign.CENTER);
+    }
+
+    public static void applyCellAlignment(XWPFTableCell cell, ParagraphAlignment hAlign,
+                                          XWPFTableCell.XWPFVertAlign vAlign) {
+        cell.setVerticalAlignment(vAlign);
+        CTTc tc = cell.getCTTc();
+        CTTcPr tcPr = tc.isSetTcPr() ? tc.getTcPr() : tc.addNewTcPr();
+        STVerticalJc.Enum vertical = vAlign == XWPFTableCell.XWPFVertAlign.CENTER
+                ? STVerticalJc.CENTER
+                : (vAlign == XWPFTableCell.XWPFVertAlign.BOTTOM ? STVerticalJc.BOTTOM : STVerticalJc.TOP);
+        if (tcPr.isSetVAlign()) {
+            tcPr.getVAlign().setVal(vertical);
+        } else {
+            tcPr.addNewVAlign().setVal(vertical);
+        }
+        for (XWPFParagraph para : cell.getParagraphs()) {
+            para.setAlignment(hAlign);
+            CTPPr pPr = para.getCTP().isSetPPr() ? para.getCTP().getPPr() : para.getCTP().addNewPPr();
+            STJc.Enum jc = toStJc(hAlign);
+            if (pPr.isSetJc()) {
+                pPr.getJc().setVal(jc);
+            } else {
+                pPr.addNewJc().setVal(jc);
+            }
+        }
+    }
+
+    private static STJc.Enum toStJc(ParagraphAlignment alignment) {
+        if (alignment == ParagraphAlignment.CENTER) {
+            return STJc.CENTER;
+        }
+        if (alignment == ParagraphAlignment.RIGHT) {
+            return STJc.RIGHT;
+        }
+        if (alignment == ParagraphAlignment.BOTH) {
+            return STJc.BOTH;
+        }
+        return STJc.LEFT;
     }
 
     public static void replaceParagraphText(XWPFParagraph para, String text) {
@@ -316,13 +450,95 @@ public final class WordSheetPoiUtils {
         if (remarkRow.getTableCells().isEmpty()) {
             return;
         }
+        if (remark == null || remark.trim().isEmpty()) {
+            fillRemarkPlaceholderCells(remarkRow);
+            return;
+        }
         if (remarkRow.getTableCells().size() > 1) {
-            setCellText(remarkRow.getCell(1), nvl(remark),
+            setCellText(remarkRow.getCell(1), remark,
                     ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
             return;
         }
-        setCellText(remarkRow.getCell(0), "备注：" + nvl(remark),
+        setCellText(remarkRow.getCell(0), "备注：" + remark,
                 ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
+    }
+
+    public static boolean isRemarkRow(XWPFTableRow row) {
+        if (row == null) {
+            return false;
+        }
+        return getRowText(row).replaceAll("\\s+", "").contains("备注");
+    }
+
+    /**
+     * 备注行占位：标签格保留「备注：」，内容区无数据时写入「-」。
+     */
+    public static void fillRemarkPlaceholderCells(XWPFTableRow row) {
+        List<XWPFTableCell> cells = row.getTableCells();
+        if (cells.isEmpty()) {
+            return;
+        }
+        if (cells.size() == 1) {
+            fillSingleCellRemarkPlaceholder(cells.get(0));
+            return;
+        }
+        for (int i = 0; i < cells.size(); i++) {
+            XWPFTableCell cell = cells.get(i);
+            String text = cell.getText().trim();
+            if (i == 0 && isRemarkLabelOnly(text)) {
+                continue;
+            }
+            if (i == 0 && text.contains("备注")) {
+                String content = extractRemarkContent(text);
+                if (content != null && content.isEmpty()) {
+                    setRemarkContentCell(cell, EMPTY_CELL_PLACEHOLDER);
+                }
+                continue;
+            }
+            if (text.isEmpty()) {
+                setRemarkContentCell(cell, EMPTY_CELL_PLACEHOLDER);
+            }
+        }
+    }
+
+    private static void fillSingleCellRemarkPlaceholder(XWPFTableCell cell) {
+        String content = extractRemarkContent(cell.getText());
+        if (content != null && content.isEmpty()) {
+            setRemarkContentCell(cell, EMPTY_CELL_PLACEHOLDER);
+        }
+    }
+
+    private static void setRemarkContentCell(XWPFTableCell cell, String content) {
+        setCellText(cell, "备注：" + content,
+                ParagraphAlignment.LEFT, XWPFTableCell.XWPFVertAlign.TOP);
+    }
+
+    private static boolean isRemarkLabelOnly(String text) {
+        String normalized = text.replaceAll("\\s+", "");
+        return "备注".equals(normalized) || "备注：".equals(normalized) || "备注:".equals(normalized);
+    }
+
+    /** 提取备注单元格中标签后的正文；非备注单元格返回 null */
+    private static String extractRemarkContent(String text) {
+        if (text == null) {
+            return null;
+        }
+        String trimmed = text.trim();
+        String normalized = trimmed.replaceAll("\\s+", "");
+        if (!normalized.contains("备注")) {
+            return null;
+        }
+        if ("备注".equals(normalized) || "备注：".equals(normalized) || "备注:".equals(normalized)) {
+            return "";
+        }
+        int colonIndex = trimmed.indexOf('：');
+        if (colonIndex < 0) {
+            colonIndex = trimmed.indexOf(':');
+        }
+        if (colonIndex >= 0) {
+            return trimmed.substring(colonIndex + 1).trim();
+        }
+        return trimmed.replaceFirst("^备注\\s*", "").trim();
     }
 
     /** 与 JGLP05017 一致：表名加粗 28 半磅，表号常规 21 半磅 */
@@ -391,6 +607,39 @@ public final class WordSheetPoiUtils {
         return null;
     }
 
+    /**
+     * 读取信息表中某标签对应的固定值：
+     * 优先取标签单元格内除标签与冒号外的剩余文字；否则取标签右侧单元格文字。
+     */
+    public static String readValueAfterLabel(XWPFTable table, String labelKeyword) {
+        if (table == null || labelKeyword == null) {
+            return "";
+        }
+        String normalizedLabel = labelKeyword.replaceAll("\\s+", "");
+        for (XWPFTableRow row : table.getRows()) {
+            List<XWPFTableCell> cells = row.getTableCells();
+            for (int i = 0; i < cells.size(); i++) {
+                String cellText = cells.get(i).getText();
+                if (cellText == null || !cellText.contains(labelKeyword)) {
+                    continue;
+                }
+                String remaining = cellText.replaceAll("\\s+", "")
+                        .replace(normalizedLabel, "")
+                        .replace("：", "")
+                        .replace(":", "");
+                if (!remaining.isEmpty()) {
+                    return remaining;
+                }
+                if (i + 1 < cells.size()) {
+                    String next = cells.get(i + 1).getText();
+                    return next == null ? "" : next.trim();
+                }
+                return "";
+            }
+        }
+        return "";
+    }
+
     public static String getTableText(XWPFTable table) {
         StringBuilder sb = new StringBuilder();
         for (XWPFTableRow row : table.getRows()) {
@@ -451,6 +700,55 @@ public final class WordSheetPoiUtils {
                 || normalized.contains("记录：") || normalized.contains("记录:")
                 || normalized.contains("复核：") || normalized.contains("复核:")
                 || normalized.contains("日期：") || normalized.contains("日期:");
+    }
+
+    public static boolean isFooterSignatureRow(XWPFTableRow row) {
+        if (row == null) {
+            return false;
+        }
+        return isFooterSignatureText(getRowText(row).replaceAll("\\s+", ""));
+    }
+
+    /**
+     * 将表格中尚未填写的空白单元格统一写入「-」。
+     * 自表尾签字行（检测/记录/复核/日期）起及其下方行不做处理。
+     */
+    public static void applyEmptyCellPlaceholders(XWPFDocument document) {
+        if (document == null) {
+            return;
+        }
+        for (XWPFTable table : document.getTables()) {
+            applyEmptyCellPlaceholders(table);
+        }
+    }
+
+    public static void applyEmptyCellPlaceholders(XWPFTable table) {
+        if (table == null) {
+            return;
+        }
+        boolean footerReached = false;
+        for (XWPFTableRow row : table.getRows()) {
+            if (footerReached) {
+                continue;
+            }
+            if (isFooterSignatureRow(row)) {
+                footerReached = true;
+                continue;
+            }
+            if (isRemarkRow(row)) {
+                fillRemarkPlaceholderCells(row);
+                continue;
+            }
+            fillPlaceholderInEmptyRowCells(row);
+        }
+    }
+
+    public static void fillPlaceholderInEmptyRowCells(XWPFTableRow row) {
+        for (XWPFTableCell cell : row.getTableCells()) {
+            if (cell.getText().trim().isEmpty()) {
+                setCellText(cell, EMPTY_CELL_PLACEHOLDER);
+            }
+        }
     }
 
     private static void setTitleRunStyle(XWPFRun run) {
@@ -582,6 +880,11 @@ public final class WordSheetPoiUtils {
         XWPFRun run = para.createRun();
         run.setText("第 " + pageNo + " 页 共 " + totalPages + " 页");
         ReportGenerateTools.setMixedFontFamily(run, 21);
+    }
+
+    @FunctionalInterface
+    public interface WordPageFiller<T> {
+        void fillPage(XWPFDocument document, T pageData, int pageIndex, int totalPages);
     }
 
     @FunctionalInterface

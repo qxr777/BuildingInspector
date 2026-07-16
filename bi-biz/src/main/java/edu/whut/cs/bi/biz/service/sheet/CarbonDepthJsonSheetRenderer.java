@@ -74,8 +74,8 @@ public class CarbonDepthJsonSheetRenderer implements JsonSheetWordRenderer {
                     && !text.contains("记录编号"))) {
                 continue;
             }
-            String unit = nvl(header.getString("inspectionUnitName"));
-            String recordNo = nvl(header.getString("recordNumber"));
+            String unit = cellDisplayValue(header.getString("inspectionUnitName"));
+            String recordNo = cellDisplayValue(header.getString("recordNumber"));
             replaceParagraphText(para,
                     resolveUnitLabel(text) + unit + "                               记录编号：" + recordNo);
             return;
@@ -104,9 +104,6 @@ public class CarbonDepthJsonSheetRenderer implements JsonSheetWordRenderer {
     }
 
     private void fillCellAfterLabelIfBlank(XWPFTable table, String labelKeyword, String value) {
-        if (value == null || value.isEmpty()) {
-            return;
-        }
         for (XWPFTableRow row : table.getRows()) {
             List<XWPFTableCell> cells = row.getTableCells();
             for (int i = 0; i < cells.size(); i++) {
@@ -116,7 +113,7 @@ public class CarbonDepthJsonSheetRenderer implements JsonSheetWordRenderer {
                     }
                     int end = findNextInfoLabelIndex(cells, i + 1);
                     if (i + 1 < end && isBlankRange(cells, i + 1, end)) {
-                        setCellText(cells.get(i + 1), value);
+                        setCellText(cells.get(i + 1), cellDisplayValue(value));
                     }
                     return;
                 }
@@ -194,12 +191,12 @@ public class CarbonDepthJsonSheetRenderer implements JsonSheetWordRenderer {
             XWPFTableRow row = table.getRow(rowIndex);
             List<XWPFTableCell> cells = row.getTableCells();
             if (cells.size() >= 6) {
-                setCellText(cells.get(0), record.getString("componentName"));
-                setCellText(cells.get(1), record.getString("point"));
-                setCellText(cells.get(2), record.getString("value1"));
-                setCellText(cells.get(3), record.getString("value2"));
-                setCellText(cells.get(4), record.getString("value3"));
-                setCellText(cells.get(5), record.getString("average"));
+                setCellText(cells.get(0), cellDisplayValue(record.getString("componentName")));
+                setCellText(cells.get(1), cellDisplayValue(record.getString("point")));
+                setCellText(cells.get(2), cellDisplayValue(record.getString("value1")));
+                setCellText(cells.get(3), cellDisplayValue(record.getString("value2")));
+                setCellText(cells.get(4), cellDisplayValue(record.getString("value3")));
+                setCellText(cells.get(5), cellDisplayValue(record.getString("average")));
             }
             recordIndex++;
         }

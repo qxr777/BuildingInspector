@@ -1,9 +1,17 @@
 package edu.whut.cs.bi.biz.controller;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
+import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.ITaskSheetService;
+import edu.whut.cs.bi.biz.service.sheet.Jglp05017WordRenderer;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * 检测任务表格数据（Web 管理端）
@@ -30,8 +39,11 @@ public class TaskSheetController extends BaseController {
     @Autowired
     private ITaskSheetService taskSheetService;
 
+    @Autowired
+    private ITaskService taskService;
+
     /**
-     * 表格列表弹窗页（bi_task.type == 1 表示 App 端已提交病害数据）
+     * 表格列表弹窗页
      */
     @RequiresPermissions("biz:task:view")
     @GetMapping("/sheets/{taskId}")
@@ -83,6 +95,144 @@ public class TaskSheetController extends BaseController {
                               @PathVariable("type") String type) {
         String json = taskSheetService.getSheetJsonContent(taskId, type);
         return AjaxResult.success().put("content", json);
+    }
+
+    /**
+     * 表格 JSON 编辑页
+     */
+    @RequiresPermissions("biz:task:edit")
+    @GetMapping("/edit/{taskId}/{type}")
+    public String edit(@PathVariable("taskId") Long taskId,
+                       @PathVariable("type") String type,
+                       @RequestParam(value = "sheetName", required = false) String sheetName,
+                       ModelMap mmap) {
+        if (!taskSheetService.supportsWebEdit(type)) {
+            throw new ServiceException("该表格类型不支持网页端编辑：" + type);
+        }
+        mmap.put("taskId", taskId);
+        mmap.put("type", type);
+        mmap.put("sheetName", sheetName != null && !sheetName.isEmpty()
+                ? sheetName
+                : (ITaskSheetService.SHEET_TYPE_TECHNICAL_CONDITION.equals(type)
+                ? Jglp05017WordRenderer.SHEET_TITLE
+                : taskSheetService.resolveJsonSheetDownloadBaseName(type)));
+        return prefix + "/sheetEdit";
+    }
+
+    /**
+     * 加载表格数据供编辑（JSON 表格或技术状况表病害数据）
+     */
+    @RequiresPermissions("biz:task:edit")
+    @GetMapping("/load/{taskId}/{type}")
+    @ResponseBody
+    public AjaxResult loadForEdit(@PathVariable("taskId") Long taskId,
+                                  @PathVariable("type") String type) {
+        if (!taskSheetService.supportsWebEdit(type)) {
+            return AjaxResult.error("该表格类型不支持网页端编辑");
+        }
+        if (ITaskSheetService.SHEET_TYPE_TECHNICAL_CONDITION.equals(type)) {
+            return AjaxResult.success()
+                    .put("content", taskSheetService.getTechnicalConditionJsonForEdit(taskId))
+                    .put("defaultHeader", taskSheetService.buildTechnicalConditionDefaultHeader(taskId))
+                    .put("templateFixedFields", taskSheetService.getSheetTemplateFixedFields(type));
+        }
+        String json = taskSheetService.getSheetJsonForEdit(taskId, type);
+        return AjaxResult.success()
+                .put("content", json)
+                .put("defaultHeader", taskSheetService.buildDefaultSheetHeader(taskId))
+                .put("templateFixedFields", taskSheetService.getSheetTemplateFixedFields(type));
+    }
+
+    /**
+     * 保存网页端编辑的表格数据
+     */
+    @Log(title = "检测记录表", businessType = BusinessType.UPDATE)
+    @RequiresPermissions("biz:task:edit")
+    @PostMapping("/save/{taskId}/{type}")
+    @ResponseBody
+    public AjaxResult save(@PathVariable("taskId") Long taskId,
+                           @PathVariable("type") String type,
+                           @RequestBody String jsonBody) {
+        if (!taskSheetService.supportsWebEdit(type)) {
+            return AjaxResult.error("该表格类型不支持网页端编辑");
+        }
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            return AjaxResult.error("未找到检测任务，taskId=" + taskId);
+        }
+        if (task.getBuildingId() == null) {
+            return AjaxResult.error("任务未关联桥梁，无法保存表格");
+        }
+        if (jsonBody == null) {
+            return AjaxResult.error("请求体不能为空");
+        }
+        byte[] jsonBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
+        if (ITaskSheetService.SHEET_TYPE_TECHNICAL_CONDITION.equals(type)) {
+            if (!taskSheetService.saveTechnicalConditionFromWeb(taskId, jsonBytes)) {
+                return AjaxResult.error("暂无病害记录");
+            }
+            return AjaxResult.success("保存成功");
+        }
+        JSONObject sheetJson;
+        try {
+            sheetJson = JSON.parseObject(jsonBody);
+        } catch (Exception e) {
+            return AjaxResult.error("不是合法 JSON");
+        }
+        if (!hasSavableSheetRecords(sheetJson)) {
+            return AjaxResult.error("暂无表格数据");
+        }
+        taskSheetService.saveSheetFromWeb(taskId, task.getBuildingId(), type, jsonBytes);
+        return AjaxResult.success("保存成功");
+    }
+
+    private boolean hasSavableSheetRecords(JSONObject sheetJson) {
+        JSONArray pages = sheetJson != null ? sheetJson.getJSONArray("pages") : null;
+        if (pages == null || pages.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < pages.size(); i++) {
+            JSONObject page = pages.getJSONObject(i);
+            JSONArray records = page != null ? page.getJSONArray("records") : null;
+            if (records == null || records.isEmpty()) {
+                continue;
+            }
+            for (int j = 0; j < records.size(); j++) {
+                Object record = records.get(j);
+                if (hasMeaningfulJsonValue(record)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasMeaningfulJsonValue(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof String) {
+            return !((String) value).trim().isEmpty();
+        }
+        if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            for (int i = 0; i < array.size(); i++) {
+                if (hasMeaningfulJsonValue(array.get(i))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject) value;
+            for (String key : object.keySet()) {
+                if (hasMeaningfulJsonValue(object.get(key))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
     }
 
     /**
