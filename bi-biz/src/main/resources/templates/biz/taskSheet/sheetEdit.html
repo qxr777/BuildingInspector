@@ -317,6 +317,7 @@
     var defaultHeader = {};
     var templateFixedFields = {};
     var savingSheet = false;
+    var hadSubmittedSheet = false;
 
     function isNestedLayout() {
         return schema && schema.layout === "nested";
@@ -569,6 +570,10 @@
         return sheetData && sheetData.pages && sheetData.pages.length > 0;
     }
 
+    function canSaveEmptySheetDeletion() {
+        return !isTechnicalConditionSheet() && hadSubmittedSheet;
+    }
+
     function normalizePagesArray() {
         if (!sheetData.pages) {
             sheetData.pages = [];
@@ -588,7 +593,7 @@
         $("#sheet-form-sections").hide();
         $("#page-tabs").html("");
         $(".page-toolbar-actions").toggle(!isTechnicalConditionSheet());
-        $("#btn-save, #btn-preview").prop("disabled", true);
+        $("#btn-save, #btn-preview").prop("disabled", !canSaveEmptySheetDeletion());
         $("#btn-del-page").prop("disabled", true);
     }
 
@@ -1273,6 +1278,7 @@
         }
         sheetData.sheetId = sheetType;
         sheetData.type = sheetType;
+        sheetData.deleteWhenEmpty = hadSubmittedSheet;
         return sheetData;
     }
 
@@ -1299,11 +1305,42 @@
         }
         for (var i = 0; i < data.pages.length; i++) {
             var records = data.pages[i] && data.pages[i].records;
-            if (records && records.length > 0) {
-                return true;
+            if (!records || records.length === 0) {
+                continue;
+            }
+            for (var j = 0; j < records.length; j++) {
+                if (hasMeaningfulValue(records[j])) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    function hasMeaningfulValue(value) {
+        if (value == null) {
+            return false;
+        }
+        if (typeof value === "string") {
+            return $.trim(value) !== "";
+        }
+        if ($.isArray(value)) {
+            for (var i = 0; i < value.length; i++) {
+                if (hasMeaningfulValue(value[i])) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (typeof value === "object") {
+            for (var key in value) {
+                if (Object.prototype.hasOwnProperty.call(value, key) && hasMeaningfulValue(value[key])) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
     }
 
     function loadSheetData(callback) {
@@ -1323,6 +1360,7 @@
                 }
                 defaultHeader = result.defaultHeader || {};
                 templateFixedFields = result.templateFixedFields || {};
+                hadSubmittedSheet = result.submitted === true || hasSavableSheetRecords(sheetData);
                 currentPageIndex = 0;
                 refreshEditorView();
 
@@ -1349,7 +1387,13 @@
             previewBtn.prop("disabled", true);
             return;
         }
-        saveBtn.prop("disabled", false).html(saveBtn.data("original-html"));
+        saveBtn.html(saveBtn.data("original-html"));
+        if (!hasPages()) {
+            saveBtn.prop("disabled", !canSaveEmptySheetDeletion());
+            previewBtn.prop("disabled", !canSaveEmptySheetDeletion());
+            return;
+        }
+        saveBtn.prop("disabled", false);
         previewBtn.prop("disabled", false);
     }
 
@@ -1380,7 +1424,8 @@
             return;
         }
         var payload = collectFormData();
-        if (!isTechnicalConditionSheet() && !hasSavableSheetRecords(payload)) {
+        var hasSavableRecords = isTechnicalConditionSheet() || hasSavableSheetRecords(payload);
+        if (!isTechnicalConditionSheet() && !hasSavableRecords && !hadSubmittedSheet) {
             $.modal.alertWarning("暂无表格数据");
             return;
         }
@@ -1396,6 +1441,21 @@
             success: function (result) {
                 if (result.code === 0) {
                     $.modal.msgSuccess(result.msg || "保存成功");
+                    if (!isTechnicalConditionSheet()) {
+                        if (result.deleted === true) {
+                            hadSubmittedSheet = false;
+                            if (sheetData) {
+                                sheetData.pages = [];
+                            }
+                            refreshEditorView();
+                            if (options && options.skipCallbackWhenDeleted) {
+                                $.modal.alertWarning(options.deletedMessage || "表格数据已删除，暂无可预览内容");
+                                return;
+                            }
+                        } else {
+                            hadSubmittedSheet = true;
+                        }
+                    }
                     if (isTechnicalConditionSheet()) {
                         loadSheetData(function () {
                             if (typeof callback === "function") {
@@ -1618,13 +1678,23 @@
 
         $("#btn-preview").on("click", function () {
             if (!hasPages()) {
+                if (canSaveEmptySheetDeletion()) {
+                    saveSheet(null, {
+                        message: "正在保存删除结果，请稍候...",
+                        skipCallbackWhenDeleted: true,
+                        deletedMessage: "表格数据已删除，暂无可预览内容"
+                    });
+                    return;
+                }
                 $.modal.alertWarning("暂无页面数据，无法预览 Word");
                 return;
             }
             saveSheet(function () {
                 openPreview();
             }, {
-                message: "正在保存并生成预览，请稍候..."
+                message: "正在保存并生成预览，请稍候...",
+                skipCallbackWhenDeleted: true,
+                deletedMessage: "表格数据已删除，暂无可预览内容"
             });
         });
     });

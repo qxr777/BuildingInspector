@@ -135,6 +135,12 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
         return result;
     }
 
+    @Override
+    public boolean hasSubmittedSheetByTaskIdAndType(Long taskId, String type) {
+        TaskSheet taskSheet = taskSheetMapper.selectByTaskIdAndType(taskId, type);
+        return taskSheet != null && taskSheet.getSheetMinioId() != null;
+    }
+
     private String resolveSheetNo(SysDictData dict) {
         if (StringUtils.isNotEmpty(dict.getRemark())) {
             return dict.getRemark().trim();
@@ -730,12 +736,62 @@ public class TaskSheetServiceImpl implements ITaskSheetService {
     @Transactional(rollbackFor = Exception.class)
     public void saveSheetFromWeb(Long taskId, Long buildingId, String type, byte[] jsonBytes) {
         JSONObject sheetJson = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
-        JSONArray pages = sheetJson.getJSONArray("pages");
-        if (pages == null || pages.isEmpty()) {
+        if (!hasSavableSheetRecords(sheetJson)) {
             deleteSheetByTaskIdAndType(taskId, type);
             return;
         }
-        saveOrUpdateSheet(taskId, buildingId, type, jsonBytes, type + ".json");
+        sheetJson.remove("deleteWhenEmpty");
+        saveOrUpdateSheet(taskId, buildingId, type,
+                JSON.toJSONString(sheetJson, SerializerFeature.PrettyFormat).getBytes(StandardCharsets.UTF_8),
+                type + ".json");
+    }
+
+    private boolean hasSavableSheetRecords(JSONObject sheetJson) {
+        JSONArray pages = sheetJson != null ? sheetJson.getJSONArray("pages") : null;
+        if (pages == null || pages.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < pages.size(); i++) {
+            JSONObject page = pages.getJSONObject(i);
+            JSONArray records = page != null ? page.getJSONArray("records") : null;
+            if (records == null || records.isEmpty()) {
+                continue;
+            }
+            for (int j = 0; j < records.size(); j++) {
+                if (hasMeaningfulJsonValue(records.get(j))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasMeaningfulJsonValue(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof String) {
+            return !((String) value).trim().isEmpty();
+        }
+        if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            for (int i = 0; i < array.size(); i++) {
+                if (hasMeaningfulJsonValue(array.get(i))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject) value;
+            for (String key : object.keySet()) {
+                if (hasMeaningfulJsonValue(object.get(key))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
     }
 
     @Override

@@ -23,6 +23,11 @@ public interface ITaskSheetService {
     List<TaskSheetStatusVo> listSheetStatusByTaskId(Long taskId);
 
     /**
+     * 判断任务下指定类型的表格是否已提交。
+     */
+    boolean hasSubmittedSheetByTaskIdAndType(Long taskId, String type);
+
+    /**
      * 读取已提交表格的 JSON 文本（格式化后返回）
      */
     String getSheetJsonContent(Long taskId, String type);

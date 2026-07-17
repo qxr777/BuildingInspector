@@ -134,13 +134,15 @@ public class TaskSheetController extends BaseController {
             return AjaxResult.success()
                     .put("content", taskSheetService.getTechnicalConditionJsonForEdit(taskId))
                     .put("defaultHeader", taskSheetService.buildTechnicalConditionDefaultHeader(taskId))
-                    .put("templateFixedFields", taskSheetService.getSheetTemplateFixedFields(type));
+                    .put("templateFixedFields", taskSheetService.getSheetTemplateFixedFields(type))
+                    .put("submitted", taskSheetService.hasDiseaseDataByTaskId(taskId));
         }
         String json = taskSheetService.getSheetJsonForEdit(taskId, type);
         return AjaxResult.success()
                 .put("content", json)
                 .put("defaultHeader", taskSheetService.buildDefaultSheetHeader(taskId))
-                .put("templateFixedFields", taskSheetService.getSheetTemplateFixedFields(type));
+                .put("templateFixedFields", taskSheetService.getSheetTemplateFixedFields(type))
+                .put("submitted", taskSheetService.hasSubmittedSheetByTaskIdAndType(taskId, type));
     }
 
     /**
@@ -179,10 +181,16 @@ public class TaskSheetController extends BaseController {
         } catch (Exception e) {
             return AjaxResult.error("不是合法 JSON");
         }
-        if (!hasSavableSheetRecords(sheetJson)) {
+        boolean hasSavableRecords = hasSavableSheetRecords(sheetJson);
+        boolean existingSubmitted = taskSheetService.hasSubmittedSheetByTaskIdAndType(taskId, type);
+        boolean deleteWhenEmpty = Boolean.TRUE.equals(sheetJson.getBoolean("deleteWhenEmpty"));
+        if (!hasSavableRecords && !existingSubmitted && !deleteWhenEmpty) {
             return AjaxResult.error("暂无表格数据");
         }
         taskSheetService.saveSheetFromWeb(taskId, task.getBuildingId(), type, jsonBytes);
+        if (!hasSavableRecords) {
+            return AjaxResult.success("删除成功").put("deleted", true);
+        }
         return AjaxResult.success("保存成功");
     }
 
