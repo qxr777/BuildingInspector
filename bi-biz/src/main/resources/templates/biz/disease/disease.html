@@ -96,6 +96,10 @@
                 <a class="btn btn-info" onclick="importHistoryDisease()" shiro:hasPermission="biz:disease:add">
                     <i class="fa fa-upload"></i> 导入交投模板病害
                 </a>
+                <a class="btn btn-info" th:href="@{/file/jiaotou-disease-import-template.xlsx}" download="交投病害导入模板.xlsx"
+                   shiro:hasPermission="biz:disease:add">
+                    <i class="fa fa-download"></i> 交投病害模板下载
+                </a>
             </div>
             <div class="col-sm-12 select-table table-striped">
                 <table id="bootstrap-table"></table>
