@@ -378,22 +378,18 @@ public class ReadFileServiceImpl implements ReadFileService {
                     if (component_3 == null || component_3.equals("/") || component_3.equals("")) {
                         continue;
                     }
-                    String position = getCellValueAsString(row.getCell(4));
-                    String[] splitPosition = position.split("#", 2);
-                    if (splitPosition.length < 2 || splitPosition[0].trim().isEmpty() || splitPosition[1].trim().isEmpty()) {
-                        throw new RuntimeException("第" + (i + 1) + "行数据，病害位置格式不正确：缺失 '# ' 符号");
-                    }
-                    String componentCode = splitPosition[0].trim();
-                    String component_4 = splitPosition[1].trim();
+                    String component_4 = getCellValueAsString(row.getCell(4));
 
                     int finalI = i;
                     CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
 
                         ThreadContext.bind(subject);
 
-                        String diseaseType = getCellValueAsString(row.getCell(5));
+                        String position = getCellValueAsString(row.getCell(5));
+                        String componentCode = position.split("#")[0];
+                        String diseaseType = getCellValueAsString(row.getCell(6));
                         // 1处
-                        String diseaseNumber = getCellValueAsString(row.getCell(6));
+                        String diseaseNumber = getCellValueAsString(row.getCell(7));
                         String units = "";
 
                         // 检查是否以非数字字符结尾
@@ -406,15 +402,15 @@ public class ReadFileServiceImpl implements ReadFileService {
                             units = "处";
                         }
 
-                        String length = getCellValueAsString(row.getCell(7));
-                        String lengthUnits = getCellValueAsString(row.getCell(8));
+                        String length = getCellValueAsString(row.getCell(8));
+                        String lengthUnits = getCellValueAsString(row.getCell(9));
 
-                        String diseaseDescription = getCellValueAsString(row.getCell(9));
-                        String repairSuggestion = getCellValueAsString(row.getCell(10));
-                        String scale = getCellValueAsString(row.getCell(11));
-                        String photoName = getCellValueAsString(row.getCell(12));
-                        String developmentTrend = getCellValueAsString(row.getCell(13));
-                        String remark = getCellValueAsString(row.getCell(14));
+                        String diseaseDescription = getCellValueAsString(row.getCell(10));
+                        String repairSuggestion = getCellValueAsString(row.getCell(11));
+                        String scale = getCellValueAsString(row.getCell(12));
+                        String photoName = getCellValueAsString(row.getCell(13));
+                        String developmentTrend = getCellValueAsString(row.getCell(14));
+                        String remark = getCellValueAsString(row.getCell(15));
 
                         BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
 
@@ -640,13 +636,13 @@ public class ReadFileServiceImpl implements ReadFileService {
                 continue;
             }
 
-            String position = getCellValueAsString(row.getCell(4));
-            String[] splitPosition = position.split("#", 2);
-            if (splitPosition.length < 2 || splitPosition[0].trim().isEmpty() || splitPosition[1].trim().isEmpty()) {
+            String position = getCellValueAsString(row.getCell(5));
+            String[] splitPosition = position.split("#");
+            if (splitPosition.length == 1) {
                 throw new RuntimeException("第" + (i + 1) + "行数据，病害位置格式不正确：缺失 '# ' 符号");
             }
-            String componentCode = splitPosition[0].trim();
-            String component_4 = splitPosition[1].trim();
+            String componentCode = splitPosition[0];
+            String component_4 = getCellValueAsString(row.getCell(4));
             if (component_4 == null || component_4.equals("/") || component_4.equals("")) {
                 throw new RuntimeException("第" + (i + 1) + "行数据，构件2出现错误或为空");
             }
