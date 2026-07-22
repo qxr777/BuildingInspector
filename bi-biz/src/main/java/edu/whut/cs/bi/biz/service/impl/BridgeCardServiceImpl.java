@@ -316,7 +316,11 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             Property prop = properties.get(i);
             if (prop.getName().equals("是否公铁两用桥梁")) {
                 String curValue = prop.getValue();
-                prop.setValue("否".equals(curValue) ? "公路" : "公铁两用桥");
+                if ("否".equals(curValue)) {
+                    prop.setValue("公路");
+                } else if ("是".equals(curValue)) {
+                    prop.setValue("公铁两用桥");
+                }
             }
             if (prop.getName().equals("跨径组合")) {
                 String curValue = prop.getValue();
