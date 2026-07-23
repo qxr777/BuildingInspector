@@ -820,9 +820,8 @@ public class ReadFileServiceImpl implements ReadFileService {
         int importCount = 0;
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            for (int j = 0; j < 7; j++) {
-//            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
-                Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
+            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
+                Sheet sheet = workbook.getSheetAt(j);
 
                 for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                     Row row = sheet.getRow(i);
@@ -845,6 +844,12 @@ public class ReadFileServiceImpl implements ReadFileService {
                     if (!"组合桥".equals(type) && !"桥幅".equals(type)) {
                         throw new RuntimeException("第" + excelRowNum + "行桥梁类型不支持：" + type
                                 + "，桥梁：" + buildingName + "，仅支持：组合桥、桥幅");
+                    }
+                    if (StringUtils.isEmpty(area)) {
+                        throw new RuntimeException("第" + excelRowNum + "行片区不能为空，桥梁：" + buildingName);
+                    }
+                    if (StringUtils.isEmpty(line)) {
+                        throw new RuntimeException("第" + excelRowNum + "行线路不能为空，桥梁：" + buildingName);
                     }
 
                     Building building = new Building();
@@ -881,7 +886,8 @@ public class ReadFileServiceImpl implements ReadFileService {
                             building.setStatus("0");
                             building.setIsLeaf("1");
                             building.setTemplateId(templateId);
-                            if (!fatherBuilding.equals(buildingName)) {
+                            if (StringUtils.isNotEmpty(fatherBuilding)
+                                    && !fatherBuilding.equals(buildingName)) {
                                 Building parent = new Building();
                                 parent.setName(fatherBuilding);
                                 parent.setIsLeaf("0");
@@ -914,7 +920,8 @@ public class ReadFileServiceImpl implements ReadFileService {
                     } else {
                         if (type.equals("桥幅")) {
                             building = buildings.get(0);
-                            if (!fatherBuilding.equals(buildingName)) {
+                            if (StringUtils.isNotEmpty(fatherBuilding)
+                                    && !fatherBuilding.equals(buildingName)) {
                                 Building parent = new Building();
                                 parent.setName(fatherBuilding);
                                 parent.setIsLeaf("0");

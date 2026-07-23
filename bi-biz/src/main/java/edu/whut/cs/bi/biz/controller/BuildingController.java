@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
+import edu.whut.cs.bi.biz.service.ReadFileService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -47,6 +48,9 @@ public class BuildingController extends BaseController {
 
     @Autowired
     private IBiObjectService biObjectService;
+
+    @Resource
+    private ReadFileService readFileService;
 
     @RequiresPermissions("biz:building:view")
     @GetMapping()
@@ -233,6 +237,29 @@ public class BuildingController extends BaseController {
     @Log(title = "建筑", businessType = BusinessType.IMPORT)
     public AjaxResult readJsonFile(@RequestPart("file") MultipartFile file) throws IOException {
         return toAjax(buildingService.importJson(file));
+    }
+
+    /**
+     * 打开桥梁Excel批量导入页面
+     */
+    @RequiresPermissions("biz:building:add")
+    @GetMapping("/importExcel")
+    public String importExcel() {
+        return prefix + "/importExcel";
+    }
+
+    /**
+     * 通过Excel批量导入桥梁
+     */
+    @RequiresPermissions("biz:building:add")
+    @Log(title = "桥梁批量导入", businessType = BusinessType.IMPORT)
+    @PostMapping("/batchAddBuilding")
+    @ResponseBody
+    public AjaxResult batchAddBuilding(@RequestPart("file") MultipartFile file) {
+        int importCount = readFileService.ReadBuildingFile(file, null);
+        AjaxResult ajax = AjaxResult.success("导入成功，共新增 " + importCount + " 座桥梁");
+        ajax.put("importCount", importCount);
+        return ajax;
     }
 
     /**
