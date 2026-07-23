@@ -600,29 +600,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         disease.setUpdateTime(DateUtils.getNowDate());
 
-        // 更新部件信息
-        Component component = componentService.selectComponentById(old.getComponentId());
         if (disease.getComponent() != null
                 && disease.getComponent().getCode() != null
-                && !component.getCode().equals(disease.getComponent().getCode())) {
-            String componentName = disease.getComponent().getCode() + "#" + old.getBiObjectName();
-
-            // 查询数据库，判断是不是已存在对应部件
-            Component select = new Component();
-            select.setName(componentName);
-            select.setBiObjectId(component.getBiObjectId());
-            Component selectedComponent = componentMapper.selectComponent(select);
-            if (selectedComponent == null) {
-                component.setName(componentName);
-
-                component.setCode(disease.getComponent().getCode());
-                component.setUpdateTime(DateUtils.getNowDate());
-                component.setUpdateBy(ShiroUtils.getLoginName());
-                componentService.updateComponent(component);
-            } else {
-                disease.setComponentId(selectedComponent.getId());
-            }
-
+                && !disease.getComponent().getCode().trim().isEmpty()) {
+            rebindDiseaseComponent(old, disease);
         }
 
         // 删除病害详情
@@ -668,28 +649,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         disease.setUpdateTime(DateUtils.getNowDate());
 
-        // 判断是否是换绑
-        Component oldComponent = componentService.selectComponentById(old.getComponentId());
-        if (!Objects.equals(old.getBiObjectId(), disease.getBiObjectId()) || !Objects.equals(oldComponent.getCode(), disease.getComponent().getCode())) {
-            // 换绑了
-            // 更新部件信息
-            // 查询数据库，判断是不是已存在对应部件
-            Component select = new Component();
-            select.setName(disease.getComponent().getCode() + "#" + disease.getBiObjectName());
-            select.setCode(disease.getComponent().getCode());
-            select.setBiObjectId(disease.getBiObjectId());
-            Component selectedComponent = componentMapper.selectComponent(select);
-            if (selectedComponent == null) {
-                oldComponent.setCode(disease.getComponent().getCode());
-                oldComponent.setName(disease.getComponent().getCode() + "#" + old.getBiObjectName());
-                oldComponent.setUpdateTime(DateUtils.getNowDate());
-                oldComponent.setUpdateBy(ShiroUtils.getLoginName());
-                oldComponent.setBiObjectId(disease.getBiObjectId());
-                componentService.updateComponent(oldComponent);
-            } else {
-                disease.setComponentId(selectedComponent.getId());
-            }
-        }
+        rebindDiseaseComponent(old, disease);
 
         // 删除病害详情
         diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
@@ -713,6 +673,80 @@ public class DiseaseServiceImpl implements IDiseaseService {
         }
 
         return diseaseMapper.updateDisease(disease);
+    }
+
+    /**
+     * 只为当前病害换绑构件。构件可能被多条病害共用，因此这里不能修改原构件。
+     */
+    private void rebindDiseaseComponent(Disease old, Disease disease) {
+        if (disease.getBiObjectId() == null) {
+            throw new ServiceException("所属对象不能为空");
+        }
+        if (disease.getComponent() == null) {
+            throw new ServiceException("构件编号不能为空");
+        }
+
+        String newComponentCode = disease.getComponent().getCode() == null
+                ? null
+                : disease.getComponent().getCode().trim();
+        if (StringUtils.isEmpty(newComponentCode)) {
+            throw new ServiceException("构件编号不能为空");
+        }
+        disease.getComponent().setCode(newComponentCode);
+
+        Component oldComponent = componentService.selectComponentById(old.getComponentId());
+        if (oldComponent == null) {
+            throw new ServiceException("原构件不存在，无法修改病害");
+        }
+
+        if (Objects.equals(old.getBiObjectId(), disease.getBiObjectId())
+                && Objects.equals(oldComponent.getCode(), newComponentCode)) {
+            disease.setComponentId(oldComponent.getId());
+            return;
+        }
+
+        Component query = new Component();
+        query.setBiObjectId(disease.getBiObjectId());
+        query.setCode(newComponentCode);
+        List<Component> targetComponents = componentMapper.selectComponentList(query);
+        Component targetComponent = CollUtil.isEmpty(targetComponents)
+                ? null
+                : targetComponents.stream()
+                .filter(component -> component.getId() != null)
+                .min(Comparator.comparing(Component::getId))
+                .orElse(null);
+
+        if (targetComponent == null) {
+            BiObject targetBiObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+            if (targetBiObject == null) {
+                throw new ServiceException("所属对象不存在，无法新建构件");
+            }
+
+            String componentObjectName = disease.getBiObjectName() == null
+                    ? null
+                    : disease.getBiObjectName().trim();
+            if (StringUtils.isEmpty(componentObjectName)) {
+                componentObjectName = targetBiObject.getName();
+                if (StringUtils.isEmpty(componentObjectName)) {
+                    throw new ServiceException("所属对象名称为空，无法新建构件");
+                }
+            }
+            disease.setBiObjectName(componentObjectName);
+
+            targetComponent = new Component();
+            targetComponent.setBiObjectId(disease.getBiObjectId());
+            targetComponent.setCode(newComponentCode);
+            targetComponent.setName(newComponentCode + "#" + componentObjectName);
+            targetComponent.setStatus("0");
+            targetComponent.setDelFlag("0");
+            targetComponent.setCreateBy(disease.getUpdateBy());
+            componentService.insertComponent(targetComponent);
+            if (targetComponent.getId() == null) {
+                throw new ServiceException("新建构件失败，未生成构件ID");
+            }
+        }
+
+        disease.setComponentId(targetComponent.getId());
     }
 
     /**
