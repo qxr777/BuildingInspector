@@ -59,6 +59,11 @@ public class Disease extends BaseEntity {
     private int quantity;
 
     /**
+     * 特殊页面中铆钉（螺栓）数量字段允许清空，仅用于控制编辑更新。
+     */
+    private Boolean fastenerCountMode;
+
+    /**
      * 单位
      */
     private String units;

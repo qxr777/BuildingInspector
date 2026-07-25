@@ -246,8 +246,8 @@
             <if test="imgNoExp != null and imgNoExp !=''">img_no_exp = #{imgNoExp},</if>
             <if test="nature != null and nature != ''">nature = #{nature},</if>
             <if test="level != null and level > 0">level = #{level},</if>
-            <if test="quantity != null and quantity > 0">quantity = #{quantity},</if>
-            <if test="units != null and units != ''">units = #{units},</if>
+            <if test="quantity != null and (quantity > 0 or fastenerCountMode == true)">quantity = #{quantity},</if>
+            <if test="(units != null and units != '') or fastenerCountMode == true">units = #{units},</if>
             <if test="participateAssess != null and participateAssess != ''">participate_assess =
                 #{participateAssess},
             </if>
