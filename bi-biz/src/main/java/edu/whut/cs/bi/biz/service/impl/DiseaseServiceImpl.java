@@ -145,7 +145,11 @@ public class DiseaseServiceImpl implements IDiseaseService {
         disease.setBiObject(biObject);
         BiObject biObjectParent = biObjectMapper.selectBiObjectById(biObject.getParentId());
         disease.setBindBiObjectName(biObjectParent.getName() + "——" + biObject.getName());
-        disease.setBiObjectName(component.getName().split("#")[1]);
+        String componentName = component.getName();
+        String[] componentNameParts = componentName == null
+                ? new String[0]
+                : componentName.split("#", 2);
+        disease.setBiObjectName(componentNameParts.length > 1 ? componentNameParts[1] : "");
         DiseaseDetail diseaseDetail = new DiseaseDetail();
         diseaseDetail.setDiseaseId(id);
         List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
@@ -574,8 +578,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         // 添加病害详情
         List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
-        diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
-        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        if (CollUtil.isNotEmpty(diseaseDetails)) {
+            diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+            diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        }
 
 
         return result;
@@ -640,11 +646,22 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Transactional
     public int newUpdateDisease(Disease disease) {
         Disease old = diseaseMapper.selectDiseaseById(disease.getId());
-        if (old.getDiseaseTypeId().equals(disease.getDiseaseTypeId())) {
-            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
-            if (!diseaseType.getName().equals("其他")) {
-                disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
+        if (disease.getBiObjectName() == null || disease.getBiObjectName().trim().isEmpty()) {
+            throw new ServiceException("当前病害缺少构件名称，请填写后再保存");
+        }
+        disease.setBiObjectName(disease.getBiObjectName().trim());
+
+        DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
+        if (diseaseType == null) {
+            throw new ServiceException("请选择有效的病害类型");
+        }
+        if (diseaseType.getName() != null && diseaseType.getName().startsWith("其他")) {
+            if (disease.getType() == null || disease.getType().trim().isEmpty()) {
+                throw new ServiceException("请输入自定义病害名称");
             }
+            disease.setType(disease.getType().trim());
+        } else {
+            disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
         }
 
         disease.setUpdateTime(DateUtils.getNowDate());
