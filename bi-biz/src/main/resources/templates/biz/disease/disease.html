@@ -288,7 +288,7 @@
         $('#bootstrap-table').on('editable-save.bs.table', function (e, field, row, oldValue, $el) {
             $.ajax({
                 type: 'POST',
-                url: prefix + "/edit",
+                url: prefix + "/updateDevelopmentTrend",
                 data: {
                     id: row.id,
                     developmentTrend: row[field]

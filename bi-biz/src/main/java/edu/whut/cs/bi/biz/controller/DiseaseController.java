@@ -923,6 +923,18 @@ public class DiseaseController extends BaseController {
     }
 
     /**
+     * 病害列表行内更新发展趋势，不触碰构件、病害详情和附件。
+     */
+    @RequiresPermissions("biz:disease:edit")
+    @Log(title = "病害发展趋势", businessType = BusinessType.UPDATE)
+    @PostMapping("/updateDevelopmentTrend")
+    @ResponseBody
+    public AjaxResult updateDevelopmentTrend(Long id, String developmentTrend) {
+        return toAjax(diseaseService.updateDevelopmentTrend(
+                id, developmentTrend, ShiroUtils.getLoginName()));
+    }
+
+    /**
      * 删除
      */
     @RequiresPermissions("biz:disease:remove")

@@ -79,6 +79,16 @@ public interface IDiseaseService {
     public int newUpdateDisease(Disease disease);
 
     /**
+     * 更新病害发展趋势
+     *
+     * @param id 病害ID
+     * @param developmentTrend 发展趋势
+     * @param updateBy 更新人
+     * @return 结果
+     */
+    int updateDevelopmentTrend(Long id, String developmentTrend, String updateBy);
+
+    /**
      * 批量删除病害
      *
      * @param ids 需要删除的病害主键集合

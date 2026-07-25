@@ -675,6 +675,20 @@ public class DiseaseServiceImpl implements IDiseaseService {
         return diseaseMapper.updateDisease(disease);
     }
 
+    @Override
+    public int updateDevelopmentTrend(Long id, String developmentTrend, String updateBy) {
+        if (id == null || developmentTrend == null || developmentTrend.trim().isEmpty()) {
+            throw new ServiceException("病害ID和发展趋势不能为空");
+        }
+
+        Disease update = new Disease();
+        update.setId(id);
+        update.setDevelopmentTrend(developmentTrend.trim());
+        update.setUpdateBy(updateBy);
+        update.setUpdateTime(DateUtils.getNowDate());
+        return diseaseMapper.updateDisease(update);
+    }
+
     /**
      * 只为当前病害换绑构件。构件可能被多条病害共用，因此这里不能修改原构件。
      */
