@@ -553,9 +553,9 @@
                            name="biObjectName" th:value="*{biObjectName}" readonly required/>
                 </div>
                 <div class="form-group form-field">
-                    <label for="componentCode">构件编码</label>
+                    <label class="control-label is-required" for="componentCode">构件编码</label>
                     <input name="component.code" class="form-control" id="componentCode" type="text"
-                           th:field="*{component.code}" placeholder="请输入构件编码"/>
+                           th:field="*{component.code}" placeholder="请输入构件编码" required/>
                 </div>
                 <div class="form-group form-field">
                     <label class="control-label is-required" for="diseaseGroupName">病害分组</label>
@@ -585,8 +585,8 @@
                 </div>
                 <div class="form-group form-field">
                     <label for="positionNumber">位置序号</label>
-                    <input class="form-control" type="text" name="positionNumber" th:field="*{positionNumber}"
-                           id="positionNumber" placeholder="例如：第 1 号"/>
+                    <input class="form-control" type="number" min="1" step="1" name="positionNumber"
+                           th:field="*{positionNumber}" id="positionNumber" placeholder="例如：1"/>
                 </div>
             </div>
         </section>
@@ -858,61 +858,14 @@
         $("#form-disease-edit").validate({
             rules: {
                 componentId: "required",
+                "component.code": "required",
                 diseaseGroupName: "required",
                 diseaseTypeId: "required",
+                positionNumber: {
+                    digits: true,
+                    min: 1
+                },
                 level: "required"
-            },
-            submitHandler: function (form) {
-                // 处理自定义参考面位置
-                var quantity = $("#quantityInput").val();
-
-                // 获取当前选中的病害类型
-                var selectedDiseaseTypeId = $("#diseaseTypeId").val();
-                var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
-                    return item.id == selectedDiseaseTypeId;
-                }) : null;
-
-                // 获取threshold值，默认为10
-                var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
-
-                // 处理单个病害的情况
-                if (quantity >= threshold) {
-                    if ($("#reference1Location").val() === "其他") {
-                        var customValue = $("#reference1LocationCustom").val();
-                        if (customValue) {
-                            $("#reference1Location").val(customValue);
-                        }
-                    }
-                    if ($("#reference2Location").val() === "其他") {
-                        var customValue = $("#reference2LocationCustom").val();
-                        if (customValue) {
-                            $("#reference2Location").val(customValue);
-                        }
-                    }
-                } else {
-                    // 处理多个病害的情况
-                    for (var i = 0; i < quantity; i++) {
-                        var ref1Select = $("#reference1Location_" + i);
-                        var ref2Select = $("#reference2Location_" + i);
-
-                        if (ref1Select.length && ref1Select.val() === "其他") {
-                            var customValue = $("#reference1LocationCustom_" + i).val();
-                            if (customValue) {
-                                ref1Select.val(customValue);
-                            }
-                        }
-
-                        if (ref2Select.length && ref2Select.val() === "其他") {
-                            var customValue = $("#reference2LocationCustom_" + i).val();
-                            if (customValue) {
-                                ref2Select.val(customValue);
-                            }
-                        }
-                    }
-                }
-
-                // 继续提交表单
-                return true;
             },
             focusCleanup: true
         });
@@ -2717,14 +2670,40 @@
         });
     }
 
+    function getNormalReferenceLocationValue(detailIndex, refIndex, useShortIds) {
+        var idSuffix = useShortIds ? '' : '_' + detailIndex;
+        var select = $('#reference' + refIndex + 'Location' + idSuffix);
+        if (select.length) {
+            var value = select.val();
+            if (value === '其他') {
+                value = $('#reference' + refIndex + 'LocationCustom' + idSuffix).val();
+            }
+            return String(value || '').trim();
+        }
+
+        var fieldName = 'diseaseDetails[' + detailIndex + '].reference' + refIndex + 'Location';
+        return String($('input[name="' + fieldName + '"]').val() || '').trim();
+    }
+
     // 修改表单提交处理
     function submitHandler() {
+        var componentCodeInput = $("#componentCode");
+        var componentCode = String(componentCodeInput.val() || '').trim();
+        if (!componentCode) {
+            $.modal.alertWarning("请输入构件编码");
+            componentCodeInput.focus();
+            return;
+        }
+        componentCodeInput.val(componentCode);
+
         var componentNameInput = $("#biObjectName");
-        if (!String(componentNameInput.val() || '').trim()) {
+        var componentName = String(componentNameInput.val() || '').trim();
+        if (!componentName) {
             $.modal.alertWarning("当前病害缺少构件名称，请填写后再保存");
             componentNameInput.focus();
             return;
         }
+        componentNameInput.val(componentName);
 
         if ($.validate.form() && validateForm()) {
             var formData = new FormData($("#form-disease-edit")[0]);
@@ -2832,19 +2811,8 @@
                 applySpecialReferenceFormData(formData);
             } else if (quantity >= threshold) {
                 // 单病害情况
-                var ref1Select = $("#reference1Location");
-                var ref2Select = $("#reference2Location");
-
-                var ref1Value = ref1Select.val();
-                var ref2Value = ref2Select.val();
-
-                // 如果选择了"其他"，使用自定义输入框的值
-                if (ref1Value === "其他") {
-                    ref1Value = $("#reference1LocationCustom").val();
-                }
-                if (ref2Value === "其他") {
-                    ref2Value = $("#reference2LocationCustom").val();
-                }
+                var ref1Value = getNormalReferenceLocationValue(0, 1, true);
+                var ref2Value = getNormalReferenceLocationValue(0, 2, true);
 
                 // 直接设置到FormData中
                 if (ref1Value && ref1Value !== "") {
@@ -2862,19 +2830,8 @@
                     formData.delete("diseaseDetails[" + i + "].reference1Location");
                     formData.delete("diseaseDetails[" + i + "].reference2Location");
 
-                    var ref1Select = $("#reference1Location_" + i);
-                    var ref2Select = $("#reference2Location_" + i);
-
-                    var ref1Value = ref1Select.val();
-                    var ref2Value = ref2Select.val();
-
-                    // 如果选择了"其他"，使用自定义输入框的值
-                    if (ref1Value === "其他") {
-                        ref1Value = $("#reference1LocationCustom_" + i).val();
-                    }
-                    if (ref2Value === "其他") {
-                        ref2Value = $("#reference2LocationCustom_" + i).val();
-                    }
+                    var ref1Value = getNormalReferenceLocationValue(i, 1, false);
+                    var ref2Value = getNormalReferenceLocationValue(i, 2, false);
 
                     // 设置新值到FormData中
                     if (ref1Value && ref1Value !== "") {

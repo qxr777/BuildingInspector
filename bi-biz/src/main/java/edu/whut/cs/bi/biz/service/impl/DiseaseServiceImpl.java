@@ -145,11 +145,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         disease.setBiObject(biObject);
         BiObject biObjectParent = biObjectMapper.selectBiObjectById(biObject.getParentId());
         disease.setBindBiObjectName(biObjectParent.getName() + "——" + biObject.getName());
-        String componentName = component.getName();
-        String[] componentNameParts = componentName == null
-                ? new String[0]
-                : componentName.split("#", 2);
-        disease.setBiObjectName(componentNameParts.length > 1 ? componentNameParts[1] : "");
+        disease.setBiObjectName(extractComponentObjectName(component.getName()));
         DiseaseDetail diseaseDetail = new DiseaseDetail();
         diseaseDetail.setDiseaseId(id);
         List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
@@ -646,6 +642,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Transactional
     public int newUpdateDisease(Disease disease) {
         Disease old = diseaseMapper.selectDiseaseById(disease.getId());
+        if (old == null) {
+            throw new ServiceException("病害不存在，无法修改");
+        }
         if (disease.getBiObjectName() == null || disease.getBiObjectName().trim().isEmpty()) {
             throw new ServiceException("当前病害缺少构件名称，请填写后再保存");
         }
@@ -707,7 +706,8 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
-     * 只为当前病害换绑构件。构件可能被多条病害共用，因此这里不能修改原构件。
+     * 只为当前病害换绑构件，不修改已有构件的编号或对象归属。
+     * 唯一例外是原构件名称缺失时，允许补全该构件的名称。
      */
     private void rebindDiseaseComponent(Disease old, Disease disease) {
         if (disease.getBiObjectId() == null) {
@@ -732,7 +732,18 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         if (Objects.equals(old.getBiObjectId(), disease.getBiObjectId())
                 && Objects.equals(oldComponent.getCode(), newComponentCode)) {
+            String componentObjectName = extractComponentObjectName(oldComponent.getName());
+            if (StringUtils.isEmpty(componentObjectName)) {
+                componentObjectName = disease.getBiObjectName();
+                oldComponent.setName(newComponentCode + "#" + componentObjectName);
+                oldComponent.setUpdateBy(disease.getUpdateBy());
+                oldComponent.setUpdateTime(DateUtils.getNowDate());
+                if (componentService.updateComponent(oldComponent) <= 0) {
+                    throw new ServiceException("构件名称补录失败，请稍后重试");
+                }
+            }
             disease.setComponentId(oldComponent.getId());
+            disease.setBiObjectName(componentObjectName);
             return;
         }
 
@@ -775,9 +786,23 @@ public class DiseaseServiceImpl implements IDiseaseService {
             if (targetComponent.getId() == null) {
                 throw new ServiceException("新建构件失败，未生成构件ID");
             }
+        } else {
+            String targetComponentObjectName = extractComponentObjectName(targetComponent.getName());
+            if (StringUtils.isEmpty(targetComponentObjectName)) {
+                throw new ServiceException("目标构件缺少构件名称，请先完善构件信息");
+            }
+            disease.setBiObjectName(targetComponentObjectName);
         }
 
         disease.setComponentId(targetComponent.getId());
+    }
+
+    private String extractComponentObjectName(String componentName) {
+        if (componentName == null) {
+            return "";
+        }
+        String[] parts = componentName.split("#", 2);
+        return parts.length > 1 ? parts[1].trim() : "";
     }
 
     /**
