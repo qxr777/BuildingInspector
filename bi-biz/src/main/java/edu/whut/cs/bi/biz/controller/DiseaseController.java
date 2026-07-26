@@ -914,6 +914,22 @@ public class DiseaseController extends BaseController {
     }
 
     /**
+     * 编辑时切换所属构件后，重新判断是否应使用特殊定量布局。
+     */
+    @RequiresPermissions("biz:disease:edit")
+    @GetMapping("/specialQuantitativeLayout/{diseaseId}/{biObjectId}")
+    @ResponseBody
+    public AjaxResult specialQuantitativeLayout(@PathVariable("diseaseId") Long diseaseId,
+                                                @PathVariable("biObjectId") Long biObjectId) {
+        Disease disease = diseaseService.selectDiseaseById(diseaseId);
+        BiObject biObject = biObjectService.selectBiObjectById(biObjectId);
+        if (disease == null || biObject == null) {
+            return error("病害或所属构件不存在");
+        }
+        return success(isSpecialQuantitativeLayout(disease, biObject));
+    }
+
+    /**
      * 判断构件是否为「上部结构 → 加劲梁 → 节段」。
      */
     private boolean isSpecialSegmentComponent(BiObject biObject) {

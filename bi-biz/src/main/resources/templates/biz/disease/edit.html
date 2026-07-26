@@ -298,6 +298,7 @@
         .special-direction-group {
             white-space: nowrap;
         }
+
         .detail-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -986,19 +987,47 @@
             $("#biObjectId").val(treeId);
             biObject.name = $("#treeName").val();
             biObject.id = $("#biObjectId").val();
-            loadDiseaseTypes();
-
-            loadPositions();
-
-            updateLevelGroup();
-            $.modal.close(index);  // 使用框架自带的关闭方法
+            $("#biObjectName").val(treeName).prop('readonly', true);
+            refreshSpecialQuantitativeLayout(treeId, function () {
+                // 所属构件改变后必须重新选择病害类型，避免沿用旧构件的类型和定量字段。
+                loadDiseaseTypes(false);
+                loadPositions();
+                updateLevelGroup();
+                $.modal.close(index);
+            });
         } else {
             console.log("未选择有效节点");
         }
     }
 
+    function refreshSpecialQuantitativeLayout(biObjectId, callback) {
+        var diseaseId = $("input[name='id']").val();
+        if (!diseaseId || !biObjectId) {
+            specialQuantitativeLayout = false;
+            callback();
+            return;
+        }
+
+        $.ajax({
+            url: prefix + "/specialQuantitativeLayout/" + diseaseId + "/" + biObjectId,
+            type: "GET",
+            success: function (result) {
+                if (result && result.code === 0) {
+                    specialQuantitativeLayout = result.data === true;
+                    callback();
+                    return;
+                }
+                $.modal.alertError((result && result.msg) || "无法判断构件编辑页面类型");
+            },
+            error: function () {
+                $.modal.alertError("无法判断构件编辑页面类型，请稍后重试");
+            }
+        });
+    }
+
     // 加载病害类型
-    function loadDiseaseTypes() {
+    function loadDiseaseTypes(preserveCurrentDiseaseType) {
+        preserveCurrentDiseaseType = preserveCurrentDiseaseType !== false;
         $.ajax({
             url: ctx + "biz/diseaseType/selectList",
             type: "POST",
@@ -1024,7 +1053,7 @@
                 $("#diseaseGroupName").html(groupOptions);
 
                 // 编辑模式时，如果有选中的病害类型，需要先选中对应的分组
-                if (disease && disease.diseaseTypeId) {
+                if (preserveCurrentDiseaseType && disease && disease.diseaseTypeId) {
                     var selectedDiseaseType = result.find(function (item) {
                         return item.id == disease.diseaseTypeId;
                     });
@@ -1039,11 +1068,13 @@
                             var quantity = $("#quantityInput").val() || 1;
                             updateDiseaseDetails(quantity);
                         }, 100);
+                        return;
                     }
-                } else {
-                    // 如果没有选中病害类型，使用默认显示
-                    updateDiseaseDetails($("#quantityInput").val() || 1);
                 }
+
+                $("#diseaseGroupName").val("");
+                $("#diseaseTypeId").html('<option value="">请先选择病害分组</option>');
+                updateDiseaseDetails($("#quantityInput").val() || 1);
             }
         });
     }
@@ -1265,6 +1296,10 @@
             var offsetField = 'reference' + refIndex + 'LocationStart';
             var parsedLocation = parseSpecialReferenceLocation(detail[locationField], refIndex);
             var select = item.find('.special-reference-select');
+            var rawOffset = detail[offsetField];
+            var numericOffset = rawOffset === null || rawOffset === undefined || rawOffset === ''
+                    ? null
+                    : Number(rawOffset);
 
             if (select.length) {
                 select.attr('data-current-value', parsedLocation.location);
@@ -1274,13 +1309,12 @@
 
             item.find('.special-reference-sequence-start').val(parsedLocation.startSequence);
             item.find('.special-reference-sequence-end').val(parsedLocation.endSequence);
-
-            var rawOffset = detail[offsetField];
-            var numericOffset = rawOffset === null || rawOffset === undefined || rawOffset === ''
-                    ? null
-                    : Number(rawOffset);
             var direction = numericOffset !== null && numericOffset < 0 ? '负方向' : '正方向';
-            item.find('.special-offset-value').val(numericOffset === null ? '' : Math.abs(numericOffset));
+            item.find('.special-offset-value').val(
+                    refIndex === 2 && parsedLocation.endSequence
+                            ? ''
+                            : numericOffset === null ? '' : Math.abs(numericOffset)
+            );
             item.find('.special-direction-value').val(direction);
             item.find('.special-direction-btn')
                     .removeClass('active')
@@ -1405,6 +1439,18 @@
         $group.find('.special-direction-btn').removeClass('active').attr('aria-pressed', 'false');
         $(this).addClass('active').attr('aria-pressed', 'true');
         $group.siblings('.special-direction-value').val($(this).data('direction'));
+    });
+
+    $(document).on('input', '.special-reference-item[data-reference-index="2"] .special-reference-sequence-end', function () {
+        if (String($(this).val() || '').trim()) {
+            $(this).closest('.special-reference-item').find('.special-offset-value').val('');
+        }
+    });
+
+    $(document).on('input', '.special-reference-item[data-reference-index="2"] .special-offset-value', function () {
+        if (String($(this).val() || '').trim()) {
+            $(this).closest('.special-reference-item').find('.special-reference-sequence-end').val('');
+        }
     });
 
     $(document).on('change', '#crackType', function () {
@@ -2659,7 +2705,9 @@
             }
 
             var offsetValue = String(item.find('.special-offset-value').val() || '').trim();
-            if (offsetValue) {
+            if (refIndex === 2 && endSequence) {
+                formData.delete(offsetName);
+            } else if (offsetValue) {
                 var absoluteOffset = Math.abs(Number(offsetValue));
                 var direction = item.find('.special-direction-value').val();
                 formData.set(offsetName, direction === '负方向' ? -absoluteOffset : absoluteOffset);
