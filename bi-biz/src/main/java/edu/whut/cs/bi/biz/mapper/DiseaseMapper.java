@@ -69,9 +69,11 @@ public interface DiseaseMapper {
      * 根据biObjectId查询病害
      *
      * @param biObjectIds
+     * @param disease 查询条件
      * @return
      */
-    List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds,  @Param("projectId") Long projectId);
+    List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds,
+                                                  @Param("disease") Disease disease);
 
     /**
      * 批量插入病害

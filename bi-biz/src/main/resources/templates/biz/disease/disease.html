@@ -4,6 +4,7 @@
     <th:block th:include="include :: header('病害列表')"/>
     <th:block th:include="include :: layout-latest-css"/>
     <th:block th:include="include :: ztree-css"/>
+    <th:block th:include="include :: bootstrap-select-css"/>
 </head>
 <body class="gray-bg">
 <div class="ui-layout-west">
@@ -40,9 +41,15 @@
                     <div class="select-list">
                         <ul>
                             <li>
+                                <label>关键字：</label>
+                                <input type="text" name="keyword" autocomplete="off"
+                                       placeholder="构件、病害或缺损关键字"
+                                       onkeydown="if (event.key === 'Enter') { $.table.search(); return false; }">
+                            </li>
+                            <li class="select-selectpicker">
                                 <label>评定标度：</label>
-                                <select name="level">
-                                    <option value="0">所有</option>
+                                <select id="levels" name="levels" class="selectpicker" multiple
+                                        data-none-selected-text="所有">
                                     <option value="1">1</option>
                                     <option value="2">2</option>
                                     <option value="3">3</option>
@@ -61,7 +68,7 @@
                             <li>
                                 <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
                                         class="fa fa-search"></i>&nbsp;搜索</a>
-                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="resetDiseaseSearch()"><i
                                         class="fa fa-refresh"></i>&nbsp;重置</a>
                             </li>
                         </ul>
@@ -110,6 +117,7 @@
 <th:block th:include="include :: footer"/>
 <th:block th:include="include :: layout-latest-js"/>
 <th:block th:include="include :: ztree-js"/>
+<th:block th:include="include :: bootstrap-select-js"/>
 <link rel="stylesheet" th:href="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-editable.css}"/>
 <script th:src="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-editable.min.js}"></script>
 <script th:src="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-table-editable.js}"></script>
@@ -308,6 +316,12 @@
                 }
             });
         });
+    }
+
+    function resetDiseaseSearch() {
+        document.getElementById('formId').reset();
+        $('#levels').selectpicker('refresh');
+        $.table.search('formId', 'bootstrap-table', 1);
     }
 
     window.addEventListener("storage", function (event) {

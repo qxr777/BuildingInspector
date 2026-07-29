@@ -175,7 +175,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
             biObjectIds.addAll(biObjects.stream().map(BiObject::getId).collect(Collectors.toList()));
             PageUtils.startPage();
-            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds, disease.getProjectId());
+            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds, disease);
         } else {
             PageUtils.startPage();
             diseases = diseaseMapper.selectDiseaseList(disease);

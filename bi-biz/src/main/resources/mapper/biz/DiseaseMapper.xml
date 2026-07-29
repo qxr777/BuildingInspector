@@ -101,6 +101,7 @@
                dt.group_name      as dt_group_name
         from bi_disease d
                  left join bi_disease_type dt on d.disease_type_id = dt.id
+                 left join bi_component c on d.component_id = c.id
                  left join bi.bi_project bp on d.project_id = bp.id
     </sql>
 
@@ -113,6 +114,21 @@
             <if test="type != null and type != ''">and d.type = #{type}</if>
             <if test="diseaseTypeId != null">and d.disease_type_id = #{diseaseTypeId}</if>
             <if test="level != null and level > 0">and d.level = #{level}</if>
+            <if test="levels != null and levels.size() > 0">
+                and d.level in
+                <foreach collection="levels" item="selectedLevel" open="(" separator="," close=")">
+                    #{selectedLevel}
+                </foreach>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (
+                    c.name like concat('%', #{keyword}, '%')
+                    or c.code like concat('%', #{keyword}, '%')
+                    or dt.name like concat('%', #{keyword}, '%')
+                    or d.type like concat('%', #{keyword}, '%')
+                    or d.position like concat('%', #{keyword}, '%')
+                )
+            </if>
             <if test="nature != null and nature != ''">and d.nature = #{nature}</if>
             <if test="projectId != null">and d.project_id = #{projectId}</if>
             <if test="taskId != null">and d.task_id = #{taskId}</if>
@@ -132,13 +148,31 @@
         where d.id = #{id}
     </select>
 
-    <select id="selectDiseaseListByBiObjectIds" parameterType="java.util.List" resultMap="DiseaseResult">
+    <select id="selectDiseaseListByBiObjectIds" resultMap="DiseaseResult">
         <include refid="selectDiseaseVo"/>
         where d.bi_object_id in
         <foreach item="biObjectId" collection="biObjectIds" open="(" separator="," close=")">
             #{biObjectId}
         </foreach>
-        and d.project_id = #{projectId}
+        and d.project_id = #{disease.projectId}
+        <if test="disease.levels != null and disease.levels.size() > 0">
+            and d.level in
+            <foreach collection="disease.levels" item="selectedLevel" open="(" separator="," close=")">
+                #{selectedLevel}
+            </foreach>
+        </if>
+        <if test="disease.keyword != null and disease.keyword != ''">
+            and (
+                c.name like concat('%', #{disease.keyword}, '%')
+                or c.code like concat('%', #{disease.keyword}, '%')
+                or dt.name like concat('%', #{disease.keyword}, '%')
+                or d.type like concat('%', #{disease.keyword}, '%')
+                or d.position like concat('%', #{disease.keyword}, '%')
+            )
+        </if>
+        <if test="disease.nature != null and disease.nature != ''">
+            and d.nature = #{disease.nature}
+        </if>
         order by d.create_time desc
     </select>
 

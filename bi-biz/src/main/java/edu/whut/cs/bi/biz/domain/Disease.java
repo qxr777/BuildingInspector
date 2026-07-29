@@ -54,6 +54,11 @@ public class Disease extends BaseEntity {
     private int level;
 
     /**
+     * 查询条件：选中的病害等级；为空时查询所有等级
+     */
+    private List<Integer> levels;
+
+    /**
      * 病害数量
      */
     private int quantity;
@@ -77,6 +82,11 @@ public class Disease extends BaseEntity {
      * 病害类型
      */
     private String bindType;
+
+    /**
+     * 查询条件：匹配构件名称、构件编码、病害类型、缺损类型或缺损位置
+     */
+    private String keyword;
 
     /**
      * 病害性质（结构病害 / 非结构病害）
