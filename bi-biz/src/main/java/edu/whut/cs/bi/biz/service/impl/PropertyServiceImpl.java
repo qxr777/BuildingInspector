@@ -117,7 +117,13 @@ public class PropertyServiceImpl implements IPropertyService {
             Building bd = buildingMapper.selectBuildingById(buildingId);
             Long oldRootId = bd.getRootPropertyId();
             if (oldRootId != null) {
-                this.deletePropertyById(oldRootId);
+                Property oldRoot = propertyMapper.selectPropertyById(oldRootId);
+                if (oldRoot != null) {
+                    this.deletePropertyById(oldRootId);
+                } else {
+                    log.warn("桥梁属性根节点不存在，跳过旧属性树删除。buildingId={}, rootPropertyId={}",
+                            buildingId, oldRootId);
+                }
             }
             // 将文件内容转化成字符串
             String json = new String(file.getBytes(), "UTF-8");
@@ -363,6 +369,11 @@ public class PropertyServiceImpl implements IPropertyService {
         List<Property> propertyList =  propertyMapper.selectPropertyListByIds(idArray);
         propertyList.forEach(this::updateTime);
 
+        // 批量删除也要清理建筑表中的根属性引用，避免留下失效的root_property_id
+        for (String id : idArray) {
+            buildingMapper.clearRootPropertyIdByPropertyId(Long.valueOf(id), ShiroUtils.getLoginName());
+        }
+
         propertyMapper.deleteObjectChildrenByIds(idArray);
 
         return propertyMapper.deletePropertyByIds(idArray);
@@ -382,6 +393,9 @@ public class PropertyServiceImpl implements IPropertyService {
             throw new ServiceException("所要删除的桥梁属性不存在");
         }
         updateTime(property);
+
+        // 删除属性树前清理建筑表中的根属性引用，避免后续导入再次使用失效ID
+        buildingMapper.clearRootPropertyIdByPropertyId(id, ShiroUtils.getLoginName());
 
         // 至少也要删除其子树的数据
         propertyMapper.deleteObjectChildren(id);
@@ -496,9 +510,16 @@ public class PropertyServiceImpl implements IPropertyService {
                 Building bd = buildingMapper.selectBuildingById(buildingId);
                 Long oldRootId = bd.getRootPropertyId();
                 if (oldRootId != null) {
-                    // 预防建筑属性所有节点全被删除情况
-                    this.deletePropertyById(oldRootId);
-                    deleteBuildIMage(oldRootId);
+                    Property oldRoot = propertyMapper.selectPropertyById(oldRootId);
+                    if (oldRoot != null) {
+                        // 预防建筑属性所有节点全被删除情况
+                        this.deletePropertyById(oldRootId);
+                        deleteBuildIMage(oldRootId);
+                    } else {
+                        // 兼容历史脏数据：建筑仍引用已删除的属性根节点时，直接重建属性树
+                        log.warn("桥梁属性根节点不存在，跳过旧属性树删除并重建。buildingId={}, rootPropertyId={}",
+                                buildingId, oldRootId);
+                    }
                 }
 
                 // 解析json数据

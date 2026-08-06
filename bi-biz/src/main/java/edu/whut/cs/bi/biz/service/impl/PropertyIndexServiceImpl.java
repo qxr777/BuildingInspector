@@ -126,6 +126,11 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
     public List<Ztree> selectPropertyTree(Long rootPropertyId) {
         Property ps = propertyMapper.selectPropertyById(rootPropertyId);
 
+        // 兼容建筑仍保留旧rootPropertyId、但属性根节点已被删除的历史数据
+        if (ps == null) {
+            return new ArrayList<>();
+        }
+
         // 节点顺序要求
         List<Property> propertyList = new ArrayList<>();
 

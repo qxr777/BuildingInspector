@@ -87,6 +87,15 @@ public interface BuildingMapper {
     public int updateBuildingRootObjectId(@Param("id") Long id, @Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
 
     /**
+     * 清理引用指定属性根节点的建筑记录，避免属性删除后留下失效的根属性ID
+     *
+     * @param propertyId 属性根节点ID
+     * @param updateBy 更新人
+     * @return 结果
+     */
+    public int clearRootPropertyIdByPropertyId(@Param("propertyId") Long propertyId, @Param("updateBy") String updateBy);
+
+    /**
      * 删除建筑
      *
      * @param id 建筑主键

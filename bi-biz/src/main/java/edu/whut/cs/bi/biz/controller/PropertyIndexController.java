@@ -68,7 +68,8 @@ public class PropertyIndexController extends BaseController
     @ResponseBody
     public TableDataInfo list(Property property)
     {
-        if (property.getId() == 0) {
+        // 页面初次加载或删除属性后可能不会提交id，不能直接对Long做拆箱比较
+        if (property == null || property.getId() == null || property.getId() == 0L) {
             return getDataTable(new ArrayList<>());
         }
         startPage();

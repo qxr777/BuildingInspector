@@ -277,6 +277,15 @@
           and del_flag = '0'
     </update>
 
+    <update id="clearRootPropertyIdByPropertyId">
+        update bi_building
+        set root_property_id = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where root_property_id = #{propertyId}
+          and del_flag = '0'
+    </update>
+
     <delete id="deleteBuildingById" parameterType="Long">
         update bi_building set del_flag = '1' where id = #{id}
     </delete>
