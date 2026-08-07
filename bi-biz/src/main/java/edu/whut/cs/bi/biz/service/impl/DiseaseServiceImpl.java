@@ -16,6 +16,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysDictDataService;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
+import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.temp.DiseaseReport;
@@ -74,6 +75,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
     @Resource
     private IFileMapService fileMapService;
+
+    @Resource
+    private MinioConfig minioConfig;
 
     @Resource
     private AttachmentService attachmentService;
@@ -292,6 +296,86 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 ds.setADImgs(ADImgs);
             }
         });
+        return diseases;
+    }
+
+    /**
+     * 批量加载纯Excel导出需要的数据。
+     * 不查询Excel未使用的病害详情、构件父级信息，也不逐条查询附件和文件映射。
+     */
+    @Override
+    public List<Disease> selectDiseaseListForExcel(List<Long> taskIds) {
+        if (CollUtil.isEmpty(taskIds)) {
+            return new ArrayList<>();
+        }
+
+        List<Disease> diseases = diseaseMapper.selectDiseaseListByTaskIds(taskIds);
+        if (CollUtil.isEmpty(diseases)) {
+            return diseases;
+        }
+
+        List<Long> diseaseIds = diseases.stream()
+                .map(Disease::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        List<Long> componentIds = diseases.stream()
+                .map(Disease::getComponentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Component> componentMap = new HashMap<>();
+        if (!componentIds.isEmpty()) {
+            componentService.selectComponentsByIds(componentIds).stream()
+                    .filter(component -> "0".equals(component.getDelFlag()))
+                    .forEach(component -> componentMap.put(component.getId(), component));
+        }
+
+        Map<Long, List<Attachment>> attachmentMap = new HashMap<>();
+        List<Attachment> attachments = diseaseIds.isEmpty()
+                ? Collections.emptyList()
+                : attachmentService.getAttachmentBySubjectIds(diseaseIds);
+        for (Attachment attachment : attachments) {
+            if (attachment.getSubjectId() != null
+                    && attachment.getName() != null
+                    && attachment.getName().startsWith("disease")) {
+                attachmentMap.computeIfAbsent(attachment.getSubjectId(), key -> new ArrayList<>())
+                        .add(attachment);
+            }
+        }
+
+        List<Long> minioIds = attachments.stream()
+                .filter(attachment -> attachment.getName() != null
+                        && attachment.getName().startsWith("disease"))
+                .map(Attachment::getMinioId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, FileMap> fileMapById = fileMapService.selectFileMapByIds(minioIds).stream()
+                .collect(Collectors.toMap(fileMap -> fileMap.getId().longValue(), Function.identity(), (left, right) -> left));
+
+        for (Disease disease : diseases) {
+            disease.setComponent(componentMap.get(disease.getComponentId()));
+
+            List<String> imageUrls = new ArrayList<>();
+            for (Attachment attachment : attachmentMap.getOrDefault(disease.getId(), Collections.emptyList())) {
+                if (Integer.valueOf(7).equals(attachment.getType())) {
+                    continue;
+                }
+
+                FileMap fileMap = fileMapById.get(attachment.getMinioId());
+                if (fileMap == null || StringUtils.isEmpty(fileMap.getNewName())
+                        || fileMap.getNewName().length() < 2) {
+                    continue;
+                }
+
+                String newName = fileMap.getNewName();
+                imageUrls.add(minioConfig.getUrl() + "/" + minioConfig.getBucketName()
+                        + "/" + newName.substring(0, 2) + "/" + newName);
+            }
+            disease.setImages(imageUrls);
+        }
+
         return diseases;
     }
 

@@ -25,6 +25,14 @@ public interface BuildingMapper {
     public Building selectBuildingById(Long id);
 
     /**
+     * 根据ID列表批量查询有效建筑。
+     *
+     * @param ids 建筑ID列表
+     * @return 建筑集合
+     */
+    public List<Building> selectBuildingsByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 查询建筑列表
      *
      * @param building 建筑

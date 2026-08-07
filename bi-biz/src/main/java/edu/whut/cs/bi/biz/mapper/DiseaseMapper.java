@@ -32,6 +32,14 @@ public interface DiseaseMapper {
     List<Disease> selectDiseaseList(Disease disease);
 
     /**
+     * 按任务ID批量查询病害，供纯Excel导出使用。
+     *
+     * @param taskIds 任务ID列表
+     * @return 病害集合
+     */
+    List<Disease> selectDiseaseListByTaskIds(@Param("taskIds") List<Long> taskIds);
+
+    /**
      * 新增病害
      *
      * @param disease 病害

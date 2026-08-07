@@ -147,6 +147,15 @@
         where b.id = #{id} and b.del_flag = '0'
     </select>
 
+    <select id="selectBuildingsByIds" resultMap="BuildingResult">
+        <include refid="selectBuildingVo"/>
+        where b.id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and b.del_flag = '0'
+    </select>
+
     <select id="selectProjectBuildingVOList" resultType="ProjectBuildingVO">
         SELECT
         b.*,

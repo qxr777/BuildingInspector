@@ -39,6 +39,14 @@ public interface IDiseaseService {
     List<Disease> selectDiseaseListForTask(Disease disease);
 
     /**
+     * 批量查询纯Excel导出需要的病害、构件和图片URL。
+     *
+     * @param taskIds 任务ID列表
+     * @return 按任务顺序、病害创建时间倒序排列的病害集合
+     */
+    List<Disease> selectDiseaseListForExcel(List<Long> taskIds);
+
+    /**
      * 查询病害列表
      *
      * @param disease 病害

@@ -81,6 +81,14 @@
             <a class="btn btn-info multiple disabled" onclick="batchExportDiseaseExcel()" shiro:hasPermission="biz:disease:export">
                 <i class="fa fa-file-excel-o"></i> 批量导出病害Excel
             </a>
+            <a id="sort-by-name" class="btn btn-default task-sort-button" onclick="toggleTaskSort('buildingName')"
+               title="再次点击可切换升序/降序">
+                <i class="fa fa-sort"></i> 按名称降序/升序
+            </a>
+            <a id="sort-by-time" class="btn btn-primary task-sort-button" onclick="toggleTaskSort('updateTime')"
+               title="再次点击可切换升序/降序">
+                <i class="fa fa-sort-amount-desc"></i> 按时间升序/降序
+            </a>
         </div>
         <div class="col-sm-12 select-table table-striped">
             <table id="bootstrap-table"></table>
@@ -116,6 +124,8 @@
             updateUrl: prefix + "/edit/{id}",
             exportUrl: prefix + "/export",
             modalName: "检测任务",
+            sortName: "updateTime",
+            sortOrder: "desc",
 
             columns: [{
                 checkbox: true
@@ -196,7 +206,47 @@
         };
 
         $.table.init(options);
+        updateTaskSortButtons(options.sortName, options.sortOrder);
     });
+
+    function toggleTaskSort(sortName) {
+        var options = $('#bootstrap-table').bootstrapTable('getOptions');
+        var sortOrder;
+
+        if (options.sortName === sortName) {
+            sortOrder = options.sortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortOrder = sortName === 'buildingName' ? 'asc' : 'desc';
+        }
+
+        sortTasks(sortName, sortOrder);
+    }
+
+    function sortTasks(sortName, sortOrder) {
+        $.table.refreshOptions({
+            sortName: sortName,
+            sortOrder: sortOrder,
+            pageNumber: 1
+        });
+        updateTaskSortButtons(sortName, sortOrder);
+    }
+
+    function updateTaskSortButtons(sortName, sortOrder) {
+        $('.task-sort-button').removeClass('btn-primary').addClass('btn-default');
+        $('#sort-by-name').html('<i class="fa fa-sort"></i> 按名称降序/升序');
+        $('#sort-by-time').html('<i class="fa fa-sort"></i> 按时间升序/降序');
+
+        var directionIcon = sortOrder === 'asc' ? 'asc' : 'desc';
+        if (sortName === 'buildingName') {
+            $('#sort-by-name')
+                .removeClass('btn-default').addClass('btn-primary')
+                .html('<i class="fa fa-sort-alpha-' + directionIcon + '"></i> 按名称降序/升序');
+        } else {
+            $('#sort-by-time')
+                .removeClass('btn-default').addClass('btn-primary')
+                .html('<i class="fa fa-sort-amount-' + directionIcon + '"></i> 按时间升序/降序');
+        }
+    }
 
     function inspect(taskId) {
         var url = prefix + "/inspect/" + taskId;
@@ -410,7 +460,6 @@
             $(document.body).append(downloadFrame);
 
             setTimeout(function() {
-                downloadFrame.remove();
                 $.modal.closeLoading();
             }, 30000);
         });

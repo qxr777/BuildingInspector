@@ -42,7 +42,13 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -61,6 +67,13 @@ public class TaskController extends BaseController {
             "序号", "桥梁名称", "幅别", "部位", "部件", "缺损位置", "缺损类型", "数量", "数量合计", "单位",
             "缺损情况", "维修建议", "评定类别", "照片编号", "发展趋势", "备注"
     };
+
+    private static class BatchDiseaseExcelData {
+        private final Map<Long, Task> taskMap = new HashMap<>();
+        private final Map<Long, List<Disease>> diseaseMap = new LinkedHashMap<>();
+        private final Map<Long, Building> buildingMap = new HashMap<>();
+        private final Map<Long, BiObject> biObjectMap = new HashMap<>();
+    }
 
     @Resource
     private ITaskService taskService;
@@ -335,6 +348,7 @@ public class TaskController extends BaseController {
      */
     private Workbook buildBatchDiseaseWorkbook(List<Long> taskIdList, List<String> allPhotoUrls,
                                                boolean photoLinks) {
+        BatchDiseaseExcelData excelData = photoLinks ? loadBatchDiseaseExcelData(taskIdList) : null;
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("病害数据");
         CellStyle centerStyle = photoLinks ? createCenterStyle(workbook) : null;
@@ -354,14 +368,19 @@ public class TaskController extends BaseController {
         int photoSerialNum = 1;
 
         for (Long taskId : taskIdList) {
-            Task task = taskService.selectTaskById(taskId);
+            Task task = photoLinks ? excelData.taskMap.get(taskId) : taskService.selectTaskById(taskId);
             if (task == null) {
                 continue;
             }
 
-            Disease queryDisease = new Disease();
-            queryDisease.setTaskId(taskId);
-            List<Disease> diseaseList = diseaseService.selectDiseaseListForTask(queryDisease);
+            List<Disease> diseaseList;
+            if (photoLinks) {
+                diseaseList = excelData.diseaseMap.getOrDefault(taskId, Collections.emptyList());
+            } else {
+                Disease queryDisease = new Disease();
+                queryDisease.setTaskId(taskId);
+                diseaseList = diseaseService.selectDiseaseListForTask(queryDisease);
+            }
 
             for (Disease disease : diseaseList) {
                 Row row = sheet.createRow(rowIndex++);
@@ -369,8 +388,8 @@ public class TaskController extends BaseController {
 
                 row.createCell(cellIndex++).setCellValue(diseaseSerialNum++);
 
-                Building building = disease.getBuildingId() == null
-                        ? null
+                Building building = disease.getBuildingId() == null ? null
+                        : photoLinks ? excelData.buildingMap.get(disease.getBuildingId())
                         : buildingMapper.selectBuildingById(disease.getBuildingId());
                 String bridgeName = building != null && building.getName() != null ? building.getName() : "";
                 row.createCell(cellIndex++).setCellValue(bridgeName);
@@ -378,7 +397,8 @@ public class TaskController extends BaseController {
                 // 幅别暂无数据源
                 row.createCell(cellIndex++).setCellValue("");
 
-                BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+                BiObject biObject = photoLinks ? excelData.biObjectMap.get(disease.getBiObjectId())
+                        : biObjectMapper.selectBiObjectById(disease.getBiObjectId());
                 String[] ancestorsIdArray = null;
                 if (biObject != null && biObject.getAncestors() != null && !biObject.getAncestors().isEmpty()) {
                     ancestorsIdArray = biObject.getAncestors().split(",");
@@ -386,7 +406,8 @@ public class TaskController extends BaseController {
 
                 BiObject buildingObject = null;
                 if (building != null && building.getRootObjectId() != null) {
-                    buildingObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                    buildingObject = photoLinks ? excelData.biObjectMap.get(building.getRootObjectId())
+                            : biObjectMapper.selectBiObjectById(building.getRootObjectId());
                 }
                 boolean isFixedBridge = buildingObject != null
                         && buildingObject.getAncestors() != null
@@ -398,12 +419,14 @@ public class TaskController extends BaseController {
                     int partLocationObjectIndex = isFixedBridge ? 3 : 2;
                     int nextPartLocationObjectIndex = isFixedBridge ? 4 : 3;
                     if (partLocationObjectIndex < ancestorsIdArray.length) {
-                        partLocationObject = biObjectMapper.selectBiObjectById(
-                                Long.valueOf(ancestorsIdArray[partLocationObjectIndex]));
+                        Long partLocationObjectId = Long.valueOf(ancestorsIdArray[partLocationObjectIndex]);
+                        partLocationObject = photoLinks ? excelData.biObjectMap.get(partLocationObjectId)
+                                : biObjectMapper.selectBiObjectById(partLocationObjectId);
                     }
                     if (nextPartLocationObjectIndex < ancestorsIdArray.length) {
-                        nextPartLocationObject = biObjectMapper.selectBiObjectById(
-                                Long.valueOf(ancestorsIdArray[nextPartLocationObjectIndex]));
+                        Long nextPartLocationObjectId = Long.valueOf(ancestorsIdArray[nextPartLocationObjectIndex]);
+                        nextPartLocationObject = photoLinks ? excelData.biObjectMap.get(nextPartLocationObjectId)
+                                : biObjectMapper.selectBiObjectById(nextPartLocationObjectId);
                     }
                 }
 
@@ -481,6 +504,72 @@ public class TaskController extends BaseController {
             sheet.setColumnWidth(i, Math.min(currentWidth + 10 * 256, maxColumnWidth));
         }
         return workbook;
+    }
+
+    /**
+     * 批量准备纯Excel导出数据。ZIP导出不调用此方法，继续沿用原查询链路。
+     */
+    private BatchDiseaseExcelData loadBatchDiseaseExcelData(List<Long> taskIdList) {
+        BatchDiseaseExcelData data = new BatchDiseaseExcelData();
+
+        for (Task task : taskService.selectTaskListByIds(taskIdList)) {
+            data.taskMap.put(task.getId(), task);
+        }
+
+        List<Disease> diseases = diseaseService.selectDiseaseListForExcel(taskIdList);
+        Set<Long> buildingIds = new LinkedHashSet<>();
+        Set<Long> initialBiObjectIds = new LinkedHashSet<>();
+        for (Disease disease : diseases) {
+            data.diseaseMap.computeIfAbsent(disease.getTaskId(), key -> new ArrayList<>()).add(disease);
+            if (disease.getBuildingId() != null) {
+                buildingIds.add(disease.getBuildingId());
+            }
+            if (disease.getBiObjectId() != null) {
+                initialBiObjectIds.add(disease.getBiObjectId());
+            }
+        }
+
+        if (!buildingIds.isEmpty()) {
+            for (Building building : buildingMapper.selectBuildingsByIds(new ArrayList<>(buildingIds))) {
+                data.buildingMap.put(building.getId(), building);
+                if (building.getRootObjectId() != null) {
+                    initialBiObjectIds.add(building.getRootObjectId());
+                }
+            }
+        }
+
+        putValidBiObjects(data.biObjectMap, initialBiObjectIds);
+
+        Set<Long> ancestorIds = new LinkedHashSet<>();
+        for (Disease disease : diseases) {
+            BiObject biObject = data.biObjectMap.get(disease.getBiObjectId());
+            if (biObject == null || biObject.getAncestors() == null || biObject.getAncestors().isEmpty()) {
+                continue;
+            }
+            for (String ancestorId : biObject.getAncestors().split(",")) {
+                try {
+                    Long id = Long.valueOf(ancestorId.trim());
+                    if (!data.biObjectMap.containsKey(id)) {
+                        ancestorIds.add(id);
+                    }
+                } catch (NumberFormatException ignored) {
+                    // 与原导出保持空值容错，非法祖先ID不参与批量查询。
+                }
+            }
+        }
+        putValidBiObjects(data.biObjectMap, ancestorIds);
+        return data;
+    }
+
+    private void putValidBiObjects(Map<Long, BiObject> target, Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return;
+        }
+        for (BiObject biObject : biObjectMapper.selectBiObjectsByIds(new ArrayList<>(ids))) {
+            if ("0".equals(biObject.getDelFlag())) {
+                target.put(biObject.getId(), biObject);
+            }
+        }
     }
 
     private CellStyle createCenterStyle(Workbook workbook) {
