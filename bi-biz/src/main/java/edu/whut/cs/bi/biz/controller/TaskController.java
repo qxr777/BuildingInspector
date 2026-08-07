@@ -15,9 +15,16 @@ import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.ITaskService;
+import org.apache.poi.common.usermodel.HyperlinkType;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.Hyperlink;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -49,6 +56,11 @@ import java.util.zip.ZipOutputStream;
 @RequestMapping("/biz/task")
 public class TaskController extends BaseController {
     private String prefix = "biz/task";
+
+    private static final String[] BATCH_DISEASE_HEADERS = {
+            "序号", "桥梁名称", "幅别", "部位", "部件", "缺损位置", "缺损类型", "数量", "数量合计", "单位",
+            "缺损情况", "维修建议", "评定类别", "照片编号", "发展趋势", "备注"
+    };
 
     @Resource
     private ITaskService taskService;
@@ -197,197 +209,17 @@ public class TaskController extends BaseController {
     @GetMapping("/batchExport")
     public void batchExport(@RequestParam("taskIds") String taskIds, HttpServletResponse response) throws IOException {
         System.out.println("开始批量导出任务病害数据，任务ID: " + taskIds);
-        if (taskIds == null || taskIds.isEmpty()) {
-            return;
-        }
-
-        // 解析任务ID
-        String[] taskIdArray = taskIds.split(",");
-        List<Long> taskIdList = new ArrayList<>();
-        for (String taskId : taskIdArray) {
-            try {
-                taskIdList.add(Long.parseLong(taskId));
-            } catch (NumberFormatException e) {
-                // 忽略无效ID
-            }
-        }
-
+        List<Long> taskIdList = parseTaskIds(taskIds);
         if (taskIdList.isEmpty()) {
             return;
         }
 
         // -------------------------- 步骤1：生成Excel --------------------------
         ByteArrayOutputStream excelBaos = new ByteArrayOutputStream();
-        Workbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet("病害数据");
-
-        // 创建表头
-        Row headerRow = sheet.createRow(0);
-        String[] headers = {"序号", "桥梁名称", "幅别", "部位", "部件", "缺损位置", "缺损类型", "数量", "数量合计", "单位",
-                "缺损情况", "维修建议", "评定类别", "照片编号", "发展趋势", "备注"};
-        for (int i = 0; i < headers.length; i++) {
-            Cell cell = headerRow.createCell(i);
-            cell.setCellValue(headers[i]);
-        }
-
-        // 存储所有需要下载的图片URL
         List<String> allPhotoUrls = new ArrayList<>();
-
-        // 行索引（从1开始，0是表头）
-        int rowIndex = 1;
-        // 全局图片序号
-        int photoSerialNum = 1;
-
-        // 处理每个任务的病害数据
-        for (Long taskId : taskIdList) {
-            Task task = taskService.selectTaskById(taskId);
-            if (task == null) {
-                continue;
-            }
-
-            // 查询该任务的所有病害
-            Disease queryDisease = new Disease();
-            queryDisease.setTaskId(taskId);
-            List<Disease> diseaseList = diseaseService.selectDiseaseListForTask(queryDisease);
-
-            // 填充Excel数据
-            for (Disease disease : diseaseList) {
-                Row row = sheet.createRow(rowIndex++);
-                int cellIndex = 0;
-
-                // 序号
-                row.createCell(cellIndex++).setCellValue(rowIndex - 1);
-
-                // 桥梁名称
-                String bridgeName = "";
-                if (disease.getBuildingId() != null) {
-                    Building building = buildingMapper.selectBuildingById(disease.getBuildingId());
-                    if (building != null && building.getName() != null) {
-                        bridgeName = building.getName();
-                    }
-                }
-                row.createCell(cellIndex++).setCellValue(bridgeName);
-
-                // 幅别 - 暂无数据源
-                row.createCell(cellIndex++).setCellValue("");
-                BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
-                String[] acestorsIdArray = null;
-                if (biObject != null) {
-                    acestorsIdArray = biObject.getAncestors().split(",");
-                }
-                Building building = buildingMapper.selectBuildingById(disease.getBuildingId());
-                BiObject buildingObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
-                boolean isFixedBridge = buildingObject.getAncestors().length() >= 2 ? true : false;
-                /**
-                 * 11.18 修改 从上到下 找节点 需要判断是否是组合桥。
-                 */
-                // 第二层 object 部位
-                BiObject partLocationObject = null;
-                // 第三层 object 部件
-                BiObject nextPartLocationObject = null;
-                if (acestorsIdArray != null && acestorsIdArray.length >= 4) {
-                    int partLocationObjectIndex = isFixedBridge ? 3 : 2;
-                    int nextPartLocationObjectIndex = isFixedBridge ? 4 : 3;
-                    // 第二层 object
-                    partLocationObject = biObjectMapper.selectBiObjectById(Long.valueOf(acestorsIdArray[partLocationObjectIndex]));
-                    // 第三层 object
-                    nextPartLocationObject = biObjectMapper.selectBiObjectById(Long.valueOf(acestorsIdArray[nextPartLocationObjectIndex]));
-                }
-                // 部位 - 对应 模板 的第二层（第一层是桥名） ，如上部结构
-                String partLocation = "";
-                if (partLocationObject != null && partLocationObject.getName() != null) {
-                    partLocation = partLocationObject.getName();
-                }
-                row.createCell(cellIndex++).setCellValue(partLocation);
-                // 部件
-                String partLocationNext = "";
-                if (nextPartLocationObject != null && nextPartLocationObject.getName() != null) {
-                    partLocationNext = nextPartLocationObject.getName();
-                }
-                row.createCell(cellIndex++).setCellValue(partLocationNext);
-                // 缺损位置。
-                String componentName = "";
-                if (disease.getComponent() != null && disease.getComponent().getName() != null) {
-                    componentName = disease.getComponent().getName();
-                }
-
-
-                // 缺损位置 (当前 批量导出的excel 的模板使用的是componentName)
-                row.createCell(cellIndex++).setCellValue(componentName != null ? componentName : "");
-
-                // 缺损类型
-                // 批量导出的excel 模板 不需要 # 编号.
-                String type = disease.getType();
-                if (null != type && !type.isEmpty() && type.contains("#")) {
-                    type = type.substring(type.lastIndexOf("#") + 1);
-                }
-                row.createCell(cellIndex++).setCellValue(type != null ? type : "");
-
-                // 数量
-                row.createCell(cellIndex++).setCellValue(disease.getQuantity());
-
-                // 数量合计 - 暂无明确计算逻辑
-                row.createCell(cellIndex++).setCellValue("");
-
-                // 单位
-                row.createCell(cellIndex++).setCellValue(disease.getUnits() != null ? disease.getUnits() : "");
-
-                // 缺损情况（病害描述）
-                row.createCell(cellIndex++).setCellValue(disease.getDescription() != null ? disease.getDescription() : "");
-
-                // 维修建议
-                row.createCell(cellIndex++).setCellValue(disease.getRepairRecommendation() != null ? disease.getRepairRecommendation() : "");
-
-                // 评定类别（1-5）- 对应标度
-                row.createCell(cellIndex++).setCellValue(disease.getLevel());
-
-                // 照片编号 - 处理照片
-                List<String> diseaseImages = disease.getImages();
-                if (diseaseImages != null && !diseaseImages.isEmpty()) {
-                    StringBuilder photoNames = new StringBuilder();
-                    for (String imgUrl : diseaseImages) {
-                        if (imgUrl == null || imgUrl.trim().isEmpty()) continue;
-
-                        // 生成3位序号文件名（001.jpg、002.jpg...）
-                        String photoFileName = String.format("%03d.jpg", photoSerialNum);
-
-                        // 记录URL（后续下载用）
-                        allPhotoUrls.add(imgUrl);
-
-                        // 拼接图片名到Excel单元格（多个图片用逗号分隔）
-                        if (photoNames.length() > 0) photoNames.append(", ");
-                        photoNames.append(photoFileName);
-
-                        // 序号自增（下一张图用）
-                        photoSerialNum++;
-                    }
-                    row.createCell(cellIndex++).setCellValue(photoNames.toString());
-                } else {
-                    row.createCell(cellIndex++).setCellValue("");
-                }
-
-                // 发展趋势
-                row.createCell(cellIndex++).setCellValue(disease.getDevelopmentTrend() != null ? disease.getDevelopmentTrend() : "");
-
-                // 备注
-                row.createCell(cellIndex).setCellValue(disease.getRemark() != null ? disease.getRemark() : "");
-            }
+        try (Workbook workbook = buildBatchDiseaseWorkbook(taskIdList, allPhotoUrls, false)) {
+            workbook.write(excelBaos);
         }
-
-        // 调整列宽
-        int maxColumnWidth = 255 * 256;
-        for (int i = 0; i < headers.length; i++) {
-            sheet.autoSizeColumn(i);
-            int currentWidth = sheet.getColumnWidth(i);
-            if (currentWidth > maxColumnWidth) {
-                currentWidth = maxColumnWidth;
-            }
-            int newWidth = Math.min(currentWidth + 10 * 256, maxColumnWidth);
-            sheet.setColumnWidth(i, newWidth);
-        }
-
-        workbook.write(excelBaos);
-        workbook.close();
 
         // -------------------------- 步骤2：构建Zip（含Excel+照片文件夹） --------------------------
 
@@ -447,6 +279,255 @@ public class TaskController extends BaseController {
 
             zipOut.flush(); // 强制刷新，确保所有数据写入响应
         }
+    }
+
+    /**
+     * 批量导出多个任务的病害 Excel，照片编号为可点击的图片 URL。
+     * 同一条病害有多张照片时，第一张照片放在病害所在行，其余照片各占一行，
+     * 这样每个照片编号都可以对应一个独立的 Excel 超链接。
+     */
+    @RequiresPermissions("biz:disease:export")
+    @Log(title = "批量导出任务病害Excel", businessType = BusinessType.EXPORT)
+    @GetMapping("/batchExportExcel")
+    public void batchExportExcel(@RequestParam("taskIds") String taskIds, HttpServletResponse response) throws IOException {
+        System.out.println("开始批量导出任务病害Excel，任务ID: " + taskIds);
+        List<Long> taskIdList = parseTaskIds(taskIds);
+        if (taskIdList.isEmpty()) {
+            return;
+        }
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        String fileName = URLEncoder.encode("任务病害数据.xlsx", StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        response.setHeader("Cache-Control", "no-store, no-cache");
+
+        Workbook workbook = buildBatchDiseaseWorkbook(taskIdList, null, true);
+        try {
+            workbook.write(response.getOutputStream());
+            response.getOutputStream().flush();
+        } finally {
+            workbook.close();
+        }
+    }
+
+    private List<Long> parseTaskIds(String taskIds) {
+        List<Long> taskIdList = new ArrayList<>();
+        if (taskIds == null || taskIds.trim().isEmpty()) {
+            return taskIdList;
+        }
+
+        for (String taskId : taskIds.split(",")) {
+            try {
+                taskIdList.add(Long.parseLong(taskId.trim()));
+            } catch (NumberFormatException e) {
+                // 忽略无效ID，保持与原批量导出逻辑一致
+            }
+        }
+        return taskIdList;
+    }
+
+    /**
+     * 构造批量病害 Excel。
+     *
+     * @param taskIdList   任务 ID
+     * @param allPhotoUrls ZIP 导出时收集图片 URL；纯 Excel 导出时可传 null
+     * @param photoLinks   是否将照片编号设置为图片 URL 超链接
+     */
+    private Workbook buildBatchDiseaseWorkbook(List<Long> taskIdList, List<String> allPhotoUrls,
+                                               boolean photoLinks) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("病害数据");
+        CellStyle centerStyle = photoLinks ? createCenterStyle(workbook) : null;
+        CellStyle hyperlinkStyle = photoLinks ? createHyperlinkStyle(workbook) : null;
+
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < BATCH_DISEASE_HEADERS.length; i++) {
+            Cell headerCell = headerRow.createCell(i);
+            headerCell.setCellValue(BATCH_DISEASE_HEADERS[i]);
+            if (photoLinks) {
+                headerCell.setCellStyle(centerStyle);
+            }
+        }
+
+        int rowIndex = 1;
+        int diseaseSerialNum = 1;
+        int photoSerialNum = 1;
+
+        for (Long taskId : taskIdList) {
+            Task task = taskService.selectTaskById(taskId);
+            if (task == null) {
+                continue;
+            }
+
+            Disease queryDisease = new Disease();
+            queryDisease.setTaskId(taskId);
+            List<Disease> diseaseList = diseaseService.selectDiseaseListForTask(queryDisease);
+
+            for (Disease disease : diseaseList) {
+                Row row = sheet.createRow(rowIndex++);
+                int cellIndex = 0;
+
+                row.createCell(cellIndex++).setCellValue(diseaseSerialNum++);
+
+                Building building = disease.getBuildingId() == null
+                        ? null
+                        : buildingMapper.selectBuildingById(disease.getBuildingId());
+                String bridgeName = building != null && building.getName() != null ? building.getName() : "";
+                row.createCell(cellIndex++).setCellValue(bridgeName);
+
+                // 幅别暂无数据源
+                row.createCell(cellIndex++).setCellValue("");
+
+                BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+                String[] ancestorsIdArray = null;
+                if (biObject != null && biObject.getAncestors() != null && !biObject.getAncestors().isEmpty()) {
+                    ancestorsIdArray = biObject.getAncestors().split(",");
+                }
+
+                BiObject buildingObject = null;
+                if (building != null && building.getRootObjectId() != null) {
+                    buildingObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                }
+                boolean isFixedBridge = buildingObject != null
+                        && buildingObject.getAncestors() != null
+                        && buildingObject.getAncestors().length() >= 2;
+
+                BiObject partLocationObject = null;
+                BiObject nextPartLocationObject = null;
+                if (ancestorsIdArray != null) {
+                    int partLocationObjectIndex = isFixedBridge ? 3 : 2;
+                    int nextPartLocationObjectIndex = isFixedBridge ? 4 : 3;
+                    if (partLocationObjectIndex < ancestorsIdArray.length) {
+                        partLocationObject = biObjectMapper.selectBiObjectById(
+                                Long.valueOf(ancestorsIdArray[partLocationObjectIndex]));
+                    }
+                    if (nextPartLocationObjectIndex < ancestorsIdArray.length) {
+                        nextPartLocationObject = biObjectMapper.selectBiObjectById(
+                                Long.valueOf(ancestorsIdArray[nextPartLocationObjectIndex]));
+                    }
+                }
+
+                row.createCell(cellIndex++).setCellValue(
+                        partLocationObject != null && partLocationObject.getName() != null
+                                ? partLocationObject.getName() : "");
+                row.createCell(cellIndex++).setCellValue(
+                        nextPartLocationObject != null && nextPartLocationObject.getName() != null
+                                ? nextPartLocationObject.getName() : "");
+
+                String componentName = disease.getComponent() != null && disease.getComponent().getName() != null
+                        ? disease.getComponent().getName() : "";
+                row.createCell(cellIndex++).setCellValue(componentName);
+
+                String type = disease.getType();
+                if (type != null && !type.isEmpty() && type.contains("#")) {
+                    type = type.substring(type.lastIndexOf("#") + 1);
+                }
+                row.createCell(cellIndex++).setCellValue(type != null ? type : "");
+                row.createCell(cellIndex++).setCellValue(disease.getQuantity());
+                // 数量合计暂无明确计算逻辑
+                row.createCell(cellIndex++).setCellValue("");
+                row.createCell(cellIndex++).setCellValue(disease.getUnits() != null ? disease.getUnits() : "");
+                row.createCell(cellIndex++).setCellValue(
+                        disease.getDescription() != null ? disease.getDescription() : "");
+                row.createCell(cellIndex++).setCellValue(
+                        disease.getRepairRecommendation() != null ? disease.getRepairRecommendation() : "");
+                row.createCell(cellIndex++).setCellValue(disease.getLevel());
+
+                List<String> photoNames = new ArrayList<>();
+                List<String> photoUrls = new ArrayList<>();
+                List<String> diseaseImages = disease.getImages();
+                if (diseaseImages != null) {
+                    for (String imgUrl : diseaseImages) {
+                        if (imgUrl == null || imgUrl.trim().isEmpty()) {
+                            continue;
+                        }
+                        String photoFileName = String.format("%03d.jpg", photoSerialNum++);
+                        photoNames.add(photoFileName);
+                        photoUrls.add(imgUrl);
+                        if (allPhotoUrls != null) {
+                            allPhotoUrls.add(imgUrl);
+                        }
+                    }
+                }
+
+                Cell photoCell = row.createCell(cellIndex++);
+                if (photoLinks) {
+                    if (!photoNames.isEmpty()) {
+                        setPhotoHyperlink(photoCell, photoNames.get(0), photoUrls.get(0), workbook, hyperlinkStyle);
+                        for (int i = 1; i < photoNames.size(); i++) {
+                            Row extraPhotoRow = sheet.createRow(rowIndex++);
+                            Cell extraPhotoCell = extraPhotoRow.createCell(13);
+                            setPhotoHyperlink(extraPhotoCell, photoNames.get(i), photoUrls.get(i), workbook, hyperlinkStyle);
+                        }
+                    }
+                } else {
+                    photoCell.setCellValue(String.join(", ", photoNames));
+                }
+
+                row.createCell(cellIndex++).setCellValue(
+                        disease.getDevelopmentTrend() != null ? disease.getDevelopmentTrend() : "");
+                row.createCell(cellIndex).setCellValue(disease.getRemark() != null ? disease.getRemark() : "");
+
+                if (photoLinks) {
+                    applyDataAlignment(row, centerStyle);
+                }
+            }
+        }
+
+        int maxColumnWidth = 255 * 256;
+        for (int i = 0; i < BATCH_DISEASE_HEADERS.length; i++) {
+            sheet.autoSizeColumn(i);
+            int currentWidth = Math.min(sheet.getColumnWidth(i), maxColumnWidth);
+            sheet.setColumnWidth(i, Math.min(currentWidth + 10 * 256, maxColumnWidth));
+        }
+        return workbook;
+    }
+
+    private CellStyle createCenterStyle(Workbook workbook) {
+        CellStyle centerStyle = workbook.createCellStyle();
+        centerStyle.setAlignment(HorizontalAlignment.CENTER);
+        centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        return centerStyle;
+    }
+
+    private CellStyle createHyperlinkStyle(Workbook workbook) {
+        Font hyperlinkFont = workbook.createFont();
+        hyperlinkFont.setColor(IndexedColors.BLUE.getIndex());
+        hyperlinkFont.setUnderline(Font.U_SINGLE);
+
+        CellStyle hyperlinkStyle = workbook.createCellStyle();
+        hyperlinkStyle.setFont(hyperlinkFont);
+        hyperlinkStyle.setAlignment(HorizontalAlignment.CENTER);
+        hyperlinkStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        return hyperlinkStyle;
+    }
+
+    private void applyDataAlignment(Row row, CellStyle centerStyle) {
+        // 缺损位置、缺损类型、缺损情况保持默认左对齐，其余列居中。
+        int[] leftAlignedColumns = {5, 6, 10};
+        for (int columnIndex = 0; columnIndex < BATCH_DISEASE_HEADERS.length; columnIndex++) {
+            boolean keepLeftAligned = false;
+            for (int leftAlignedColumn : leftAlignedColumns) {
+                if (columnIndex == leftAlignedColumn) {
+                    keepLeftAligned = true;
+                    break;
+                }
+            }
+
+            Cell cell = row.getCell(columnIndex);
+            if (!keepLeftAligned && cell != null && cell.getHyperlink() == null) {
+                cell.setCellStyle(centerStyle);
+            }
+        }
+    }
+
+    private void setPhotoHyperlink(Cell cell, String displayName, String imageUrl,
+                                   Workbook workbook, CellStyle hyperlinkStyle) {
+        cell.setCellValue(displayName);
+        Hyperlink hyperlink = workbook.getCreationHelper().createHyperlink(HyperlinkType.URL);
+        hyperlink.setAddress(imageUrl);
+        cell.setHyperlink(hyperlink);
+        cell.setCellStyle(hyperlinkStyle);
     }
 
     /**
