@@ -776,7 +776,7 @@ public class ApiController {
     /**
      * 获取移动端App当前发布版本信息。
      * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无发布包或文件映射缺失。
-     * 成功时返回version、apkName、packageSize和MinIO下载url，用于移动端检查版本更新。
+     * 成功时返回version、apkName、packageSize、remark和MinIO下载url，用于移动端检查版本更新。
      */
     @GetMapping("/user/appUpdate")
     @ResponseBody

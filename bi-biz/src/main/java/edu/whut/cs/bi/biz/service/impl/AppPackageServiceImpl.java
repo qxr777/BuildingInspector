@@ -119,6 +119,7 @@ public class AppPackageServiceImpl implements IAppPackageService {
                 .put("packageSize", appPackage.getPackageSize())
                 .put("version", appPackage.getVersion())
                 .put("apkName", appPackage.getApkName())
+                .put("remark", appPackage.getRemark() == null ? "" : appPackage.getRemark())
                 .put("url", url);
     }
 
