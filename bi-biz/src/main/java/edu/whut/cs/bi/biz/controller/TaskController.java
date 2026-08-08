@@ -68,11 +68,17 @@ public class TaskController extends BaseController {
             "缺损情况", "维修建议", "评定类别", "照片编号", "发展趋势", "备注"
     };
 
+    /** 纯Excel普通列的最大宽度（字符数）；缺损位置、缺损类型、缺损情况使用对应的固定宽度。 */
+    private static final int[] BATCH_DISEASE_EXCEL_MAX_WIDTHS = {
+            8, 18, 10, 16, 16, 22, 26, 8, 10, 8, 46, 30, 10, 12, 24
+    };
+
     private static class BatchDiseaseExcelData {
         private final Map<Long, Task> taskMap = new HashMap<>();
         private final Map<Long, List<Disease>> diseaseMap = new LinkedHashMap<>();
         private final Map<Long, Building> buildingMap = new HashMap<>();
         private final Map<Long, BiObject> biObjectMap = new HashMap<>();
+        private int maxPhotoCount = 1;
     }
 
     @Resource
@@ -296,8 +302,8 @@ public class TaskController extends BaseController {
 
     /**
      * 批量导出多个任务的病害 Excel，照片编号为可点击的图片 URL。
-     * 同一条病害有多张照片时，第一张照片放在病害所在行，其余照片各占一行，
-     * 这样每个照片编号都可以对应一个独立的 Excel 超链接。
+     * 照片列统一放在末尾；同一条病害有多张照片时，在同一行增加照片列，
+     * 让每个照片编号都对应一个独立的 Excel 超链接。
      */
     @RequiresPermissions("biz:disease:export")
     @Log(title = "批量导出任务病害Excel", businessType = BusinessType.EXPORT)
@@ -351,16 +357,17 @@ public class TaskController extends BaseController {
         BatchDiseaseExcelData excelData = photoLinks ? loadBatchDiseaseExcelData(taskIdList) : null;
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("病害数据");
-        CellStyle centerStyle = photoLinks ? createCenterStyle(workbook) : null;
+        CellStyle leftAlignedStyle = createLeftAlignedStyle(workbook);
         CellStyle hyperlinkStyle = photoLinks ? createHyperlinkStyle(workbook) : null;
+        String[] headers = photoLinks
+                ? createBatchDiseaseExcelHeaders(excelData.maxPhotoCount)
+                : BATCH_DISEASE_HEADERS;
 
         Row headerRow = sheet.createRow(0);
-        for (int i = 0; i < BATCH_DISEASE_HEADERS.length; i++) {
+        for (int i = 0; i < headers.length; i++) {
             Cell headerCell = headerRow.createCell(i);
-            headerCell.setCellValue(BATCH_DISEASE_HEADERS[i]);
-            if (photoLinks) {
-                headerCell.setCellStyle(centerStyle);
-            }
+            headerCell.setCellValue(headers[i]);
+            headerCell.setCellStyle(leftAlignedStyle);
         }
 
         int rowIndex = 1;
@@ -473,35 +480,42 @@ public class TaskController extends BaseController {
                     }
                 }
 
-                Cell photoCell = row.createCell(cellIndex++);
                 if (photoLinks) {
-                    if (!photoNames.isEmpty()) {
-                        setPhotoHyperlink(photoCell, photoNames.get(0), photoUrls.get(0), workbook, hyperlinkStyle);
-                        for (int i = 1; i < photoNames.size(); i++) {
-                            Row extraPhotoRow = sheet.createRow(rowIndex++);
-                            Cell extraPhotoCell = extraPhotoRow.createCell(13);
-                            setPhotoHyperlink(extraPhotoCell, photoNames.get(i), photoUrls.get(i), workbook, hyperlinkStyle);
+                    row.createCell(cellIndex++).setCellValue(
+                            disease.getDevelopmentTrend() != null ? disease.getDevelopmentTrend() : "");
+                    row.createCell(cellIndex++).setCellValue(
+                            disease.getRemark() != null ? disease.getRemark() : "");
+
+                    for (int i = 0; i < excelData.maxPhotoCount; i++) {
+                        Cell photoCell = row.createCell(cellIndex++);
+                        if (i < photoNames.size()) {
+                            setPhotoHyperlink(photoCell, photoNames.get(i), photoUrls.get(i), workbook, hyperlinkStyle);
                         }
                     }
+                    applyLeftAlignment(row, leftAlignedStyle, headers.length);
                 } else {
+                    Cell photoCell = row.createCell(cellIndex++);
                     photoCell.setCellValue(String.join(", ", photoNames));
-                }
-
-                row.createCell(cellIndex++).setCellValue(
-                        disease.getDevelopmentTrend() != null ? disease.getDevelopmentTrend() : "");
-                row.createCell(cellIndex).setCellValue(disease.getRemark() != null ? disease.getRemark() : "");
-
-                if (photoLinks) {
-                    applyDataAlignment(row, centerStyle);
+                    row.createCell(cellIndex++).setCellValue(
+                            disease.getDevelopmentTrend() != null ? disease.getDevelopmentTrend() : "");
+                    row.createCell(cellIndex).setCellValue(disease.getRemark() != null ? disease.getRemark() : "");
+                    applyLeftAlignment(row, leftAlignedStyle, headers.length);
                 }
             }
         }
 
         int maxColumnWidth = 255 * 256;
-        for (int i = 0; i < BATCH_DISEASE_HEADERS.length; i++) {
+        for (int i = 0; i < headers.length; i++) {
             sheet.autoSizeColumn(i);
             int currentWidth = Math.min(sheet.getColumnWidth(i), maxColumnWidth);
-            sheet.setColumnWidth(i, Math.min(currentWidth + 10 * 256, maxColumnWidth));
+            int compactWidth = Math.min(currentWidth + 2 * 256, maxColumnWidth);
+            if (i == 5 || i == 6 || i == 10) {
+                // 缺损位置、缺损类型、缺损情况使用指定的固定宽度。
+                sheet.setColumnWidth(i, BATCH_DISEASE_EXCEL_MAX_WIDTHS[i] * 256);
+            } else {
+                int compactMaxWidth = getBatchDiseaseColumnMaxWidth(i, photoLinks) * 256;
+                sheet.setColumnWidth(i, Math.min(compactWidth, compactMaxWidth));
+            }
         }
         return workbook;
     }
@@ -521,6 +535,15 @@ public class TaskController extends BaseController {
         Set<Long> initialBiObjectIds = new LinkedHashSet<>();
         for (Disease disease : diseases) {
             data.diseaseMap.computeIfAbsent(disease.getTaskId(), key -> new ArrayList<>()).add(disease);
+            if (disease.getImages() != null) {
+                int photoCount = 0;
+                for (String imageUrl : disease.getImages()) {
+                    if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+                        photoCount++;
+                    }
+                }
+                data.maxPhotoCount = Math.max(data.maxPhotoCount, photoCount);
+            }
             if (disease.getBuildingId() != null) {
                 buildingIds.add(disease.getBuildingId());
             }
@@ -572,11 +595,43 @@ public class TaskController extends BaseController {
         }
     }
 
-    private CellStyle createCenterStyle(Workbook workbook) {
-        CellStyle centerStyle = workbook.createCellStyle();
-        centerStyle.setAlignment(HorizontalAlignment.CENTER);
-        centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-        return centerStyle;
+    private String[] createBatchDiseaseExcelHeaders(int photoCount) {
+        List<String> headers = new ArrayList<>();
+        for (int i = 0; i < 13; i++) {
+            headers.add(BATCH_DISEASE_HEADERS[i]);
+        }
+        headers.add(BATCH_DISEASE_HEADERS[14]);
+        headers.add(BATCH_DISEASE_HEADERS[15]);
+        for (int i = 0; i < photoCount; i++) {
+            headers.add(photoCount == 1 ? "照片" : "照片" + (i + 1));
+        }
+        return headers.toArray(new String[0]);
+    }
+
+    private int getBatchDiseaseColumnMaxWidth(int columnIndex, boolean photoLinks) {
+        if (photoLinks) {
+            return columnIndex < BATCH_DISEASE_EXCEL_MAX_WIDTHS.length
+                    ? BATCH_DISEASE_EXCEL_MAX_WIDTHS[columnIndex] : 12;
+        }
+
+        // ZIP内Excel仍保持“照片编号、发展趋势、备注”的原列顺序。
+        if (columnIndex == 13) {
+            return 12;
+        }
+        if (columnIndex == 14) {
+            return BATCH_DISEASE_EXCEL_MAX_WIDTHS[13];
+        }
+        if (columnIndex == 15) {
+            return BATCH_DISEASE_EXCEL_MAX_WIDTHS[14];
+        }
+        return BATCH_DISEASE_EXCEL_MAX_WIDTHS[columnIndex];
+    }
+
+    private CellStyle createLeftAlignedStyle(Workbook workbook) {
+        CellStyle leftAlignedStyle = workbook.createCellStyle();
+        leftAlignedStyle.setAlignment(HorizontalAlignment.LEFT);
+        leftAlignedStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        return leftAlignedStyle;
     }
 
     private CellStyle createHyperlinkStyle(Workbook workbook) {
@@ -586,26 +641,16 @@ public class TaskController extends BaseController {
 
         CellStyle hyperlinkStyle = workbook.createCellStyle();
         hyperlinkStyle.setFont(hyperlinkFont);
-        hyperlinkStyle.setAlignment(HorizontalAlignment.CENTER);
+        hyperlinkStyle.setAlignment(HorizontalAlignment.LEFT);
         hyperlinkStyle.setVerticalAlignment(VerticalAlignment.CENTER);
         return hyperlinkStyle;
     }
 
-    private void applyDataAlignment(Row row, CellStyle centerStyle) {
-        // 缺损位置、缺损类型、缺损情况保持默认左对齐，其余列居中。
-        int[] leftAlignedColumns = {5, 6, 10};
-        for (int columnIndex = 0; columnIndex < BATCH_DISEASE_HEADERS.length; columnIndex++) {
-            boolean keepLeftAligned = false;
-            for (int leftAlignedColumn : leftAlignedColumns) {
-                if (columnIndex == leftAlignedColumn) {
-                    keepLeftAligned = true;
-                    break;
-                }
-            }
-
+    private void applyLeftAlignment(Row row, CellStyle leftAlignedStyle, int columnCount) {
+        for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
             Cell cell = row.getCell(columnIndex);
-            if (!keepLeftAligned && cell != null && cell.getHyperlink() == null) {
-                cell.setCellStyle(centerStyle);
+            if (cell != null && cell.getHyperlink() == null) {
+                cell.setCellStyle(leftAlignedStyle);
             }
         }
     }
