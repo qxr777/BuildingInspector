@@ -70,7 +70,7 @@ public class TaskController extends BaseController {
 
     /** 纯Excel普通列的最大宽度（字符数）；缺损位置、缺损类型、缺损情况使用对应的固定宽度。 */
     private static final int[] BATCH_DISEASE_EXCEL_MAX_WIDTHS = {
-            8, 18, 10, 16, 16, 22, 26, 8, 10, 8, 46, 30, 10, 12, 24
+            8, 18, 10, 16, 16, 22, 26, 8, 10, 8, 46, 30, 10, 12, 24, 16
     };
 
     private static class BatchDiseaseExcelData {
@@ -485,6 +485,8 @@ public class TaskController extends BaseController {
                             disease.getDevelopmentTrend() != null ? disease.getDevelopmentTrend() : "");
                     row.createCell(cellIndex++).setCellValue(
                             disease.getRemark() != null ? disease.getRemark() : "");
+                    row.createCell(cellIndex++).setCellValue(
+                            disease.getUpdateBy() != null ? disease.getUpdateBy() : "");
 
                     for (int i = 0; i < excelData.maxPhotoCount; i++) {
                         Cell photoCell = row.createCell(cellIndex++);
@@ -602,6 +604,7 @@ public class TaskController extends BaseController {
         }
         headers.add(BATCH_DISEASE_HEADERS[14]);
         headers.add(BATCH_DISEASE_HEADERS[15]);
+        headers.add("更新用户名");
         for (int i = 0; i < photoCount; i++) {
             headers.add(photoCount == 1 ? "照片" : "照片" + (i + 1));
         }
