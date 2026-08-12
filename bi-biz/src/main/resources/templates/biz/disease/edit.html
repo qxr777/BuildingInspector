@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" th:fragment="diseasePage">
 <head>
-    <th:block th:include="include :: header('修改病害信息')"/>
+    <th:block th:if="${readOnlyMode}" th:include="include :: header('病害详情信息')"/>
+    <th:block th:unless="${readOnlyMode}" th:include="include :: header('修改病害信息')"/>
     <th:block th:include="include :: select2-css"/>
     <style>
         .main-content.disease-edit-page {
@@ -441,6 +442,25 @@
             padding: 4px 5px 0;
         }
 
+        .read-only-mode .form-control,
+        .read-only-mode .select2-container,
+        .read-only-mode .option-group,
+        .read-only-mode .input-group-addon {
+            cursor: default;
+        }
+
+        .read-only-mode .option-group {
+            pointer-events: none;
+        }
+
+        .read-only-mode .select2-container {
+            pointer-events: none;
+        }
+
+        .read-only-mode #filePreview .btn-danger {
+            display: none;
+        }
+
         @media (max-width: 1199px) {
             .form-grid,
             .detail-grid {
@@ -519,7 +539,7 @@
         }
     </style>
 </head>
-<body>
+<body th:classappend="${readOnlyMode} ? 'read-only-mode'">
 <div class="main-content disease-edit-page">
     <form
             class="form-horizontal m"
@@ -540,7 +560,7 @@
                 <div class="form-group form-field">
                     <label class="control-label is-required" for="treeName">部件名称</label>
                     <div class="input-group">
-                        <input class="form-control" type="text" onclick="selectBiObjectTree()" id="treeName" readonly th:value="${biObject.name}">
+                        <input class="form-control" type="text" th:onclick="${readOnlyMode} ? null : 'selectBiObjectTree()'" id="treeName" readonly th:value="${biObject.name}">
                         <span class="input-group-addon"><i class="fa fa-search"></i></span>
                     </div>
                 </div>
@@ -671,10 +691,29 @@
                     <label class="control-label is-required" for="description">病害描述</label>
                     <textarea name="description" id="description" required placeholder="请输入病害描述" maxlength="500"
                               class="form-control" rows="4" th:field="*{description}"></textarea>
-                    <div class="textarea-actions">
-                        <button type="button" class="btn btn-info edit-command" id="btnGenerateDescNew" onclick="generateAndFillDescriptionNew()">
+                    <div class="textarea-actions" th:unless="${readOnlyMode}">
+                        <button type="button" class="btn btn-info edit-command" id="btnGenerateDescNew"
+                                onclick="generateAndFillDescriptionNew()">
                             <i class="fa fa-cogs"></i>生成病害描述
                         </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="edit-section" aria-labelledby="attachmentTitle">
+            <h4 class="form-header h4 section-heading" id="attachmentTitle">附件</h4>
+            <div class="form-grid">
+                <div class="form-group form-field field-full">
+                    <label>附件文件</label>
+                    <input type="file" name="attachmentFiles" id="diseaseFiles" multiple accept="*/*" style="display: none"/>
+                    <div class="upload-toolbar" th:unless="${readOnlyMode}">
+                        <button type="button" class="btn btn-primary edit-command" onclick="$('#diseaseFiles').click()">
+                            <i class="fa fa-upload"></i>选择文件
+                        </button>
+                    </div>
+                    <div id="filePreview">
+                        <!-- 这里是文件预览区域，会显示已上传的文件和新上传的文件 -->
                     </div>
                 </div>
             </div>
@@ -687,7 +726,8 @@
                     <label for="causeAnalysisBox">病害成因</label>
                     <div class="cause-layout">
                         <textarea id="causeAnalysisBox" name="cause" class="form-control" rows="5"></textarea>
-                        <button type="button" class="btn btn-info edit-command" id="refreshCauseBtn">
+                        <button type="button" class="btn btn-info edit-command" id="refreshCauseBtn"
+                                th:unless="${readOnlyMode}">
                             <i class="fa fa-magic"></i>成因分析
                         </button>
                     </div>
@@ -696,23 +736,11 @@
                     <label for="remark">备注</label>
                     <textarea id="remark" name="remark" maxlength="500" class="form-control" rows="3" th:field="*{remark}"></textarea>
                 </div>
-                <div class="form-group form-field field-full">
-                    <label>附件</label>
-                    <input type="file" name="attachmentFiles" id="diseaseFiles" multiple accept="*/*" style="display: none"/>
-                    <div class="upload-toolbar">
-                        <button type="button" class="btn btn-primary edit-command" onclick="$('#diseaseFiles').click()">
-                            <i class="fa fa-upload"></i>选择文件
-                        </button>
-                    </div>
-                    <div id="filePreview">
-                        <!-- 这里是文件预览区域，会显示已上传的文件和新上传的文件 -->
-                    </div>
-                </div>
             </div>
         </section>
 
         <div class="form-actions">
-            <button type="button" class="btn btn-primary edit-command" onclick="submitHandler()">
+            <button type="button" class="btn btn-primary edit-command" th:unless="${readOnlyMode}" onclick="submitHandler()">
                 <i class="fa fa-check"></i>保存
             </button>
             <button type="button" class="btn btn-danger edit-command" onclick="closeItem()">
@@ -734,6 +762,7 @@
     var diseaseTypes;
     var positionObjects;
     var specialQuantitativeLayout = [[${specialQuantitativeLayout}]];
+    var readOnlyMode = [[${readOnlyMode}]];
     var defaultCrackTypes = ["纵向", "横向", "竖向", "斜向", "L型", "U型", "网状"];
 
     function isCustomDiseaseType(diseaseType) {
@@ -777,6 +806,7 @@
         updateLevelGroup();
         // 加载已上传的附件
         loadExistingAttachments();
+        enableReadOnlyMode();
         // 病害详情区初始化在loadDiseaseTypes的回调中进行，确保病害类型数据已加载
 
         if (disease.cause) {
@@ -1440,6 +1470,47 @@
         $(this).addClass('active').attr('aria-pressed', 'true');
         $group.siblings('.special-direction-value').val($(this).data('direction'));
     });
+
+    function enableReadOnlyMode() {
+        if (!readOnlyMode) {
+            return;
+        }
+
+        var form = document.getElementById('form-disease-edit');
+        if (!form) {
+            return;
+        }
+
+        function lockControls(root) {
+            $(root).find('input:not([type="hidden"]), textarea').prop('readonly', true);
+            $(root).find('select').prop('disabled', true);
+            $(root).find('.special-direction-btn')
+                    .prop('disabled', false)
+                    .attr('aria-disabled', 'true')
+                    .attr('tabindex', '-1');
+        }
+
+        lockControls(form);
+        new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (node.nodeType === 1) {
+                        lockControls(node);
+                        if (node.matches && node.matches('input:not([type="hidden"]), textarea')) {
+                            $(node).prop('readonly', true);
+                        } else if (node.matches && node.matches('select')) {
+                            $(node).prop('disabled', true);
+                        } else if (node.matches && node.matches('.special-direction-btn')) {
+                            $(node)
+                                    .prop('disabled', false)
+                                    .attr('aria-disabled', 'true')
+                                    .attr('tabindex', '-1');
+                        }
+                    }
+                });
+            });
+        }).observe(form, {childList: true, subtree: true});
+    }
 
     $(document).on('input', '.special-reference-item[data-reference-index="2"] .special-reference-sequence-end', function () {
         if (String($(this).val() || '').trim()) {
@@ -2959,12 +3030,13 @@
                                 );
                             }
 
-                            // 添加删除按钮
-                            thumbnail.append(
-                                '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"' +
-                                'data-id="' + attachment.id + '" onclick="removeExistingFile(this)">' +
-                                '<i class="fa fa-trash"></i></button>'
-                            );
+                            if (!readOnlyMode) {
+                                thumbnail.append(
+                                    '<button type="button" class="btn btn-xs btn-danger" style="position:absolute;top:5px;right:5px;"' +
+                                    'data-id="' + attachment.id + '" onclick="removeExistingFile(this)">' +
+                                    '<i class="fa fa-trash"></i></button>'
+                                );
+                            }
 
                             // 添加隐藏字段保存附件信息
                             thumbnail.append(

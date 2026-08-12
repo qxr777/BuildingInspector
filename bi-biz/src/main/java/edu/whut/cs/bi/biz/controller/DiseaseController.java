@@ -859,6 +859,7 @@ public class DiseaseController extends BaseController {
     @GetMapping("/edit/{id}")
     public String edit(@PathVariable("id") Long id, ModelMap mmap) {
         Disease disease = diseaseService.selectDiseaseById(id);
+        mmap.put("readOnlyMode", false);
 
         BiObject biObject = disease.getBiObject();
         mmap.put("biObject", biObject);
@@ -1014,14 +1015,34 @@ public class DiseaseController extends BaseController {
     }
 
     /**
-     * 修改病害
+     * 查看病害详情
      */
     @RequiresPermissions("biz:disease:list")
     @GetMapping("/showDiseaseDetail/{id}")
     public String showDiseaseDetail(@PathVariable("id") Long id, ModelMap mmap) {
         Disease disease = diseaseService.selectDiseaseById(id);
+        BiObject biObject = disease.getBiObject();
+
         mmap.put("disease", disease);
-        mmap.put("biObject", disease.getBiObject());
+        mmap.put("biObject", biObject);
+        mmap.put("readOnlyMode", true);
+        mmap.put("specialQuantitativeLayout", isSpecialQuantitativeLayout(disease, biObject));
+
+        if (biObject != null && "其他".equals(biObject.getName())) {
+            mmap.put("customPosition", disease.getPosition());
+        }
+
+        String imgNoExp = disease.getImgNoExp();
+        if (imgNoExp != null) {
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                List<String> imgs = mapper.readValue(imgNoExp, new TypeReference<List<String>>() {
+                });
+                disease.setImgNoExp(imgs.stream().collect(Collectors.joining("、")));
+            } catch (JsonProcessingException e) {
+                log.error("图片格式有误转化失败");
+            }
+        }
 
         return prefix + "/detail";
     }
