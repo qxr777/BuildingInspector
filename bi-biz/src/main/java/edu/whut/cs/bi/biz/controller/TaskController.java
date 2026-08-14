@@ -401,8 +401,7 @@ public class TaskController extends BaseController {
                 String bridgeName = building != null && building.getName() != null ? building.getName() : "";
                 row.createCell(cellIndex++).setCellValue(bridgeName);
 
-                // 幅别暂无数据源
-                row.createCell(cellIndex++).setCellValue("");
+                row.createCell(cellIndex++).setCellValue(resolveBridgeSide(bridgeName));
 
                 BiObject biObject = photoLinks ? excelData.biObjectMap.get(disease.getBiObjectId())
                         : biObjectMapper.selectBiObjectById(disease.getBiObjectId());
@@ -520,6 +519,22 @@ public class TaskController extends BaseController {
             }
         }
         return workbook;
+    }
+
+    /**
+     * 根据桥梁名称识别幅别；未包含左幅或右幅时保持为空。
+     */
+    private String resolveBridgeSide(String bridgeName) {
+        if (bridgeName == null || bridgeName.isEmpty()) {
+            return "";
+        }
+        if (bridgeName.contains("左幅")) {
+            return "左幅";
+        }
+        if (bridgeName.contains("右幅")) {
+            return "右幅";
+        }
+        return "";
     }
 
     /**
