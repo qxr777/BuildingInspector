@@ -16,6 +16,12 @@
         { key: "equipment", label: "主要仪器设备名称及编号", col: 6 }
     ];
 
+    var PERSONNEL_HEADER_FIELDS = [
+        { key: "inspector", label: "检测", col: 6 },
+        { key: "recorder", label: "记录", col: 6 },
+        { key: "reviewer", label: "复核", col: 6 }
+    ];
+
     function buildHeader(excludeKeys, extraFields, overrides) {
         var fields = [];
         STANDARD_HEADER_BASE.forEach(function (field) {
@@ -34,6 +40,14 @@
         if (extraFields && extraFields.length) {
             fields = fields.concat(extraFields);
         }
+        PERSONNEL_HEADER_FIELDS.forEach(function (field) {
+            if (excludeKeys && excludeKeys.indexOf(field.key) >= 0) {
+                return;
+            }
+            var copy = {};
+            Object.keys(field).forEach(function (k) { copy[k] = field[k]; });
+            fields.push(copy);
+        });
         return fields;
     }
 

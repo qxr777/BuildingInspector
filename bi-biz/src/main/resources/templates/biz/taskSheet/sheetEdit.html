@@ -28,6 +28,23 @@
             white-space: nowrap;
         }
         .page-toolbar .btn-group { margin-right: 0; }
+        #page-tabs.technical-condition-pagination {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+        }
+        #page-tabs .page-tab-ellipsis {
+            cursor: default;
+            pointer-events: none;
+            color: #888;
+        }
+        #page-tabs .page-total {
+            margin-left: 4px;
+            color: #888;
+            font-size: 12px;
+            white-space: nowrap;
+        }
         .page-toolbar-actions { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
         #page-empty-tip {
             display: none;
@@ -839,15 +856,57 @@
 
     function renderPageTabs() {
         if (!hasPages()) {
-            $("#page-tabs").html("");
+            $("#page-tabs").removeClass("technical-condition-pagination").html("");
             return;
         }
-        var html = "";
-        for (var i = 0; i < sheetData.pages.length; i++) {
-            var active = i === currentPageIndex ? " active" : "";
-            html += '<button type="button" class="btn btn-default btn-xs page-tab' + active + '" data-page-index="' + i + '">第 ' + (i + 1) + ' 页</button>';
+        if (!isTechnicalConditionSheet()) {
+            var originalHtml = "";
+            for (var originalIndex = 0; originalIndex < sheetData.pages.length; originalIndex++) {
+                var originalActive = originalIndex === currentPageIndex ? " active" : "";
+                originalHtml += '<button type="button" class="btn btn-default btn-xs page-tab' + originalActive + '" data-page-index="' + originalIndex + '">第 ' + (originalIndex + 1) + ' 页</button>';
+            }
+            $("#page-tabs").removeClass("technical-condition-pagination").html(originalHtml);
+            return;
         }
-        $("#page-tabs").html(html);
+
+        var total = sheetData.pages.length;
+        var html = '<button type="button" class="btn btn-default btn-xs page-nav" data-page-index="' +
+            Math.max(0, currentPageIndex - 1) + '"' + (currentPageIndex === 0 ? ' disabled' : '') + '>上一页</button>';
+
+        function pageButton(index) {
+            var active = index === currentPageIndex ? " active" : "";
+            return '<button type="button" class="btn btn-default btn-xs page-tab' + active + '" data-page-index="' +
+                index + '">第 ' + (index + 1) + ' 页</button>';
+        }
+
+        function ellipsis() {
+            return '<span class="btn btn-default btn-xs page-tab-ellipsis" aria-hidden="true">...</span>';
+        }
+
+        if (total <= 7) {
+            for (var i = 0; i < total; i++) {
+                html += pageButton(i);
+            }
+        } else {
+            html += pageButton(0);
+            var start = Math.max(1, currentPageIndex - 2);
+            var end = Math.min(total - 2, currentPageIndex + 2);
+            if (start > 1) {
+                html += ellipsis();
+            }
+            for (var pageIndex = start; pageIndex <= end; pageIndex++) {
+                html += pageButton(pageIndex);
+            }
+            if (end < total - 2) {
+                html += ellipsis();
+            }
+            html += pageButton(total - 1);
+        }
+
+        html += '<button type="button" class="btn btn-default btn-xs page-nav" data-page-index="' +
+            Math.min(total - 1, currentPageIndex + 1) + '"' + (currentPageIndex === total - 1 ? ' disabled' : '') + '>下一页</button>';
+        html += '<span class="page-total">共 ' + total + ' 页</span>';
+        $("#page-tabs").addClass("technical-condition-pagination").html(html);
     }
 
     function loadPageIntoForm(pageIndex) {
@@ -1510,6 +1569,10 @@
         loadSheetData();
 
         $(document).on("click", ".page-tab", function () {
+            switchPage(parseInt($(this).data("page-index"), 10));
+        });
+
+        $(document).on("click", ".page-nav:not(:disabled)", function () {
             switchPage(parseInt($(this).data("page-index"), 10));
         });
 
