@@ -20,8 +20,8 @@ import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.api.task.UserPackageTask;
+import edu.whut.cs.bi.api.util.OssBridgeUploadUtil;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
-import edu.whut.cs.bi.api.vo.OssBridgeDataUploadRequest;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
@@ -125,6 +125,9 @@ public class ApiController {
 
     @Autowired
     private ApiService apiService;
+
+    @Autowired
+    private OssBridgeUploadUtil ossBridgeUploadUtil;
 
     @Autowired
     private PackageMapper packageMapper;
@@ -681,17 +684,27 @@ public class ApiController {
     @RequiresPermissions("biz:disease:add")
     @ResponseBody
     @Transactional(rollbackFor = Exception.class)
-    public AjaxResult uploadBridgeDataFromOss(@RequestBody OssBridgeDataUploadRequest request) {
+    public AjaxResult uploadBridgeDataFromOss(@RequestBody Map<String, String> request) {
         if (request == null) {
             return AjaxResult.error("请求体不能为空");
         }
 
-        AjaxResult result = apiService.uploadBridgeDataFromOss(request.getObjectName());
-        if (result.isError()) {
-            // 解析失败时回滚数据库操作，OSS 中的临时 ZIP 则保留以便排查或重试。
+        try {
+            String objectName = ossBridgeUploadUtil.validateObjectName(request.get("objectName"));
+            MultipartFile ossZipFile = ossBridgeUploadUtil.createMultipartFile(objectName);
+            AjaxResult result = apiService.uploadBridgeData(ossZipFile);
+            if (result.isError()) {
+                // 解析失败时回滚数据库操作，OSS 中的临时 ZIP 则保留以便排查或重试。
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            } else {
+                // 仅当数据库事务真正提交后删除，避免出现“ZIP 已删但数据未落库”。
+                ossBridgeUploadUtil.deleteObjectAfterTransactionCommit(objectName);
+            }
+            return result;
+        } catch (Exception e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return AjaxResult.error("处理上传文件失败：" + e.getMessage());
         }
-        return result;
     }
 
     /**

@@ -7,7 +7,6 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.api.service.ApiService;
-import edu.whut.cs.bi.api.service.OssBridgeUploadService;
 import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
@@ -18,8 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationAdapter;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
@@ -65,8 +62,6 @@ public class ApiServiceImpl implements ApiService {
     private TaskMapper taskMapper;
     @Autowired
     private ITaskSheetService taskSheetService;
-    @Autowired
-    private OssBridgeUploadService ossBridgeUploadService;
 
     /**
      * 上传桥梁压缩包
@@ -77,57 +72,9 @@ public class ApiServiceImpl implements ApiService {
             return AjaxResult.error("上传文件为空");
         }
 
-        return processBridgeData(file.getOriginalFilename(), file::getInputStream, true);
-    }
-
-    /**
-     * 平板已将 ZIP 上传至 OSS 后，从 OSS 读取并使用与普通上传完全相同的解析流程。
-     */
-    @Override
-    public AjaxResult uploadBridgeDataFromOss(String objectName) {
-        String validatedObjectName = ossBridgeUploadService.validateObjectName(objectName);
-        String originalFileName = ossBridgeUploadService.getOriginalFileName(validatedObjectName);
-
-        AjaxResult result = processBridgeData(
-                originalFileName,
-                () -> ossBridgeUploadService.openObjectStream(validatedObjectName),
-                false);
-        if (result.isSuccess()) {
-            // OSS 只作为临时高带宽中转空间。若当前请求由事务包裹，必须等事务真正提交
-            // 再删除对象；否则事务回滚会造成“ZIP 已删但数据库未完整落库”。
-            deleteOssObjectAfterTransactionCommit(validatedObjectName);
-        }
-        return result;
-    }
-
-    private void deleteOssObjectAfterTransactionCommit(String objectName) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            ossBridgeUploadService.deleteObject(objectName);
-            return;
-        }
-
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
-            @Override
-            public void afterCommit() {
-                try {
-                    ossBridgeUploadService.deleteObject(objectName);
-                } catch (Exception e) {
-                    // 数据已提交，不能再以删除失败为由回滚；保留对象供后续人工或定时清理。
-                    log.error("数据库已提交，但删除OSS临时ZIP失败，objectName={}", objectName, e);
-                }
-            }
-        });
-    }
-
-    /**
-     * 上传桥梁压缩包的公共解析入口。无论文件来自 HTTP Multipart 还是 OSS，均使用该实现。
-     */
-    private AjaxResult processBridgeData(String originalFileName,
-                                         InputStreamSupplier inputStreamSupplier,
-                                         boolean saveFailedZipLocally) {
-
         // 检查文件是否为ZIP格式
-        if (originalFileName == null || !originalFileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null || !originalFileName.endsWith(".zip")) {
             throw new ServiceException("请上传ZIP格式的文件");
         }
 
@@ -156,19 +103,15 @@ public class ApiServiceImpl implements ApiService {
             tempDir = Files.createTempDirectory("bridge_upload_");
             Map<String, Path> extractedFiles = new HashMap<>();
 
-            try (InputStream inputStream = inputStreamSupplier.open();
-                 ZipInputStream zipIn = new ZipInputStream(inputStream)) {
+            try (ZipInputStream zipIn = new ZipInputStream(file.getInputStream())) {
                 ZipEntry entry;
                 while ((entry = zipIn.getNextEntry()) != null) {
                     if (!entry.isDirectory()) {
                         // 获取文件路径并统一路径分隔符为 /
                         String filePath = entry.getName().replace('\\', '/');
 
-                        // 创建文件并保存。normalize 后必须仍在临时目录中，防止 ZIP Slip 路径穿越。
-                        Path outputPath = tempDir.resolve(filePath).normalize();
-                        if (!outputPath.startsWith(tempDir)) {
-                            throw new ServiceException("压缩包包含非法文件路径");
-                        }
+                        // 创建文件并保存
+                        Path outputPath = tempDir.resolve(filePath);
                         Files.createDirectories(outputPath.getParent());
                         Files.copy(zipIn, outputPath, StandardCopyOption.REPLACE_EXISTING);
                         extractedFiles.put(filePath, outputPath);
@@ -406,11 +349,23 @@ public class ApiServiceImpl implements ApiService {
 
             return AjaxResult.success("桥梁数据上传成功");
         } catch (Exception e) {
-            if (saveFailedZipLocally) {
-                saveFailedZipLocally(originalFileName, inputStreamSupplier, e);
-            } else {
-                // OSS 文件保留在 Bucket 中，供调用方修正后以相同 objectName 重试。
-                log.error("处理OSS上传文件失败，文件名: {}", originalFileName, e);
+            try {
+                // 确保目录存在
+                Path errorZipDir = Paths.get("logs", "sys-error-zips");
+                Files.createDirectories(errorZipDir);
+
+                // 构造文件名：时间戳 + 原始文件名
+                String timeSuffix = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+                String safeFileName = (file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.zip");
+                Path errorZipPath = errorZipDir.resolve(timeSuffix + "_" + safeFileName);
+
+                // 保存原始压缩包
+                Files.copy(file.getInputStream(), errorZipPath, StandardCopyOption.REPLACE_EXISTING);
+
+                // 记录日志
+                log.error("处理上传文件失败，压缩包已保存到: {}", errorZipPath, e);
+            } catch (IOException ioEx) {
+                log.error("保存异常压缩包失败", ioEx);
             }
             return AjaxResult.error("处理上传文件失败：" + e.getMessage());
         } finally {
@@ -426,38 +381,6 @@ public class ApiServiceImpl implements ApiService {
                 }
             }
         }
-    }
-
-    private void saveFailedZipLocally(String originalFileName,
-                                      InputStreamSupplier inputStreamSupplier,
-                                      Exception originalException) {
-        try {
-            Path errorZipDir = Paths.get("logs", "sys-error-zips");
-            Files.createDirectories(errorZipDir);
-
-            String timeSuffix = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-            Path errorZipPath = errorZipDir.resolve(timeSuffix + "_" + getFileName(originalFileName));
-            try (InputStream inputStream = inputStreamSupplier.open()) {
-                Files.copy(inputStream, errorZipPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-            log.error("处理上传文件失败，压缩包已保存到: {}", errorZipPath, originalException);
-        } catch (Exception saveException) {
-            log.error("保存异常压缩包失败", saveException);
-        }
-    }
-
-    private String getFileName(String fileName) {
-        if (fileName == null || fileName.isEmpty()) {
-            return "upload.zip";
-        }
-        String normalized = fileName.replace('\\', '/');
-        int lastSlash = normalized.lastIndexOf('/');
-        return lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
-    }
-
-    @FunctionalInterface
-    private interface InputStreamSupplier {
-        InputStream open() throws IOException;
     }
 
     private void importInspectionSheets(Map<String, Path> extractedFiles, Long buildingId, Long projectId) throws IOException {
