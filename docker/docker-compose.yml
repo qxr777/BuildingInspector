@@ -27,6 +27,17 @@ services:
     container_name: bi_building_inspector
     ports:
       - "8090:80"
+    environment:
+      # application.yml 是默认配置。部署机或 .env 中存在同名变量时才覆盖它。
+      # AccessKey 只由环境变量注入，不能写入 application.yml。
+      OSS_BRIDGE_UPLOAD_ENABLED:
+      OSS_BRIDGE_UPLOAD_ENDPOINT:
+      OSS_BRIDGE_UPLOAD_INTERNAL_ENDPOINT:
+      OSS_BRIDGE_UPLOAD_USE_INTERNAL_ENDPOINT:
+      OSS_BRIDGE_UPLOAD_BUCKET_NAME:
+      OSS_BRIDGE_UPLOAD_OBJECT_PREFIX:
+      OSS_ACCESS_KEY_ID:
+      OSS_ACCESS_KEY_SECRET:
     restart: always
     networks:
       - bi-net

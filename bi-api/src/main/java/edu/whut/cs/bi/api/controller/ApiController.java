@@ -21,6 +21,7 @@ import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.api.task.UserPackageTask;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
+import edu.whut.cs.bi.api.vo.OssBridgeDataUploadRequest;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
 import edu.whut.cs.bi.api.vo.TasksOfProjectVo;
@@ -57,6 +58,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -646,13 +648,16 @@ public class ApiController {
     }
 
     /**
-     * 上传桥梁压缩包数据（包含结构和病害）
+     * 平板端整包回传：上传一座桥的压缩包（结构、病害、立面/侧面照、检测记录表）。
+     * 文件名：buildingId.zip 或 buildingId_year.zip。
      * 压缩包结构：
      * - buildingId目录
      * - object.json (桥梁结构数据)
      * - disease目录
-     * - 2025.json (病害数据)
+     * - 年份.json (病害数据)
      * - 图片文件
+     * - frontPhoto.json (立面/侧面照索引)
+     * - sheets/ (检测记录表)
      */
     @Log(title = "上传桥梁数据", businessType = BusinessType.INSERT)
     @PostMapping("/upload/bridgeData")
@@ -667,7 +672,33 @@ public class ApiController {
         }
     }
 
-    // id 是buildId
+    /**
+     * 平板将大 ZIP 直传 OSS 后，调用本接口提交 objectName。
+     * 服务端从 OSS 流式读取并复用 bridgeData 的解析逻辑，解析成功后删除临时对象。
+     */
+    @Log(title = "从OSS解析桥梁数据", businessType = BusinessType.INSERT)
+    @PostMapping("/upload/bridgeData/oss")
+    @RequiresPermissions("biz:disease:add")
+    @ResponseBody
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult uploadBridgeDataFromOss(@RequestBody OssBridgeDataUploadRequest request) {
+        if (request == null) {
+            return AjaxResult.error("请求体不能为空");
+        }
+
+        AjaxResult result = apiService.uploadBridgeDataFromOss(request.getObjectName());
+        if (result.isError()) {
+            // 解析失败时回滚数据库操作，OSS 中的临时 ZIP 则保留以便排查或重试。
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
+        return result;
+    }
+
+    /**
+     * 上传桥梁立面照、侧面照。
+     * id 为 buildingId；front 存为 newfront，side 存为 newside。
+     * 平板整包回传时，/upload/bridgeData 处理 frontPhoto.json 也会走到同一套附件逻辑。
+     */
     @PostMapping("/upload/bridgeDataImage")
     @ResponseBody
     public AjaxResult uploadBridgeDataImage(@RequestParam("id") long id, @RequestParam("front") MultipartFile frontFile[], @RequestParam("side") MultipartFile sideFile[]) {
@@ -680,7 +711,10 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
-    // id 是buildId
+    /**
+     * 查询桥梁立面照、侧面照。
+     * id 为 buildingId，返回 frontImages / sideImages 文件名列表。
+     */
     @GetMapping("/DataImage")
     @ResponseBody
     public AjaxResult getDataImage(@RequestParam("id") long id) {
@@ -700,6 +734,10 @@ public class ApiController {
         return AjaxResult.success("查询成功", map);
     }
 
+    /**
+     * Excel 批量导入病害到指定项目。
+     * 按桥名、部位、构件、病害类型解析行，补构件并写入病害；不带照片，也不是平板 ZIP 回传。
+     */
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
     public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
@@ -708,6 +746,10 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
+    /**
+     * Excel 批量导入桥梁并挂到指定项目。
+     * 按区域、桥名、路线、桥型建桥（不存在则按模板新建），再为项目补检测任务；不管病害。
+     */
     @PostMapping("/upload/bridgeExcel")
     @ResponseBody
     public AjaxResult uploadBridgeExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
@@ -716,6 +758,11 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
+    /**
+     * 导入报告数据包 ZIP（非平板回传格式）。
+     * 压缩包内为 {zipName}/result.json（DiseaseReport），会匹配或新建项目、桥梁、任务，
+     * 再按报告结构写入构件、病害及图片。
+     */
     @PostMapping("/upload/diseaseZip")
     @ResponseBody
     public AjaxResult uploadDiseaseZip(@RequestParam("file") MultipartFile file) {

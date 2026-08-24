@@ -148,18 +148,31 @@ swagger:
   enabled: true
 
 minio:
-    endpoint: http://biminio:9000          #使用容器名称，走Docker内网
-#    endpoint: http://59.110.81.142:9000  #最新的 公网地址
+#    endpoint: http://biminio:9000          #使用容器名称，走Docker内网
+    endpoint: http://59.110.81.142:9000  #最新的 公网地址
 #    endpoint: http://localhost:9000      # 本地地址，在容器内不可用
   #  access-key: admin
   #  secret-key: admin123      密码 和 milvus默认配置 冲突,更改后 对原有操作无影响
     access-key: minioadmin
     secret-key: minioadmin
     region: cn-north-1
-    #  url: http://60.205.13.156:9000
     url: http://59.110.81.142:9000
 
     bucket-name: public
+
+# 大 ZIP 由平板直传 OSS；后端仅按 objectName 读取、解析并在事务提交后删除该临时文件。
+# AccessKey 由部署环境的 OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET 提供，不能写入仓库。
+oss:
+  bridge-upload:
+    enabled: true
+    # 平板、本地开发或非同地域后端使用的公网 Endpoint。
+    endpoint: https://oss-cn-beijing.aliyuncs.com
+    # 北京地域阿里云后端使用的内网 Endpoint；仅影响后端读写，不影响平板直传。
+    internal-endpoint: https://oss-cn-beijing-internal.aliyuncs.com
+    use-internal-endpoint: true
+    bucket-name: bi-upload-large
+    # 为空时兼容既有的 1956_2026.zip 等根目录 objectName；如需隔离目录可配置 bridge-upload/。
+    object-prefix: ""
 
 springAi_Rag:
   #  springai 项目地址， 后端连接时可用 , 如有改动 ，需和 index 页面的地址同步。
