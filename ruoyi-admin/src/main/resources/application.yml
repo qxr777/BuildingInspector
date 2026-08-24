@@ -173,7 +173,8 @@ oss:
     bucket-name: bi-upload-large
     # 为空时兼容既有的 1956_2026.zip 等根目录 objectName；如需隔离目录可配置 bridge-upload/。
     object-prefix: ""
-    # 具体值由服务器环境变量 OSS_ACCESS_KEY_ID、OSS_ACCESS_KEY_SECRET 注入；
+    # access-key-id: <由服务器环境变量 OSS_ACCESS_KEY_ID 注入>
+    # access-key-secret: <由服务器环境变量 OSS_ACCESS_KEY_SECRET 注入>
     # 本地未设置时 OSS 上传接口会提示配置不完整。
 
 springAi_Rag:
