@@ -15,6 +15,7 @@ import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.ITaskService;
+import edu.whut.cs.bi.biz.utils.NaturalStringComparator;
 import org.apache.poi.common.usermodel.HyperlinkType;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -389,7 +390,11 @@ public class TaskController extends BaseController {
                 diseaseList = diseaseService.selectDiseaseListForTask(queryDisease);
             }
 
-            for (Disease disease : diseaseList) {
+            List<Disease> sortedDiseaseList = new ArrayList<>(diseaseList);
+            sortedDiseaseList.sort((left, right) -> NaturalStringComparator.compare(
+                    getDiseaseLocation(left), getDiseaseLocation(right)));
+
+            for (Disease disease : sortedDiseaseList) {
                 Row row = sheet.createRow(rowIndex++);
                 int cellIndex = 0;
 
@@ -519,6 +524,16 @@ public class TaskController extends BaseController {
             }
         }
         return workbook;
+    }
+
+    /**
+     * 获取批量导出 Excel 中“缺损位置”列的实际显示值。
+     */
+    private String getDiseaseLocation(Disease disease) {
+        if (disease == null || disease.getComponent() == null) {
+            return null;
+        }
+        return disease.getComponent().getName();
     }
 
     /**
