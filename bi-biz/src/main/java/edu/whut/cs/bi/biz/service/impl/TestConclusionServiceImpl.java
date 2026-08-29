@@ -146,13 +146,12 @@ public class TestConclusionServiceImpl implements TestConclusionService {
                 return; // 只处理到第三层
             }
 
-            // 第一层：桥梁名称
+            // 第一层：桥梁名称（检测结论的下一级，例如 3.11.1.1）
             if (level == 1) {
                 XWPFParagraph bridgePara = document.insertNewParagraph(cursor);
                 cursor.toNextToken();
 
-                // 设置为下一级标题样式
-                bridgePara.setStyle("4"); // 根据实际需要调整标题级别
+                bridgePara.setStyle("5");
                 bridgePara.setAlignment(ParagraphAlignment.LEFT);
 
                 XWPFRun bridgeRun = bridgePara.createRun();
@@ -173,13 +172,12 @@ public class TestConclusionServiceImpl implements TestConclusionService {
                     writeBridgeStructureTree(document, secondNode, allNodes, cursor, level + 1, bridgeName);
                 }
             }
-            // 第二层：结构类型（上部结构、下部结构、桥面系）
+            // 第二层：结构类型（上部结构、下部结构、桥面系，例如 3.11.1.1.1）
             else if (level == 2) {
                 XWPFParagraph structurePara = document.insertNewParagraph(cursor);
                 cursor.toNextToken();
 
-                // 设置为下下级标题样式
-                structurePara.setStyle("5"); // 根据实际需要调整标题级别
+                structurePara.setStyle("6");
                 structurePara.setAlignment(ParagraphAlignment.LEFT);
 
                 XWPFRun structureRun = structurePara.createRun();

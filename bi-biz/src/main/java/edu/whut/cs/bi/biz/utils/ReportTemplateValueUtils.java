@@ -45,7 +45,7 @@ public final class ReportTemplateValueUtils {
         addPropertyAliasGroup("建设单位名称", "建设单位", "业主单位");
 
         addPropertyAliasGroup("桥梁全长", "桥梁全长(m)", "桥梁全长（m）");
-        addPropertyAliasGroup("桥梁全宽", "桥面总宽(m)", "桥面总宽（m）", "桥面总宽");
+        addPropertyAliasGroup("桥梁全宽", "桥面全宽", "桥面总宽(m)", "桥面总宽（m）", "桥面总宽");
         addPropertyAliasGroup("车行道宽", "车道宽度", "车道宽度(m)", "车道宽度（m）");
         addPropertyAliasGroup("人行道宽度", "人行道宽度(m)", "人行道宽度（m）");
         addPropertyAliasGroup("护栏或防撞墙高度", "护栏或防撞墙高度(m)", "护栏或防撞墙高度（m）");

@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.domain.enums;
 
 public enum ReportTemplateTypes {
     COMBINED_BRIDGE(0, new String[]{"组合桥"}),
+    MULTI_BRIDGE(4, new String[]{"多桥"}),
     LEVEL_2_BEAM_BRIDGE(1, new String[]{"梁桥", "二级"}),
     LEVEL_2_ARCH_BRIDGE(2, new String[]{"拱桥", "二级"}),
     LEVEL_1_BEAM_BRIDGE(3, new String[]{"梁桥", "一级"}),
@@ -48,8 +49,53 @@ public enum ReportTemplateTypes {
         return false;
     }
 
+    public static boolean isMultiBridge(String templateName) {
+        return templateName != null && templateName.contains("多桥");
+    }
+
+    /**
+     * 按模板名选择填报页路径（不含 ctx），填充和生成共用同一套名字规则。
+     */
+    public static String resolveFillPath(String templateName, Long reportId) {
+        String prefix = "biz/report/fill";
+        if (isMultiBridge(templateName)) {
+            prefix = "biz/line_multi_bridge_data/fill";
+        } else if (templateName != null && templateName.contains("单桥") && templateName.contains("梁桥") && templateName.contains("二级")) {
+            prefix = "biz/report_data/fill_single_beam";
+        } else if (templateName != null && templateName.contains("单桥") && templateName.contains("拱桥") && templateName.contains("二级")) {
+            prefix = "biz/report_data/fill_single_arch";
+        } else if (templateName != null && templateName.contains("单桥") && templateName.contains("梁桥") && templateName.contains("一级")) {
+            prefix = "biz/report_data/fill_single_beam_level1";
+        } else if (templateName != null && templateName.contains("测试")) {
+            prefix = "biz/report_data/fill_test";
+        }
+        return prefix + "/" + reportId;
+    }
+
+    public static String resolveFillTitle(String templateName) {
+        if (isMultiBridge(templateName)) {
+            return "多桥定期检查报告填充";
+        }
+        if (templateName != null && templateName.contains("单桥") && templateName.contains("梁桥") && templateName.contains("二级")) {
+            return "二级单桥梁桥报告填充";
+        }
+        if (templateName != null && templateName.contains("单桥") && templateName.contains("拱桥") && templateName.contains("二级")) {
+            return "二级单桥拱桥报告填充";
+        }
+        if (templateName != null && templateName.contains("单桥") && templateName.contains("梁桥") && templateName.contains("一级")) {
+            return "一级单桥梁桥报告填充";
+        }
+        if (templateName != null && templateName.contains("测试")) {
+            return "测试模板报告填充";
+        }
+        return "报告模板填充";
+    }
+
     // 根据桥梁模板名 获取 桥梁模板类型。
     public static ReportTemplateTypes getEnumByDesc(String templateName) {
+        if (templateName == null) {
+            return null;
+        }
         for (ReportTemplateTypes item : ReportTemplateTypes.values()) {
             boolean flag = true;
             for (String desc : item.getDesc()) {

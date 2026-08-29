@@ -68,6 +68,10 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             }
 
             Integer currentYear = currentTask.getProject().getYear();
+            if (currentYear == null) {
+                log.error("项目年份为空，无法生成比较分析表格: taskId={}", currentTask.getId());
+                return;
+            }
             Long buildingId = currentTask.getBuildingId();
 
             log.info("当前任务年份: {}, 建筑ID: {}", currentYear, buildingId);
@@ -94,20 +98,13 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             if (previousYearTask != null) {
                 previousEvaluation = biEvaluationService.selectBiEvaluationByTaskId(previousYearTask.getId());
             }
-            // 11.10 修改 ， 如果上次 检查记录 数据库中没有记录对应任务 ， 可以查询excel 中的数据 组成部分信息。
+            // 11.10 修改：无历史任务评定时，尝试从桥梁卡片 Excel 属性兜底。
             if (previousEvaluation == null) {
-                Building building = buildingService.selectBuildingById(currentTask.getBuildingId());
-                Property property = propertyService.selectPropertyById(building.getRootPropertyId());
-                List<Property> properties = propertyService.selectPropertyList(property);
-                String lastCheckDateStr = properties.stream().filter(a -> a.getName().equals("最近评定日期")).map(a -> a.getValue()).toList().get(0);
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                Date date = simpleDateFormat.parse(lastCheckDateStr);
-                ZoneId zoneId = ZoneId.of("Asia/Shanghai");
-                previousYear = date.toInstant().atZone(zoneId).toLocalDate().getYear();
-
-                String lastSysLevelStr = properties.stream().filter(a -> a.getName().equals("桥梁技术状况")).map(a -> a.getValue()).toList().get(0);
-                previousEvaluation = new BiEvaluation();
-                previousEvaluation.setSystemLevel(lastSysLevelStr != null && lastCheckDateStr.length() >= 2 ? lastSysLevelStr.charAt(0) - '0' : null);
+                PreviousEvaluationSnapshot snapshot = loadPreviousEvaluationFromBridgeCard(buildingId);
+                if (snapshot != null) {
+                    previousYear = snapshot.getYear();
+                    previousEvaluation = snapshot.getEvaluation();
+                }
             }
 
             // 3. 生成表格
@@ -589,42 +586,11 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
                     previousEvaluation = biEvaluationService.selectBiEvaluationByTaskId(previousTask.getId());
                 }
 
-                // 如果前一年没有评定数据，尝试从Excel读取
+                // 如果前一年没有评定数据，尝试从桥梁卡片 Excel 属性兜底。
                 if (previousEvaluation == null) {
-                    try {
-                        Building building = buildingService.selectBuildingById(buildingId);
-                        if (building != null && building.getRootPropertyId() != null) {
-                            Property property = propertyService.selectPropertyById(building.getRootPropertyId());
-                            List<Property> properties = propertyService.selectPropertyList(property);
-                            
-                            String lastCheckDateStr = properties.stream()
-                                .filter(a -> "最近评定日期".equals(a.getName()))
-                                .map(Property::getValue)
-                                .findFirst()
-                                .orElse(null);
-                                
-                            if (lastCheckDateStr != null && !lastCheckDateStr.isEmpty()) {
-                                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                                Date date = simpleDateFormat.parse(lastCheckDateStr);
-                                ZoneId zoneId = ZoneId.of("Asia/Shanghai");
-                                int lastCheckYear = date.toInstant().atZone(zoneId).toLocalDate().getYear();
-
-                                String lastSysLevelStr = properties.stream()
-                                    .filter(a -> "桥梁技术状况".equals(a.getName()))
-                                    .map(Property::getValue)
-                                    .findFirst()
-                                    .orElse(null);
-                                    
-                                previousEvaluation = new BiEvaluation();
-                                previousEvaluation.setSystemLevel(
-                                    lastSysLevelStr != null && lastSysLevelStr.length() >= 1 
-                                        ? lastSysLevelStr.charAt(0) - '0' 
-                                        : null);
-                                log.info("从Excel读取到前一年数据: 年份{}, 等级{}", lastCheckYear, previousEvaluation.getSystemLevel());
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.warn("从Excel读取历史数据失败: {}", e.getMessage());
+                    PreviousEvaluationSnapshot snapshot = loadPreviousEvaluationFromBridgeCard(buildingId);
+                    if (snapshot != null) {
+                        previousEvaluation = snapshot.getEvaluation();
                     }
                 }
 
@@ -842,6 +808,87 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             log.debug("合并列{}，从行{}到行{}", col, fromRow, toRow);
         } catch (Exception e) {
             log.error("合并单元格失败: col={}, fromRow={}, toRow={}", col, fromRow, toRow, e);
+        }
+    }
+
+    /**
+     * 从桥梁卡片属性读取上次评定年份与等级（Excel 导入的「最近评定日期」「桥梁技术状况」）。
+     */
+    private PreviousEvaluationSnapshot loadPreviousEvaluationFromBridgeCard(Long buildingId) {
+        if (buildingId == null) {
+            return null;
+        }
+        try {
+            Building building = buildingService.selectBuildingById(buildingId);
+            if (building == null || building.getRootPropertyId() == null) {
+                return null;
+            }
+            Property property = propertyService.selectPropertyById(building.getRootPropertyId());
+            List<Property> properties = propertyService.selectPropertyList(property);
+            if (properties == null || properties.isEmpty()) {
+                return null;
+            }
+
+            String lastCheckDateStr = properties.stream()
+                    .filter(item -> "最近评定日期".equals(item.getName()))
+                    .map(Property::getValue)
+                    .filter(value -> value != null && !value.isBlank())
+                    .findFirst()
+                    .orElse(null);
+            if (lastCheckDateStr == null) {
+                log.warn("桥梁卡片缺少最近评定日期，跳过历史评定兜底: buildingId={}", buildingId);
+                return null;
+            }
+
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            Date date = simpleDateFormat.parse(lastCheckDateStr.trim());
+            ZoneId zoneId = ZoneId.of("Asia/Shanghai");
+            int lastCheckYear = date.toInstant().atZone(zoneId).toLocalDate().getYear();
+
+            String lastSysLevelStr = properties.stream()
+                    .filter(item -> "桥梁技术状况".equals(item.getName()))
+                    .map(Property::getValue)
+                    .filter(value -> value != null && !value.isBlank())
+                    .findFirst()
+                    .orElse(null);
+
+            BiEvaluation previousEvaluation = new BiEvaluation();
+            previousEvaluation.setSystemLevel(parseSystemLevel(lastSysLevelStr));
+            log.info("从桥梁卡片读取历史评定: buildingId={}, 年份={}, 等级={}",
+                    buildingId, lastCheckYear, previousEvaluation.getSystemLevel());
+            return new PreviousEvaluationSnapshot(lastCheckYear, previousEvaluation);
+        } catch (Exception e) {
+            log.warn("从桥梁卡片读取历史评定失败: buildingId={}, error={}", buildingId, e.getMessage());
+            return null;
+        }
+    }
+
+    private Integer parseSystemLevel(String lastSysLevelStr) {
+        if (lastSysLevelStr == null || lastSysLevelStr.isBlank()) {
+            return null;
+        }
+        char levelChar = lastSysLevelStr.trim().charAt(0);
+        if (levelChar >= '0' && levelChar <= '9') {
+            return levelChar - '0';
+        }
+        return null;
+    }
+
+    private static class PreviousEvaluationSnapshot {
+        private final Integer year;
+        private final BiEvaluation evaluation;
+
+        private PreviousEvaluationSnapshot(Integer year, BiEvaluation evaluation) {
+            this.year = year;
+            this.evaluation = evaluation;
+        }
+
+        private Integer getYear() {
+            return year;
+        }
+
+        private BiEvaluation getEvaluation() {
+            return evaluation;
         }
     }
 

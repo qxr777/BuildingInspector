@@ -161,6 +161,9 @@ public class ReportServiceImpl implements IReportService {
     private Report1LevelSingleBridgeService report1LevelSingleBridgeService;
 
     @Resource
+    private ILineMultiBridgeReportService lineMultiBridgeReportService;
+
+    @Resource
     private ReadFileService readFileService;
     @Autowired
     private AttachmentService attachmentService;
@@ -354,7 +357,10 @@ public class ReportServiceImpl implements IReportService {
                 if (template != null) {
                     templateType = ReportTemplateTypes.getEnumByDesc(template.getName());
                 }
-                if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
+                if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
+                    log.info("检测到多桥定期检查模板：{}，使用独立多桥生成逻辑", template.getName());
+                    return lineMultiBridgeReportService.generateReportDocument(report, tasks, template);
+                } else if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
                     // 等待所有任务完成
                     Task task = tasks.get(0);
                     Disease disease = new Disease();

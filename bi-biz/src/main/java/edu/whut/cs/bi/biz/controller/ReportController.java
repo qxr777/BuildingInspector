@@ -63,6 +63,9 @@ public class ReportController extends BaseController {
     private IReportService reportService;
 
     @Autowired
+    private ILineMultiBridgeReportService lineMultiBridgeReportService;
+
+    @Autowired
     private ReportMapper reportMapper;
 
     @Autowired
@@ -660,6 +663,8 @@ public class ReportController extends BaseController {
             Map<String, Object> data = new HashMap<>();
             data.put("templateName", template.getName());
             data.put("templateId", template.getId());
+            data.put("fillUrl", ReportTemplateTypes.resolveFillPath(template.getName(), id));
+            data.put("fillTitle", ReportTemplateTypes.resolveFillTitle(template.getName()));
 
             return AjaxResult.success("获取模板信息成功", data);
         } catch (Exception e) {
@@ -756,10 +761,24 @@ public class ReportController extends BaseController {
                 }
             }
 
+            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+            if (template == null) {
+                return AjaxResult.error("报告模板不存在");
+            }
+            if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
+                tasks = lineMultiBridgeReportService.orderTasksBySelection(taskIds, tasks);
+                String error = lineMultiBridgeReportService.validateTasks(report, tasks);
+                if (error != null) {
+                    return AjaxResult.error(error);
+                }
+                reportServiceImpl.generateReportDocumentAsync(report, tasks, null, template);
+                return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
+            }
+
             // 验证所有任务是否属于同一组合桥下的子桥
             Long rootParentId = null;
             Set<Long> parentObjectIds = new HashSet<>();
-            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+
             if(template.getName().contains("斜拉桥、悬索桥通用")) {
                 for (Task task : tasks) {
                     Building building = task.getBuilding();
