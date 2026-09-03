@@ -62,6 +62,38 @@
             resize: vertical;
             min-height: 100px;
         }
+
+        .bridge-group-card {
+            border: 1px solid #e7eaec;
+            border-radius: 3px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+
+        .bridge-group-card .group-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .bridge-group-card .group-title-row .form-control {
+            flex: 1;
+        }
+
+        .sub-bridge-table {
+            margin-bottom: 8px;
+        }
+
+        .unassigned-task-list .btn {
+            margin: 0 6px 6px 0;
+        }
+
+        .group-empty-hint {
+            color: #888;
+            margin: 6px 0;
+        }
     </style>
 </head>
 <body class="white-bg">
@@ -124,16 +156,41 @@
                             </div>
                         </div>
 
+                        <div id="tab_line_groups">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">大桥分组</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <p class="text-muted">
+                                        把本报告选中的多座桥梁任务合成一座「大桥」。大桥名称、大桥顺序、大桥下子桥顺序都在这里确定。
+                                        构件数量、外观检测、评定结果之后会按「大桥 → 子桥」生成；子桥与当前桥梁任务同一级。
+                                        未编入任何大桥的任务，生成时仍各自作为一座大桥。
+                                    </p>
+                                    <textarea id="line-bridge-groups-value" class="hidden"
+                                              data-original-key="line-bridge-groups"></textarea>
+
+                                    <div class="form-group">
+                                        <label class="control-label">未编入大桥的桥梁：</label>
+                                        <div id="unassignedTaskList" class="unassigned-task-list"></div>
+                                    </div>
+
+                                    <div id="bridgeGroupList"></div>
+
+                                    <div class="text-center">
+                                        <button type="button" class="btn btn-default" onclick="addBridgeGroup()">新增大桥</button>
+                                        <button type="button" class="btn btn-default" onclick="resetBridgeGroupsOnePerTask()">按每座桥单独成组</button>
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_groups')">保存大桥分组</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group">
-                            <label class="col-sm-2 control-label">当前桥梁：</label>
+                            <label class="col-sm-2 control-label">当前大桥：</label>
                             <div class="col-sm-8">
-                                <select id="lineTaskSelector" class="form-control">
-                                    <option th:each="task : ${reportTasks}"
-                                            th:value="${task.id}"
-                                            th:attr="data-building-id=${task.buildingId}"
-                                            th:text="${task.building != null ? ((task.building.routeName != null ? task.building.routeName + ' - ' : '') + task.building.name) : ('任务 ' + task.id)}"></option>
-                                </select>
-                                <small class="text-muted">以下 1～12 节按桥梁分别保存，切换桥梁后填写对应桥梁。</small>
+                                <select id="lineGroupSelector" class="form-control"></select>
+                                <small class="text-muted">1、3、8、10、11 节按大桥保存。外观检测、评定结果、附表按子桥自动生成。请先保存上方「大桥分组」。</small>
                             </div>
                         </div>
 
@@ -165,15 +222,34 @@
                                         <h4 class="panel-title">1.1 整体概况</h4>
                                     </div>
                                     <div class="panel-body">
-                                        <div class="alert alert-info alert-custom">
-                                            <i class="fa fa-info-circle"></i>
-                                            <strong>桥梁概况照片说明：</strong>
-                                            系统会自动从数据库获取桥梁的正面照和立面照（newfront、newside类型），无需手动上传。
+                                        <div class="form-group">
+                                            <label class="control-label">整体概况：</label>
+                                            <textarea class="form-control" data-original-key="overallOverview" rows="8"
+                                                      placeholder="填写该座大桥的整体概况（位置、规模、结构型式等）"></textarea>
                                         </div>
-                                        <div class="alert alert-info alert-custom">
-                                            <i class="fa fa-info-circle"></i>
-                                            <strong>桥梁概况文本说明：</strong>
-                                            系统会自动从桥梁卡片属性生成整体概况正文，与一级单桥报告一致，无需在此填写。
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">左幅正面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftFront">
+                                            <input type="hidden" class="image-value-holder" data-original-key="leftFront">
+                                            <div class="image-preview" data-original-key="leftFront"></div>
+                                        </div>
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">右幅正面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightFront">
+                                            <input type="hidden" class="image-value-holder" data-original-key="rightFront">
+                                            <div class="image-preview" data-original-key="rightFront"></div>
+                                        </div>
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">左幅立面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftSide">
+                                            <input type="hidden" class="image-value-holder" data-original-key="leftSide">
+                                            <div class="image-preview" data-original-key="leftSide"></div>
+                                        </div>
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">右幅立面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightSide">
+                                            <input type="hidden" class="image-value-holder" data-original-key="rightSide">
+                                            <div class="image-preview" data-original-key="rightSide"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -188,16 +264,7 @@
                                 </div>
                                 <div class="panel panel-default">
                                     <div class="panel-heading">
-                                        <h4 class="panel-title">1.3 技术标准</h4>
-                                    </div>
-                                    <div class="panel-body">
-                                        <textarea class="form-control" data-original-key="standard" rows="5"
-                                                  placeholder="填写荷载等级、洪水频率、通航标准等技术标准"></textarea>
-                                    </div>
-                                </div>
-                                <div class="panel panel-default">
-                                    <div class="panel-heading">
-                                        <h4 class="panel-title">1.4 主要材料</h4>
+                                        <h4 class="panel-title">1.3 主要材料</h4>
                                     </div>
                                     <div class="panel-body">
                                         <textarea class="form-control" data-original-key="mainMaterial" rows="5"
@@ -206,7 +273,7 @@
                                 </div>
                                 <div class="panel panel-default">
                                     <div class="panel-heading">
-                                        <h4 class="panel-title">1.5 历史检测情况</h4>
+                                        <h4 class="panel-title">1.4 历史检测情况</h4>
                                     </div>
                                     <div class="panel-body">
                                         <textarea class="form-control" data-original-key="historicalInspectionStatus" rows="5"
@@ -215,7 +282,7 @@
                                 </div>
                                 <div class="panel panel-default">
                                     <div class="panel-heading">
-                                        <h4 class="panel-title">1.6 历史维修情况</h4>
+                                        <h4 class="panel-title">1.5 历史维修情况</h4>
                                     </div>
                                     <div class="panel-body">
                                         <textarea class="form-control" data-original-key="historicalMaintenanceStatus" rows="5"
@@ -583,14 +650,38 @@
 <script th:inline="javascript">
     var prefix = ctx + "biz/line_multi_bridge_data";
     var reportId = /*[[${report.id}]]*/ '';
-    var currentTaskId = null;
-    var currentBuildingId = null;
+    var reportTasks = [(${reportTaskViewsJson} ?: '[]')];
+    var savedBridgeGroups = [(${bridgeGroupsJson} ?: '[]')];
+    var currentGroupId = null;
     var currentSelectorType = ''; // 当前选择器类型
     var diseaseComponentData = []; // 存储构件病害数据
     var loadSeq = 0;
+    var bridgeGroups = [];
+    var groupSeq = 0;
+    var suppressGroupSelectorChange = false;
+    if (typeof reportTasks === 'string') {
+        try {
+            reportTasks = JSON.parse(reportTasks);
+        } catch (e) {
+            reportTasks = [];
+        }
+    }
+    if (!Array.isArray(reportTasks)) {
+        reportTasks = [];
+    }
+    if (typeof savedBridgeGroups === 'string') {
+        try {
+            savedBridgeGroups = JSON.parse(savedBridgeGroups);
+        } catch (e) {
+            savedBridgeGroups = [];
+        }
+    }
+    if (!Array.isArray(savedBridgeGroups)) {
+        savedBridgeGroups = [];
+    }
 
     $(function () {
-        initBridgeSelector();
+        initGroupSelector();
 
         // 初始化文件上传控件
         initFileInputs();
@@ -620,33 +711,361 @@
         });
     });
 
-    var LINE_LEVEL_TAB_IDS = ['tab_line_project', 'tab_line_chapter2'];
+    var LINE_LEVEL_TAB_IDS = ['tab_line_project', 'tab_line_chapter2', 'tab_line_groups'];
 
     function isLineLevelTab(tabId) {
         return LINE_LEVEL_TAB_IDS.indexOf(tabId) >= 0;
     }
 
-    function initBridgeSelector() {
-        var selector = $('#lineTaskSelector');
-        var selected = selector.find('option:selected');
-        currentTaskId = selected.val() || null;
-        currentBuildingId = selected.data('building-id') || null;
+    function taskNameById(taskId) {
+        for (var i = 0; i < reportTasks.length; i++) {
+            if (String(reportTasks[i].id) === String(taskId)) {
+                return reportTasks[i].name || ('任务 ' + taskId);
+            }
+        }
+        return '任务 ' + taskId;
+    }
 
-        selector.on('change', function () {
+    function knownTaskIds() {
+        return reportTasks.map(function (task) {
+            return String(task.id);
+        });
+    }
+
+    function nextGroupId() {
+        groupSeq += 1;
+        return 'g' + Date.now() + '_' + groupSeq;
+    }
+
+    function assignedTaskIdSet() {
+        var used = {};
+        for (var i = 0; i < bridgeGroups.length; i++) {
+            var taskIds = bridgeGroups[i].taskIds || [];
+            for (var j = 0; j < taskIds.length; j++) {
+                used[String(taskIds[j])] = true;
+            }
+        }
+        return used;
+    }
+
+    function unassignedTaskIds() {
+        var used = assignedTaskIdSet();
+        return knownTaskIds().filter(function (id) {
+            return !used[id];
+        });
+    }
+
+    function collectGroupNamesFromDom() {
+        $('#bridgeGroupList .bridge-group-card').each(function () {
+            var index = parseInt($(this).attr('data-index'), 10);
+            if (!isNaN(index) && bridgeGroups[index]) {
+                bridgeGroups[index].name = $(this).find('.group-name-input').val() || '';
+            }
+        });
+    }
+
+    function defaultBridgeGroups() {
+        return reportTasks.map(function (task) {
+            return {
+                id: 'solo-' + task.id,
+                name: task.name || ('任务 ' + task.id),
+                taskIds: [Number(task.id)]
+            };
+        });
+    }
+
+    function applyBridgeGroupsFromForm() {
+        var raw = $('#line-bridge-groups-value').val();
+        var parsed = parseBridgeGroupsValue(raw);
+        if (parsed === null) {
+            renderBridgeGroups();
+            return;
+        }
+        if (parsed.length === 0) {
+            bridgeGroups = [];
+            renderBridgeGroups();
+            return;
+        }
+        var known = {};
+        knownTaskIds().forEach(function (id) {
+            known[id] = true;
+        });
+        bridgeGroups = parsed.map(function (group) {
+            var taskIds = (group.taskIds || []).map(function (id) {
+                return String(id);
+            }).filter(function (id) {
+                return known[id];
+            }).filter(function (id, index, arr) {
+                return arr.indexOf(id) === index;
+            }).map(function (id) {
+                return Number(id);
+            });
+            return {
+                id: group.id || nextGroupId(),
+                name: group.name || '',
+                taskIds: taskIds
+            };
+        });
+        renderBridgeGroups();
+    }
+
+    function parseBridgeGroupsValue(raw) {
+        if (raw == null || raw === '') {
+            return [];
+        }
+        if (Array.isArray(raw)) {
+            return raw;
+        }
+        if (typeof raw === 'object') {
+            return [raw];
+        }
+        var text = String(raw).trim();
+        if (!text) {
+            return [];
+        }
+        try {
+            var parsed = JSON.parse(text);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.warn('大桥分组JSON无法解析，保留当前编辑结果', e);
+            return null;
+        }
+    }
+
+    function renderBridgeGroups() {
+        var unassigned = unassignedTaskIds();
+        var $unassigned = $('#unassignedTaskList').empty();
+        if (unassigned.length === 0) {
+            $unassigned.append('<span class="group-empty-hint">全部桥梁已编入大桥</span>');
+        } else {
+            unassigned.forEach(function (taskId) {
+                $unassigned.append(
+                    $('<span class="btn btn-xs btn-white">').text(taskNameById(taskId))
+                );
+            });
+        }
+
+        var $list = $('#bridgeGroupList').empty();
+        if (bridgeGroups.length === 0) {
+            $list.append('<p class="group-empty-hint">尚未创建大桥，可点「新增大桥」或「按每座桥单独成组」。</p>');
+            refreshGroupSelector();
+            return;
+        }
+
+        bridgeGroups.forEach(function (group, index) {
+            var $card = $('<div class="bridge-group-card"></div>').attr('data-index', index);
+            var $title = $('<div class="group-title-row"></div>');
+            $title.append($('<span class="text-muted">').text('大桥 ' + (index + 1)));
+            $title.append($('<input type="text" class="form-control group-name-input">')
+                .val(group.name || '')
+                .attr('placeholder', '例如：东分块 3#高架桥'));
+            $title.append($('<button type="button" class="btn btn-xs btn-default">上移</button>')
+                .prop('disabled', index === 0)
+                .on('click', function () { moveBridgeGroup(index, -1); }));
+            $title.append($('<button type="button" class="btn btn-xs btn-default">下移</button>')
+                .prop('disabled', index === bridgeGroups.length - 1)
+                .on('click', function () { moveBridgeGroup(index, 1); }));
+            $title.append($('<button type="button" class="btn btn-xs btn-danger">删除</button>')
+                .on('click', function () { removeBridgeGroup(index); }));
+            $card.append($title);
+
+            var $table = $('<table class="table table-bordered table-condensed sub-bridge-table"></table>');
+            $table.append('<thead><tr><th style="width:70px;">顺序</th><th>子桥（桥梁任务）</th><th style="width:180px;">操作</th></tr></thead>');
+            var $tbody = $('<tbody></tbody>');
+            var taskIds = group.taskIds || [];
+            if (taskIds.length === 0) {
+                $tbody.append('<tr><td colspan="3" class="group-empty-hint">还没有子桥，从下方把未编入桥梁加进来。</td></tr>');
+            } else {
+                taskIds.forEach(function (taskId, taskIndex) {
+                    var $tr = $('<tr></tr>');
+                    $tr.append($('<td>').text(taskIndex + 1));
+                    $tr.append($('<td>').text(taskNameById(taskId)));
+                    var $ops = $('<td></td>');
+                    $ops.append($('<button type="button" class="btn btn-xs btn-default">上移</button>')
+                        .prop('disabled', taskIndex === 0)
+                        .on('click', function () { moveSubBridge(index, taskIndex, -1); }));
+                    $ops.append(' ');
+                    $ops.append($('<button type="button" class="btn btn-xs btn-default">下移</button>')
+                        .prop('disabled', taskIndex === taskIds.length - 1)
+                        .on('click', function () { moveSubBridge(index, taskIndex, 1); }));
+                    $ops.append(' ');
+                    $ops.append($('<button type="button" class="btn btn-xs btn-warning">移出</button>')
+                        .on('click', function () { removeSubBridge(index, taskIndex); }));
+                    $tr.append($ops);
+                    $tbody.append($tr);
+                });
+            }
+            $table.append($tbody);
+            $card.append($table);
+
+            if (unassigned.length > 0) {
+                var $addRow = $('<div class="form-inline"></div>');
+                var $select = $('<select class="form-control input-sm"></select>');
+                unassigned.forEach(function (taskId) {
+                    $select.append($('<option></option>').val(taskId).text(taskNameById(taskId)));
+                });
+                $addRow.append($select);
+                $addRow.append(' ');
+                $addRow.append($('<button type="button" class="btn btn-sm btn-info">加入此大桥</button>')
+                    .on('click', function () {
+                        addSubBridge(index, $select.val());
+                    }));
+                $card.append($addRow);
+            }
+
+            $list.append($card);
+        });
+        refreshGroupSelector();
+    }
+
+    function addBridgeGroup() {
+        collectGroupNamesFromDom();
+        bridgeGroups.push({
+            id: nextGroupId(),
+            name: '',
+            taskIds: []
+        });
+        renderBridgeGroups();
+    }
+
+    function resetBridgeGroupsOnePerTask() {
+        collectGroupNamesFromDom();
+        bridgeGroups = defaultBridgeGroups();
+        renderBridgeGroups();
+    }
+
+    function removeBridgeGroup(index) {
+        collectGroupNamesFromDom();
+        bridgeGroups.splice(index, 1);
+        renderBridgeGroups();
+    }
+
+    function moveBridgeGroup(index, offset) {
+        collectGroupNamesFromDom();
+        var target = index + offset;
+        if (target < 0 || target >= bridgeGroups.length) {
+            return;
+        }
+        var current = bridgeGroups[index];
+        bridgeGroups[index] = bridgeGroups[target];
+        bridgeGroups[target] = current;
+        renderBridgeGroups();
+    }
+
+    function addSubBridge(groupIndex, taskId) {
+        collectGroupNamesFromDom();
+        if (!taskId || !bridgeGroups[groupIndex]) {
+            return;
+        }
+        var used = assignedTaskIdSet();
+        if (used[String(taskId)]) {
+            return;
+        }
+        bridgeGroups[groupIndex].taskIds = bridgeGroups[groupIndex].taskIds || [];
+        bridgeGroups[groupIndex].taskIds.push(Number(taskId));
+        renderBridgeGroups();
+    }
+
+    function removeSubBridge(groupIndex, taskIndex) {
+        collectGroupNamesFromDom();
+        if (!bridgeGroups[groupIndex] || !bridgeGroups[groupIndex].taskIds) {
+            return;
+        }
+        bridgeGroups[groupIndex].taskIds.splice(taskIndex, 1);
+        renderBridgeGroups();
+    }
+
+    function moveSubBridge(groupIndex, taskIndex, offset) {
+        collectGroupNamesFromDom();
+        var taskIds = bridgeGroups[groupIndex] && bridgeGroups[groupIndex].taskIds;
+        if (!taskIds) {
+            return;
+        }
+        var target = taskIndex + offset;
+        if (target < 0 || target >= taskIds.length) {
+            return;
+        }
+        var current = taskIds[taskIndex];
+        taskIds[taskIndex] = taskIds[target];
+        taskIds[target] = current;
+        renderBridgeGroups();
+    }
+
+    function syncBridgeGroupsToForm() {
+        collectGroupNamesFromDom();
+        var payload = [];
+        for (var i = 0; i < bridgeGroups.length; i++) {
+            var group = bridgeGroups[i];
+            var taskIds = (group.taskIds || []).map(function (id) {
+                return Number(id);
+            }).filter(function (id) {
+                return !isNaN(id);
+            });
+            var name = (group.name || '').trim();
+            if (!name && taskIds.length === 0) {
+                continue;
+            }
+            if (!name) {
+                return '第 ' + (i + 1) + ' 座大桥已有子桥，请填写大桥名称';
+            }
+            if (taskIds.length === 0) {
+                return '第 ' + (i + 1) + ' 座大桥还没有子桥，请点「加入此大桥」把桥梁加进去';
+            }
+            payload.push({
+                id: group.id || nextGroupId(),
+                name: name,
+                taskIds: taskIds
+            });
+        }
+        if (payload.length === 0) {
+            return '请先点「新增大桥」，填写大桥名称，再把未编入的桥梁加进去，然后保存';
+        }
+        $('#line-bridge-groups-value').val(JSON.stringify(payload));
+        return null;
+    }
+
+    function initGroupSelector() {
+        refreshGroupSelector();
+        $('#lineGroupSelector').on('change', function () {
+            if (suppressGroupSelectorChange) {
+                return;
+            }
             saveTabDataSync('tab_line_project');
             saveTabDataSync('tab_line_chapter2');
             var activeHref = $('#reportTabs li.active a').attr('href');
             if (activeHref) {
                 saveTabDataSync(activeHref.replace('#', ''));
             }
-
-            var option = $(this).find('option:selected');
-            currentTaskId = option.val() || null;
-            currentBuildingId = option.data('building-id') || null;
+            currentGroupId = $(this).val() || null;
             diseaseComponentData = [];
             clearBridgeFormData();
             loadReportData();
         });
+    }
+
+    function refreshGroupSelector() {
+        var $selector = $('#lineGroupSelector');
+        var previous = currentGroupId || $selector.val();
+        suppressGroupSelectorChange = true;
+        $selector.empty();
+        var groups = bridgeGroups.length ? bridgeGroups : savedBridgeGroups;
+        groups.forEach(function (group) {
+            if (!group || !group.id) {
+                return;
+            }
+            var label = (group.name || '未命名大桥');
+            var count = (group.taskIds || []).length;
+            $selector.append($('<option></option>').val(group.id).text(label + '（' + count + '座子桥）'));
+        });
+        if (previous && $selector.find('option[value="' + previous + '"]').length) {
+            $selector.val(previous);
+        }
+        currentGroupId = $selector.val() || null;
+        suppressGroupSelectorChange = false;
+    }
+
+    function initBridgeSelector() {
+        refreshGroupSelector();
     }
 
     function clearBridgeFormData() {
@@ -689,18 +1108,18 @@
     // 加载报告数据。线路级和当前桥梁分开取，过期请求直接丢弃，避免切桥后把上一座桥的数据填回来。
     function loadReportData() {
         var seq = ++loadSeq;
-        var taskId = currentTaskId;
+        var groupId = currentGroupId;
         var requests = [$.ajax({
             url: prefix + "/list",
             type: "post",
             data: {"reportId": reportId},
             dataType: "json"
         })];
-        if (taskId) {
+        if (groupId) {
             requests.push($.ajax({
                 url: prefix + "/list",
                 type: "post",
-                data: {"reportId": reportId, "taskId": taskId},
+                data: {"reportId": reportId, "groupId": groupId},
                 dataType: "json"
             }));
         }
@@ -719,6 +1138,7 @@
                 }
             }
             fillFormData(rows);
+            applyBridgeGroupsFromForm();
         }).fail(function () {
             if (seq !== loadSeq) {
                 return;
@@ -736,18 +1156,34 @@
             var type = data.type;
 
             if (type == 0) {
-                // 文本类型
+                if (value != null && typeof value !== 'string') {
+                    value = JSON.stringify(value);
+                }
                 $('textarea[data-original-key="' + key + '"]').val(value);
                 $('input[type="text"][data-original-key="' + key + '"]').val(value);
                 $('input[type="hidden"][data-original-key="' + key + '"]').val(value);
             } else if (type == 1) {
-                // 图片类型
                 if (value) {
                     var $valueHolder = $('.image-value-holder[data-original-key="' + key + '"]');
                     var $previewContainer = $('.image-preview[data-original-key="' + key + '"]');
-
                     if ($valueHolder.length > 0) {
                         $valueHolder.val(value);
+                        var imageUrls = value.split(',');
+                        var validUrls = [];
+                        for (var j = 0; j < imageUrls.length; j++) {
+                            if (imageUrls[j].trim()) {
+                                validUrls.push(imageUrls[j].trim());
+                            }
+                        }
+                        if (validUrls.length === 0) {
+                            $previewContainer.empty();
+                        } else {
+                            $previewContainer.html('<div class="text-center"><i class="fa fa-spinner fa-spin"></i> 正在加载图片...</div>');
+                            var loadCounter = {total: validUrls.length, loaded: 0, results: [], originalIds: []};
+                            for (var j = 0; j < validUrls.length; j++) {
+                                processImageUrl(validUrls[j], j, loadCounter, $previewContainer);
+                            }
+                        }
                     }
                 }
             }
@@ -762,6 +1198,58 @@
         }
     }
 
+    function processImageUrl(url, index, counter, container) {
+        counter.originalIds[index] = url;
+        if (/^\d+$/.test(url)) {
+            $.ajax({
+                url: prefix + "/getFileUrl",
+                type: "post",
+                data: {"fileId": url},
+                dataType: "json",
+                success: function (result) {
+                    counter.results[index] = (result.code == 0) ? result.data : "#";
+                    updateImagePreview(counter, container);
+                },
+                error: function () {
+                    counter.results[index] = "#";
+                    updateImagePreview(counter, container);
+                }
+            });
+        } else {
+            counter.results[index] = url;
+            updateImagePreview(counter, container);
+        }
+    }
+
+    function updateImagePreview(counter, container) {
+        counter.loaded++;
+        if (counter.loaded < counter.total) {
+            return;
+        }
+        var imgHtml = '';
+        for (var i = 0; i < counter.results.length; i++) {
+            if (!counter.results[i]) {
+                continue;
+            }
+            var originalId = counter.originalIds[i];
+            imgHtml += '<div class="image-item" data-id="' + originalId + '">';
+            imgHtml += '<div class="image-actions"><a href="javascript:void(0);" class="btn btn-xs btn-danger remove-image" title="删除"><i class="fa fa-trash"></i></a></div>';
+            imgHtml += '<a href="' + counter.results[i] + '" target="_blank"><img src="' + counter.results[i] + '" alt="预览图"></a>';
+            imgHtml += '</div>';
+        }
+        container.html(imgHtml);
+        container.find('.remove-image').on('click', function () {
+            var imageId = String($(this).closest('.image-item').data('id'));
+            var originalKey = container.data('original-key');
+            var $valueHolder = $('.image-value-holder[data-original-key="' + originalKey + '"]');
+            var ids = ($valueHolder.val() || '').split(',').map(function (id) { return id.trim(); }).filter(function (id) {
+                return id && id !== imageId;
+            });
+            $valueHolder.val(ids.join(','));
+            $(this).closest('.image-item').remove();
+        });
+    }
+
     // 保存选项卡数据
     function saveTabData(tabId) {
         saveTabDataInternal(tabId, true);
@@ -774,11 +1262,19 @@
 
     // 内部保存方法
     function saveTabDataInternal(tabId, showLoading) {
-        var savingTaskId = currentTaskId;
-        var savingBuildingId = currentBuildingId;
-        if (!isLineLevelTab(tabId) && !savingTaskId) {
+        if (tabId === 'tab_line_groups') {
+            var groupError = syncBridgeGroupsToForm();
+            if (groupError) {
+                if (showLoading) {
+                    $.modal.alertError(groupError);
+                }
+                return;
+            }
+        }
+        var savingGroupId = currentGroupId;
+        if (!isLineLevelTab(tabId) && !savingGroupId) {
             if (showLoading) {
-                $.modal.alertError("请先选择桥梁");
+                $.modal.alertError("请先选择大桥");
             }
             return;
         }
@@ -786,13 +1282,15 @@
         var formData = new FormData();
         formData.append("reportId", reportId);
         if (!isLineLevelTab(tabId)) {
-            formData.append("taskId", savingTaskId);
-            if (savingBuildingId) {
-                formData.append("buildingId", savingBuildingId);
-            }
+            formData.append("groupId", savingGroupId);
         }
 
         var tabPane = $('#' + tabId);
+
+        // 只有一项时 Spring 会按逗号拆 dataValues，JSON 会被截断。先补一个空项当成数组。
+        formData.append("dataKeys", "");
+        formData.append("dataValues", "");
+        formData.append("dataTypes", "0");
 
         // 添加文本字段
         tabPane.find('textarea').each(function () {
@@ -803,6 +1301,9 @@
                 formData.append("dataKeys", key);
                 formData.append("dataValues", value);
                 formData.append("dataTypes", "0");
+                if (key === 'line-bridge-groups') {
+                    formData.append("bridgeGroupsJson", value || "");
+                }
             }
         });
 
@@ -887,6 +1388,9 @@
                 }
 
                 if (result.code == 0) {
+                    if (tabId === 'tab_line_groups') {
+                        savedBridgeGroups = bridgeGroups.slice();
+                    }
                     if (showLoading) {
                         $.modal.alertSuccess("保存成功");
                         tabPane.find('input[type="file"]').fileinput('clear');
@@ -931,8 +1435,8 @@
         }
 
         var requestData = {"reportId": reportId};
-        if (currentTaskId) {
-            requestData.taskId = currentTaskId;
+        if (currentGroupId) {
+            requestData.groupId = currentGroupId;
         }
         $.ajax({
             url: prefix + "/diseaseComponentData",

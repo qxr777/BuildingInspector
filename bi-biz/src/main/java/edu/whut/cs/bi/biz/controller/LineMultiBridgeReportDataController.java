@@ -1,11 +1,14 @@
 package edu.whut.cs.bi.biz.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.domain.LineBridgeGroup;
 import edu.whut.cs.bi.biz.domain.LineReportData;
 import edu.whut.cs.bi.biz.domain.Report;
 import edu.whut.cs.bi.biz.domain.Task;
@@ -63,6 +66,9 @@ public class LineMultiBridgeReportDataController extends BaseController {
     @Autowired
     private FileMapServiceImpl fileMapService;
 
+    @Autowired
+    private MinioConfig minioConfig;
+
     /**
      * 多桥报告填报页面
      */
@@ -71,7 +77,10 @@ public class LineMultiBridgeReportDataController extends BaseController {
     public String fill(@PathVariable("id") Long id, ModelMap mmap) {
         Report report = reportService.selectReportById(id);
         mmap.put("report", report);
-        mmap.put("reportTasks", selectReportTasks(report));
+        List<Task> reportTasks = selectReportTasks(report);
+        mmap.put("reportTasks", reportTasks);
+        mmap.put("reportTaskViewsJson", JSON.toJSONString(toReportTaskViews(reportTasks)));
+        mmap.put("bridgeGroupsJson", JSON.toJSONString(lineReportDataService.resolveEffectiveGroups(id, reportTasks)));
         return FILL_PAGE;
     }
 
@@ -82,7 +91,11 @@ public class LineMultiBridgeReportDataController extends BaseController {
     @PostMapping("/list")
     @ResponseBody
     public TableDataInfo list(@RequestParam("reportId") Long reportId,
-                             @RequestParam(value = "taskId", required = false) Long taskId) {
+                             @RequestParam(value = "taskId", required = false) Long taskId,
+                             @RequestParam(value = "groupId", required = false) String groupId) {
+        if (groupId != null && !groupId.trim().isEmpty()) {
+            return getDataTable(lineReportDataService.selectByGroup(reportId, groupId.trim()));
+        }
         return getDataTable(lineReportDataService.selectByTask(reportId, taskId));
     }
 
@@ -96,14 +109,20 @@ public class LineMultiBridgeReportDataController extends BaseController {
     public AjaxResult save(
             @RequestParam("reportId") Long reportId,
             @RequestParam(value = "taskId", required = false) Long taskId,
+            @RequestParam(value = "groupId", required = false) String groupId,
             @RequestParam(value = "buildingId", required = false) Long buildingId,
             @RequestParam(value = "dataKeys", required = false) String[] dataKeys,
             @RequestParam(value = "dataValues", required = false) String[] dataValues,
             @RequestParam(value = "dataTypes", required = false) Integer[] dataTypes,
-            @RequestParam(value = "files", required = false) MultipartFile[] files) {
+            @RequestParam(value = "files", required = false) MultipartFile[] files,
+            @RequestParam(value = "bridgeGroupsJson", required = false) String bridgeGroupsJson) {
 
-        if (ObjectUtils.isEmpty(dataKeys) || ObjectUtils.isEmpty(dataValues)) {
+        if (ObjectUtils.isEmpty(dataKeys) && (bridgeGroupsJson == null || bridgeGroupsJson.trim().isEmpty())) {
             return AjaxResult.success("没有要保存的数据");
+        }
+        if (ObjectUtils.isEmpty(dataKeys)) {
+            dataKeys = new String[0];
+            dataValues = new String[0];
         }
 
         try {
@@ -120,18 +139,22 @@ public class LineMultiBridgeReportDataController extends BaseController {
                 String submittedValue = dataValues != null && i < dataValues.length ? dataValues[i] : null;
 
                 boolean lineKey = key.startsWith("line-") || key.startsWith("line.");
-                if (taskId == null && !lineKey) {
-                    // 没有桥梁任务ID的请求只能写线路级字段，避免多座桥共用一份桥梁数据。
+                boolean groupScope = groupId != null && !groupId.trim().isEmpty();
+                if (taskId == null && !groupScope && !lineKey) {
                     continue;
                 }
-                if (taskId != null && lineKey) {
+                if ((taskId != null || groupScope) && lineKey) {
                     continue;
                 }
 
                 LineReportData reportData = new LineReportData();
                 reportData.setReportId(reportId);
-                reportData.setTaskId(taskId);
-                reportData.setBuildingId(buildingId);
+                if (groupScope) {
+                    reportData.setGroupId(groupId.trim());
+                } else {
+                    reportData.setTaskId(taskId);
+                    reportData.setBuildingId(buildingId);
+                }
                 reportData.setKey(key);
                 reportData.setType(type);
 
@@ -145,6 +168,18 @@ public class LineMultiBridgeReportDataController extends BaseController {
                     reportData.setValue(submittedValue);
                 }
                 dataList.add(reportData);
+            }
+
+            if (bridgeGroupsJson != null && !bridgeGroupsJson.trim().isEmpty()) {
+                dataList.removeIf(item -> LineBridgeGroup.DATA_KEY.equals(item.getKey())
+                        && item.getTaskId() == null
+                        && (item.getGroupId() == null || item.getGroupId().trim().isEmpty()));
+                LineReportData groups = new LineReportData();
+                groups.setReportId(reportId);
+                groups.setKey(LineBridgeGroup.DATA_KEY);
+                groups.setType(0);
+                groups.setValue(bridgeGroupsJson.trim());
+                dataList.add(groups);
             }
 
             return toAjax(lineReportDataService.saveBatch(reportId, dataList));
@@ -161,25 +196,41 @@ public class LineMultiBridgeReportDataController extends BaseController {
     @RequiresPermissions("biz:report_data:list")
     @ResponseBody
     public AjaxResult diseaseComponentData(@RequestParam("reportId") Long reportId,
-                                          @RequestParam(value = "taskId", required = false) Long taskId) {
+                                          @RequestParam(value = "taskId", required = false) Long taskId,
+                                          @RequestParam(value = "groupId", required = false) String groupId) {
         try {
             Report report = reportService.selectReportById(reportId);
             if (report == null) {
                 return AjaxResult.error("报告不存在");
             }
-            Long targetTaskId = taskId;
-            if (targetTaskId == null) {
-                List<Task> tasks = selectReportTasks(report);
-                if (tasks.isEmpty()) {
-                    return AjaxResult.error("报告未关联任务");
-                }
-                targetTaskId = tasks.get(0).getId();
+            List<Task> reportTasks = selectReportTasks(report);
+            List<Long> targetTaskIds = new ArrayList<>();
+            if (groupId != null && !groupId.trim().isEmpty()) {
+                lineReportDataService.resolveEffectiveGroups(reportId, reportTasks).stream()
+                        .filter(group -> groupId.trim().equals(group.getId()))
+                        .findFirst()
+                        .ifPresent(group -> {
+                            if (group.getTaskIds() != null) {
+                                targetTaskIds.addAll(group.getTaskIds());
+                            }
+                        });
+            } else if (taskId != null) {
+                targetTaskIds.add(taskId);
+            } else if (!reportTasks.isEmpty()) {
+                targetTaskIds.add(reportTasks.get(0).getId());
             }
-            Map<String, Object> taskData = reportDataService.getDiseaseComponentData(report).get(targetTaskId);
-            if (taskData == null) {
+            if (targetTaskIds.isEmpty()) {
                 return AjaxResult.success("获取成功", Collections.emptyList());
             }
-            return AjaxResult.success("获取成功", taskData.get("diseases"));
+            Map<Long, Map<String, Object>> byTask = reportDataService.getDiseaseComponentData(report);
+            List<Object> diseases = new ArrayList<>();
+            for (Long id : targetTaskIds) {
+                Map<String, Object> taskData = byTask.get(id);
+                if (taskData != null && taskData.get("diseases") instanceof List) {
+                    diseases.addAll((List<?>) taskData.get("diseases"));
+                }
+            }
+            return AjaxResult.success("获取成功", diseases);
         } catch (Exception e) {
             logger.error("获取构件病害数据失败", e);
             return AjaxResult.error("获取构件病害数据失败：" + e.getMessage());
@@ -187,8 +238,25 @@ public class LineMultiBridgeReportDataController extends BaseController {
     }
 
     /**
-     * 按报告关联的任务顺序返回任务列表，页面的桥梁顺序与报告章节顺序保持一致。
+     * 获取已上传图片的访问地址。
      */
+    @PostMapping("/getFileUrl")
+    @ResponseBody
+    public AjaxResult getFileUrl(@RequestParam("fileId") String fileId) {
+        try {
+            FileMap fileMap = fileMapService.selectFileMapById(Long.valueOf(fileId));
+            if (fileMap == null || fileMap.getNewName() == null) {
+                return AjaxResult.error("数据不完整");
+            }
+            String prefix = fileMap.getNewName().substring(0, 2);
+            String downloadUrl = minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/"
+                    + prefix + "/" + fileMap.getNewName();
+            return AjaxResult.success("获取成功", downloadUrl);
+        } catch (Exception e) {
+            logger.error("获取文件URL失败", e);
+            return AjaxResult.error("获取文件URL失败：" + e.getMessage());
+        }
+    }
     private List<Task> selectReportTasks(Report report) {
         if (report == null || report.getTaskIds() == null || report.getTaskIds().trim().isEmpty()) {
             return new ArrayList<>();
@@ -210,6 +278,37 @@ public class LineMultiBridgeReportDataController extends BaseController {
                 .map(taskById::get)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 填报页大桥分组用的任务摘要，避免把整个 Task 序列进页面脚本。
+     */
+    private List<Map<String, Object>> toReportTaskViews(List<Task> tasks) {
+        List<Map<String, Object>> views = new ArrayList<>();
+        if (tasks == null) {
+            return views;
+        }
+        for (Task task : tasks) {
+            Map<String, Object> view = new HashMap<>();
+            view.put("id", task.getId());
+            view.put("buildingId", task.getBuildingId());
+            view.put("name", displayTaskName(task));
+            views.add(view);
+        }
+        return views;
+    }
+
+    private String displayTaskName(Task task) {
+        if (task.getBuilding() != null && task.getBuilding().getName() != null
+                && !task.getBuilding().getName().trim().isEmpty()) {
+            String name = task.getBuilding().getName().trim();
+            if (task.getBuilding().getParentName() != null
+                    && !task.getBuilding().getParentName().trim().isEmpty()) {
+                return task.getBuilding().getParentName().trim() + " - " + name;
+            }
+            return name;
+        }
+        return "任务 " + task.getId();
     }
 
     /**

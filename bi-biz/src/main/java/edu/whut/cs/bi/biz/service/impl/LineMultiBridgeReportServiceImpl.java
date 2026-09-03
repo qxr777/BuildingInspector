@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
-import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
@@ -81,9 +80,6 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
     @Autowired
     private BiObjectMapper biObjectMapper;
-
-    @Autowired
-    private FileMapController fileMapController;
 
     @Autowired
     private MinioClient minioClient;
@@ -215,8 +211,13 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
             document = new XWPFDocument(new ByteArrayInputStream(templateBytes));
             WordFieldUtils.resetCounters();
+            prepareTaskBuildings(tasks, project);
+            List<LineBridgeGroup> groups = lineReportDataService.resolveEffectiveGroups(report.getId(), tasks);
+            Map<Long, Task> taskById = tasks.stream()
+                    .filter(task -> task != null && task.getId() != null)
+                    .collect(Collectors.toMap(Task::getId, task -> task, (left, right) -> left));
             applyLineLevelData(document, allReportData, report, project, tasks.get(0));
-            generateBridgeSummary(document, tasks);
+            generateBridgeSummary(document, groups, taskById);
 
             XWPFParagraph masterStart = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-start}");
             XWPFParagraph masterEnd = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-end}");
@@ -227,33 +228,23 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             // 清掉模板中的样例桥章节，只保留锚点和前后公共内容。
             removeBodyElementsBetween(document, masterStart, masterEnd);
 
-            for (Task task : tasks) {
-                if (task == null || task.getBuildingId() == null) {
-                    log.warn("跳过无效任务: {}", task);
+            for (LineBridgeGroup group : groups) {
+                List<Task> groupTasks = resolveGroupTasks(group, taskById);
+                if (groupTasks.isEmpty()) {
+                    log.warn("跳过没有子桥的大桥: {}", group == null ? null : group.getName());
                     continue;
                 }
-
-                Building building = task.getBuilding();
-                if (building == null) {
-                    building = buildingService.selectBuildingById(task.getBuildingId());
-                    task.setBuilding(building);
-                }
-                if (building == null) {
-                    log.warn("任务未找到建筑物: taskId={}", task.getId());
-                    continue;
-                }
-                task.setProject(project);
 
                 XWPFDocument bridgeDocument = new XWPFDocument(new ByteArrayInputStream(templateBytes));
                 try {
                     WordFieldUtils.resetCounters();
-                    Long taskId = task.getId();
-                    List<LineReportData> bridgeData = allReportData.stream()
-                            .filter(data -> data.getTaskId() != null && data.getTaskId().equals(taskId))
+                    String groupId = group.getId();
+                    List<LineReportData> groupData = allReportData.stream()
+                            .filter(data -> groupId != null && groupId.equals(data.getGroupId()))
                             .collect(Collectors.toList());
 
-                    applyBridgeIdentity(bridgeDocument, building, project);
-                    processBridgeChapter(bridgeDocument, task, project, bridgeData);
+                    applyGroupIdentity(bridgeDocument, group, groupTasks.get(0).getBuilding(), project);
+                    processGroupChapter(bridgeDocument, group, groupTasks, project, groupData, templateBytes);
 
                     WordFieldUtils.updateAllFields(bridgeDocument);
                     bridgeDocument.getSettings().setUpdateFields();
@@ -270,7 +261,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             removeParagraphByPlaceholder(document, "${line.bridge-block-end}");
             replaceText(document, "${line.bridge-block-start}", "");
             replaceText(document, "${line.bridge-block-end}", "");
-            updateTocPreview(document, tasks);
+            updateTocPreview(document, groups);
             WordFieldUtils.updateAllFields(document);
             document.getSettings().setUpdateFields();
             applyDocumentHeadingStyles(document);
@@ -312,32 +303,24 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 处理一座桥梁的章节内容，只操作传入的章节文档，不负责下载或上传。
+     * 处理一座大桥的章节内容，只操作传入的章节文档，不负责下载或上传。
      */
-    private void processBridgeChapter(XWPFDocument document, Task task, Project project, List<LineReportData> bridgeData) {
-        if (document == null || task == null) {
+    private void processGroupChapter(XWPFDocument document, LineBridgeGroup group, List<Task> groupTasks,
+                                     Project project, List<LineReportData> groupData, byte[] templateBytes) {
+        if (document == null || groupTasks == null || groupTasks.isEmpty()) {
             return;
         }
+        Task firstTask = groupTasks.get(0);
         try {
-            Building building = task.getBuilding();
-            if (building == null && task.getBuildingId() != null) {
-                building = buildingService.selectBuildingById(task.getBuildingId());
-                task.setBuilding(building);
-            }
-            if (building == null) {
-                log.warn("桥梁章节未找到建筑物: taskId={}", task.getId());
-                return;
-            }
-            if (project == null && task.getProjectId() != null) {
-                project = projectService.selectProjectById(task.getProjectId());
+            if (project == null && firstTask.getProjectId() != null) {
+                project = projectService.selectProjectById(firstTask.getProjectId());
             }
             if (project == null) {
-                log.warn("桥梁章节未找到项目: taskId={}", task.getId());
+                log.warn("大桥章节未找到项目: groupId={}", group == null ? null : group.getId());
                 return;
             }
 
-            List<ReportData> chapterData = bridgeData == null
-                    ? Collections.emptyList() : new ArrayList<>(bridgeData);
+            List<ReportData> chapterData = groupData == null ? Collections.emptyList() : new ArrayList<>(groupData);
             Map<String, ReportData> dataMap = new HashMap<>();
             for (ReportData data : chapterData) {
                 if (data != null && data.getKey() != null) {
@@ -349,7 +332,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             ReportGenerateTools.replaceText(document, "${year}", String.valueOf(calendar.get(Calendar.YEAR)));
             ReportGenerateTools.replaceText(document, "${month}", String.valueOf(calendar.get(Calendar.MONTH) + 1));
             ReportGenerateTools.replaceText(document, "${day}", String.valueOf(calendar.get(Calendar.DAY_OF_MONTH)));
-            ReportGenerateTools.replaceText(document, "${buildingName}", safeText(building.getName()));
+            String groupName = groupDisplayName(group, firstTask);
+            ReportGenerateTools.replaceText(document, "${buildingName}", groupName);
             if (project.getName() != null) {
                 ReportGenerateTools.replaceText(document, "${project-name}", project.getName());
             }
@@ -359,135 +343,131 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
             testConclusionService.clearDiseaseSummaryCache();
 
-            ensureBridgeOverviewSection(document);
+            replaceOverallOverviewInBridgeBlock(document, valueOf(dataMap, "overallOverview"));
+            removeTechnicalStandardInBridgeBlock(document);
+            insertGroupOverviewImages(document, dataMap);
 
-            try {
-                regularInspectionService.fillSingleBridgeRegularInspectionTable(
-                        document, building, task, project, BRIDGE_CHAPTER_TEMPLATE_TYPE);
-            } catch (Exception e) {
-                log.warn("桥梁章节定期检查记录表生成失败: taskId={}", task.getId(), e);
+            XWPFParagraph appendixHeading = findBridgeBlockHeading(document, "附表");
+            XWPFParagraph blockEnd = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-end}");
+            if (appendixHeading != null && blockEnd != null) {
+                removeBodyElementsBetween(document, appendixHeading, blockEnd);
             }
 
-            try {
-                BiEvaluation evaluation = task.getId() == null
-                        ? null : biEvaluationService.selectBiEvaluationByTaskId(task.getId());
-                bridgeCardService.processBridgeCardData(
-                        document, building, BRIDGE_CHAPTER_TEMPLATE_TYPE,
-                        evaluation == null ? null : evaluation.getSystemLevel());
-            } catch (Exception e) {
-                log.warn("桥梁章节桥梁卡片处理失败: taskId={}", task.getId(), e);
-            }
-
-            BiObject biObject = building.getRootObjectId() == null
-                    ? null : biObjectMapper.selectBiObjectById(building.getRootObjectId());
             insertHeadingBeforePlaceholder(document, "${testConclusion}", "检测结论", 4);
             insertHeadingBeforePlaceholder(document, "${technicalAdvice}", "技术建议", 4);
-            processSingleBridgeAutoGeneratedContent(document, building, project, task, biObject, dataMap);
-            processSingleBridgeUserData(document, chapterData, building, task, dataMap, project, biObject);
+            processGroupAutoGeneratedContent(document, groupName, project, groupTasks);
+            processGroupUserData(document, chapterData, groupTasks, dataMap, project);
+            fillAppendixForGroup(document, groupTasks, project, templateBytes);
             WordFieldUtils.updateAllFields(document);
         } catch (Exception e) {
-            log.error("处理桥梁章节失败: taskId={}", task.getId(), e);
+            log.error("处理大桥章节失败: groupId={}", group == null ? null : group.getId(), e);
         }
     }
 
-    /**
-     * 与一级单桥一致：在「整体概况」标题下补全概况正文与照片表（模板缺失时自动生成）。
-     */
-    private static final String BRIDGE_OVERVIEW_BODY_TEMPLATE =
-            "${桥梁名称}位于${所在政区}${路线编号}${路线名称}，中心桩号为${桥梁中心桩号}，"
-                    + "GPS坐标为N：${GPS 纬度}°，E：${GPS 经度}°。桥梁全长${桥梁全长}m，桥面全宽${桥面全宽}m，"
-                    + "跨径组合为${跨径组合}m。桥面铺装为${桥面铺装类型}，两侧设钢筋混凝土防撞护栏。"
-                    + "上部结构为${概况上部结构}；下部结构为${桥台形式}及${基础类型}。";
+    private void prepareTaskBuildings(List<Task> tasks, Project project) {
+        if (tasks == null) {
+            return;
+        }
+        for (Task task : tasks) {
+            if (task == null) {
+                continue;
+            }
+            task.setProject(project);
+            if (task.getBuilding() == null && task.getBuildingId() != null) {
+                task.setBuilding(buildingService.selectBuildingById(task.getBuildingId()));
+            }
+        }
+    }
 
-    private void ensureBridgeOverviewSection(XWPFDocument document) {
-        if (document == null) {
+    private List<Task> resolveGroupTasks(LineBridgeGroup group, Map<Long, Task> taskById) {
+        if (group == null || group.getTaskIds() == null || taskById == null) {
+            return Collections.emptyList();
+        }
+        return group.getTaskIds().stream()
+                .map(taskById::get)
+                .filter(task -> task != null && task.getBuilding() != null)
+                .collect(Collectors.toList());
+    }
+
+    private String groupDisplayName(LineBridgeGroup group, Task fallbackTask) {
+        if (group != null && group.getName() != null && !group.getName().trim().isEmpty()) {
+            return group.getName().trim();
+        }
+        if (fallbackTask != null && fallbackTask.getBuilding() != null) {
+            return safeText(fallbackTask.getBuilding().getName());
+        }
+        return "桥梁";
+    }
+
+    /**
+     * 3.1 整体概况改为填报正文，不再用桥梁卡片自动拼句。
+     */
+    private void replaceOverallOverviewInBridgeBlock(XWPFDocument document, String overview) {
+        XWPFParagraph heading = findBridgeBlockHeading(document, "整体概况");
+        if (heading == null) {
+            if (!isBlank(overview)) {
+                ReportGenerateTools.replaceText(document, "${overallOverview}", overview);
+            }
             return;
         }
         List<XWPFParagraph> paragraphs = document.getParagraphs();
+        int headingIndex = paragraphs.indexOf(heading);
+        if (headingIndex < 0 || headingIndex + 1 >= paragraphs.size()) {
+            return;
+        }
+        XWPFParagraph nextParagraph = paragraphs.get(headingIndex + 1);
+        String nextText = safeParagraphText(nextParagraph);
+        if (nextText.contains("${桥梁名称}") || nextText.contains("${overallOverview}")
+                || nextText.contains("位于") || isBlank(nextText)) {
+            clearParagraph(nextParagraph);
+            if (!isBlank(overview)) {
+                XWPFRun run = nextParagraph.createRun();
+                run.setText(overview);
+                applyBodyFormat(nextParagraph, true);
+            }
+        }
+        ReportGenerateTools.replaceText(document, "${overallOverview}", isBlank(overview) ? "" : overview);
+    }
+
+    /**
+     * 技术标准整节去掉，不放进 3.1，也不挪到第一章。
+     */
+    private void removeTechnicalStandardInBridgeBlock(XWPFDocument document) {
+        XWPFParagraph heading = findBridgeBlockHeading(document, "技术标准");
+        if (heading != null) {
+            List<XWPFParagraph> paragraphs = document.getParagraphs();
+            int headingIndex = paragraphs.indexOf(heading);
+            XWPFParagraph valueParagraph = headingIndex >= 0 && headingIndex + 1 < paragraphs.size()
+                    ? paragraphs.get(headingIndex + 1) : null;
+            if (valueParagraph != null && safeParagraphText(valueParagraph).contains("${standard}")) {
+                removeParagraph(document, valueParagraph);
+            }
+            removeParagraph(document, heading);
+        }
+        replaceText(document, "${standard}", "");
+    }
+
+    private XWPFParagraph findBridgeBlockHeading(XWPFDocument document, String headingText) {
         boolean inBridgeBlock = false;
-        for (int i = 0; i < paragraphs.size(); i++) {
-            XWPFParagraph paragraph = paragraphs.get(i);
+        for (XWPFParagraph paragraph : document.getParagraphs()) {
             String text = safeParagraphText(paragraph);
             if (text.contains("${line.bridge-block-start}")) {
                 inBridgeBlock = true;
                 continue;
             }
             if (text.contains("${line.bridge-block-end}")) {
-                inBridgeBlock = false;
-                continue;
+                break;
             }
-            if (!inBridgeBlock || !"整体概况".equals(text)) {
-                continue;
+            if (inBridgeBlock && headingText.equals(text)) {
+                return paragraph;
             }
-            if (i + 1 >= paragraphs.size()) {
-                return;
-            }
-            XWPFParagraph nextParagraph = paragraphs.get(i + 1);
-            String nextText = safeParagraphText(nextParagraph);
-            if (nextText.contains("${桥梁名称}") || nextText.contains("位于")) {
-                return;
-            }
-            if (!"设计要点".equals(nextText)) {
-                return;
-            }
-            XmlCursor cursor = nextParagraph.getCTP().newCursor();
-            insertBridgeOverviewContent(document, cursor);
-            log.info("已补全桥梁整体概况正文与照片表");
-            return;
         }
+        return null;
     }
 
-    private void insertBridgeOverviewContent(XWPFDocument document, XmlCursor cursor) {
-        XWPFParagraph overviewParagraph = document.insertNewParagraph(cursor);
-        overviewParagraph.createRun().setText(BRIDGE_OVERVIEW_BODY_TEMPLATE);
-        applyBodyFormat(overviewParagraph, true);
-        cursor.toNextToken();
-
-        insertBridgeOverviewPhotoTable(document, cursor);
-
-        XWPFParagraph captionParagraph = document.insertNewParagraph(cursor);
-        captionParagraph.setAlignment(ParagraphAlignment.CENTER);
-        XWPFRun captionRun = captionParagraph.createRun();
-        captionRun.setText("桥梁正立面照");
-        captionRun.setFontFamily("宋体");
-        captionRun.setFontSize(10);
-        cursor.toNextToken();
-    }
-
-    private void insertBridgeOverviewPhotoTable(XWPFDocument document, XmlCursor cursor) {
-        XWPFTable table = document.insertNewTbl(cursor);
-        cursor.toNextToken();
-        applyTableGrid(table, 2);
-        while (table.getNumberOfRows() < 2) {
-            table.createRow();
-        }
-
-        String[][] photoCells = {
-                {"%{leftFront}", "左幅正面照", "%{rightFront}", "右幅正面照"},
-                {"%{leftSide}", "左幅立面照", "%{rightSide}", "右幅立面照"}
-        };
-        for (int rowIndex = 0; rowIndex < photoCells.length; rowIndex++) {
-            XWPFTableRow row = table.getRow(rowIndex);
-            while (row.getTableCells().size() < 2) {
-                row.createCell();
-            }
-            for (int colIndex = 0; colIndex < 2; colIndex++) {
-                XWPFTableCell cell = row.getCell(colIndex);
-                while (cell.getParagraphs().size() > 0) {
-                    cell.removeParagraph(0);
-                }
-                XWPFParagraph placeholderParagraph = cell.addParagraph();
-                placeholderParagraph.setAlignment(ParagraphAlignment.CENTER);
-                placeholderParagraph.createRun().setText(photoCells[rowIndex][colIndex * 2]);
-
-                XWPFParagraph labelParagraph = cell.addParagraph();
-                labelParagraph.setAlignment(ParagraphAlignment.CENTER);
-                XWPFRun labelRun = labelParagraph.createRun();
-                labelRun.setText(photoCells[rowIndex][colIndex * 2 + 1]);
-                labelRun.setFontFamily("宋体");
-                labelRun.setFontSize(10);
-            }
-        }
+    private String valueOf(Map<String, ReportData> dataMap, String key) {
+        ReportData data = dataMap == null ? null : dataMap.get(key);
+        return data == null ? null : data.getValue();
     }
 
     private String safeParagraphText(XWPFParagraph paragraph) {
@@ -524,12 +504,43 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             return;
         }
         for (LineReportData data : reportDataList) {
-            if (data.getTaskId() != null || data.getKey() == null) {
+            if (data.getTaskId() != null || !isBlank(data.getGroupId()) || data.getKey() == null) {
+                continue;
+            }
+            if (LineBridgeGroup.DATA_KEY.equals(data.getKey())) {
+                continue;
+            }
+            if (data.getType() != null && data.getType() == 1) {
                 continue;
             }
             String key = data.getKey();
             String placeholder = key.startsWith("${") ? key : "${" + key + "}";
             replaceText(document, placeholder, safeText(data.getValue()));
+        }
+    }
+
+    /**
+     * 填充一座大桥的身份信息，桥梁章节副本内的同名占位符都指向这一座大桥。
+     */
+    private void applyGroupIdentity(XWPFDocument document, LineBridgeGroup group, Building firstBuilding, Project project) {
+        String groupName = groupDisplayName(group, null);
+        if (isBlank(groupName) && firstBuilding != null) {
+            groupName = safeText(firstBuilding.getName());
+        }
+        replaceText(document, "${桥梁名称}", safeText(groupName));
+        replaceText(document, "${building-name}", safeText(groupName));
+        replaceText(document, "${buildingName}", safeText(groupName));
+        if (firstBuilding != null) {
+            replaceText(document, "${桥梁编号}", safeText(firstBuilding.getBuildingCode()));
+            replaceText(document, "${路线编号}", safeText(firstBuilding.getRouteCode()));
+            replaceText(document, "${路线名称}", safeText(firstBuilding.getRouteName()));
+            replaceText(document, "${桥位桩号}", safeText(firstBuilding.getBridgePileNumber()));
+        }
+        if (project != null) {
+            replaceText(document, "${project-name}", safeText(project.getName()));
+            if (project.getDept() != null) {
+                replaceText(document, "${client-unit}", safeText(project.getDept().getDeptName()));
+            }
         }
     }
 
@@ -553,9 +564,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 生成第二章：按桥梁分别生成部件划分及构件数量表。
+     * 生成第二章：按大桥出标题（2.2 的下一级，样式 4），其下按子桥出部件划分及构件数量表。
      */
-    private void generateBridgeSummary(XWPFDocument document, List<Task> tasks) {
+    private void generateBridgeSummary(XWPFDocument document, List<LineBridgeGroup> groups, Map<Long, Task> taskById) {
         XWPFParagraph placeholder = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-summary}");
         if (placeholder == null) {
             log.warn("多桥模板未找到桥梁汇总占位符");
@@ -564,22 +575,15 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         XmlCursor cursor = placeholder.getCTP().newCursor();
         AtomicInteger chapter2TableCounter = new AtomicInteger(1);
 
-        for (Task task : tasks) {
-            Building building = task == null ? null : task.getBuilding();
-            if (building == null || building.getRootObjectId() == null) {
+        for (LineBridgeGroup group : groups) {
+            List<Task> groupTasks = resolveGroupTasks(group, taskById);
+            if (groupTasks.isEmpty()) {
                 continue;
             }
-            BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
-            if (rootObject == null) {
-                log.warn("多桥第二章未找到桥梁结构树: taskId={}, rootObjectId={}",
-                        task.getId(), building.getRootObjectId());
-                continue;
-            }
-
-            XWPFParagraph componentTitle = document.insertNewParagraph(cursor);
-            componentTitle.setStyle("4");
-            componentTitle.createRun().setText(safeText(building.getName()));
-            applyHeadingFormat(componentTitle, 4);
+            XWPFParagraph groupTitle = document.insertNewParagraph(cursor);
+            groupTitle.setStyle("4");
+            groupTitle.createRun().setText(groupDisplayName(group, groupTasks.get(0)));
+            applyHeadingFormat(groupTitle, 4);
             cursor.toNextToken();
 
             XWPFParagraph componentIntro = document.insertNewParagraph(cursor);
@@ -587,14 +591,26 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             applyBodyFormat(componentIntro, true);
             cursor.toNextToken();
 
-            List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootObject.getId());
-            for (BiObject tableRoot : resolveComponentTableRoots(rootObject, allObjects)) {
-                String tableName = Objects.equals(tableRoot.getId(), rootObject.getId())
-                        ? safeText(building.getName()) : safeText(tableRoot.getName());
-                WordFieldUtils.createTableCaptionWithCounter(
-                        document, tableName + "桥梁部件划分及构件数量表",
-                        cursor, 2, chapter2TableCounter, 21, 360, false, 0);
-                generateComponentTable(document, cursor, collectComponentStructure(tableRoot, allObjects));
+            for (Task task : groupTasks) {
+                Building building = task.getBuilding();
+                if (building == null || building.getRootObjectId() == null) {
+                    continue;
+                }
+                BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                if (rootObject == null) {
+                    log.warn("多桥第二章未找到桥梁结构树: taskId={}, rootObjectId={}",
+                            task.getId(), building.getRootObjectId());
+                    continue;
+                }
+                List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootObject.getId());
+                for (BiObject tableRoot : resolveComponentTableRoots(rootObject, allObjects)) {
+                    String tableName = Objects.equals(tableRoot.getId(), rootObject.getId())
+                            ? safeText(building.getName()) : safeText(tableRoot.getName());
+                    WordFieldUtils.createTableCaptionWithCounter(
+                            document, tableName + "桥梁部件划分及构件数量表",
+                            cursor, 2, chapter2TableCounter, 21, 360, false, 0);
+                    generateComponentTable(document, cursor, collectComponentStructure(tableRoot, allObjects));
+                }
             }
         }
         clearParagraph(placeholder);
@@ -603,21 +619,22 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     /**
      * 更新母版中原有目录的桥梁名称缓存。
      *
-     * <p>POI 不会计算 TOC 域，因此先把母版中 3 个样例桥名替换成前 3 个已选桥梁名；
-     * 真正的页码和超过 3 座桥的目录项在 Word 打开时由 updateFields 自动刷新。</p>
+     * <p>POI 不会计算 TOC 域，因此先把母版中 3 个样例桥名替换成前 3 座大桥名；
+     * 真正的页码和超过 3 座大桥的目录项在 Word 打开时由 updateFields 自动刷新。</p>
      */
-    private void updateTocPreview(XWPFDocument document, List<Task> tasks) {
+    private void updateTocPreview(XWPFDocument document, List<LineBridgeGroup> groups) {
         String[] placeholders = {"${桥梁名称}", "${line.bridge.2.name}", "${line.bridge.3.name}"};
         for (int i = 0; i < placeholders.length; i++) {
             XWPFParagraph paragraph = ReportGenerateTools.findParagraphByPlaceholder(document, placeholders[i]);
             if (paragraph == null) {
                 continue;
             }
-            if (tasks != null && i < tasks.size() && tasks.get(i) != null && tasks.get(i).getBuilding() != null) {
+            if (groups != null && i < groups.size() && groups.get(i) != null
+                    && !isBlank(groups.get(i).getName())) {
                 ReportGenerateTools.replaceTextInParagraphs(
                         Collections.singletonList(paragraph),
                         placeholders[i],
-                        safeText(tasks.get(i).getBuilding().getName()),
+                        safeText(groups.get(i).getName()),
                         "目录预览");
             } else {
                 clearParagraph(paragraph);
@@ -808,82 +825,52 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     // ==================== 以下桥梁章节逻辑参照一级单桥报告实现，独立维护 ====================
 
     /**
-     * 处理单桥模板自动生成的内容
+     * 处理大桥章节中由系统自动生成的内容
      */
-    private void processSingleBridgeAutoGeneratedContent(XWPFDocument document, Building building,
-                                                         Project project, Task task, BiObject biObject,
-                                                         Map<String, ReportData> dataMap) {
-        // 0. 处理桥梁概况照片（从数据库自动获取，与组合桥同步）
+    private void processGroupAutoGeneratedContent(XWPFDocument document, String groupName,
+                                                  Project project, List<Task> groupTasks) {
         try {
-            insertSingleBridgeImages(document, building.getId());
-            log.info("单桥桥梁概况照片处理完成");
-        } catch (Exception e) {
-            log.error("处理单桥桥梁概况照片出错: error={}", e.getMessage(), e);
-            // 照片处理失败不影响其他内容生成，只记录日志
-        }
-
-        // 1. 外观检测结果（从数据库自动生成）
-        try {
-            // 处理第三章外观检测结果
-            BiObject rootBiObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
-            List<BiObject> biObjects = new ArrayList<>();
-            biObjects.add(rootBiObject);
-            processAppearanceCheck(document, biObjects, building, project.getId());
+            processAppearanceCheck(document, groupTasks, project.getId());
             log.info("外观检测结果生成完成");
         } catch (Exception e) {
             log.error("处理外观检测结果出错: error={}", e.getMessage(), e);
             ReportGenerateTools.replaceText(document, "${appearanceInspectionResults}", "【外观检测结果生成失败，请联系管理员】");
         }
 
-
-        // 2. 技术状况评定（自动生成）
         try {
-            handleEvaluationResults(document, "${evaluationResults}", building, task.getId());
+            handleEvaluationResults(document, "${evaluationResults}", groupName, groupTasks);
             log.info("技术状况评定生成完成");
         } catch (Exception e) {
             log.error("处理技术状况评定出错: error={}", e.getMessage(), e);
             ReportGenerateTools.replaceText(document, "${evaluationResults}", "【技术状况评定生成失败，请联系管理员】");
         }
 
-        // 3.  近两年评定结果对比（自动生成）
         try {
-            handleComparisonAnalysis(document, "${comparativeAnalysisOfEvaluationResults}", task, building.getName(), false);
+            handleComparisonAnalysis(document, "${comparativeAnalysisOfEvaluationResults}", groupTasks);
             log.info("近年评定结果对比生成完成");
         } catch (Exception e) {
             log.error("处理近年评定结果对比出错: error={}", e.getMessage(), e);
             ReportGenerateTools.replaceText(document, "${comparativeAnalysisOfEvaluationResults}", "【近年评定结果对比生成失败，请联系管理员】");
         }
 
-
-        // 4.
-        // 处理检测结论（不依赖ReportData）
         try {
-            handleTestConclusion(document, "${testConclusion}", task, building.getName());
-            handleTestConclusionBridge(document, "${testConclusionBridge}", task, building.getName());
+            handleTestConclusion(document, "${testConclusion}", groupTasks, groupName);
+            handleTestConclusionBridge(document, "${testConclusionBridge}", groupTasks);
         } catch (Exception e) {
             log.error("处理检测结论出错: error={}", e.getMessage());
-            // 如果处理失败，降级为普通文本替换
             ReportGenerateTools.replaceText(document, "${testConclusion}", "检测结论数据获取失败");
             ReportGenerateTools.replaceText(document, "${testConclusionBridge}", "检测结论详情数据获取失败");
         }
     }
 
     /**
-     * 处理第三章外观检测结果
+     * 处理第三章外观检测结果。
      *
-     * @param document   Word文档
-     * @param subBridges 建筑物信息
-     * @throws Exception 异常
+     * <p>模板里 3.2「外观检测结果」是二级（样式 2），其下一级是样式 4（与 3.1.1 整体概况同级）。
+     * 每座子桥占这一级（3.2.1、3.2.2）；原先的上部/下部/桥面系及构件整体再降一级。</p>
      */
-    private void processAppearanceCheck(XWPFDocument document, List<BiObject> subBridges, Building building, Long projectId) throws Exception {
-
-
-        // 获取所有子部件
-        List<BiObject> allObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
-
-        // 找到占位符所在的段落
+    private void processAppearanceCheck(XWPFDocument document, List<Task> groupTasks, Long projectId) throws Exception {
         XWPFParagraph placeholderParagraph = null;
-
         for (int i = 0; i < document.getParagraphs().size(); i++) {
             XWPFParagraph paragraph = document.getParagraphs().get(i);
             if (paragraph.getText().contains("${appearanceInspectionResults}")) {
@@ -891,51 +878,66 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 break;
             }
         }
-
-        // 如果找不到占位符，直接返回
         if (placeholderParagraph == null) {
             return;
         }
 
-        // 获取占位符段落的XML游标，用于指定内容插入位置
         XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
-
-        // 为每个子桥生成章节
-        int chapterNum = 3; // 第三章
-        int subChapterNum = 1;
-
         AtomicInteger chapter3ImageCounter = new AtomicInteger(1);
         AtomicInteger chapter3TableCounter = new AtomicInteger(1);
 
-        // 直接在文档中指定位置生成内容
-        for (BiObject subBridge : subBridges) {
-            XmlCursor subCursor = cursor.newCursor();
+        for (Task task : groupTasks) {
+            Building building = task.getBuilding();
+            if (building == null || building.getRootObjectId() == null) {
+                continue;
+            }
+            BiObject rootBiObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+            if (rootBiObject == null) {
+                continue;
+            }
+            List<BiObject> allObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
+
+            XWPFParagraph subBridgeTitle = document.insertNewParagraph(cursor);
+            subBridgeTitle.setStyle("4");
+            subBridgeTitle.createRun().setText(safeText(building.getName()));
+            applyHeadingFormat(subBridgeTitle, 4);
+            cursor.toNextToken();
 
             Disease queryParam = new Disease();
             queryParam.setBuildingId(building.getId());
             queryParam.setProjectId(projectId);
             List<Disease> subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
 
-            // 外观检测挂在「外观检测结果」下一级：3.2.1 主桥/引桥（或整桥名称），
-            // 再往下才是上部结构、部件。heading 4 与模板里「整体概况」同级，不会升成 3.3。
-            String prefix = chapterNum + "." + subChapterNum;
-            List<BiObject> appearanceRoots = resolveComponentTableRoots(subBridge, allObjects);
-            int rootIdx = 1;
+            List<BiObject> appearanceRoots = resolveComponentTableRoots(rootBiObject, allObjects);
             for (BiObject appearanceRoot : appearanceRoots) {
                 Map<Long, List<Disease>> bridgeDiseaseMap = new LinkedHashMap<>();
                 collectDiseases(appearanceRoot, appearanceRoot, allObjects, subBridgeDiseases, bridgeDiseaseMap);
-                writeBiObjectTreeToWord(document, appearanceRoot, allObjects, bridgeDiseaseMap,
-                        prefix + "." + rootIdx, 1, chapter3ImageCounter, chapter3TableCounter, subCursor, 3);
-                rootIdx++;
+                boolean skipRootHeading = appearanceRoots.size() == 1
+                        && Objects.equals(appearanceRoot.getId(), rootBiObject.getId());
+                if (skipRootHeading) {
+                    List<BiObject> structures = listComponentChildren(appearanceRoot.getId(), allObjects).stream()
+                            .filter(child -> COMPONENT_STRUCTURE_NAMES.contains(child.getName()))
+                            .collect(Collectors.toList());
+                    if (structures.isEmpty()) {
+                        structures = listComponentChildren(appearanceRoot.getId(), allObjects);
+                    }
+                    // 子桥标题已写出。从上部结构按 level=2 往下写，部件仍是 level=3，
+                    // 检测结果表只在 level==3 导出；若从上部结构当 level=1 写，病害会落到空心板等下一级，全部变成「未见明显病害」。
+                    for (BiObject structure : structures) {
+                        writeBiObjectTreeToWord(document, structure, allObjects, bridgeDiseaseMap,
+                                "3.2", 2, chapter3ImageCounter, chapter3TableCounter, cursor, 3,
+                                safeText(building.getName()));
+                    }
+                } else {
+                    writeBiObjectTreeToWord(document, appearanceRoot, allObjects, bridgeDiseaseMap,
+                            "3.2", 1, chapter3ImageCounter, chapter3TableCounter, cursor, 4,
+                            safeText(building.getName()));
+                }
             }
-
-            subChapterNum++;
         }
 
-        // 删除占位符段落
-        placeholderParagraph.removeRun(0); // 清除占位符文本
+        placeholderParagraph.removeRun(0);
         if (placeholderParagraph.getRuns().size() == 0) {
-            // 如果段落为空，找到它的索引并删除
             for (int i = 0; i < document.getParagraphs().size(); i++) {
                 if (document.getParagraphs().get(i) == placeholderParagraph) {
                     document.removeBodyElement(i);
@@ -995,7 +997,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     private void writeBiObjectTreeToWord(XWPFDocument document, BiObject node, List<BiObject> allNodes,
                                          Map<Long, List<Disease>> diseaseMap, String prefix, int level,
                                          AtomicInteger chapterImageCounter, AtomicInteger chapter3TableCounter,
-                                         XmlCursor cursor, int baseHeadingLevel) throws Exception {
+                                         XmlCursor cursor, int baseHeadingLevel, String bridgeName) throws Exception {
         if (level > 3) {
             return; // 不再写标题，也不再递归写标题
         }
@@ -1154,8 +1156,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 tableRefPara = document.createParagraph();
             }
 
+            String tableTitle = (isBlank(bridgeName) ? "" : bridgeName) + node.getName() + "结构检测结果表";
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
-                    document, node.getName() + "检测结果表", cursor, 3, chapter3TableCounter, 21, 360, false, 0);
+                    document, tableTitle, cursor, 3, chapter3TableCounter, 21, 360, false, 0);
 
             WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", ":");
             applyBodyFormat(tableRefPara, true);
@@ -1381,7 +1384,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         int idx = 1;
         for (BiObject child : children) {
-            writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel);
+            writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel, bridgeName);
             idx++;
         }
     }
@@ -1518,39 +1521,69 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
 
     /**
-     * 处理评定结果
-     *
-     * @param document Word文档
-     * @param key      占位符
-     * @param building 建筑物信息
-     * @param taskId   任务id
+     * 处理评定结果：大桥总述 + 每座子桥一段 + 按子桥顺序出表。
      */
-    private void handleEvaluationResults(XWPFDocument document, String key, Building building, Long taskId) {
+    private void handleEvaluationResults(XWPFDocument document, String key, String groupName, List<Task> groupTasks) {
         try {
             log.info("开始处理评定结果, key: {}", key);
+            StringBuilder content = new StringBuilder();
+            content.append("依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，")
+                    .append(groupName)
+                    .append("的技术状况评定结果如下：\n");
 
-            // 查询评定结果
-            BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(taskId);
-            if (evaluation == null) {
-                log.warn("未找到任务的评定结果: taskId={}", taskId);
-                ReportGenerateTools.replaceText(document, key, "未找到评定结果");
-                return;
+            Map<Long, BiEvaluation> evaluationMap = new LinkedHashMap<>();
+            Integer minSystemLevel = null;
+            for (Task task : groupTasks) {
+                BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                Building building = task.getBuilding();
+                String bridgeName = building != null && building.getName() != null ? building.getName() : "桥梁";
+                if (evaluation == null) {
+                    content.append("未找到").append(bridgeName).append("的评定结果。\n");
+                    continue;
+                }
+                evaluationMap.put(task.getId(), evaluation);
+                if (evaluation.getSystemLevel() != null
+                        && (minSystemLevel == null || evaluation.getSystemLevel() > minSystemLevel)) {
+                    minSystemLevel = evaluation.getSystemLevel();
+                }
+                content.append(bridgeName)
+                        .append("上部结构技术状况评分为")
+                        .append(formatScore(evaluation.getSuperstructureScore()))
+                        .append("分，等级为")
+                        .append(evaluation.getSuperstructureLevel())
+                        .append("类；下部结构技术状况评分为")
+                        .append(formatScore(evaluation.getSubstructureScore()))
+                        .append("分，等级为")
+                        .append(evaluation.getSubstructureLevel())
+                        .append("类；桥面系技术状况评分为")
+                        .append(formatScore(evaluation.getDeckSystemScore()))
+                        .append("分，等级为")
+                        .append(evaluation.getDeckSystemLevel())
+                        .append("类；全桥技术状况评分为")
+                        .append(formatScore(evaluation.getSystemScore()))
+                        .append("分，评定为")
+                        .append(evaluation.getSystemLevel())
+                        .append("类桥梁。\n");
             }
+            if (minSystemLevel != null) {
+                content.append("全桥技术状况评定按照评定单元最低分进行评定，因此评定为")
+                        .append(minSystemLevel)
+                        .append("类。\n");
+            }
+            content.append("技术状况评定记录和具体评分见下表所示。");
 
-            // 获取桥梁名称
-            String bridgeName = building != null && building.getName() != null ? building.getName() : "桥梁";
-
-            // 生成评定文字内容
-            String Content = generateEvaluationContent(evaluation, bridgeName);
-
-            // 插入四句话到文档中
-            XWPFParagraph paragraph = insertEvaluationContent(document, key, Content);
-
-            // 调用专门的服务在四句话后生成表格（包含分页符、横向设置和表格）
-            evaluationTableService.generateEvaluationTableAfterParagraph(document, paragraph, building, evaluation, bridgeName);
-
+            XWPFParagraph paragraph = insertEvaluationContent(document, key, content.toString());
+            for (Task task : groupTasks) {
+                BiEvaluation evaluation = evaluationMap.get(task.getId());
+                if (evaluation == null) {
+                    continue;
+                }
+                Building building = task.getBuilding();
+                String bridgeName = building != null && building.getName() != null ? building.getName() : "桥梁";
+                evaluationTableService.generateEvaluationTableAfterParagraph(
+                        document, paragraph, building, evaluation, bridgeName);
+            }
             log.info("评定结果和表格处理完成");
-
         } catch (Exception e) {
             log.error("处理评定结果失败: key={}, error={}", key, e.getMessage(), e);
             throw e;
@@ -1637,50 +1670,6 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
 
     /**
-     * 生成评定文字内容
-     *
-     * @param evaluation 评定结果
-     * @param bridgeName 桥梁名称
-     */
-    private String generateEvaluationContent(BiEvaluation evaluation, String bridgeName) {
-        StringBuilder content = new StringBuilder();
-
-        // 第一句话：依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，[桥梁名称]的技术状况评定结果如下：
-        content.append("依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）规定评定方法，")
-                .append(bridgeName)
-                .append("的技术状况评定结果如下：\n");
-
-        // 第二句话：上部结构技术状况评分为xx分，等级为x类；下部结构技术状况评分为xx分，等级为x类；桥面系技术状况评分为xx分，等级为x类；全桥技术状况评分为xx分，评定为x类桥梁。
-        content.append("上部结构技术状况评分为")
-                .append(formatScore(evaluation.getSuperstructureScore()))
-                .append("分，等级为")
-                .append(evaluation.getSuperstructureLevel())
-                .append("类；下部结构技术状况评分为")
-                .append(formatScore(evaluation.getSubstructureScore()))
-                .append("分，等级为")
-                .append(evaluation.getSubstructureLevel())
-                .append("类；桥面系技术状况评分为")
-                .append(formatScore(evaluation.getDeckSystemScore()))
-                .append("分，等级为")
-                .append(evaluation.getDeckSystemLevel())
-                .append("类；全桥技术状况评分为")
-                .append(formatScore(evaluation.getSystemScore()))
-                .append("分，评定为")
-                .append(evaluation.getSystemLevel())
-                .append("类桥梁。\n");
-
-        // 第三句话：全桥技术状况评定按照评定单元最低分进行评定，因此评定为x类。
-        content.append("全桥技术状况评定按照评定单元最低分进行评定，因此评定为")
-                .append(evaluation.getSystemLevel())
-                .append("类。\n");
-
-        // 第四句话：技术状况评定记录和具体评分见表10.1所示。
-        content.append("技术状况评定记录和具体评分见表10.1所示。");
-
-        return content.toString();
-    }
-
-    /**
      * 格式化分数，保留一位小数
      *
      * @param score 分数
@@ -1695,53 +1684,45 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
 
     /**
-     * 处理单桥模板用户填写的数据（仅处理文本，照片由系统自动处理）
+     * 处理大桥章节中用户填写的数据（照片已按大桥上传处理）
      */
-    private void processSingleBridgeUserData(XWPFDocument document, List<ReportData> reportDataList,
-                                             Building building, Task task, Map<String, ReportData> dataMap,
-                                             Project project, BiObject biObject) {
+    private void processGroupUserData(XWPFDocument document, List<ReportData> reportDataList,
+                                      List<Task> groupTasks, Map<String, ReportData> dataMap,
+                                      Project project) {
+        Task firstTask = groupTasks == null || groupTasks.isEmpty() ? null : groupTasks.get(0);
+        Building firstBuilding = firstTask == null ? null : firstTask.getBuilding();
         for (ReportData data : reportDataList) {
             String key = data.getKey();
             String value = data.getValue();
             Integer type = data.getType();
             try {
-                // 跳过照片相关的字段，照片由系统自动处理
                 if (key != null && (key.contains("leftFront") || key.contains("rightFront") ||
                         key.contains("leftSide") || key.contains("rightSide"))) {
-                    log.debug("跳过照片字段（由系统自动处理）: {}", key);
                     continue;
                 }
-
-                // 周边环境需要同时输出文字、检查表和现场照片，不能按普通文本占位符替换。
+                if ("overallOverview".equals(key) || LineBridgeGroup.DATA_KEY.equals(key)) {
+                    continue;
+                }
                 if (isSurroundingEnvironmentKey(key)) {
                     continue;
                 }
 
                 if (type == 0) {
-                    // 文本类型
-                    // 检查是否是病害选择字段，需要特殊处理
                     if (key != null && key.contains("focusDiseases")) {
                         try {
-                            log.info("开始处理单桥病害数据，key: {}, value: {}", key, value);
-                            // 解析病害数据
                             List<ComponentDiseaseType> combinations = parseChooseDiseaseJson(value);
                             if (!combinations.isEmpty()) {
-                                // 生成重点关注病害内容（包含文字和成因分析）
-                                generateSingleBridgeFocusOnDiseases(document, combinations, building, project, biObject);
-                                log.info("单桥病害分析生成完成");
+                                generateGroupFocusOnDiseases(document, combinations, groupTasks, project);
                             } else {
-                                log.warn("病害数据解析为空");
                                 ReportGenerateTools.replaceText(document, "${focusOnDiseases}", "无重点关注病害");
                             }
                         } catch (Exception e) {
-                            log.error("处理单桥病害数据出错: key={}, value={}, error={}", key, value, e.getMessage(), e);
+                            log.error("处理大桥病害数据出错: key={}, value={}, error={}", key, value, e.getMessage(), e);
                             ReportGenerateTools.replaceText(document, "${focusOnDiseases}", "【病害数据处理失败，请联系管理员】");
                         }
                     } else {
-                        // 普通文本字段 - 直接替换
                         String placeholder = (key != null && key.startsWith("${")) ? key : "${" + key + "}";
                         ReportGenerateTools.replaceText(document, placeholder, value != null ? value : "");
-                        log.debug("替换文本字段: {} = {}", key, value != null ? value : "(空)");
                     }
                 }
             } catch (Exception e) {
@@ -1751,11 +1732,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         try {
             ReportData environmentData = findSurroundingEnvironmentData(dataMap);
-            generateBridgeSiteEnvironment(document, building, task,
+            generateBridgeSiteEnvironment(document, groupTasks,
                     environmentData == null ? null : environmentData.getValue());
         } catch (Exception e) {
-            log.error("生成桥址周边环境调查内容失败: buildingId={}, taskId={}",
-                    building == null ? null : building.getId(), task == null ? null : task.getId(), e);
+            log.error("生成桥址周边环境调查内容失败: buildingId={}",
+                    firstBuilding == null ? null : firstBuilding.getId(), e);
         }
     }
 
@@ -1767,23 +1748,28 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      *     其照片作为 disease 附件保存。</li>
      * </ul>
      */
-    private void generateBridgeSiteEnvironment(XWPFDocument document, Building building, Task task,
+    private void generateBridgeSiteEnvironment(XWPFDocument document, List<Task> groupTasks,
                                                String manualSummary) throws Exception {
-        if (document == null || building == null || task == null) {
+        if (document == null || groupTasks == null || groupTasks.isEmpty()) {
             return;
         }
 
         XWPFParagraph anchor = findSurroundingEnvironmentAnchor(document);
         if (anchor == null) {
-            log.warn("多桥模板未找到“周边环境调查”锚点，跳过桥址周边环境导出: buildingId={}", building.getId());
+            log.warn("多桥模板未找到“周边环境调查”锚点，跳过桥址周边环境导出");
             return;
         }
 
-        List<Disease> environmentRecords = loadBridgeSiteEnvironmentRecords(building, task);
-        String propertySummary = loadEnvironmentCondition(building);
+        List<Disease> environmentRecords = new ArrayList<>();
+        for (Task task : groupTasks) {
+            if (task.getBuilding() != null) {
+                environmentRecords.addAll(loadBridgeSiteEnvironmentRecords(task.getBuilding(), task));
+            }
+        }
+        Building firstBuilding = groupTasks.get(0).getBuilding();
+        String propertySummary = firstBuilding == null ? null : loadEnvironmentCondition(firstBuilding);
         String summary = firstNonBlank(manualSummary, propertySummary, buildEnvironmentSummary(environmentRecords));
 
-        // 无文字、无现场记录时不打断模板原有布局。
         if (isBlank(summary) && environmentRecords.isEmpty()) {
             clearParagraph(anchor);
             return;
@@ -1799,7 +1785,6 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         if (!environmentRecords.isEmpty()) {
             Map<Long, List<String>> imageReferences = collectEnvironmentImageReferences(environmentRecords);
-            // 采用 Word 域自动编号，使“照片编号”列与下方图注都能随章节重排更新。
             WordFieldUtils.createTableCaption(document, "周边环境检查结果一览表", cursor, 3);
             XWPFTable table = document.insertNewTbl(cursor);
             cursor.toNextToken();
@@ -1808,7 +1793,6 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             insertDiseaseImagesWithStreaming(document, environmentRecords, imageReferences, cursor);
         }
 
-        // 该段落可能是 ${surroundingEnvironment}，也可能是模板标题下预留的空白段落。
         clearParagraph(anchor);
     }
 
@@ -2055,27 +2039,30 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
 
     /**
-     * 生成单桥重点关注病害内容
+     * 生成大桥重点关注病害内容，病害来自该大桥下全部子桥。
      */
-    private void generateSingleBridgeFocusOnDiseases(XWPFDocument document, List<ComponentDiseaseType> combinations,
-                                                     Building building, Project project, BiObject biObject) {
+    private void generateGroupFocusOnDiseases(XWPFDocument document, List<ComponentDiseaseType> combinations,
+                                              List<Task> groupTasks, Project project) {
         try {
             StringBuilder content = new StringBuilder();
-
-            // 1. 得到病害
-            // 提取所有构件ID
             List<Long> componentIds = combinations.stream()
                     .map(ComponentDiseaseType::getComponentId)
                     .distinct()
                     .collect(Collectors.toList());
 
-            // 批量查询病害数据
-            List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
-                    componentIds, building.getId(), project.getYear());
+            List<Disease> allDiseases = new ArrayList<>();
+            Integer year = project == null ? null : project.getYear();
+            for (Task task : groupTasks) {
+                if (task.getBuilding() == null) {
+                    continue;
+                }
+                List<Disease> diseases = diseaseMapper.selectDiseaseComponentData(
+                        componentIds, task.getBuilding().getId(), year);
+                if (diseases != null) {
+                    allDiseases.addAll(diseases);
+                }
+            }
 
-            // 2. 生成主要病害的描述和成因分析
-            // 按照biObjectId 分类 ， 同时按照 diseaseTypeId 分组。
-            // 分组逻辑
             Map<Long, Map<Long, List<Disease>>> groupedMap = allDiseases.stream()
                     .collect(Collectors.groupingBy(
                             Disease::getBiObjectId,
@@ -2093,19 +2080,15 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                     content.append(disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
                     content.append("\n");
                     content.append("成因分析：\n");
-                    disease.setBuildingId(building.getId());
                     content.append(getDiseaseCause(disease));
                     content.append("\n");
                     index++;
                 }
-
             }
 
-            // 替换占位符
             ReportGenerateTools.replaceText(document, "${focusOnDiseases}", content.toString().trim());
-
         } catch (Exception e) {
-            log.error("生成单桥重点关注病害内容失败", e);
+            log.error("生成大桥重点关注病害内容失败", e);
             ReportGenerateTools.replaceText(document, "${focusOnDiseases}", "【病害分析生成失败】");
         }
     }
@@ -2129,133 +2112,73 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 处理单桥桥梁概况照片（与组合桥同步）
-     *
-     * @param document   Word文档
-     * @param buildingId 建筑物ID
-     * @throws Exception 异常
+     * 3.1 四张照片来自填报页上传，不再自动取桥梁卡片 newfront/newside。
      */
-    private void insertSingleBridgeImages(XWPFDocument document, Long buildingId) throws Exception {
-        log.info("开始处理单桥桥梁概况照片，buildingId: {}", buildingId);
+    private void insertGroupOverviewImages(XWPFDocument document, Map<String, ReportData> dataMap) throws Exception {
+        String leftFront = resolveUploadedImageName(dataMap, "leftFront");
+        String rightFront = resolveUploadedImageName(dataMap, "rightFront");
+        String leftSide = resolveUploadedImageName(dataMap, "leftSide");
+        String rightSide = resolveUploadedImageName(dataMap, "rightSide");
 
-        // 获取桥梁图片（与组合桥使用相同的逻辑）
-        List<FileMap> images = fileMapController.getImageMaps(buildingId, "newfront", "newside");
-        log.info("从数据库获取到 {} 张图片", images != null ? images.size() : 0);
+        replaceOverviewImage(document, "%{leftFront}", leftFront);
+        replaceOverviewImage(document, "%{rightFront}", rightFront);
+        replaceOverviewImage(document, "%{leftSide}", leftSide);
+        replaceOverviewImage(document, "%{rightSide}", rightSide);
+        replaceOverviewImage(document, "${桥梁正面照}", leftFront);
+        replaceOverviewImage(document, "${桥梁正面照1}", rightFront != null ? rightFront : leftFront);
+        replaceOverviewImage(document, "${桥梁立面照}", leftSide);
+        replaceOverviewImage(document, "${桥梁立面照1}", rightSide != null ? rightSide : leftSide);
+    }
 
-        if (images != null) {
-            for (FileMap image : images) {
-                log.debug("图片信息: oldName={}, newName={}", image.getOldName(), image.getNewName());
-            }
-        }
-
-        // 分类存储图片
-        List<String> frontImagesList = new ArrayList<>();
-        List<String> sideImagesList = new ArrayList<>();
-
-        if (images != null) {
-            for (FileMap image : images) {
-                String[] parts = image.getOldName().split("_");
-                log.debug("解析图片名称: {} -> parts: {}", image.getOldName(), Arrays.toString(parts));
-
-                if (parts.length > 1 && "newfront".equals(parts[1])) {
-                    frontImagesList.add(image.getNewName());
-                    log.debug("添加正面照: {}", image.getNewName());
-                } else if (parts.length > 1 && "newside".equals(parts[1])) {
-                    sideImagesList.add(image.getNewName());
-                    log.debug("添加立面照: {}", image.getNewName());
-                }
-            }
-        }
-
-        log.info("图片分类结果 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
-
-        // 与一级单桥模板一致：%{leftFront} 等占位符。
-        if (!frontImagesList.isEmpty()) {
-            log.info("替换正面照占位符");
-            ReportGenerateTools.replaceImageInDocument(document, "%{leftFront}", frontImagesList.get(0), null, false);
-            ReportGenerateTools.replaceImageInDocument(document, "%{rightFront}",
-                    frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0), null, false);
+    private void replaceOverviewImage(XWPFDocument document, String placeholder, String imageFileName) throws Exception {
+        if (!isBlank(imageFileName)) {
+            ReportGenerateTools.replaceImageInDocument(document, placeholder, imageFileName, null, false);
         } else {
-            log.warn("没有找到正面照，清除占位符");
-            ReportGenerateTools.replaceText(document, "%{leftFront}", "");
-            ReportGenerateTools.replaceText(document, "%{rightFront}", "");
+            ReportGenerateTools.replaceText(document, placeholder, "");
         }
+    }
 
-        if (!sideImagesList.isEmpty()) {
-            log.info("替换立面照占位符");
-            ReportGenerateTools.replaceImageInDocument(document, "%{leftSide}", sideImagesList.get(0), null, false);
-            ReportGenerateTools.replaceImageInDocument(document, "%{rightSide}",
-                    sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0), null, false);
-        } else {
-            log.warn("没有找到立面照，清除占位符");
-            ReportGenerateTools.replaceText(document, "%{leftSide}", "");
-            ReportGenerateTools.replaceText(document, "%{rightSide}", "");
+    private String resolveUploadedImageName(Map<String, ReportData> dataMap, String key) {
+        ReportData data = dataMap == null ? null : dataMap.get(key);
+        if (data == null || isBlank(data.getValue())) {
+            return null;
         }
-
-        // 兼容旧版多桥模板占位符。
-        if (!frontImagesList.isEmpty()) {
-            log.info("替换正面照占位符");
-            ReportGenerateTools.replaceImageInDocument(document, "${桥梁正面照}", frontImagesList.get(0), null, false);
-            ReportGenerateTools.replaceImageInDocument(document, "${桥梁正面照1}",
-                    frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0), null, false);
-        } else {
-            log.warn("没有找到正面照，清除占位符");
-            ReportGenerateTools.replaceText(document, "${桥梁正面照}", "");
-            ReportGenerateTools.replaceText(document, "${桥梁正面照1}", "");
+        String firstId = data.getValue().split(",")[0].trim();
+        if (firstId.isEmpty()) {
+            return null;
         }
-
-        // 多桥服务端模板使用 ${桥梁立面照}/${桥梁立面照1}。
-        if (!sideImagesList.isEmpty()) {
-            log.info("替换立面照占位符");
-            ReportGenerateTools.replaceImageInDocument(document, "${桥梁立面照}", sideImagesList.get(0), null, false);
-            ReportGenerateTools.replaceImageInDocument(document, "${桥梁立面照1}",
-                    sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0), null, false);
-        } else {
-            log.warn("没有找到立面照，清除占位符");
-            ReportGenerateTools.replaceText(document, "${桥梁立面照}", "");
-            ReportGenerateTools.replaceText(document, "${桥梁立面照1}", "");
+        try {
+            FileMap fileMap = fileMapService.selectFileMapById(Long.valueOf(firstId));
+            return fileMap == null ? null : fileMap.getNewName();
+        } catch (NumberFormatException e) {
+            log.warn("概况照片ID无效: key={}, value={}", key, firstId);
+            return null;
         }
-
-        log.info("单桥桥梁概况照片处理完成 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
     }
 
 
     /**
-     * 处理 近年评定结果比较分析表格
-     *
-     * @param document   Word文档
-     * @param key        占位符
-     * @param task       当前任务ID
-     * @param bridgeName 桥梁名称
+     * 一座大桥一张近年评定对比表，行是该大桥下全部子桥。
      */
-    private void handleComparisonAnalysis(XWPFDocument document, String key, Task task, String bridgeName, boolean isSingleBridege) {
+    private void handleComparisonAnalysis(XWPFDocument document, String key, List<Task> groupTasks) {
         try {
-            log.info("开始处理比较分析, key: {}, taskId: {}", key, task.getId());
-
-            // 查找占位符位置
+            log.info("开始处理比较分析, key: {}, 子桥数量: {}", key, groupTasks == null ? 0 : groupTasks.size());
             XWPFParagraph targetParagraph = null;
-            List<XWPFParagraph> paragraphs = document.getParagraphs();
-
-            for (XWPFParagraph paragraph : paragraphs) {
+            for (XWPFParagraph paragraph : document.getParagraphs()) {
                 String text = paragraph.getText();
                 if (text != null && text.contains(key)) {
                     targetParagraph = paragraph;
                     break;
                 }
             }
-
             if (targetParagraph == null) {
                 log.warn("未找到占位符: {}", key);
                 return;
             }
-
-            // 调用比较分析服务生成表格
-            comparisonAnalysisService.generateComparisonAnalysisTable(document, targetParagraph, task, bridgeName, isSingleBridege);
-
+            comparisonAnalysisService.generateMultiBridgeComparisonAnalysisTable(document, targetParagraph, groupTasks);
             log.info("比较分析处理完成");
-
         } catch (Exception e) {
-            log.error("处理比较分析失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            log.error("处理比较分析失败: key={}, error={}", key, e.getMessage(), e);
             throw e;
         }
     }
@@ -2823,67 +2746,161 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
     /**
      * 处理检测结论
-     *
-     * @param document   Word文档
-     * @param key        占位符
-     * @param task       当前任务
-     * @param bridgeName 桥梁名称
      */
-    private void handleTestConclusion(XWPFDocument document, String key, Task task, String bridgeName) {
+    private void handleTestConclusion(XWPFDocument document, String key, List<Task> groupTasks, String groupName) {
         try {
-            log.info("开始处理检测结论, key: {}, taskId: {}", key, task.getId());
-
-            // 查找占位符位置
+            log.info("开始处理检测结论, key: {}, 子桥数量: {}", key, groupTasks.size());
             XWPFParagraph targetParagraph = ReportGenerateTools.findParagraphByPlaceholder(document, key);
             if (targetParagraph == null) {
                 log.warn("未找到检测结论占位符: {}", key);
                 return;
             }
-            List<Task> tasks = new ArrayList<>();
-            tasks.add(task);
-            BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
             Map<Long, BiEvaluation> biEvaluationMap = new HashMap<>();
-            biEvaluationMap.put(biEvaluation.getTaskId(), biEvaluation);
-            // 调用检测结论服务处理检测结论
-            testConclusionService.handleTestConclusion(document, targetParagraph, tasks, bridgeName, biEvaluationMap, biEvaluation.getSystemLevel());
-
+            Integer minSystemLevel = null;
+            for (Task task : groupTasks) {
+                BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                if (evaluation == null) {
+                    continue;
+                }
+                biEvaluationMap.put(task.getId(), evaluation);
+                if (evaluation.getSystemLevel() != null
+                        && (minSystemLevel == null || evaluation.getSystemLevel() > minSystemLevel)) {
+                    minSystemLevel = evaluation.getSystemLevel();
+                }
+            }
+            testConclusionService.handleTestConclusion(document, targetParagraph, groupTasks, groupName,
+                    biEvaluationMap, minSystemLevel);
             log.info("检测结论处理完成");
-
         } catch (Exception e) {
-            log.error("处理检测结论失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            log.error("处理检测结论失败: key={}, error={}", key, e.getMessage(), e);
             throw e;
         }
     }
 
     /**
      * 处理检测结论桥梁详情
-     *
-     * @param document   Word文档
-     * @param key        占位符
-     * @param task       当前任务
-     * @param bridgeName 桥梁名称
      */
-    private void handleTestConclusionBridge(XWPFDocument document, String key, Task task, String bridgeName) {
+    private void handleTestConclusionBridge(XWPFDocument document, String key, List<Task> groupTasks) {
         try {
-            log.info("开始处理检测结论桥梁详情, key: {}, taskId: {}", key, task.getId());
-
-            // 查找占位符位置
+            log.info("开始处理检测结论桥梁详情, key: {}, 子桥数量: {}", key, groupTasks.size());
             XWPFParagraph targetParagraph = ReportGenerateTools.findParagraphByPlaceholder(document, key);
             if (targetParagraph == null) {
                 log.warn("未找到检测结论桥梁详情占位符: {}", key);
                 return;
             }
-            List<Task> tasks = new ArrayList<>();
-            tasks.add(task);
-            // 调用检测结论服务处理检测结论桥梁详情
-            testConclusionService.handleTestConclusionBridge(document, targetParagraph, tasks);
-
+            testConclusionService.handleTestConclusionBridge(document, targetParagraph, groupTasks);
             log.info("检测结论桥梁详情处理完成");
-
         } catch (Exception e) {
-            log.error("处理检测结论桥梁详情失败: key={}, taskId={}, error={}", key, task.getId(), e.getMessage(), e);
+            log.error("处理检测结论桥梁详情失败: key={}", key, e);
             throw e;
         }
+    }
+
+    private enum AppendixPart {
+        BRIDGE_CARD,
+        INSPECTION_TABLE
+    }
+
+    /**
+     * 附表先按子桥顺序出全部桥梁卡片，再按同一顺序出全部定期检查记录表。
+     */
+    private void fillAppendixForGroup(XWPFDocument document, List<Task> groupTasks,
+                                      Project project, byte[] templateBytes) {
+        if (document == null || groupTasks == null || groupTasks.isEmpty() || templateBytes == null) {
+            return;
+        }
+        XWPFParagraph appendixHeading = findBridgeBlockHeading(document, "附表");
+        XWPFParagraph blockEnd = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-end}");
+        if (appendixHeading == null || blockEnd == null) {
+            log.warn("大桥章节未找到附表标题或结束锚点，跳过附表生成");
+            return;
+        }
+        for (Task task : groupTasks) {
+            insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.BRIDGE_CARD);
+        }
+        for (Task task : groupTasks) {
+            insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.INSPECTION_TABLE);
+        }
+    }
+
+    private void insertAppendixPart(XWPFDocument document, XWPFParagraph blockEnd, byte[] templateBytes,
+                                    Project project, Task task, AppendixPart part) {
+        Building building = task == null ? null : task.getBuilding();
+        if (building == null) {
+            return;
+        }
+        XWPFDocument appendixSource = null;
+        try {
+            appendixSource = new XWPFDocument(new ByteArrayInputStream(templateBytes));
+            applyBridgeIdentity(appendixSource, building, project);
+            if (part == AppendixPart.INSPECTION_TABLE) {
+                regularInspectionService.fillSingleBridgeRegularInspectionTable(
+                        appendixSource, building, task, project, BRIDGE_CHAPTER_TEMPLATE_TYPE);
+            } else {
+                BiEvaluation evaluation = task.getId() == null
+                        ? null : biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                bridgeCardService.processBridgeCardData(
+                        appendixSource, building, BRIDGE_CHAPTER_TEMPLATE_TYPE,
+                        evaluation == null ? null : evaluation.getSystemLevel());
+            }
+            insertBodyElementCopies(document, blockEnd, appendixSource,
+                    copyAppendixBodyElements(appendixSource, part));
+        } catch (Exception e) {
+            log.warn("大桥附表生成失败: taskId={}, part={}", task.getId(), part, e);
+        } finally {
+            if (appendixSource != null) {
+                try {
+                    appendixSource.close();
+                } catch (IOException e) {
+                    log.warn("关闭附表临时文档失败: taskId={}", task.getId(), e);
+                }
+            }
+        }
+    }
+
+    private List<IBodyElement> copyAppendixBodyElements(XWPFDocument document, AppendixPart part) {
+        XWPFParagraph appendixHeading = findBridgeBlockHeading(document, "附表");
+        XWPFParagraph end = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-end}");
+        if (appendixHeading == null || end == null) {
+            return Collections.emptyList();
+        }
+        int startIndex = document.getPosOfParagraph(appendixHeading);
+        int endIndex = document.getPosOfParagraph(end);
+        int splitIndex = indexOfAppendixInspectionTable(document, startIndex, endIndex);
+        int from;
+        int to;
+        if (splitIndex < 0) {
+            if (part != AppendixPart.BRIDGE_CARD) {
+                return Collections.emptyList();
+            }
+            from = startIndex + 1;
+            to = endIndex;
+        } else if (part == AppendixPart.BRIDGE_CARD) {
+            from = startIndex + 1;
+            to = splitIndex;
+        } else {
+            from = splitIndex;
+            to = endIndex;
+        }
+        List<IBodyElement> elements = new ArrayList<>();
+        for (int i = from; i < to; i++) {
+            elements.add(document.getBodyElements().get(i));
+        }
+        return elements;
+    }
+
+    private int indexOfAppendixInspectionTable(XWPFDocument document, int startIndex, int endIndex) {
+        for (int i = startIndex + 1; i < endIndex; i++) {
+            IBodyElement element = document.getBodyElements().get(i);
+            if (!(element instanceof XWPFParagraph)) {
+                continue;
+            }
+            String text = safeParagraphText((XWPFParagraph) element).replace(" ", "");
+            if (text.contains("定期检查记录表")) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // ==================== 以下表格工具参照组合桥报告实现，独立维护 ====================
@@ -3202,11 +3219,38 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             return;
         }
         for (XWPFParagraph paragraph : document.getParagraphs()) {
+            if (isCaptionParagraph(paragraph)) {
+                continue;
+            }
             int level = resolveHeadingLevel(paragraph);
             if (level >= 2) {
                 applyHeadingFormat(paragraph, level);
             }
         }
+    }
+
+    /**
+     * 表题、图题在模板里常带 outlineLvl，不能当成正文标题去改成左对齐。
+     */
+    private boolean isCaptionParagraph(XWPFParagraph paragraph) {
+        if (paragraph == null) {
+            return false;
+        }
+        String text = safeParagraphText(paragraph).replace(" ", "");
+        if (text.contains("桥梁基本状况卡片") || text.contains("定期检查记录表")
+                || text.startsWith("表") || text.startsWith("图")) {
+            return true;
+        }
+        try {
+            CTPPr ppr = paragraph.getCTP().getPPr();
+            if (ppr != null && ppr.isSetJc() && ppr.getJc().getVal() == STJc.CENTER) {
+                return true;
+            }
+        } catch (Exception ignored) {
+            // 按普通段落处理
+        }
+        String style = paragraph.getStyle();
+        return "13".equals(style) || (style != null && style.toLowerCase().contains("caption"));
     }
 
     private int resolveHeadingLevel(XWPFParagraph paragraph) {

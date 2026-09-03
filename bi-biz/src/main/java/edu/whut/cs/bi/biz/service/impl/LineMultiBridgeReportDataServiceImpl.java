@@ -1,7 +1,9 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import edu.whut.cs.bi.biz.domain.LineBridgeGroup;
 import edu.whut.cs.bi.biz.domain.LineReportData;
 import edu.whut.cs.bi.biz.domain.ReportData;
+import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.ReportDataMapper;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.ILineMultiBridgeReportDataService;
@@ -25,18 +27,19 @@ import java.util.stream.Collectors;
 /**
  * 定期检查多桥报告数据Service实现。
  *
- * <p>桥梁归属用现有 key 字段做逻辑分区，不改动 bi_report_data 表结构，
- * 例如 __task_101__chapter-4-1-1-designPoints。落库时编码，读取时解码。</p>
- *
- * @author wanzheng
+ * <p>桥梁归属用现有 key 字段做逻辑分区，不改动 bi_report_data 表结构。
+ * 子桥：__task_101__designPoints；大桥：__group_g1__overallOverview；线路：line-project-overview。</p>
  */
 @Slf4j
 @Service
 public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeReportDataService {
     private static final String TASK_KEY_PREFIX = "__task_";
+    private static final String GROUP_KEY_PREFIX = "__group_";
     private static final String TASK_KEY_SEPARATOR = "__";
     private static final Pattern SCOPED_TASK_KEY_PATTERN =
             Pattern.compile("^" + TASK_KEY_PREFIX + "(\\d+)" + TASK_KEY_SEPARATOR + "(.*)$");
+    private static final Pattern SCOPED_GROUP_KEY_PATTERN =
+            Pattern.compile("^" + GROUP_KEY_PREFIX + "(.+?)" + TASK_KEY_SEPARATOR + "(.*)$");
 
     @Autowired
     private ReportDataMapper reportDataMapper;
@@ -56,7 +59,14 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
     @Override
     public List<LineReportData> selectByTask(Long reportId, Long taskId) {
         return selectByReportId(reportId).stream()
-                .filter(data -> Objects.equals(taskId, data.getTaskId()))
+                .filter(data -> data.getGroupId() == null && Objects.equals(taskId, data.getTaskId()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<LineReportData> selectByGroup(Long reportId, String groupId) {
+        return selectByReportId(reportId).stream()
+                .filter(data -> groupId != null && groupId.equals(data.getGroupId()))
                 .collect(Collectors.toList());
     }
 
@@ -69,7 +79,7 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
 
         Map<String, LineReportData> existingDataMap = new HashMap<>();
         for (LineReportData existingData : selectByReportId(reportId)) {
-            existingDataMap.put(scopedKey(existingData.getTaskId(), existingData.getKey()), existingData);
+            existingDataMap.put(scopedKey(existingData), existingData);
         }
 
         List<ReportData> toInsertList = new ArrayList<>();
@@ -77,12 +87,12 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
         List<Long> minioIdsToDelete = new ArrayList<>();
 
         for (LineReportData newData : dataList) {
-            if (newData.getTaskId() == null && !isLineKey(newData.getKey())) {
-                log.warn("跳过未绑定桥梁的填报项: reportId={}, key={}", reportId, newData.getKey());
+            if (newData.getTaskId() == null && isBlank(newData.getGroupId()) && !isLineKey(newData.getKey())) {
+                log.warn("跳过未绑定桥梁或大桥的填报项: reportId={}, key={}", reportId, newData.getKey());
                 continue;
             }
             newData.setReportId(reportId);
-            LineReportData existingData = existingDataMap.get(scopedKey(newData.getTaskId(), newData.getKey()));
+            LineReportData existingData = existingDataMap.get(scopedKey(newData));
 
             if (existingData != null) {
                 newData.setId(existingData.getId());
@@ -92,8 +102,7 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
                 toInsertList.add(newData);
             }
 
-            // 落库前把桥梁归属编码进 key，读取时再解码。
-            newData.setKey(encodeKey(newData.getTaskId(), newData.getKey()));
+            newData.setKey(encodeKey(newData));
         }
 
         int result = 0;
@@ -115,9 +124,60 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
         return result;
     }
 
-    /**
-     * 图片类型数据被移除的 MinIO 文件需要一并清理。
-     */
+    @Override
+    public List<LineBridgeGroup> selectBridgeGroups(Long reportId) {
+        return selectByReportId(reportId).stream()
+                .filter(data -> data.getTaskId() == null && isBlank(data.getGroupId())
+                        && LineBridgeGroup.DATA_KEY.equals(data.getKey()))
+                .findFirst()
+                .map(data -> LineBridgeGroup.parseList(data.getValue()))
+                .orElseGet(ArrayList::new);
+    }
+
+    @Override
+    public List<LineBridgeGroup> resolveEffectiveGroups(Long reportId, List<Task> tasks) {
+        List<LineBridgeGroup> result = new ArrayList<>();
+        if (tasks == null || tasks.isEmpty()) {
+            return result;
+        }
+        Map<Long, Task> taskById = tasks.stream()
+                .filter(task -> task != null && task.getId() != null)
+                .collect(Collectors.toMap(Task::getId, task -> task, (left, right) -> left));
+        Set<Long> assigned = new HashSet<>();
+        for (LineBridgeGroup saved : selectBridgeGroups(reportId)) {
+            if (saved == null) {
+                continue;
+            }
+            List<Long> taskIds = saved.getTaskIds() == null ? new ArrayList<>() : saved.getTaskIds().stream()
+                    .filter(taskById::containsKey)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (taskIds.isEmpty() && isBlank(saved.getName())) {
+                continue;
+            }
+            saved.setTaskIds(taskIds);
+            if (isBlank(saved.getName()) && !taskIds.isEmpty()) {
+                saved.setName(displayTaskName(taskById.get(taskIds.get(0))));
+            }
+            if (isBlank(saved.getId()) && !taskIds.isEmpty()) {
+                saved.setId(LineBridgeGroup.soloId(taskIds.get(0)));
+            }
+            assigned.addAll(taskIds);
+            result.add(saved);
+        }
+        for (Task task : tasks) {
+            if (task == null || task.getId() == null || assigned.contains(task.getId())) {
+                continue;
+            }
+            LineBridgeGroup solo = new LineBridgeGroup();
+            solo.setId(LineBridgeGroup.soloId(task.getId()));
+            solo.setName(displayTaskName(task));
+            solo.setTaskIds(List.of(task.getId()));
+            result.add(solo);
+        }
+        return result;
+    }
+
     private void collectRemovedMinioIds(LineReportData existingData, LineReportData newData, List<Long> minioIdsToDelete) {
         if (existingData.getType() == null || existingData.getType() != 1
                 || existingData.getValue() == null || existingData.getValue().isEmpty()) {
@@ -140,19 +200,45 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
         }
     }
 
+    private String displayTaskName(Task task) {
+        if (task != null && task.getBuilding() != null && task.getBuilding().getName() != null
+                && !task.getBuilding().getName().trim().isEmpty()) {
+            return task.getBuilding().getName().trim();
+        }
+        return task == null ? "桥梁" : "任务 " + task.getId();
+    }
+
     private boolean isLineKey(String key) {
         return key != null && (key.startsWith("line-") || key.startsWith("line."));
     }
 
-    private String scopedKey(Long taskId, String key) {
-        return (taskId == null ? "line" : "task:" + taskId) + '\u0000' + (key == null ? "" : key);
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
-    private String encodeKey(Long taskId, String key) {
-        if (taskId == null || key == null || key.startsWith(TASK_KEY_PREFIX)) {
-            return key;
+    private String scopedKey(LineReportData data) {
+        String key = data.getKey() == null ? "" : data.getKey();
+        if (!isBlank(data.getGroupId())) {
+            return "group:" + data.getGroupId() + '\u0000' + key;
         }
-        return TASK_KEY_PREFIX + taskId + TASK_KEY_SEPARATOR + key;
+        if (data.getTaskId() != null) {
+            return "task:" + data.getTaskId() + '\u0000' + key;
+        }
+        return "line" + '\u0000' + key;
+    }
+
+    private String encodeKey(LineReportData data) {
+        String key = data.getKey();
+        if (key == null) {
+            return null;
+        }
+        if (!isBlank(data.getGroupId()) && !key.startsWith(GROUP_KEY_PREFIX) && !key.startsWith(TASK_KEY_PREFIX)) {
+            return GROUP_KEY_PREFIX + data.getGroupId() + TASK_KEY_SEPARATOR + key;
+        }
+        if (data.getTaskId() != null && !key.startsWith(TASK_KEY_PREFIX) && !key.startsWith(GROUP_KEY_PREFIX)) {
+            return TASK_KEY_PREFIX + data.getTaskId() + TASK_KEY_SEPARATOR + key;
+        }
+        return key;
     }
 
     private LineReportData decode(ReportData source) {
@@ -166,6 +252,12 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
         data.setRemark(source.getRemark());
 
         if (source.getKey() == null) {
+            return data;
+        }
+        Matcher groupMatcher = SCOPED_GROUP_KEY_PATTERN.matcher(source.getKey());
+        if (groupMatcher.matches()) {
+            data.setGroupId(groupMatcher.group(1));
+            data.setKey(groupMatcher.group(2));
             return data;
         }
         Matcher matcher = SCOPED_TASK_KEY_PATTERN.matcher(source.getKey());
