@@ -9,6 +9,8 @@ import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -100,6 +102,12 @@ public class PackageServiceImpl implements IPackageService {
 
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
+
+    @Resource(name = "taskExecutor")
+    private Executor packageTaskExecutor;
+
+    /** 同一个用户在单个服务实例内只允许存在一个数据包生成任务。 */
+    private final Set<Long> refreshingUserIds = ConcurrentHashMap.newKeySet();
 
 
     /**
@@ -210,6 +218,81 @@ public class PackageServiceImpl implements IPackageService {
                 log.error("为用户ID {} 生成数据包失败: {}", userId, e.getMessage(), e);
             }
         }
+    }
+
+    @Override
+    public AjaxResult requestCurrentUserPackageRefresh(Long userId) {
+        if (userId == null) {
+            return AjaxResult.error("未获取到当前用户信息");
+        }
+
+        SysUser user = userService.selectUserById(userId);
+        if (user == null) {
+            return AjaxResult.error("当前用户不存在");
+        }
+
+        if (packageMapper.selectPackageListByUserId(userId).isEmpty()) {
+            return AjaxResult.error("当前用户暂无数据包");
+        }
+
+        if (!refreshingUserIds.add(userId)) {
+            return AjaxResult.success("用户数据包正在更新")
+                    .put("status", "PROCESSING")
+                    .put("accepted", false);
+        }
+
+        try {
+            packageTaskExecutor.execute(() -> {
+                try {
+                    refreshSingleUserPackage(user);
+                } catch (Exception e) {
+                    log.error("更新当前用户数据包失败，userId={}: {}", userId, e.getMessage(), e);
+                } finally {
+                    refreshingUserIds.remove(userId);
+                }
+            });
+        } catch (Exception e) {
+            refreshingUserIds.remove(userId);
+            log.error("提交用户数据包更新任务失败，userId={}: {}", userId, e.getMessage(), e);
+            return AjaxResult.error("提交用户数据包更新任务失败");
+        }
+
+        return AjaxResult.success("已开始更新用户数据包")
+                .put("status", "PROCESSING")
+                .put("accepted", true);
+    }
+
+    /** 按网页端原有顺序刷新单个用户包：先删除旧文件，再生成新包并更新原记录。 */
+    private void refreshSingleUserPackage(SysUser user) {
+        Long userId = user.getUserId();
+        List<Package> packages = packageMapper.selectPackageListByUserId(userId);
+        if (packages.isEmpty()) {
+            throw new IllegalStateException("当前用户暂无数据包");
+        }
+
+        Package currentPackage = packages.get(0);
+        if (currentPackage.getMinioId() != null) {
+            fileMapService.deleteFileMapById(currentPackage.getMinioId());
+        }
+
+        AjaxResult generateResult = generateUserDataPackage(user);
+        if (!generateResult.isSuccess()
+                || generateResult.get("data") == null
+                || generateResult.get("size") == null) {
+            throw new IllegalStateException("生成用户数据包失败");
+        }
+
+        Long newMinioId = Long.valueOf(generateResult.get("data").toString());
+        String packageSize = generateResult.get("size").toString();
+        Date now = DateUtils.getNowDate();
+        currentPackage.setMinioId(newMinioId);
+        currentPackage.setPackageSize(packageSize);
+        currentPackage.setPackageTime(now);
+        currentPackage.setUpdateTime(now);
+        if (packageMapper.updatePackage(currentPackage) <= 0) {
+            throw new IllegalStateException("保存用户数据包记录失败");
+        }
+        log.info("成功为用户 {} 更新数据包", user.getLoginName());
     }
 
 
