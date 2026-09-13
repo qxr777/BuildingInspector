@@ -99,6 +99,19 @@ public class ApiServiceImpl implements ApiService {
                 throw new ServiceException("压缩包文件名格式错误，应为：buildingId.zip 或 buildingId_year.zip");
             }
 
+            // TEMP: 20260913 确保保存所有压缩包目录存在
+            Path normalZipDir = Paths.get("logs", "sys-normal-zips");
+            Files.createDirectories(normalZipDir);
+
+            // 构造文件名：时间戳 + 原始文件名
+            String timeSuffix = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String safeFileName = (file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.zip");
+            Path normalZipPath = normalZipDir.resolve(timeSuffix + "_" + safeFileName);
+
+            // 保存原始压缩包
+            Files.copy(file.getInputStream(), normalZipPath, StandardCopyOption.REPLACE_EXISTING);
+            // TEMP: end of 20260913 确保压缩包目录存在
+
             // 创建临时目录存放解压文件
             tempDir = Files.createTempDirectory("bridge_upload_");
             Map<String, Path> extractedFiles = new HashMap<>();
