@@ -8,6 +8,7 @@ import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.ConditionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
@@ -864,7 +865,16 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                 log.warn("未找到桥梁结构树: rootObjectId={}", building.getRootObjectId());
                 return;
             }
-            List<Property> properties = new ArrayList<>();
+            // 多桥附表会在独立模板副本中单独生成定检表，不能再依赖后续桥梁卡片
+            // 服务顺带替换表头。这里直接装载完整桥梁属性，确保路线、桩号、管养单位等
+            // 基础信息与评分数据在同一次处理中全部写入。
+            List<Property> properties = loadBridgeProperties(building);
+            addBuildingPropertyIfMissing(properties, "桥梁名称", building.getName());
+            addBuildingPropertyIfMissing(properties, "桥梁编号", building.getBuildingCode());
+            addBuildingPropertyIfMissing(properties, "路线编号", building.getRouteCode());
+            addBuildingPropertyIfMissing(properties, "路线名称", building.getRouteName());
+            addBuildingPropertyIfMissing(properties, "桥位桩号", building.getBridgePileNumber());
+            addBuildingPropertyIfMissing(properties, "桥梁全长(m)", building.getBridgeLength());
             // 拿到 所有部件 对象。
             List<BiObject> allObjects = biObjectMapper.selectChildrenById(rootObject.getId());
 
@@ -943,9 +953,38 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             }
             // 处理 定期检查记录表特殊 的 属性。
             processSingleBridgeRecordTableSpecialProp(properties, building);
+            ReportTemplateValueUtils.addAliasProperties(properties);
             // 将表格中的占位符 替换。
             replacePlaceholdersInTables(document, properties);
             //！！！ 注意 ， 这里考虑到 基本卡片的 最后 清除了 所有表格中的占位符 ，所以这里没有再次清除。
+        }
+    }
+
+    private List<Property> loadBridgeProperties(Building building) {
+        if (building == null || building.getRootPropertyId() == null) {
+            return new ArrayList<>();
+        }
+        Property root = propertyService.selectPropertyById(building.getRootPropertyId());
+        if (root == null) {
+            return new ArrayList<>();
+        }
+        List<Property> properties = propertyService.selectPropertyList(root);
+        return properties == null ? new ArrayList<>() : new ArrayList<>(properties);
+    }
+
+    private void addBuildingPropertyIfMissing(List<Property> properties, String name, String value) {
+        if (properties == null || name == null || value == null || value.trim().isEmpty()) {
+            return;
+        }
+        boolean exists = properties.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(property -> name.equals(property.getName())
+                        && property.getValue() != null && !property.getValue().trim().isEmpty());
+        if (!exists) {
+            Property property = new Property();
+            property.setName(name);
+            property.setValue(value);
+            properties.add(property);
         }
     }
 

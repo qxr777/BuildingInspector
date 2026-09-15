@@ -6,6 +6,7 @@ import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
@@ -163,11 +164,12 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
 
             // 使用现有方法创建表格标题
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
-                    document, tableTitle, cursor, 9, chapter9TableCounter);
+                    document, tableTitle, cursor, 9, chapter9TableCounter, 21, 240, false, 0);
 
             // 创建章节格式的表格引用域
             WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark,
-                    "对比分析详情见表", "所示。");
+                    "评定结果对比分析详情见表", "所示。");
+            applyComparisonBodyFormat(tableRefPara);
 
             // 创建表格
             createComparisonTableWithData(document, cursor, bridgeName,
@@ -218,11 +220,11 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
 
             // 使用现有方法创建表格标题
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
-                    document, tableTitle, cursor, 9, chapter9TableCounter);
+                    document, tableTitle, cursor, 9, chapter9TableCounter, 21, 240, false, 0);
 
 //            // 创建章节格式的表格引用域
 //            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark,
-//                    "对比分析详情见表", "所示。");
+//                    "评定结果对比分析详情见表", "所示。");
             // 单桥改为 如下表
             XWPFRun prefixRun = tableRefPara.createRun();
             prefixRun.setText("对比分析详情如下表所示。");
@@ -279,6 +281,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
 
             // 填充表头
             fillComparisonTableHeader(table);
+            ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
             // 填充数据
             fillComparisonTableData(table, bridgeName, currentYear, currentEvaluation,
@@ -478,7 +481,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
     }
 
     /**
-     * 设置表头单元格内容
+     * 表头：宋体五号、数字 Times New Roman 五号、加粗（表名题注才是黑体）。
      */
     private void setHeaderCellContent(XWPFTableCell cell, String text) {
         if (text == null) text = "";
@@ -487,16 +490,11 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
         XWPFParagraph paragraph = cell.addParagraph();
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-
-        // 设置字体
-        run.setFontFamily("宋体");
-        run.setFontSize(10);
         run.setBold(true);
+        ReportGenerateTools.setMixedFontFamily(run, 21, "宋体");
 
-        // 设置对齐方式
         paragraph.setAlignment(ParagraphAlignment.CENTER);
 
-        // 设置单元格垂直居中
         CTTcPr tcPr = cell.getCTTc().getTcPr();
         if (tcPr == null) {
             tcPr = cell.getCTTc().addNewTcPr();
@@ -506,7 +504,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
     }
 
     /**
-     * 设置数据单元格内容
+     * 表内：宋体五号、数字 Times New Roman 五号。
      */
     private void setDataCellContent(XWPFTableCell cell, String text) {
         if (text == null) text = "";
@@ -515,21 +513,16 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
         XWPFParagraph paragraph = cell.addParagraph();
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-
-        // 设置字体
-        run.setFontFamily("宋体");
-        run.setFontSize(10);
         run.setBold(false);
+        ReportGenerateTools.setMixedFontFamily(run, 21, "宋体");
 
-        // 设置对齐方式
         paragraph.setAlignment(ParagraphAlignment.CENTER);
 
-        // 设置单元格垂直居中
         CTTcPr tcPr = cell.getCTTc().getTcPr();
         if (tcPr == null) {
             tcPr = cell.getCTTc().addNewTcPr();
         }
-            CTVerticalJc vAlign = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
+        CTVerticalJc vAlign = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
         vAlign.setVal(STVerticalJc.CENTER);
     }
 
@@ -666,11 +659,12 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
 
             // 使用现有方法创建表格标题
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
-                    document, tableTitle, cursor, 9, chapter9TableCounter);
+                    document, tableTitle, cursor, 9, chapter9TableCounter, 21, 240, false, 0);
 
             // 创建章节格式的表格引用域
             WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark,
-                    "对比分析详情见表", "所示。");
+                    "评定结果对比分析详情见表", "所示。");
+            applyComparisonBodyFormat(tableRefPara);
 
             // 创建表格
             int bridgeCount = bridgePairs.size();
@@ -700,6 +694,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
 
             // 填充表头
             fillComparisonTableHeader(table);
+            ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
             // 填充数据
             int currentRow = 1;
@@ -808,6 +803,37 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             log.debug("合并列{}，从行{}到行{}", col, fromRow, toRow);
         } catch (Exception e) {
             log.error("合并单元格失败: col={}, fromRow={}, toRow={}", col, fromRow, toRow, e);
+        }
+    }
+
+    /**
+     * 对比分析正文：两端对齐、小四，表号（如 3.1）为 Times New Roman。
+     */
+    private void applyComparisonBodyFormat(XWPFParagraph paragraph) {
+        if (paragraph == null) {
+            return;
+        }
+        String style = paragraph.getStyle();
+        if (style != null && style.trim().matches("[1-9]")) {
+            paragraph.setStyle(null);
+        }
+        paragraph.setAlignment(ParagraphAlignment.BOTH);
+        CTPPr ppr = paragraph.getCTP().getPPr();
+        if (ppr == null) {
+            ppr = paragraph.getCTP().addNewPPr();
+        }
+        if (ppr.isSetOutlineLvl()) {
+            ppr.unsetOutlineLvl();
+        }
+        CTJc jc = ppr.isSetJc() ? ppr.getJc() : ppr.addNewJc();
+        jc.setVal(STJc.BOTH);
+        CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
+        ind.setFirstLine(BigInteger.valueOf(480));
+        CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
+        spacing.setLine(BigInteger.valueOf(360));
+        spacing.setLineRule(STLineSpacingRule.AUTO);
+        for (XWPFRun run : paragraph.getRuns()) {
+            ReportGenerateTools.setMixedFontFamily(run, 24);
         }
     }
 

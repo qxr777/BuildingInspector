@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,6 +26,10 @@ public final class ReportTemplateValueUtils {
     private static final Map<String, List<String>> PLACEHOLDER_ALIASES = new LinkedHashMap<>();
     private static final List<List<String>> PROPERTY_ALIAS_GROUPS = new ArrayList<>();
     private static final Set<String> SKIPPED_BI_OBJECT_NAMES = Set.of("附属设施", "其他");
+    /**
+     * 外观检测/评定部件规范顺序。不能按汉字拼音排，否则「上部一般构件」会跑到「上部承重构件」前面。
+     */
+    private static final Map<String, Integer> STANDARD_APPEARANCE_ORDER = new HashMap<>();
 
     static {
         PLACEHOLDER_ALIASES.put("${client-unit}", Arrays.asList("${委托单位}"));
@@ -71,6 +76,23 @@ public final class ReportTemplateValueUtils {
         addPropertyAliasGroup("最近评定日期", "评定时间1");
         addPropertyAliasGroup("桥梁技术状况", "评定结果1");
         addPropertyAliasGroup("上一次处治对策", "处治对策1");
+
+        putAppearanceOrder("上部结构", 10);
+        putAppearanceOrder("上部承重构件", 11);
+        putAppearanceOrder("上部一般构件", 12);
+        putAppearanceOrder("支座", 13);
+        putAppearanceOrder("下部结构", 20);
+        putAppearanceOrder("桥墩", 21);
+        putAppearanceOrder("桥台", 22);
+        putAppearanceOrder("墩台基础", 23);
+        putAppearanceOrder("桥面系", 30);
+        putAppearanceOrder("桥面铺装", 31);
+        putAppearanceOrder("伸缩缝装置", 32);
+        putAppearanceOrder("栏杆、护栏", 33);
+        putAppearanceOrder("栏杆护栏", 33);
+        putAppearanceOrder("排水系统", 34);
+        putAppearanceOrder("照明、标志", 35);
+        putAppearanceOrder("照明标志", 35);
     }
 
     private ReportTemplateValueUtils() {
@@ -128,10 +150,27 @@ public final class ReportTemplateValueUtils {
                 .filter(node -> Objects.equals(parentId, node.getParentId()))
                 .filter(node -> !shouldSkipBiObject(node))
                 .sorted(Comparator
-                        .comparing(BiObject::getOrderNum, Comparator.nullsLast(Integer::compareTo))
+                        .comparingInt(ReportTemplateValueUtils::appearanceOrder)
+                        .thenComparing(BiObject::getOrderNum, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(BiObject::getName, Comparator.nullsLast(String::compareTo))
                         .thenComparing(BiObject::getId, Comparator.nullsLast(Long::compareTo)))
                 .collect(Collectors.toList());
+    }
+
+    private static void putAppearanceOrder(String name, int order) {
+        STANDARD_APPEARANCE_ORDER.put(name, order);
+    }
+
+    private static int appearanceOrder(BiObject node) {
+        if (node == null || node.getName() == null) {
+            return Integer.MAX_VALUE;
+        }
+        Integer order = STANDARD_APPEARANCE_ORDER.get(node.getName());
+        if (order != null) {
+            return order;
+        }
+        order = STANDARD_APPEARANCE_ORDER.get(node.getName().replace("、", ""));
+        return order == null ? Integer.MAX_VALUE : order;
     }
 
     public static boolean shouldSkipBiObject(BiObject node) {

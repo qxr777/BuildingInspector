@@ -7,6 +7,7 @@ import edu.whut.cs.bi.biz.domain.Condition;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.service.EvaluationTableService;
 import edu.whut.cs.bi.biz.service.IConditionService;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
@@ -71,7 +72,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             String tableTitle = bridgeName + "桥梁技术状况评定表";
 
             // 使用XmlCursor在指定位置创建表格标题
-            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, tableTitle, cursor, 8, tableCounter);
+            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
+                    document, tableTitle, cursor, 8, tableCounter, 21, 240, false, 0);
 
             // 获取第二层和第三层结构
             Map<String, List<BiObject>> structureData = collectStructureData(building.getRootObjectId(), evaluation.getId());
@@ -325,6 +327,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
             // 填充复杂表头（两行表头）
             fillComplexTableHeader(table);
+            ReportGenerateTools.setTableHeaderRepeat(table, 2);
 
             // 填充数据并处理合并
             fillComplexTableData(table, structureData, evaluation);
@@ -344,23 +347,23 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
      */
     private void setColumnWidths(XWPFTable table) {
         try {
-            // 定义每列的宽度（单位：twips，1英寸=1440 twips）- 适用于横向页面
+            // 总宽 26cm（14742 twips）；各列按原比例缩放
             int[] columnWidths = {
-                    1000,  // 列0: 部位
-                    800,   // 列1: 部件类别i
-                    2000,  // 列2: 评价部件
-                    1000,  // 列3: 权重标准值
-                    1000,  // 列4: 折算权重值
-                    1000,  // 列5: 技术状况评分
-                    1200,  // 列6: 主要部件技术状况等级
-                    1000,  // 列7: 加权得分
-                    800,   // 列8: 权重
-                    1000,  // 列9: 评价项目
-                    1000,  // 列10: 技术状况评分
-                    1000,  // 列11: 技术状况等级
-                    1000,  // 列12: 加权得分
-                    1000,  // 列13: 技术状况评分Dr
-                    1200   // 列14: 技术状况等级Dj
+                    922,   // 列0: 部位
+                    737,   // 列1: 部件类别i
+                    1843,  // 列2: 评价部件
+                    922,   // 列3: 权重标准值
+                    922,   // 列4: 折算权重值
+                    922,   // 列5: 技术状况评分
+                    1106,  // 列6: 主要部件技术状况等级
+                    922,   // 列7: 加权得分
+                    737,   // 列8: 权重
+                    922,   // 列9: 评价项目
+                    922,   // 列10: 技术状况评分
+                    922,   // 列11: 技术状况等级
+                    922,   // 列12: 加权得分
+                    922,   // 列13: 技术状况评分Dr
+                    1106   // 列14: 技术状况等级Dj
             };
 
             // 设置每一行的每一列的宽度
@@ -409,9 +412,9 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
         jc.setVal(STJcTable.CENTER);
 
-        // 设置表格宽度为100%以适应横向页面
+        // 表格总宽 26cm（1cm ≈ 567 twips）
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(15000)); // 设置更大宽度适应横向布局
+        tblWidth.setW(BigInteger.valueOf(26 * 567));
         tblWidth.setType(STTblWidth.DXA);
 
         // 设置表格固定布局
@@ -466,31 +469,20 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
     /**
-     * 设置表头单元格内容（完全避免操作CTTcPr以保护合并属性）
-     *
-     * @param cell 单元格
-     * @param text 文本内容
+     * 表头：宋体小五、数字 Times New Roman 小五、加粗（表名题注才是黑体）。
      */
     private void setHeaderCellContentSafely(XWPFTableCell cell, String text) {
         if (text == null) text = "";
 
-        // 清除默认内容
         cell.removeParagraph(0);
 
         XWPFParagraph paragraph = cell.addParagraph();
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-
-        // 设置字体
-        run.setFontFamily("宋体");
-        run.setFontSize(9);
         run.setBold(true);
+        ReportGenerateTools.setMixedFontFamily(run, 18, "宋体");
 
-        // 设置对齐方式
         paragraph.setAlignment(ParagraphAlignment.CENTER);
-
-        // 不设置单元格级别的垂直对齐，避免操作CTTcPr
-        // 垂直对齐将通过表格样式或合并后统一设置
     }
 
     /**
@@ -903,10 +895,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
     /**
-     * 设置单元格内容和样式（完全避免操作CTTcPr以保护合并属性）
-     *
-     * @param cell 单元格
-     * @param text 文本内容
+     * 表内：宋体小五、数字 Times New Roman 小五。
      */
     private void setCellContent(XWPFTableCell cell, String text) {
         if (text == null) text = "";
@@ -915,16 +904,9 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         XWPFParagraph paragraph = cell.addParagraph();
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-
-        // 设置字体
-        run.setFontFamily("宋体");
-        run.setFontSize(9);
         run.setBold(false);
+        ReportGenerateTools.setMixedFontFamily(run, 18, "宋体");
 
-        // 设置对齐方式
         paragraph.setAlignment(ParagraphAlignment.CENTER);
-
-        // 不设置单元格级别的垂直对齐，避免操作CTTcPr
-        // 垂直对齐将通过表格样式或合并后统一设置
     }
 }

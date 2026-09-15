@@ -33,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -190,7 +191,7 @@ public class LineMultiBridgeReportDataController extends BaseController {
     }
 
     /**
-     * 获取指定桥梁的构件病害数据，供病害选择器使用。
+     * 获取当前大桥下各子桥的构件病害，供重点病害选择器按子桥分页使用。
      */
     @PostMapping("/diseaseComponentData")
     @RequiresPermissions("biz:report_data:list")
@@ -220,17 +221,28 @@ public class LineMultiBridgeReportDataController extends BaseController {
                 targetTaskIds.add(reportTasks.get(0).getId());
             }
             if (targetTaskIds.isEmpty()) {
-                return AjaxResult.success("获取成功", Collections.emptyList());
+                return AjaxResult.success("获取成功", Collections.emptyMap());
             }
+            Map<Long, Task> taskById = reportTasks.stream()
+                    .collect(Collectors.toMap(Task::getId, task -> task, (left, right) -> left));
             Map<Long, Map<String, Object>> byTask = reportDataService.getDiseaseComponentData(report);
-            List<Object> diseases = new ArrayList<>();
+            Map<String, Map<String, Object>> ordered = new LinkedHashMap<>();
             for (Long id : targetTaskIds) {
-                Map<String, Object> taskData = byTask.get(id);
-                if (taskData != null && taskData.get("diseases") instanceof List) {
-                    diseases.addAll((List<?>) taskData.get("diseases"));
+                Map<String, Object> source = byTask.get(id);
+                Map<String, Object> taskData = source == null ? new HashMap<>() : new HashMap<>(source);
+                taskData.put("taskId", id);
+                Task task = taskById.get(id);
+                if (task != null) {
+                    taskData.put("buildingName", displayTaskName(task));
+                } else if (taskData.get("buildingName") == null) {
+                    taskData.put("buildingName", "未命名桥梁");
                 }
+                if (!(taskData.get("diseases") instanceof List)) {
+                    taskData.put("diseases", Collections.emptyList());
+                }
+                ordered.put(String.valueOf(id), taskData);
             }
-            return AjaxResult.success("获取成功", diseases);
+            return AjaxResult.success("获取成功", ordered);
         } catch (Exception e) {
             logger.error("获取构件病害数据失败", e);
             return AjaxResult.error("获取构件病害数据失败：" + e.getMessage());

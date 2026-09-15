@@ -514,6 +514,7 @@
     <select id="selectDiseaseComponentData" resultMap="DiseaseResult">
         SELECT DISTINCT
         d.id, d.bi_object_id, d.disease_type_id,d.description,d.position,d.type,d.component_id,
+        d.quantity, d.development_trend,
         dt.id as dt_id, dt.name as dt_name, dt.code as dt_code,
         dt.min_scale as dt_min_scale, dt.max_scale as dt_max_scale, dt.status as dt_status,
         bp.year as bp_year

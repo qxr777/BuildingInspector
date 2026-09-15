@@ -442,7 +442,7 @@ public class WordFieldUtils {
      * @param paragraph    要插入引用的段落
      * @param bookmarkName 表格的书签名
      * @param prefixText   前缀文本（如"具体检测结果见下表"）
-     * @param suffixText   后缀文本（如":"）
+     * @param suffixText   后缀文本（如"："）
      */
     public static void createTableReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         XWPFRun prefixRun = paragraph.createRun();
@@ -463,7 +463,7 @@ public class WordFieldUtils {
      * @param paragraph    要插入引用的段落
      * @param bookmarkName 表格的书签名，格式如"Table_Chapter3_1"
      * @param prefixText   前缀文本（如"具体检测结果见下表"）
-     * @param suffixText   后缀文本（如":"）
+     * @param suffixText   后缀文本（如"："）
      */
     public static void createChapterTableReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         XWPFRun prefixRun = paragraph.createRun();
@@ -475,9 +475,8 @@ public class WordFieldUtils {
         prefixRPr.addNewSz().setVal(BigInteger.valueOf(24)); // 12号字体
         prefixRPr.addNewSzCs().setVal(BigInteger.valueOf(24));
 
-        // 使用REF域引用表格标题的完整内容
-        // 关键：REF域应该能够引用到书签包围的完整内容
-        createReferenceField(paragraph, bookmarkName);
+        // 引用表号（如 3.1）：Times New Roman 小四，CHARFORMAT 避免域更新时带回题注黑体
+        createReferenceField(paragraph, bookmarkName, "Times New Roman", "Times New Roman", 24, true);
 
         if (suffixText != null && !suffixText.isEmpty()) {
             XWPFRun suffixRun = paragraph.createRun();
@@ -534,9 +533,8 @@ public class WordFieldUtils {
             prefixRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
         }
 
-        // 使用REF域引用图片标题的完整内容
-        // 关键：REF域应该能够引用到书签包围的完整内容
-        createReferenceField(paragraph, bookmarkName);
+        // 引用图号（如 3.1）：Times New Roman 五号，CHARFORMAT 避免域更新时带回题注字体
+        createReferenceField(paragraph, bookmarkName, "Times New Roman", "Times New Roman", 21, true);
 
         if (suffixText != null && !suffixText.isEmpty()) {
             XWPFRun suffixRun = paragraph.createRun();
@@ -745,37 +743,58 @@ public class WordFieldUtils {
      * @param bookmarkName 要引用的书签名称
      */
     public static void createReferenceField(XWPFParagraph paragraph, String bookmarkName) {
-        // 创建域开始
+        createReferenceField(paragraph, bookmarkName, "宋体", "宋体", 21, false);
+    }
+
+    private static void createReferenceField(XWPFParagraph paragraph, String bookmarkName,
+                                             String asciiFont, String eastAsiaFont,
+                                             int fontHalfPoints, boolean charFormat) {
         CTR ctr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(ctr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTFldChar fieldBegin = ctr.addNewFldChar();
         fieldBegin.setFldCharType(STFldCharType.BEGIN);
 
-        // 创建域代码
         CTR instrCtr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(instrCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTText instrText = instrCtr.addNewInstrText();
-        instrText.setStringValue("REF " + bookmarkName + " \\h");
+        String instruction = "REF " + bookmarkName + " \\h";
+        if (charFormat) {
+            instruction += " \\* CHARFORMAT";
+        }
+        instrText.setStringValue(instruction);
 
-        // 创建域分隔符
         CTR sepCtr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(sepCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTFldChar fieldSep = sepCtr.addNewFldChar();
         fieldSep.setFldCharType(STFldCharType.SEPARATE);
 
-        // 创建域结果（占位显示）
         CTR resultCtr = paragraph.getCTP().addNewR();
-        // 设置引用域结果的字体格式，与表格内容保持一致
-        CTRPr resultRPr = resultCtr.addNewRPr();
-        resultRPr.addNewRFonts().setAscii("宋体");
-        resultRPr.addNewRFonts().setEastAsia("宋体");
-        resultRPr.addNewSz().setVal(BigInteger.valueOf(21));
-        resultRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-
+        applyFieldRunFont(resultCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTText resultText = resultCtr.addNewT();
-        resultText.setStringValue("3.1"); // 占位文本，REF域会引用QUOTE域的结果
+        resultText.setStringValue("3.1");
 
-        // 创建域结束
         CTR endCtr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(endCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTFldChar fieldEnd = endCtr.addNewFldChar();
         fieldEnd.setFldCharType(STFldCharType.END);
+    }
+
+    private static void applyFieldRunFont(CTR ctr, String asciiFont, String eastAsiaFont, int fontHalfPoints) {
+        CTRPr rpr = ctr.isSetRPr() ? ctr.getRPr() : ctr.addNewRPr();
+        CTFonts fonts = rpr.sizeOfRFontsArray() > 0 ? rpr.getRFontsArray(0) : rpr.addNewRFonts();
+        fonts.setAscii(asciiFont);
+        fonts.setHAnsi(asciiFont);
+        fonts.setEastAsia(eastAsiaFont);
+        if (rpr.sizeOfSzArray() > 0) {
+            rpr.getSzArray(0).setVal(BigInteger.valueOf(fontHalfPoints));
+        } else {
+            rpr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
+        if (rpr.sizeOfSzCsArray() > 0) {
+            rpr.getSzCsArray(0).setVal(BigInteger.valueOf(fontHalfPoints));
+        } else {
+            rpr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
     }
 
     /**

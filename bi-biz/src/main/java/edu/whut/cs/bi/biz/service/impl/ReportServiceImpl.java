@@ -2379,7 +2379,7 @@ public class ReportServiceImpl implements IReportService {
 
             // Part 1: 加粗的开头部分
             XWPFRun runBold = introPara.createRun();
-            runBold.setText("经检查，" + node.getName() + " 主要病害为:");
+            runBold.setText("经检查，" + node.getName() + " 主要病害为：");
             runBold.setBold(true);
             runBold.setFontSize(12); // 设置字号与后面一致
 
@@ -2388,7 +2388,7 @@ public class ReportServiceImpl implements IReportService {
             log.info("开始生成病害小结");
             String diseaseString = "";
             try {
-                diseaseString = getDiseaseSummary(nodeDiseases);
+                diseaseString = getDiseaseSummary(nodeDiseases, node.getName());
                 diseaseString = normalizeDiseaseSummary(diseaseString, node.getName());
             } catch (Exception e) {
                 log.error("ai小结病害失败，使用原始病害拼接兜底，生成报告继续。", e);
@@ -2447,7 +2447,7 @@ public class ReportServiceImpl implements IReportService {
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, node.getName() + "检测结果表", cursor, 3, chapter3TableCounter);
 
             // 创建章节格式的表格引用域
-            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", ":");
+            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", "：");
 
             // 创建表格
             XWPFTable table;
@@ -2586,10 +2586,11 @@ public class ReportServiceImpl implements IReportService {
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
                             break;
                         case 5:
-                            cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+                            cellR.setText(!"0".equals(d.getParticipateAssess()) && d.getLevel() > 0
+                                    ? String.valueOf(d.getLevel()) : "/");
                             break;
                         case 6:
                             cellR.setText(d.getDevelopmentTrend());
@@ -2938,7 +2939,7 @@ public class ReportServiceImpl implements IReportService {
                 String componentDiseaseSummary = "";
                 try {
                     // 有病害，调用病害小结生成
-                    componentDiseaseSummary = getDiseaseSummary(componentDiseases);
+                    componentDiseaseSummary = getDiseaseSummary(componentDiseases, component.getName());
                     // 去掉换行，因为每个部件显示在一段
                     componentDiseaseSummary = componentDiseaseSummary
                             .replace("\n", "")
@@ -3146,10 +3147,11 @@ public class ReportServiceImpl implements IReportService {
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
                             break;
                         case 5:
-                            cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+                            cellR.setText(!"0".equals(d.getParticipateAssess()) && d.getLevel() > 0
+                                    ? String.valueOf(d.getLevel()) : "/");
                             break;
                         case 6:
                             cellR.setText(d.getDevelopmentTrend());
@@ -4616,11 +4618,17 @@ public class ReportServiceImpl implements IReportService {
 
 
     public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
+        return getDiseaseSummary(diseases, null);
+    }
+
+    public String getDiseaseSummary(List<Disease> diseases, String sectionName) throws JsonProcessingException {
         // 瘦身
         List<Disease2ReportSummaryAiVO> less = Disease2ReportSummaryAiVO.convert(diseases);
         // 序列化为JSON字符串
         ObjectMapper mapper = new ObjectMapper();
-        String diseasesJson = mapper.writeValueAsString(less);
+        // 传入所属部位，由 AI 服务决定是否保留位置分组；旧调用仍兼容数组请求。
+        Object payload = sectionName == null ? less : Map.of("sectionName", sectionName, "diseases", less);
+        String diseasesJson = mapper.writeValueAsString(payload);
         // 发送POST请求
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

@@ -482,6 +482,19 @@ public class ReportGenerateTools {
 
 
     /**
+     * 设置表格前几行在跨页时重复显示（对应 Word「重复标题行」）。
+     */
+    public static void setTableHeaderRepeat(XWPFTable table, int headerRowCount) {
+        if (table == null || headerRowCount <= 0) {
+            return;
+        }
+        int limit = Math.min(headerRowCount, table.getNumberOfRows());
+        for (int i = 0; i < limit; i++) {
+            setTableHeaderRepeat(table.getRow(i));
+        }
+    }
+
+    /**
      * 设置表格标题行在跨页时重复显示
      * <p>
      * 当表格内容跨越多页时，会在每个新页面的顶部自动重复显示标题行，
@@ -491,14 +504,16 @@ public class ReportGenerateTools {
      * @param headerRow 需要设置为重复标题的表格行（通常是第一行）
      */
     public static void setTableHeaderRepeat(XWPFTableRow headerRow) {
+        if (headerRow == null) {
+            return;
+        }
         CTTrPr trPr = headerRow.getCtRow().getTrPr();
         if (trPr == null) {
             trPr = headerRow.getCtRow().addNewTrPr();
         }
-
-        // 设置 tblHeader 属性，标记该行为表头
-        // 直接添加tblHeader元素即表示启用
-        trPr.addNewTblHeader();
+        if (trPr.sizeOfTblHeaderArray() == 0) {
+            trPr.addNewTblHeader();
+        }
     }
 
     /**
@@ -532,20 +547,34 @@ public class ReportGenerateTools {
      * @param fontSize 字号（half-points，例如21表示10.5pt，20表示10pt）
      */
     public static void setMixedFontFamily(XWPFRun run, int fontSize) {
+        setMixedFontFamily(run, fontSize, "宋体");
+    }
+
+    /**
+     * 英文和数字使用 Times New Roman，中文使用指定字体。
+     *
+     * @param eastAsiaFont 中文字体，如「宋体」「黑体」
+     */
+    public static void setMixedFontFamily(XWPFRun run, int fontSize, String eastAsiaFont) {
         CTRPr rpr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
 
-        // 设置字体（直接添加，不检查isSet）
+        while (rpr.sizeOfRFontsArray() > 0) {
+            rpr.removeRFonts(0);
+        }
+        while (rpr.sizeOfSzArray() > 0) {
+            rpr.removeSz(0);
+        }
+        while (rpr.sizeOfSzCsArray() > 0) {
+            rpr.removeSzCs(0);
+        }
+
         CTFonts fonts = rpr.addNewRFonts();
-        fonts.setAscii("Times New Roman");        // ASCII字符（英文字母、数字、标点）
-        fonts.setHAnsi("Times New Roman");        // 高位ANSI字符（英文）
-        fonts.setEastAsia("宋体");                 // 东亚字符（中文）
+        fonts.setAscii("Times New Roman");
+        fonts.setHAnsi("Times New Roman");
+        fonts.setEastAsia(eastAsiaFont == null || eastAsiaFont.isEmpty() ? "宋体" : eastAsiaFont);
 
-        // 设置字号（直接添加，不检查isSet）
-        CTHpsMeasure sz = rpr.addNewSz();
-        sz.setVal(BigInteger.valueOf(fontSize));
-
-        CTHpsMeasure szCs = rpr.addNewSzCs();
-        szCs.setVal(BigInteger.valueOf(fontSize));
+        rpr.addNewSz().setVal(BigInteger.valueOf(fontSize));
+        rpr.addNewSzCs().setVal(BigInteger.valueOf(fontSize));
     }
 
     private static void clearParagraph(XWPFParagraph paragraph) {
@@ -601,6 +630,16 @@ public class ReportGenerateTools {
                 extension.endsWith(".png") ||
                 extension.endsWith(".gif") ||
                 extension.endsWith(".bmp");
+    }
+
+    /**
+     * 外观检测表「病害描述」：去掉「面积 S=」里的「面积」，只保留 S=。
+     */
+    public static String formatAppearanceDiseaseDescription(String description) {
+        if (description == null || description.trim().isEmpty()) {
+            return "/";
+        }
+        return description.replaceAll("面积\\s*(?=S)", "");
     }
 
     /**

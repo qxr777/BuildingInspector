@@ -1,6 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
@@ -8,11 +8,13 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseType;
-import edu.whut.cs.bi.biz.domain.vo.Disease2ReportSummaryAiVO;
+import edu.whut.cs.bi.biz.domain.vo.DiseaseComparisonData;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.DiseaseComparisonTableUtils;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
@@ -26,12 +28,7 @@ import org.apache.xmlbeans.XmlObject;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTBlip;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.Resource;
 import java.io.ByteArrayInputStream;
@@ -62,6 +59,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * 多桥模板的桥梁章节沿用一级梁桥的占位符体系，向底层通用服务传递该类型。
      */
     private static final ReportTemplateTypes BRIDGE_CHAPTER_TEMPLATE_TYPE = ReportTemplateTypes.LEVEL_1_BEAM_BRIDGE;
+    private static final String KEY_CONCERN_DISEASES_PLACEHOLDER = "${keyConcernDiseases}";
+    private static final List<String> KEY_CONCERN_STRUCTURE_ORDER =
+            List.of("上部结构", "下部结构", "桥面系", "附属设施");
 
     @Autowired
     private ReportMapper reportMapper;
@@ -93,11 +93,14 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     @Resource
     private IDiseaseService diseaseService;
 
-    @Value("${springAi_Rag.endpoint}")
-    private String SpringAiUrl;
-
     @Autowired
     private DiseaseMapper diseaseMapper;
+
+    @Autowired
+    private DiseaseDetailMapper diseaseDetailMapper;
+
+    @Autowired
+    private ProgrammaticDiseaseSummaryService programmaticDiseaseSummaryService;
 
     @Autowired
     private IBiEvaluationService biEvaluationService;
@@ -113,6 +116,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
     @Autowired
     private TestConclusionService testConclusionService;
+
+    @Autowired
+    private DiseaseComparisonService diseaseComparisonService;
 
     @Autowired
     private IBridgeCardService bridgeCardService;
@@ -376,7 +382,47 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             if (task.getBuilding() == null && task.getBuildingId() != null) {
                 task.setBuilding(buildingService.selectBuildingById(task.getBuildingId()));
             }
+            hydrateBuildingIdentityFromProperties(task.getBuilding());
         }
+    }
+
+    /**
+     * 批量任务查询只装载 bi_building 的持久化字段，路线编号、路线名称、桥位桩号等
+     * 报告字段实际保存在桥梁属性卡中。生成模板前先把这些值补到 Building，避免随后
+     * 用空值清掉占位符。
+     */
+    private void hydrateBuildingIdentityFromProperties(Building building) {
+        if (building == null || building.getRootPropertyId() == null) {
+            return;
+        }
+        Property query = new Property();
+        query.setId(building.getRootPropertyId());
+        List<Property> properties = propertyService.selectPropertyList(query);
+        if (properties == null || properties.isEmpty()) {
+            return;
+        }
+        ReportTemplateValueUtils.addAliasProperties(properties);
+        building.setBuildingCode(firstNonBlank(building.getBuildingCode(),
+                propertyValue(properties, "桥梁编号"), propertyValue(properties, "桥梁代码")));
+        building.setRouteCode(firstNonBlank(building.getRouteCode(), propertyValue(properties, "路线编号")));
+        building.setRouteName(firstNonBlank(building.getRouteName(), propertyValue(properties, "路线名称")));
+        building.setBridgePileNumber(firstNonBlank(building.getBridgePileNumber(),
+                propertyValue(properties, "桥位桩号"), propertyValue(properties, "桥梁中心桩号")));
+        building.setBridgeLength(firstNonBlank(building.getBridgeLength(),
+                propertyValue(properties, "桥梁全长(m)"), propertyValue(properties, "桥梁全长")));
+    }
+
+    private String propertyValue(List<Property> properties, String name) {
+        if (properties == null || name == null) {
+            return null;
+        }
+        return properties.stream()
+                .filter(Objects::nonNull)
+                .filter(property -> name.equals(property.getName()))
+                .map(Property::getValue)
+                .filter(value -> !isBlank(value))
+                .findFirst()
+                .orElse(null);
     }
 
     private List<Task> resolveGroupTasks(LineBridgeGroup group, Map<Long, Task> taskById) {
@@ -405,28 +451,24 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     private void replaceOverallOverviewInBridgeBlock(XWPFDocument document, String overview) {
         XWPFParagraph heading = findBridgeBlockHeading(document, "整体概况");
         if (heading == null) {
-            if (!isBlank(overview)) {
-                ReportGenerateTools.replaceText(document, "${overallOverview}", overview);
-            }
+            replacePlaceholderWithBodyFormat(document, "${overallOverview}", overview);
             return;
         }
         List<XWPFParagraph> paragraphs = document.getParagraphs();
         int headingIndex = paragraphs.indexOf(heading);
         if (headingIndex < 0 || headingIndex + 1 >= paragraphs.size()) {
+            replacePlaceholderWithBodyFormat(document, "${overallOverview}", overview);
             return;
         }
         XWPFParagraph nextParagraph = paragraphs.get(headingIndex + 1);
         String nextText = safeParagraphText(nextParagraph);
         if (nextText.contains("${桥梁名称}") || nextText.contains("${overallOverview}")
                 || nextText.contains("位于") || isBlank(nextText)) {
-            clearParagraph(nextParagraph);
-            if (!isBlank(overview)) {
-                XWPFRun run = nextParagraph.createRun();
-                run.setText(overview);
-                applyBodyFormat(nextParagraph, true);
-            }
+            writeFilledBodyIntoParagraph(document, nextParagraph, overview);
+            replaceText(document, "${overallOverview}", "");
+            return;
         }
-        ReportGenerateTools.replaceText(document, "${overallOverview}", isBlank(overview) ? "" : overview);
+        replacePlaceholderWithBodyFormat(document, "${overallOverview}", overview);
     }
 
     /**
@@ -503,6 +545,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         if (reportDataList == null) {
             return;
         }
+        String routeOverview = null;
+        String projectOverview = null;
         for (LineReportData data : reportDataList) {
             if (data.getTaskId() != null || !isBlank(data.getGroupId()) || data.getKey() == null) {
                 continue;
@@ -514,8 +558,21 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 continue;
             }
             String key = data.getKey();
+            if ("line-route-overview".equals(key)) {
+                routeOverview = data.getValue();
+                continue;
+            }
+            if ("line-project-overview".equals(key)) {
+                projectOverview = data.getValue();
+                continue;
+            }
             String placeholder = key.startsWith("${") ? key : "${" + key + "}";
-            replaceText(document, placeholder, safeText(data.getValue()));
+            replacePlaceholderWithBodyFormat(document, placeholder, data.getValue());
+        }
+        String overview = firstNonBlank(routeOverview, projectOverview);
+        if (!isBlank(overview)) {
+            replacePlaceholderWithBodyFormat(document, "${line-route-overview}", overview);
+            replacePlaceholderWithBodyFormat(document, "${line-project-overview}", overview);
         }
     }
 
@@ -548,18 +605,26 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * 填充单座桥梁的身份信息，桥梁章节副本内的同名占位符都指向这一座桥。
      */
     private void applyBridgeIdentity(XWPFDocument document, Building building, Project project) {
-        replaceText(document, "${桥梁名称}", safeText(building.getName()));
-        replaceText(document, "${桥梁编号}", safeText(building.getBuildingCode()));
-        replaceText(document, "${路线编号}", safeText(building.getRouteCode()));
-        replaceText(document, "${路线名称}", safeText(building.getRouteName()));
-        replaceText(document, "${桥位桩号}", safeText(building.getBridgePileNumber()));
-        replaceText(document, "${building-name}", safeText(building.getName()));
-        replaceText(document, "${buildingName}", safeText(building.getName()));
+        replaceTextIfNotBlank(document, "${桥梁名称}", building.getName());
+        replaceTextIfNotBlank(document, "${桥梁编号}", building.getBuildingCode());
+        replaceTextIfNotBlank(document, "${桥梁代码}", building.getBuildingCode());
+        replaceTextIfNotBlank(document, "${路线编号}", building.getRouteCode());
+        replaceTextIfNotBlank(document, "${路线名称}", building.getRouteName());
+        replaceTextIfNotBlank(document, "${桥位桩号}", building.getBridgePileNumber());
+        replaceTextIfNotBlank(document, "${桥梁中心桩号}", building.getBridgePileNumber());
+        replaceTextIfNotBlank(document, "${building-name}", building.getName());
+        replaceTextIfNotBlank(document, "${buildingName}", building.getName());
         if (project != null) {
-            replaceText(document, "${project-name}", safeText(project.getName()));
+            replaceTextIfNotBlank(document, "${project-name}", project.getName());
             if (project.getDept() != null) {
-                replaceText(document, "${client-unit}", safeText(project.getDept().getDeptName()));
+                replaceTextIfNotBlank(document, "${client-unit}", project.getDept().getDeptName());
             }
+        }
+    }
+
+    private void replaceTextIfNotBlank(XWPFDocument document, String placeholder, String value) {
+        if (!isBlank(value)) {
+            replaceText(document, placeholder, value);
         }
     }
 
@@ -829,12 +894,21 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      */
     private void processGroupAutoGeneratedContent(XWPFDocument document, String groupName,
                                                   Project project, List<Task> groupTasks) {
+        AtomicInteger chapter3TableCounter = new AtomicInteger(1);
         try {
-            processAppearanceCheck(document, groupTasks, project.getId());
+            processAppearanceCheck(document, groupTasks, project.getId(), chapter3TableCounter);
             log.info("外观检测结果生成完成");
         } catch (Exception e) {
             log.error("处理外观检测结果出错: error={}", e.getMessage(), e);
             ReportGenerateTools.replaceText(document, "${appearanceInspectionResults}", "【外观检测结果生成失败，请联系管理员】");
+        }
+
+        try {
+            handleDiseaseComparison(document, groupTasks, project, chapter3TableCounter);
+            log.info("与上一次检查病害变化情况分析生成完成");
+        } catch (Exception e) {
+            log.error("处理与上一次检查病害变化情况分析出错: error={}", e.getMessage(), e);
+            ReportGenerateTools.replaceText(document, "${diseaseComparison}", "【病害变化情况分析生成失败，请联系管理员】");
         }
 
         try {
@@ -854,6 +928,14 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
 
         try {
+            generateKeyConcernDiseases(document, groupName, groupTasks, project, chapter3TableCounter);
+            log.info("重点关注病害汇总生成完成");
+        } catch (Exception e) {
+            log.error("处理重点关注病害汇总出错: error={}", e.getMessage(), e);
+            ReportGenerateTools.replaceText(document, KEY_CONCERN_DISEASES_PLACEHOLDER, "【重点关注病害生成失败，请联系管理员】");
+        }
+
+        try {
             handleTestConclusion(document, "${testConclusion}", groupTasks, groupName);
             handleTestConclusionBridge(document, "${testConclusionBridge}", groupTasks);
         } catch (Exception e) {
@@ -869,7 +951,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * <p>模板里 3.2「外观检测结果」是二级（样式 2），其下一级是样式 4（与 3.1.1 整体概况同级）。
      * 每座子桥占这一级（3.2.1、3.2.2）；原先的上部/下部/桥面系及构件整体再降一级。</p>
      */
-    private void processAppearanceCheck(XWPFDocument document, List<Task> groupTasks, Long projectId) throws Exception {
+    private void processAppearanceCheck(XWPFDocument document, List<Task> groupTasks, Long projectId,
+                                        AtomicInteger chapter3TableCounter) throws Exception {
         XWPFParagraph placeholderParagraph = null;
         for (int i = 0; i < document.getParagraphs().size(); i++) {
             XWPFParagraph paragraph = document.getParagraphs().get(i);
@@ -884,7 +967,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         XmlCursor cursor = placeholderParagraph.getCTP().newCursor();
         AtomicInteger chapter3ImageCounter = new AtomicInteger(1);
-        AtomicInteger chapter3TableCounter = new AtomicInteger(1);
+        if (chapter3TableCounter == null) {
+            chapter3TableCounter = new AtomicInteger(1);
+        }
 
         for (Task task : groupTasks) {
             Building building = task.getBuilding();
@@ -907,6 +992,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             queryParam.setBuildingId(building.getId());
             queryParam.setProjectId(projectId);
             List<Disease> subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
+            hydrateDiseaseDetails(subBridgeDiseases);
 
             List<BiObject> appearanceRoots = resolveComponentTableRoots(rootBiObject, allObjects);
             for (BiObject appearanceRoot : appearanceRoots) {
@@ -915,11 +1001,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 boolean skipRootHeading = appearanceRoots.size() == 1
                         && Objects.equals(appearanceRoot.getId(), rootBiObject.getId());
                 if (skipRootHeading) {
-                    List<BiObject> structures = listComponentChildren(appearanceRoot.getId(), allObjects).stream()
+                    List<BiObject> structures = ReportTemplateValueUtils.sortedReportChildren(allObjects, appearanceRoot.getId()).stream()
                             .filter(child -> COMPONENT_STRUCTURE_NAMES.contains(child.getName()))
                             .collect(Collectors.toList());
                     if (structures.isEmpty()) {
-                        structures = listComponentChildren(appearanceRoot.getId(), allObjects);
+                        structures = ReportTemplateValueUtils.sortedReportChildren(allObjects, appearanceRoot.getId());
                     }
                     // 子桥标题已写出。从上部结构按 level=2 往下写，部件仍是 level=3，
                     // 检测结果表只在 level==3 导出；若从上部结构当 level=1 写，病害会落到空心板等下一级，全部变成「未见明显病害」。
@@ -936,12 +1022,164 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             }
         }
 
-        placeholderParagraph.removeRun(0);
-        if (placeholderParagraph.getRuns().size() == 0) {
-            for (int i = 0; i < document.getParagraphs().size(); i++) {
-                if (document.getParagraphs().get(i) == placeholderParagraph) {
+        // getParagraphs() 的下标不包含表格，不能直接传给 removeBodyElement()。
+        // 外观检测中一旦生成表格，两种下标就会错位，曾导致误删“桥台”等已生成标题，
+        // 只留下其正文紧跟在上一构件正文后面。
+        removeParagraph(document, placeholderParagraph);
+    }
+
+    /**
+     * 报告查询默认只返回病害主表；程序汇总需要一次性装载所有结构化定量明细。
+     */
+    private void hydrateDiseaseDetails(List<Disease> diseases) {
+        if (diseases == null || diseases.isEmpty()) {
+            return;
+        }
+        List<Long> diseaseIds = diseases.stream()
+                .filter(Objects::nonNull)
+                .map(Disease::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (diseaseIds.isEmpty()) {
+            return;
+        }
+
+        Map<Long, List<DiseaseDetail>> detailsByDiseaseId = diseaseDetailMapper
+                .selectDiseaseDetailsByDiseaseIds(diseaseIds)
+                .stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(
+                        DiseaseDetail::getDiseaseId,
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+        diseases.forEach(disease -> {
+            if (disease != null) {
+                disease.setDiseaseDetails(detailsByDiseaseId.getOrDefault(disease.getId(), List.of()));
+            }
+        });
+    }
+
+    /**
+     * 3.4 与上一次检查病害变化：按子桥顺序各出一张横向「病害汇总统计表」。
+     */
+    private void handleDiseaseComparison(XWPFDocument document, List<Task> groupTasks, Project project,
+                                         AtomicInteger chapter3TableCounter) {
+        XWPFParagraph placeholder = ReportGenerateTools.findParagraphByPlaceholder(document, "${diseaseComparison}");
+        boolean removePlaceholder = placeholder != null;
+        if (placeholder == null) {
+            placeholder = findDiseaseComparisonHeading(document);
+        }
+        if (placeholder == null) {
+            log.warn("未找到占位符 ${diseaseComparison}，跳过病害变化情况分析");
+            return;
+        }
+        removeFollowingSampleComparisonTable(document, placeholder);
+        if (chapter3TableCounter == null) {
+            chapter3TableCounter = new AtomicInteger(1);
+        }
+
+        XmlCursor cursor = placeholder.getCTP().newCursor();
+        if (!removePlaceholder) {
+            cursor.toEndToken();
+            cursor.toNextToken();
+        }
+        XWPFParagraph intro = document.insertNewParagraph(cursor);
+        cursor.toNextToken();
+        applyBodyFormat(intro, true);
+
+        List<String> bookmarks = new ArrayList<>();
+        Long projectId = project == null ? null : project.getId();
+        for (Task task : groupTasks) {
+            if (task == null || task.getBuilding() == null || task.getBuilding().getRootObjectId() == null) {
+                continue;
+            }
+            BiObject subBridge = biObjectMapper.selectBiObjectById(task.getBuilding().getRootObjectId());
+            if (subBridge == null) {
+                continue;
+            }
+            List<DiseaseComparisonData> comparisonData = diseaseComparisonService.generateComparisonData(
+                    subBridge, projectId, task.getBuilding().getId());
+            if (comparisonData == null || comparisonData.isEmpty()) {
+                log.info("子桥无病害对比数据: {}", task.getBuilding().getName());
+                continue;
+            }
+            String bookmark = DiseaseComparisonTableUtils.createDiseaseComparisonTable(
+                    document, comparisonData, cursor, chapter3TableCounter, 3, 1,
+                    safeText(task.getBuilding().getName()));
+            if (bookmark != null) {
+                bookmarks.add(bookmark);
+            }
+        }
+
+        fillDiseaseComparisonIntro(intro, bookmarks);
+        if (removePlaceholder) {
+            clearParagraph(placeholder);
+            int placeholderPos = document.getPosOfParagraph(placeholder);
+            if (placeholderPos >= 0) {
+                document.removeBodyElement(placeholderPos);
+            }
+        }
+    }
+
+    private XWPFParagraph findDiseaseComparisonHeading(XWPFDocument document) {
+        for (XWPFParagraph paragraph : document.getParagraphs()) {
+            String text = paragraph.getText();
+            if (text == null) {
+                continue;
+            }
+            String compact = text.replace(" ", "");
+            if (compact.contains("与上一次检查病害变化情况分析") && !compact.matches(".*分析\\d+$")) {
+                return paragraph;
+            }
+        }
+        return null;
+    }
+
+    private void fillDiseaseComparisonIntro(XWPFParagraph intro, List<String> bookmarks) {
+        if (intro == null) {
+            return;
+        }
+        if (bookmarks == null || bookmarks.isEmpty()) {
+            intro.createRun().setText("对桥梁近2年的病害进行比对分析，本次检查无可对比病害数据。");
+            applyBodyFormat(intro, true);
+            return;
+        }
+        if (bookmarks.size() == 1) {
+            WordFieldUtils.createChapterTableReference(intro, bookmarks.get(0),
+                    "对桥梁近2年的病害进行比对分析，结果如下表", "所示。");
+        } else {
+            WordFieldUtils.createChapterTableReference(intro, bookmarks.get(0),
+                    "对桥梁近2年的病害进行比对分析，结果如下表", "");
+            XWPFRun rangeRun = intro.createRun();
+            rangeRun.setText(" ~ ");
+            WordFieldUtils.createChapterTableReference(intro, bookmarks.get(bookmarks.size() - 1),
+                    "", "所示。");
+        }
+    }
+
+    private void removeFollowingSampleComparisonTable(XWPFDocument document, XWPFParagraph anchor) {
+        if (document == null || anchor == null) {
+            return;
+        }
+        int pos = document.getPosOfParagraph(anchor);
+        if (pos < 0) {
+            return;
+        }
+        List<IBodyElement> elements = document.getBodyElements();
+        for (int i = pos + 1; i < elements.size() && i <= pos + 8; i++) {
+            IBodyElement element = elements.get(i);
+            if (element instanceof XWPFTable) {
+                String text = ((XWPFTable) element).getText();
+                if (text != null && text.contains("桥梁名称") && text.contains("发展情况")) {
                     document.removeBodyElement(i);
-                    break;
+                    return;
+                }
+            }
+            if (element instanceof XWPFParagraph) {
+                String text = ((XWPFParagraph) element).getText();
+                if (text != null && (text.contains("评定结果") || text.contains("${evaluationResults}"))) {
+                    return;
                 }
             }
         }
@@ -979,6 +1217,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         String trend = disease.getDevelopmentTrend().trim();
         return "已维修".equals(trend) || "未找到".equals(trend);
+    }
+
+    /** 不参与评定（participateAssess=0）的病害仍进外观检测表，评定类别列写「/」。 */
+    private static boolean isNotParticipatingInAssessment(Disease disease) {
+        return disease != null && "0".equals(disease.getParticipateAssess());
     }
 
     /**
@@ -1104,27 +1347,15 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 introPara = document.createParagraph();
             }
 
-            // Part 1: 加粗的开头部分
-            XWPFRun runBold = introPara.createRun();
-            runBold.setText("经检查，" + node.getName() + " 主要病害为:");
-            runBold.setBold(true);
+            XWPFRun introRun = introPara.createRun();
+            introRun.setText("经检查，" + node.getName() + "主要病害为：");
             applyBodyFormat(introPara, true);
 
             // Part 2: 生成病害小结
 
-            log.info("开始生成病害小结");
-            String diseaseString = "";
-            try {
-                diseaseString = getDiseaseSummary(nodeDiseases);
-                diseaseString = normalizeDiseaseSummary(diseaseString, node.getName());
-            } catch (Exception e) {
-                log.error("ai小结病害失败，使用原始病害拼接兜底: node={}, url={}{}",
-                        node.getName(), SpringAiUrl, "/api-ai/diseaseSummary", e);
-            }
-            if (diseaseString == null || diseaseString.trim().isEmpty()) {
-                diseaseString = ReportTemplateValueUtils.buildDiseaseSummary(nodeDiseases);
-                log.info("病害小结使用本地拼接: node={}, text={}", node.getName(), diseaseString);
-            }
+            log.info("开始生成程序病害小结: node={}, diseases={}", node.getName(), nodeDiseases.size());
+            String diseaseString = programmaticDiseaseSummaryService.summarize(nodeDiseases, node.getName());
+            log.info("程序病害小结生成完成: node={}, text={}", node.getName(), diseaseString);
 
             testConclusionService.cacheDiseaseSummary(node.getId(), diseaseString);
 
@@ -1160,7 +1391,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
                     document, tableTitle, cursor, 3, chapter3TableCounter, 21, 360, false, 0);
 
-            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", ":");
+            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", "：");
             applyBodyFormat(tableRefPara, true);
 
             // 创建表格
@@ -1196,7 +1427,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
             jc.setVal(STJcTable.CENTER);
 
-            // 设置表格宽度为页面宽度（关键修改）
+            // 总宽约 16.8 cm（9534 twips）
             CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
             tblWidth.setW(BigInteger.valueOf(9534));
             tblWidth.setType(STTblWidth.DXA);
@@ -1208,7 +1439,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
 
             // 修改列宽比例，确保总和不超过页面宽度
-            Double[] columnWidthRatios = {0.08, 0.14, 0.14, 0.08, 0.26, 0.10, 0.08, 0.12};
+            Double[] columnWidthRatios = {0.08, 0.12, 0.12, 0.08, 0.32, 0.10, 0.08, 0.10};
             int totalWidth = 9534;
 
             CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
@@ -1310,10 +1541,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
                             break;
                         case 5:
-                            cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+                            cellR.setText(!isNotParticipatingInAssessment(d) && d.getLevel() > 0
+                                    ? String.valueOf(d.getLevel()) : "/");
                             break;
                         case 6:
                             cellR.setText(d.getDevelopmentTrend());
@@ -1352,7 +1584,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 insertDiseaseImagesWithStreaming(document, nodeDiseases, diseaseImageRefs, cursor);
             }
         } else if (level == 3) {
-            // 没有病害信息，显示未见明显病害的说明
+            // 部件划分表里构件数量为「/」的，外观检测写无此构件，而不是未见明显病害
+            boolean missingComponent = isMissingComponent(node, allNodes);
+            String noDiseaseText = missingComponent
+                    ? TestConclusionService.NO_SUCH_COMPONENT_TEXT
+                    : "经检查，" + node.getName() + "未见明显病害。";
             XWPFParagraph noDiseasePara;
             if (cursor != null) {
                 noDiseasePara = document.insertNewParagraph(cursor);
@@ -1361,20 +1597,22 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 noDiseasePara = document.createParagraph();
             }
 
-            // 设置1.5倍行距
             CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
-            spacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距
+            spacing.setLine(BigInteger.valueOf(360));
 
-            // 添加文本内容
             XWPFRun noDiseaseRun = noDiseasePara.createRun();
-            noDiseaseRun.setText("经检查，" + node.getName() + "未见明显病害。");
+            noDiseaseRun.setText(noDiseaseText);
             applyBodyFormat(noDiseasePara, true);
+            if (missingComponent) {
+                testConclusionService.cacheDiseaseSummary(node.getId(), noDiseaseText);
+            }
 
-            // 插入当前结构的现状照片
-            try {
-                insertBiObjectStatusImages(document, node, chapterImageCounter, cursor);
-            } catch (Exception e) {
-                log.error("插入BiObject现状照片失败", e);
+            if (!missingComponent) {
+                try {
+                    insertBiObjectStatusImages(document, node, chapterImageCounter, cursor);
+                } catch (Exception e) {
+                    log.error("插入BiObject现状照片失败", e);
+                }
             }
         }
 
@@ -1388,58 +1626,6 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             idx++;
         }
     }
-
-
-    public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
-        // 瘦身
-        List<Disease2ReportSummaryAiVO> less = Disease2ReportSummaryAiVO.convert(diseases);
-        // 序列化为JSON字符串
-        ObjectMapper mapper = new ObjectMapper();
-        String diseasesJson = mapper.writeValueAsString(less);
-        // 发送POST请求
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> request = new HttpEntity<>(diseasesJson, headers);
-        RestTemplate restTemplate = new RestTemplate();
-        String response = restTemplate.postForObject(SpringAiUrl + "/api-ai" + "/diseaseSummary", request, String.class);
-        return response;
-    }
-
-    private String normalizeDiseaseSummary(String diseaseSummary, String nodeName) {
-        if (diseaseSummary == null) {
-            return "";
-        }
-
-        String[] lines = diseaseSummary.replace("\r\n", "\n").replace("\r", "\n").split("\\n+");
-        StringBuilder builder = new StringBuilder();
-        for (String line : lines) {
-            String cleanedLine = line.trim().replaceFirst("^\\d+[）).、，,]\\s*", "");
-            if (cleanedLine.isEmpty()) {
-                continue;
-            }
-            builder.append(cleanedLine);
-        }
-        String normalized = builder.toString();
-
-        if (nodeName != null) {
-            String[] prefixes = {
-                    nodeName + "：",
-                    nodeName + ":",
-                    nodeName + "，",
-                    nodeName + ","
-            };
-            for (String prefix : prefixes) {
-                if (normalized.startsWith(prefix)) {
-                    normalized = normalized.substring(prefix.length());
-                    break;
-                }
-            }
-        }
-
-        return normalized.trim();
-    }
-
-
     /**
      * 找到第三层祖先节点（相对外观检测出表根，例如主桥/引桥）。
      */
@@ -1573,7 +1759,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             content.append("技术状况评定记录和具体评分见下表所示。");
 
             XWPFParagraph paragraph = insertEvaluationContent(document, key, content.toString());
-            for (Task task : groupTasks) {
+            // generateEvaluationTableAfterParagraph 总是紧挨这段文字插入，后写的表会排到前面。
+            // 因此按子桥顺序从后往前插，最终表格顺序才和文字、外观检测一致。
+            for (int i = groupTasks.size() - 1; i >= 0; i--) {
+                Task task = groupTasks.get(i);
                 BiEvaluation evaluation = evaluationMap.get(task.getId());
                 if (evaluation == null) {
                     continue;
@@ -1617,49 +1806,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 return null;
             }
 
-            // 清空占位符段落的所有Run
-            while (targetParagraph.getRuns().size() > 0) {
-                targetParagraph.removeRun(0);
-            }
-
-            String[] lines = content.split("\n");
-            XWPFParagraph lastParagraph = targetParagraph;
-            boolean firstFilled = false;
-            XmlCursor cursor = null;
-            try {
-                for (String rawLine : lines) {
-                    String line = rawLine.trim();
-                    if (line.isEmpty()) {
-                        continue;
-                    }
-                    XWPFParagraph paragraph;
-                    if (!firstFilled) {
-                        paragraph = targetParagraph;
-                        firstFilled = true;
-                    } else {
-                        if (cursor == null) {
-                            cursor = lastParagraph.getCTP().newCursor();
-                            if (!cursor.toNextSibling()) {
-                                cursor.toEndToken();
-                                cursor.toNextToken();
-                            }
-                        }
-                        paragraph = document.insertNewParagraph(cursor);
-                        cursor.toNextToken();
-                    }
-                    XWPFRun textRun = paragraph.createRun();
-                    textRun.setText(line);
-                    applyBodyFormat(paragraph, true);
-                    lastParagraph = paragraph;
-                }
-            } finally {
-                if (cursor != null) {
-                    cursor.dispose();
-                }
-            }
-
-            log.info("评定内容插入成功: {}, 插入{}行内容", key, lines.length);
-
+            XWPFParagraph lastParagraph = writeFilledBodyIntoParagraph(document, targetParagraph, content);
+            log.info("评定内容插入成功: {}", key);
             return lastParagraph;
 
         } catch (Exception e) {
@@ -1714,15 +1862,15 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                             if (!combinations.isEmpty()) {
                                 generateGroupFocusOnDiseases(document, combinations, groupTasks, project);
                             } else {
-                                ReportGenerateTools.replaceText(document, "${focusOnDiseases}", "无重点关注病害");
+                                writeFocusOnDiseases(document, "无重点关注病害");
                             }
                         } catch (Exception e) {
                             log.error("处理大桥病害数据出错: key={}, value={}, error={}", key, value, e.getMessage(), e);
-                            ReportGenerateTools.replaceText(document, "${focusOnDiseases}", "【病害数据处理失败，请联系管理员】");
+                            writeFocusOnDiseases(document, "【病害数据处理失败，请联系管理员】");
                         }
                     } else {
                         String placeholder = (key != null && key.startsWith("${")) ? key : "${" + key + "}";
-                        ReportGenerateTools.replaceText(document, placeholder, value != null ? value : "");
+                        replacePlaceholderWithBodyFormat(document, placeholder, value);
                     }
                 }
             } catch (Exception e) {
@@ -1777,10 +1925,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         XmlCursor cursor = anchor.getCTP().newCursor();
         if (!isBlank(summary)) {
-            XWPFParagraph summaryParagraph = document.insertNewParagraph(cursor);
-            cursor.toNextToken();
-            applyBodyFormat(summaryParagraph, true);
-            summaryParagraph.createRun().setText(normalizeEnvironmentSummary(summary));
+            insertFilledBodyParagraphs(document, cursor, normalizeEnvironmentSummary(summary));
         }
 
         if (!environmentRecords.isEmpty()) {
@@ -1915,6 +2060,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         for (int i = 0; i < headers.length; i++) {
             setTableCell(table.getRow(0), i, headers[i], true);
         }
+        ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
         for (int i = 0; i < records.size(); i++) {
             Disease record = records.get(i);
@@ -2039,58 +2185,388 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
 
     /**
-     * 生成大桥重点关注病害内容，病害来自该大桥下全部子桥。
+     * 3.10.1 重点关注病害：列出大桥全部 3 类及以上病害，并生成带域的汇总表。
+     * 模板占位符：${keyConcernDiseases}
+     */
+    private void generateKeyConcernDiseases(XWPFDocument document, String groupName,
+                                            List<Task> groupTasks, Project project,
+                                            AtomicInteger chapter3TableCounter) {
+        XWPFParagraph placeholder = ReportGenerateTools.findParagraphByPlaceholder(
+                document, KEY_CONCERN_DISEASES_PLACEHOLDER);
+        if (placeholder == null) {
+            log.warn("未找到占位符 {}，跳过重点关注病害汇总", KEY_CONCERN_DISEASES_PLACEHOLDER);
+            return;
+        }
+        if (chapter3TableCounter == null) {
+            chapter3TableCounter = new AtomicInteger(1);
+        }
+
+        List<Disease> diseases = collectKeyConcernDiseases(groupTasks, project);
+        Map<Long, Component> componentMap = loadComponents(diseases);
+        Map<Long, BiObject> objectById = loadObjectsForTasks(groupTasks);
+        diseases.sort((left, right) -> compareKeyConcernDiseases(left, right, componentMap, objectById));
+
+        XmlCursor cursor = placeholder.getCTP().newCursor();
+        XWPFParagraph intro = document.insertNewParagraph(cursor);
+        cursor.toNextToken();
+
+        if (diseases.isEmpty()) {
+            XWPFRun run = intro.createRun();
+            run.setText("未见3类及以上病害。");
+            applyBodyFormat(intro, true);
+            removeParagraph(document, placeholder);
+            return;
+        }
+
+        String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
+                document, "重点关注病害汇总表", cursor, 3, chapter3TableCounter, 21, 360, false, 0);
+        WordFieldUtils.createChapterTableReference(
+                intro, tableBookmark, buildKeyConcernIntroPrefix(groupName, diseases, componentMap), "所示。");
+        applyBodyFormat(intro, true);
+
+        XWPFTable table = document.insertNewTbl(cursor);
+        cursor.toNextToken();
+        fillKeyConcernDiseaseTable(table, diseases, componentMap, objectById);
+        removeParagraph(document, placeholder);
+    }
+
+    private List<Disease> collectKeyConcernDiseases(List<Task> groupTasks, Project project) {
+        List<Disease> diseases = new ArrayList<>();
+        if (groupTasks == null) {
+            return diseases;
+        }
+        Long projectId = project == null ? null : project.getId();
+        for (Task task : groupTasks) {
+            if (task == null || task.getBuilding() == null) {
+                continue;
+            }
+            Disease query = new Disease();
+            query.setBuildingId(task.getBuilding().getId());
+            query.setProjectId(projectId);
+            List<Disease> taskDiseases = diseaseMapper.selectDiseaseList(query);
+            if (taskDiseases == null) {
+                continue;
+            }
+            for (Disease disease : taskDiseases) {
+                if (disease != null && disease.getLevel() >= 3 && !isExcludedFromInspectionResultTable(disease)) {
+                    diseases.add(disease);
+                }
+            }
+        }
+        return diseases;
+    }
+
+    private Map<Long, Component> loadComponents(List<Disease> diseases) {
+        List<Long> componentIds = diseases.stream()
+                .map(Disease::getComponentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (componentIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Component> components = componentService.selectComponentsByIds(componentIds);
+        if (components == null || components.isEmpty()) {
+            return Map.of();
+        }
+        return components.stream()
+                .filter(Objects::nonNull)
+                .filter(component -> component.getId() != null)
+                .collect(Collectors.toMap(Component::getId, component -> component, (left, right) -> left));
+    }
+
+    private Map<Long, BiObject> loadObjectsForTasks(List<Task> groupTasks) {
+        Map<Long, BiObject> objectById = new HashMap<>();
+        for (Task task : groupTasks) {
+            if (task == null || task.getBuilding() == null || task.getBuilding().getRootObjectId() == null) {
+                continue;
+            }
+            BiObject root = biObjectMapper.selectBiObjectById(task.getBuilding().getRootObjectId());
+            if (root != null && root.getId() != null) {
+                objectById.put(root.getId(), root);
+            }
+            List<BiObject> children = biObjectMapper.selectChildrenById(task.getBuilding().getRootObjectId());
+            if (children == null) {
+                continue;
+            }
+            for (BiObject object : children) {
+                if (object != null && object.getId() != null) {
+                    objectById.put(object.getId(), object);
+                }
+            }
+        }
+        return objectById;
+    }
+
+    private int compareKeyConcernDiseases(Disease left, Disease right,
+                                          Map<Long, Component> componentMap,
+                                          Map<Long, BiObject> objectById) {
+        int structure = Integer.compare(
+                keyConcernStructureOrder(resolveKeyConcernStructure(left, objectById)),
+                keyConcernStructureOrder(resolveKeyConcernStructure(right, objectById)));
+        if (structure != 0) {
+            return structure;
+        }
+        Component leftComponent = left.getComponentId() == null ? null : componentMap.get(left.getComponentId());
+        Component rightComponent = right.getComponentId() == null ? null : componentMap.get(right.getComponentId());
+        String leftCode = leftComponent == null ? "" : safeText(leftComponent.getCode());
+        String rightCode = rightComponent == null ? "" : safeText(rightComponent.getCode());
+        int code = compareCodes(leftCode, rightCode);
+        if (code != 0) {
+            return code;
+        }
+        return Long.compare(
+                left.getId() == null ? 0L : left.getId(),
+                right.getId() == null ? 0L : right.getId());
+    }
+
+    private int keyConcernStructureOrder(String structure) {
+        int index = KEY_CONCERN_STRUCTURE_ORDER.indexOf(structure);
+        return index < 0 ? KEY_CONCERN_STRUCTURE_ORDER.size() : index;
+    }
+
+    private String buildKeyConcernIntroPrefix(String groupName, List<Disease> diseases,
+                                              Map<Long, Component> componentMap) {
+        LinkedHashSet<String> items = new LinkedHashSet<>();
+        for (Disease disease : diseases) {
+            String location = keyConcernIntroLocation(disease, componentMap);
+            String type = keyConcernTypeLabel(disease);
+            if (isBlank(location) && isBlank(type)) {
+                continue;
+            }
+            items.add(safeText(location) + safeText(type));
+        }
+        String joined = String.join("、", items);
+        String bridge = isBlank(groupName) ? "该桥" : groupName.trim();
+        if (items.size() > 1) {
+            return bridge + "存在" + joined + "等病害，需引起重点关注，病害汇总表如表";
+        }
+        return bridge + "存在" + joined + "，需引起重点关注，病害汇总表如表";
+    }
+
+    private void fillKeyConcernDiseaseTable(XWPFTable table, List<Disease> diseases,
+                                            Map<Long, Component> componentMap,
+                                            Map<Long, BiObject> objectById) {
+        int columnCount = 7;
+        XWPFTableRow header = table.getRow(0);
+        while (header.getTableCells().size() < columnCount) {
+            header.createCell();
+        }
+        for (int i = 1; i < diseases.size() + 1; i++) {
+            XWPFTableRow row = table.createRow();
+            while (row.getTableCells().size() < columnCount) {
+                row.createCell();
+            }
+        }
+        applyTableGrid(table, columnCount);
+
+        String[] headers = {"序号", "部位", "缺损位置", "缺损类型", "数量", "病害描述", "备注"};
+        for (int i = 0; i < headers.length; i++) {
+            setTableCell(header, i, headers[i], true);
+        }
+        ReportGenerateTools.setTableHeaderRepeat(table, 1);
+
+        int[] widths = {700, 1200, 1400, 1200, 700, 3000, 1334};
+        CTTblPr tblPr = table.getCTTbl().getTblPr();
+        if (tblPr == null) {
+            tblPr = table.getCTTbl().addNewTblPr();
+        }
+        CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
+        tblWidth.setW(BigInteger.valueOf(9534));
+        tblWidth.setType(STTblWidth.DXA);
+
+        for (int i = 0; i < diseases.size(); i++) {
+            Disease disease = diseases.get(i);
+            XWPFTableRow row = table.getRow(i + 1);
+            setTableCell(row, 0, String.valueOf(i + 1));
+            setTableCell(row, 1, resolveKeyConcernStructure(disease, objectById));
+            setTableCell(row, 2, keyConcernDefectPosition(disease, componentMap));
+            setTableCell(row, 3, keyConcernTypeLabel(disease));
+            setTableCell(row, 4, disease.getQuantity() > 0 ? String.valueOf(disease.getQuantity()) : "/");
+            setTableCell(row, 5, ReportGenerateTools.formatAppearanceDiseaseDescription(disease.getDescription()),
+                    false, ParagraphAlignment.LEFT);
+            setTableCell(row, 6, disease.getLevel() + "类病害");
+        }
+
+        for (XWPFTableRow row : table.getRows()) {
+            for (int col = 0; col < widths.length; col++) {
+                XWPFTableCell cell = row.getCell(col);
+                if (cell == null) {
+                    continue;
+                }
+                CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+                CTTblWidth cellWidth = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+                cellWidth.setW(BigInteger.valueOf(widths[col]));
+                cellWidth.setType(STTblWidth.DXA);
+            }
+        }
+    }
+
+    private String resolveKeyConcernStructure(Disease disease, Map<Long, BiObject> objectById) {
+        BiObject current = disease == null ? null : objectById.get(disease.getBiObjectId());
+        while (current != null) {
+            if (KEY_CONCERN_STRUCTURE_ORDER.contains(current.getName())) {
+                return current.getName();
+            }
+            current = current.getParentId() == null ? null : objectById.get(current.getParentId());
+        }
+        return "/";
+    }
+
+    private String keyConcernDefectPosition(Disease disease, Map<Long, Component> componentMap) {
+        Component component = disease.getComponentId() == null ? null : componentMap.get(disease.getComponentId());
+        if (component != null && !isBlank(component.getName())) {
+            return component.getName();
+        }
+        if (!isBlank(disease.getPosition())) {
+            return disease.getPosition();
+        }
+        return isBlank(disease.getBiObjectName()) ? "/" : disease.getBiObjectName();
+    }
+
+    private String keyConcernIntroLocation(Disease disease, Map<Long, Component> componentMap) {
+        if (!isBlank(disease.getBiObjectName())) {
+            return disease.getBiObjectName().trim();
+        }
+        String position = keyConcernDefectPosition(disease, componentMap);
+        int hash = position.lastIndexOf('#');
+        if (hash >= 0 && hash < position.length() - 1) {
+            return position.substring(hash + 1).trim();
+        }
+        return "/".equals(position) ? "" : position;
+    }
+
+    private String keyConcernTypeLabel(Disease disease) {
+        if (disease.getDiseaseType() != null && !isBlank(disease.getDiseaseType().getName())) {
+            return ReportGenerateTools.reportDiseaseTypeNameIfCrack(disease);
+        }
+        return resolveDiseaseTypeLabel(disease);
+    }
+
+    /**
+     * 生成大桥重点关注病害内容，按子桥分别写入勾选的构件+病害类型。
      */
     private void generateGroupFocusOnDiseases(XWPFDocument document, List<ComponentDiseaseType> combinations,
                                               List<Task> groupTasks, Project project) {
         try {
+            if (groupTasks == null || groupTasks.isEmpty()) {
+                writeFocusOnDiseases(document, "无重点关注病害");
+                return;
+            }
             StringBuilder content = new StringBuilder();
-            List<Long> componentIds = combinations.stream()
-                    .map(ComponentDiseaseType::getComponentId)
-                    .distinct()
-                    .collect(Collectors.toList());
-
-            List<Disease> allDiseases = new ArrayList<>();
             Integer year = project == null ? null : project.getYear();
+            boolean hasTaskId = combinations.stream().anyMatch(item -> item.getTaskId() != null);
+            boolean showBridgeName = groupTasks.size() > 1;
+            int index = 1;
+
             for (Task task : groupTasks) {
-                if (task.getBuilding() == null) {
+                if (task == null || task.getBuilding() == null) {
                     continue;
                 }
-                List<Disease> diseases = diseaseMapper.selectDiseaseComponentData(
-                        componentIds, task.getBuilding().getId(), year);
-                if (diseases != null) {
-                    allDiseases.addAll(diseases);
+                List<ComponentDiseaseType> taskCombs = combinations.stream()
+                        .filter(item -> !hasTaskId || task.getId().equals(item.getTaskId()))
+                        .collect(Collectors.toList());
+                if (taskCombs.isEmpty()) {
+                    continue;
                 }
+                index += appendFocusDiseaseItems(content, taskCombs, task, year, index, showBridgeName);
             }
 
-            Map<Long, Map<Long, List<Disease>>> groupedMap = allDiseases.stream()
-                    .collect(Collectors.groupingBy(
-                            Disease::getBiObjectId,
-                            Collectors.groupingBy(Disease::getDiseaseTypeId)
-                    ));
-            int index = 1;
-            for (Long biObjectId : groupedMap.keySet()) {
-                Map<Long, List<Disease>> diseaseMap = groupedMap.get(biObjectId);
-                BiObject tempBiObject = biObjectMapper.selectBiObjectById(biObjectId);
-                for (Long diseaseTypeId : diseaseMap.keySet()) {
-                    List<Disease> diseases = diseaseMap.get(diseaseTypeId);
-                    Disease disease = diseases.get(0);
-                    content.append(index).append(")");
-                    content.append(tempBiObject.getName());
-                    content.append(disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
-                    content.append("\n");
-                    content.append("成因分析：\n");
-                    content.append(getDiseaseCause(disease));
-                    content.append("\n");
-                    index++;
-                }
-            }
-
-            ReportGenerateTools.replaceText(document, "${focusOnDiseases}", content.toString().trim());
+            String text = content.toString().trim();
+            writeFocusOnDiseases(document, text.isEmpty() ? "无重点关注病害" : text);
         } catch (Exception e) {
             log.error("生成大桥重点关注病害内容失败", e);
-            ReportGenerateTools.replaceText(document, "${focusOnDiseases}", "【病害分析生成失败】");
+            writeFocusOnDiseases(document, "【病害分析生成失败】");
         }
+    }
+
+    /**
+     * 重点病害成因分析：宋体小四、两端对齐、首行缩进。
+     */
+    private void writeFocusOnDiseases(XWPFDocument document, String text) {
+        try {
+            insertEvaluationContent(document, "${focusOnDiseases}", text);
+        } catch (Exception e) {
+            log.warn("按段落写入重点病害成因分析失败，回退为文本替换", e);
+            ReportGenerateTools.replaceText(document, "${focusOnDiseases}", text);
+        }
+    }
+
+    /**
+     * @return 实际写入的条目数
+     */
+    private int appendFocusDiseaseItems(StringBuilder content, List<ComponentDiseaseType> taskCombs,
+                                        Task task, Integer year, int startIndex, boolean showBridgeName) {
+        List<Long> componentIds = taskCombs.stream()
+                .map(ComponentDiseaseType::getComponentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (componentIds.isEmpty()) {
+            return 0;
+        }
+        List<Disease> diseases = diseaseMapper.selectDiseaseComponentData(
+                componentIds, task.getBuilding().getId(), year);
+        if (diseases == null || diseases.isEmpty()) {
+            return 0;
+        }
+
+        Map<String, List<Disease>> grouped = diseases.stream()
+                .filter(disease -> disease.getBiObjectId() != null && disease.getDiseaseTypeId() != null)
+                .collect(Collectors.groupingBy(
+                        disease -> disease.getBiObjectId() + "_" + disease.getDiseaseTypeId(),
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+
+        StringBuilder section = new StringBuilder();
+        int index = startIndex;
+        int written = 0;
+        Set<String> writtenKeys = new HashSet<>();
+        for (ComponentDiseaseType combination : taskCombs) {
+            String key = combination.getComponentId() + "_" + combination.getDiseaseTypeId();
+            if (!writtenKeys.add(key)) {
+                continue;
+            }
+            List<Disease> matched = grouped.get(key);
+            if (matched == null || matched.isEmpty()) {
+                continue;
+            }
+            Disease disease = matched.get(0);
+            BiObject component = biObjectMapper.selectBiObjectById(combination.getComponentId());
+            if (component == null) {
+                continue;
+            }
+            section.append(index).append(")");
+            section.append(component.getName());
+            section.append(resolveDiseaseTypeLabel(disease));
+            section.append("\n成因分析：\n");
+            // 批量查询返回的 Disease 不保证回填 buildingId；成因分析需要通过它获取桥梁根对象。
+            disease.setBuildingId(task.getBuilding().getId());
+            section.append(getDiseaseCause(disease));
+            section.append("\n");
+            index++;
+            written++;
+        }
+        if (written == 0) {
+            return 0;
+        }
+        if (showBridgeName && task.getBuilding().getName() != null) {
+            content.append(task.getBuilding().getName()).append("\n");
+        }
+        content.append(section);
+        return written;
+    }
+
+    private String resolveDiseaseTypeLabel(Disease disease) {
+        String type = disease.getType();
+        if (type != null) {
+            int hash = type.lastIndexOf('#');
+            return hash >= 0 ? type.substring(hash + 1) : type;
+        }
+        if (disease.getDiseaseType() != null && disease.getDiseaseType().getName() != null) {
+            return disease.getDiseaseType().getName();
+        }
+        return "";
     }
 
     /**
@@ -2100,8 +2576,24 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         CauseQuery causeQuery = new CauseQuery();
         Building building = buildingService.selectBuildingById(disease.getBuildingId());
         BiObject biObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+        if (building == null) {
+            throw new IllegalStateException("重点病害未找到所属桥梁，buildingId=" + disease.getBuildingId());
+        }
+        if (building.getRootObjectId() == null) {
+            throw new IllegalStateException("重点病害所属桥梁缺少根对象，buildingId=" + building.getId());
+        }
+        if (biObject == null) {
+            throw new IllegalStateException("重点病害未找到所属构件，biObjectId=" + disease.getBiObjectId());
+        }
         BiObject biObject_building = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+        if (biObject_building == null) {
+            throw new IllegalStateException("重点病害未找到桥梁根对象，rootObjectId=" + building.getRootObjectId());
+        }
         BiTemplateObject biTemplateObject = biTemplateObjectService.selectBiTemplateObjectById(biObject_building.getTemplateObjectId());
+        if (biTemplateObject == null) {
+            throw new IllegalStateException("重点病害未找到桥梁模板对象，templateObjectId="
+                    + biObject_building.getTemplateObjectId());
+        }
         causeQuery.setTemplate(biTemplateObject.getName());
         causeQuery.setObject(biObject.getName());
         causeQuery.setParentObject(biObject.getParentName());
@@ -2185,33 +2677,72 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
 
     /**
-     * 解析JSON数据
-     *
-     * @param jsonValue JSON字符串
-     * @return 构件病害类型组合列表
+     * 解析重点病害 JSON。
+     * 新格式：{taskId: [{componentId: [diseaseTypeIds]}]}
+     * 旧格式：[{componentId: [diseaseTypeIds]}]
      */
     private List<ComponentDiseaseType> parseChooseDiseaseJson(String jsonValue) {
         List<ComponentDiseaseType> combinations = new ArrayList<>();
+        if (jsonValue == null || jsonValue.trim().isEmpty()) {
+            return combinations;
+        }
         try {
             ObjectMapper objectMapper = new ObjectMapper();
-            List<Map<String, List<Integer>>> selectedData = objectMapper.readValue(jsonValue, List.class);
-
-            for (Map<String, List<Integer>> item : selectedData) {
-                for (Map.Entry<String, List<Integer>> entry : item.entrySet()) {
-                    Long componentId = Long.parseLong(entry.getKey());
-                    List<Integer> diseaseTypeIds = entry.getValue();
-
-                    for (Integer diseaseTypeId : diseaseTypeIds) {
-                        combinations.add(new ComponentDiseaseType(null, componentId, diseaseTypeId.longValue()));
-                    }
-                }
+            JsonNode root = objectMapper.readTree(jsonValue);
+            if (root == null || root.isNull()) {
+                return combinations;
             }
-
-            log.info("解析JSON数据成功，共{}个构件病害类型组合", combinations.size());
+            if (root.isObject()) {
+                Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
+                while (fields.hasNext()) {
+                    Map.Entry<String, JsonNode> field = fields.next();
+                    Long taskId;
+                    try {
+                        taskId = Long.parseLong(field.getKey());
+                    } catch (NumberFormatException e) {
+                        continue;
+                    }
+                    addCombinationsFromArray(field.getValue(), taskId, combinations);
+                }
+            } else if (root.isArray()) {
+                addCombinationsFromArray(root, null, combinations);
+            }
+            log.info("解析重点病害JSON成功，共{}个构件病害类型组合", combinations.size());
         } catch (Exception e) {
-            log.error("解析第七章JSON数据失败: {}", jsonValue, e);
+            log.error("解析重点病害JSON失败: {}", jsonValue, e);
         }
         return combinations;
+    }
+
+    private void addCombinationsFromArray(JsonNode arrayNode, Long taskId, List<ComponentDiseaseType> combinations) {
+        if (arrayNode == null || !arrayNode.isArray()) {
+            return;
+        }
+        for (JsonNode item : arrayNode) {
+            if (item == null || !item.isObject()) {
+                continue;
+            }
+            Iterator<Map.Entry<String, JsonNode>> fields = item.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                Long componentId;
+                try {
+                    componentId = Long.parseLong(field.getKey());
+                } catch (NumberFormatException e) {
+                    continue;
+                }
+                JsonNode typeIds = field.getValue();
+                if (typeIds == null || !typeIds.isArray()) {
+                    continue;
+                }
+                for (JsonNode typeIdNode : typeIds) {
+                    if (typeIdNode == null || !typeIdNode.canConvertToLong()) {
+                        continue;
+                    }
+                    combinations.add(new ComponentDiseaseType(taskId, componentId, typeIdNode.asLong()));
+                }
+            }
+        }
     }
 
 
@@ -2979,11 +3510,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         if (parentId == null || allObjects == null) {
             return List.of();
         }
-        return allObjects.stream()
-                .filter(object -> parentId.equals(object.getParentId()))
-                .filter(object -> !isSkippedComponentNode(object))
-                .sorted(Comparator.comparing(BiObject::getOrderNum, Comparator.nullsLast(Comparator.naturalOrder())))
-                .collect(Collectors.toList());
+        return ReportTemplateValueUtils.sortedReportChildren(allObjects, parentId);
     }
 
     private boolean isSkippedComponentNode(BiObject object) {
@@ -3044,6 +3571,12 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         return String.valueOf(count);
     }
 
+    /** 与部件划分表一致：构件数量为「/」即无此构件。 */
+    private boolean isMissingComponent(BiObject node, List<BiObject> allObjects) {
+        Integer count = resolveComponentCount(node, allObjects);
+        return count == null || count <= 0;
+    }
+
     private String formatComponentRemark(String remark) {
         if (remark == null || remark.trim().isEmpty()) {
             return "/";
@@ -3092,6 +3625,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         setTableCell(headerRow, 4, "构件数量", true);
         setTableCell(headerRow, 5, "说明", true);
         mergeHorizontalCells(table, 0, 2, 3);
+        ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
         int rowIndex = 1;
         int sequenceNum = 1;
@@ -3212,20 +3746,226 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 全文标题样式：二级四号黑体，三级及以下小四黑体，段前段后各 0.5 行、1.5 倍行距。
+     * 全文标题：黑体、不加粗。二级～三级四号，四级及以下小四；段前段后各 0.5 行、1.5 倍行距。
+     * 一级只取消加粗并改黑体，不改模板字号。
      */
     private void applyDocumentHeadingStyles(XWPFDocument document) {
         if (document == null) {
             return;
         }
+        unboldHeadingStyles(document);
         for (XWPFParagraph paragraph : document.getParagraphs()) {
             if (isCaptionParagraph(paragraph)) {
                 continue;
             }
             int level = resolveHeadingLevel(paragraph);
-            if (level >= 2) {
+            if (level >= 1) {
                 applyHeadingFormat(paragraph, level);
             }
+        }
+        applyAppearanceAndConclusionHeadingSizes(document);
+        // 模板 heading 5 默认小五(18)，三级及以下标题编号/未覆盖 run 会吃到它；统一抬到小四
+        forceHeadingStyleSize(document, 4, 24);
+        forceHeadingStyleSize(document, 5, 24);
+        forceHeadingStyleSize(document, 6, 24);
+        forceHeadingStyleSize(document, 7, 24);
+        forceHeadingStyleSize(document, 8, 24);
+        forceHeadingStyleSize(document, 9, 24);
+        // 附表题注样式继承标题 4，上面把四级标题抬到小四后必须把表名钉回五号
+        applyCaptionFonts(document);
+    }
+
+    private void forceHeadingStyleSize(XWPFDocument document, int headingLevel, int fontHalfPoints) {
+        XWPFStyles styles = document.getStyles();
+        if (styles == null) {
+            return;
+        }
+        Set<String> styleIds = new LinkedHashSet<>();
+        addStyleId(styleIds, styles.getStyleWithName("Heading " + headingLevel));
+        addStyleId(styleIds, styles.getStyleWithName("heading " + headingLevel));
+        addStyleId(styleIds, styles.getStyleWithName("标题 " + headingLevel));
+        addStyleId(styleIds, styles.getStyleWithName("标题" + headingLevel));
+        // 本模板常见：styleId = headingLevel + 1（2=标题1）
+        styleIds.add(String.valueOf(headingLevel + 1));
+        for (String styleId : styleIds) {
+            XWPFStyle style = styles.getStyle(styleId);
+            if (style == null || style.getCTStyle() == null) {
+                continue;
+            }
+            CTStyle ctStyle = style.getCTStyle();
+            CTRPr rPr = ctStyle.isSetRPr() ? ctStyle.getRPr() : ctStyle.addNewRPr();
+            while (rPr.sizeOfSzArray() > 0) {
+                rPr.removeSz(0);
+            }
+            while (rPr.sizeOfSzCsArray() > 0) {
+                rPr.removeSzCs(0);
+            }
+            rPr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+            rPr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+            stripBold(rPr);
+        }
+    }
+
+    /**
+     * 模板标题样式自带 &lt;w:b/&gt;、&lt;w:bCs/&gt;（空标签即加粗）。
+     * 只改 run 不够，编号和中文仍会吃样式里的加粗。
+     */
+    private void unboldHeadingStyles(XWPFDocument document) {
+        XWPFStyles styles = document.getStyles();
+        if (styles == null) {
+            return;
+        }
+        Set<String> styleIds = new LinkedHashSet<>();
+        for (int level = 1; level <= 9; level++) {
+            styleIds.add(String.valueOf(level));
+            addStyleId(styleIds, styles.getStyle(String.valueOf(level)));
+            addStyleId(styleIds, styles.getStyleWithName("Heading " + level));
+            addStyleId(styleIds, styles.getStyleWithName("heading " + level));
+            addStyleId(styleIds, styles.getStyleWithName("标题 " + level));
+            addStyleId(styleIds, styles.getStyleWithName("标题" + level));
+        }
+        for (XWPFParagraph paragraph : document.getParagraphs()) {
+            if (resolveHeadingLevel(paragraph) >= 1 && paragraph.getStyle() != null) {
+                styleIds.add(paragraph.getStyle());
+            }
+        }
+        for (String styleId : styleIds) {
+            unboldStyleAndLinked(styles, styleId, new HashSet<>());
+        }
+    }
+
+    private void addStyleId(Set<String> styleIds, XWPFStyle style) {
+        if (style != null && style.getStyleId() != null) {
+            styleIds.add(style.getStyleId());
+        }
+    }
+
+    private void unboldStyleAndLinked(XWPFStyles styles, String styleId, Set<String> visited) {
+        if (styleId == null || styleId.trim().isEmpty() || !visited.add(styleId)) {
+            return;
+        }
+        XWPFStyle style = styles.getStyle(styleId);
+        if (style == null) {
+            return;
+        }
+        CTStyle ctStyle = style.getCTStyle();
+        if (ctStyle != null && ctStyle.isSetRPr()) {
+            stripBold(ctStyle.getRPr());
+        }
+        if (ctStyle != null && ctStyle.isSetLink() && ctStyle.getLink().getVal() != null) {
+            unboldStyleAndLinked(styles, ctStyle.getLink().getVal(), visited);
+        }
+    }
+
+    private void stripBold(CTRPr rPr) {
+        if (rPr == null) {
+            return;
+        }
+        while (rPr.sizeOfBArray() > 0) {
+            rPr.removeB(0);
+        }
+        while (rPr.sizeOfBCsArray() > 0) {
+            rPr.removeBCs(0);
+        }
+    }
+
+    /**
+     * 表题保持模板黑体五号。附表「图表类标题」基于标题 4，全文把四级标题改成小四后，
+     * 未写死字号的题注会跟着变成小四。
+     */
+    private void applyCaptionFonts(XWPFDocument document) {
+        if (document == null) {
+            return;
+        }
+        for (XWPFParagraph storedParagraph : document.getParagraphs()) {
+            // 合并章节直接替换了 CTP，原段落对象的 runs 缓存仍可能为空。
+            XWPFParagraph paragraph = new XWPFParagraph(storedParagraph.getCTP(), document);
+            if (!isTableOrFigureCaption(paragraph)) {
+                continue;
+            }
+            if (safeParagraphText(paragraph).contains("桥梁基本状况卡片")) {
+                applyBridgeCardCaptionStyle(document, paragraph);
+            }
+            for (XWPFRun run : paragraph.getRuns()) {
+                ReportGenerateTools.setMixedFontFamily(run, 21, "黑体");
+            }
+        }
+    }
+
+    /** 保留 STYLEREF / SEQ 域，仅把桥梁卡片表题设为独立的五号题注。 */
+    private void applyBridgeCardCaptionStyle(XWPFDocument document, XWPFParagraph paragraph) {
+        String styleId = "BIAppendixCaption";
+        XWPFStyles styles = document.getStyles();
+        if (styles == null) {
+            styles = document.createStyles();
+        }
+        if (styles.getStyle(styleId) == null) {
+            CTStyle style = CTStyle.Factory.newInstance();
+            style.setStyleId(styleId);
+            style.setType(STStyleType.PARAGRAPH);
+            style.addNewName().setVal("附表题注");
+            CTPPrGeneral stylePPr = style.addNewPPr();
+            stylePPr.addNewJc().setVal(STJc.CENTER);
+            stylePPr.addNewOutlineLvl().setVal(BigInteger.valueOf(9));
+            CTRPr styleRPr = style.addNewRPr();
+            styleRPr.addNewSz().setVal(BigInteger.valueOf(21));
+            styleRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
+            styles.addStyle(new XWPFStyle(style));
+        }
+        paragraph.setStyle(styleId);
+        paragraph.setAlignment(ParagraphAlignment.CENTER);
+        CTPPr pPr = paragraph.getCTP().getPPr();
+        // 模板带有直接设置的四级大纲；题注不能继续进入章节标题层级。
+        (pPr.isSetOutlineLvl() ? pPr.getOutlineLvl() : pPr.addNewOutlineLvl())
+                .setVal(BigInteger.valueOf(9));
+        if (pPr.isSetNumPr()) {
+            pPr.unsetNumPr();
+        }
+        CTParaRPr rPr = pPr.isSetRPr() ? pPr.getRPr() : pPr.addNewRPr();
+        while (rPr.sizeOfSzArray() > 0) {
+            rPr.removeSz(0);
+        }
+        while (rPr.sizeOfSzCsArray() > 0) {
+            rPr.removeSzCs(0);
+        }
+        rPr.addNewSz().setVal(BigInteger.valueOf(21));
+        rPr.addNewSzCs().setVal(BigInteger.valueOf(21));
+    }
+
+    private boolean isTableOrFigureCaption(XWPFParagraph paragraph) {
+        if (paragraph == null) {
+            return false;
+        }
+        String text = safeParagraphText(paragraph).replace(" ", "").replace("　", "");
+        if (text.contains("桥梁基本状况卡片") || text.contains("定期检查记录表")
+                || text.startsWith("表") || text.startsWith("图")) {
+            return true;
+        }
+        String styleId = paragraph.getStyle();
+        if ("13".equals(styleId) || (styleId != null && styleId.toLowerCase().contains("caption"))) {
+            return true;
+        }
+        String styleName = resolveStyleName(paragraph);
+        if (styleName == null) {
+            return false;
+        }
+        String compact = styleName.replace(" ", "").toLowerCase();
+        return compact.contains("题注") || compact.contains("图表类标题")
+                || compact.contains("表格标题") || compact.contains("caption");
+    }
+
+    private String resolveStyleName(XWPFParagraph paragraph) {
+        String styleId = paragraph.getStyle();
+        if (styleId == null || styleId.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            XWPFDocument document = paragraph.getDocument();
+            XWPFStyles styles = document == null ? null : document.getStyles();
+            XWPFStyle style = styles == null ? null : styles.getStyle(styleId.trim());
+            return style == null ? null : style.getName();
+        } catch (Exception ignored) {
+            return null;
         }
     }
 
@@ -3236,6 +3976,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         if (paragraph == null) {
             return false;
         }
+        paragraph = new XWPFParagraph(paragraph.getCTP(), paragraph.getBody());
         String text = safeParagraphText(paragraph).replace(" ", "");
         if (text.contains("桥梁基本状况卡片") || text.contains("定期检查记录表")
                 || text.startsWith("表") || text.startsWith("图")) {
@@ -3257,30 +3998,25 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         if (paragraph == null) {
             return 0;
         }
-        String style = paragraph.getStyle();
-        if (style != null) {
-            String trimmed = style.trim();
-            if (trimmed.matches("\\d+")) {
-                int numeric = Integer.parseInt(trimmed);
-                if (numeric >= 1 && numeric <= 9) {
-                    return numeric;
+        String styleId = paragraph.getStyle();
+        if (styleId != null && !styleId.trim().isEmpty()) {
+            // 本模板 styleId 与级别错位（2=标题1、3=标题2…），必须先看样式名
+            try {
+                XWPFDocument doc = paragraph.getDocument();
+                XWPFStyles styles = doc == null ? null : doc.getStyles();
+                XWPFStyle style = styles == null ? null : styles.getStyle(styleId.trim());
+                if (style != null && style.getName() != null) {
+                    int named = parseHeadingNameLevel(style.getName());
+                    if (named >= 1) {
+                        return named;
+                    }
                 }
+            } catch (Exception ignored) {
+                // 回退到其他解析
             }
-            String normalized = trimmed.replace(" ", "").toLowerCase();
-            if (normalized.startsWith("heading")) {
-                try {
-                    return Integer.parseInt(normalized.substring("heading".length()));
-                } catch (NumberFormatException ignored) {
-                    // 不是 HeadingN 样式
-                }
-            }
-            if (trimmed.startsWith("标题")) {
-                String number = trimmed.substring("标题".length()).trim();
-                try {
-                    return Integer.parseInt(number);
-                } catch (NumberFormatException ignored) {
-                    // 不是「标题 N」样式
-                }
+            int namedFromId = parseHeadingNameLevel(styleId);
+            if (namedFromId >= 1) {
+                return namedFromId;
             }
         }
         try {
@@ -3294,35 +4030,217 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         return 0;
     }
 
+    private int parseHeadingNameLevel(String rawName) {
+        if (rawName == null) {
+            return 0;
+        }
+        String normalized = rawName.trim().replace(" ", "").toLowerCase();
+        if (normalized.startsWith("heading")) {
+            try {
+                int level = Integer.parseInt(normalized.substring("heading".length()));
+                return level >= 1 && level <= 9 ? level : 0;
+            } catch (NumberFormatException ignored) {
+                return 0;
+            }
+        }
+        if (normalized.startsWith("标题")) {
+            try {
+                int level = Integer.parseInt(normalized.substring("标题".length()));
+                return level >= 1 && level <= 9 ? level : 0;
+            } catch (NumberFormatException ignored) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
     /**
-     * 二级：四号黑体；三级及以下：小四黑体。段前段后 0.5 行，1.5 倍行距。
+     * 标题：黑体、不加粗。二级～三级四号，四级及以下小四。段前段后 0.5 行，1.5 倍行距。
      */
     private void applyHeadingFormat(XWPFParagraph paragraph, int headingLevel) {
-        if (paragraph == null || headingLevel < 2) {
+        if (paragraph == null || headingLevel < 1) {
             return;
         }
         applyParagraphLineSpacing(paragraph, true);
         paragraph.setAlignment(ParagraphAlignment.LEFT);
-        // 模板二级（3.1/3.2，样式 2～3）四号黑体；三级及以下（3.1.1/3.2.1，样式 4+）小四黑体。
-        int fontHalfPoints = headingLevel <= 3 ? 28 : 24;
+        Integer fontHalfPoints = headingLevel == 1 ? null : (headingLevel <= 3 ? 28 : 24);
         for (XWPFRun run : paragraph.getRuns()) {
             applyHeadingRun(run, fontHalfPoints);
         }
     }
 
     /**
-     * 正文：小四宋体、1.5 倍行距，可选首行缩进 2 字符。
+     * 外观检测、结论与建议：一级黑体三号，二级黑体四号，三级及以下黑体小四。
+     * 按相对层级：本节标题=一级，其下第一级标题=二级，再往下全部小四。
+     */
+    private void applyAppearanceAndConclusionHeadingSizes(XWPFDocument document) {
+        List<XWPFParagraph> paragraphs = document.getParagraphs();
+        for (int i = 0; i < paragraphs.size(); i++) {
+            XWPFParagraph paragraph = paragraphs.get(i);
+            if (isCaptionParagraph(paragraph)) {
+                continue;
+            }
+            if (!isAppearanceOrConclusionSectionHeading(safeParagraphText(paragraph))) {
+                continue;
+            }
+            int sectionLevel = resolveHeadingLevel(paragraph);
+            if (sectionLevel < 1) {
+                // 模板偶发未挂上标题样式时，仍按本节一级处理
+                sectionLevel = 2;
+            }
+            applyHeadingLook(paragraph, 32); // 一级：三号
+            for (int j = i + 1; j < paragraphs.size(); j++) {
+                XWPFParagraph next = paragraphs.get(j);
+                if (isCaptionParagraph(next)) {
+                    continue;
+                }
+                int nextLevel = resolveHeadingLevel(next);
+                if (nextLevel < 1) {
+                    continue;
+                }
+                if (nextLevel <= sectionLevel) {
+                    break;
+                }
+                int relative = nextLevel - sectionLevel;
+                // 二级四号；三级及以下一律小四（覆盖样式默认小五等）
+                applyHeadingLook(next, relative <= 1 ? 28 : 24);
+            }
+        }
+    }
+
+    private boolean isAppearanceOrConclusionSectionHeading(String text) {
+        if (text == null) {
+            return false;
+        }
+        String compact = text.replace(" ", "").replace("　", "");
+        return compact.contains("外观检测结果")
+                || compact.contains("外观检测")
+                || compact.contains("结论与建议")
+                || compact.contains("结论和建议");
+    }
+
+    private void applyHeadingLook(XWPFParagraph paragraph, int fontHalfPoints) {
+        applyParagraphLineSpacing(paragraph, true);
+        paragraph.setAlignment(ParagraphAlignment.LEFT);
+        List<XWPFRun> runs = paragraph.getRuns();
+        if (runs == null || runs.isEmpty()) {
+            XWPFRun run = paragraph.createRun();
+            applyHeadingRun(run, fontHalfPoints);
+            return;
+        }
+        for (XWPFRun run : runs) {
+            applyHeadingRun(run, fontHalfPoints);
+        }
+    }
+
+    /**
+     * 填报页正文：按换行拆段后写成宋体小四、数字 Times New Roman 小四、
+     * 1.5 倍行距、两端对齐、首行缩进 2 字符。
+     */
+    private void replacePlaceholderWithBodyFormat(XWPFDocument document, String placeholder, String value) {
+        if (document == null || isBlank(placeholder)) {
+            return;
+        }
+        XWPFParagraph target = ReportGenerateTools.findParagraphByPlaceholder(document, placeholder);
+        if (target != null) {
+            writeFilledBodyIntoParagraph(document, target, value);
+            replaceText(document, placeholder, "");
+            return;
+        }
+        replaceText(document, placeholder, value == null ? "" : value);
+    }
+
+    private void insertFilledBodyParagraphs(XWPFDocument document, XmlCursor cursor, String text) {
+        if (document == null || cursor == null) {
+            return;
+        }
+        for (String line : splitFilledParagraphs(text)) {
+            XWPFParagraph paragraph = document.insertNewParagraph(cursor);
+            cursor.toNextToken();
+            XWPFRun run = paragraph.createRun();
+            run.setText(line);
+            applyBodyFormat(paragraph, true);
+        }
+    }
+
+    private XWPFParagraph writeFilledBodyIntoParagraph(XWPFDocument document, XWPFParagraph firstParagraph, String text) {
+        if (firstParagraph == null) {
+            return null;
+        }
+        clearParagraph(firstParagraph);
+        List<String> lines = splitFilledParagraphs(text);
+        if (lines.isEmpty()) {
+            return firstParagraph;
+        }
+        XWPFRun firstRun = firstParagraph.createRun();
+        firstRun.setText(lines.get(0));
+        applyBodyFormat(firstParagraph, true);
+        XWPFParagraph lastParagraph = firstParagraph;
+        XmlCursor cursor = null;
+        try {
+            for (int i = 1; i < lines.size(); i++) {
+                if (cursor == null) {
+                    cursor = lastParagraph.getCTP().newCursor();
+                    if (!cursor.toNextSibling()) {
+                        cursor.toEndToken();
+                        cursor.toNextToken();
+                    }
+                }
+                XWPFParagraph paragraph = document.insertNewParagraph(cursor);
+                cursor.toNextToken();
+                XWPFRun run = paragraph.createRun();
+                run.setText(lines.get(i));
+                applyBodyFormat(paragraph, true);
+                lastParagraph = paragraph;
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.dispose();
+            }
+        }
+        return lastParagraph;
+    }
+
+    private List<String> splitFilledParagraphs(String text) {
+        if (isBlank(text)) {
+            return Collections.emptyList();
+        }
+        String[] raw = text.replace("\r\n", "\n").replace('\r', '\n').split("\n");
+        List<String> lines = new ArrayList<>();
+        for (String line : raw) {
+            if (line == null) {
+                continue;
+            }
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty()) {
+                lines.add(trimmed);
+            }
+        }
+        return lines;
+    }
+
+    /**
+     * 正文：小四宋体、1.5 倍行距、两端对齐，可选首行缩进 2 字符。
      */
     private void applyBodyFormat(XWPFParagraph paragraph, boolean firstLineIndent) {
         if (paragraph == null) {
             return;
         }
+        String style = paragraph.getStyle();
+        if (style != null && style.trim().matches("[1-9]")) {
+            paragraph.setStyle(null);
+        }
         applyParagraphLineSpacing(paragraph, false);
-        paragraph.setAlignment(ParagraphAlignment.LEFT);
+        paragraph.setAlignment(ParagraphAlignment.BOTH);
         CTPPr ppr = paragraph.getCTP().getPPr();
         if (ppr == null) {
             ppr = paragraph.getCTP().addNewPPr();
         }
+        if (ppr.isSetOutlineLvl()) {
+            ppr.unsetOutlineLvl();
+        }
+        CTJc jc = ppr.isSetJc() ? ppr.getJc() : ppr.addNewJc();
+        jc.setVal(STJc.BOTH);
         CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
         if (firstLineIndent) {
             ind.setFirstLine(BigInteger.valueOf(480));
@@ -3348,17 +4266,30 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
     }
 
-    private void applyHeadingRun(XWPFRun run, int fontHalfPoints) {
-        run.setBold(true);
-        run.setFontFamily("黑体");
-        CTRPr rpr = run.getCTR().addNewRPr();
-        CTFonts fonts = rpr.addNewRFonts();
+    private void applyHeadingRun(XWPFRun run, Integer fontHalfPoints) {
+        run.setBold(false);
+        run.setColor("000000");
+        CTRPr rPr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+        while (rPr.sizeOfRFontsArray() > 0) {
+            rPr.removeRFonts(0);
+        }
+        while (rPr.sizeOfSzArray() > 0) {
+            rPr.removeSz(0);
+        }
+        while (rPr.sizeOfSzCsArray() > 0) {
+            rPr.removeSzCs(0);
+        }
+        CTFonts fonts = rPr.addNewRFonts();
         fonts.setAscii("黑体");
         fonts.setHAnsi("黑体");
         fonts.setEastAsia("黑体");
-        rpr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
-        rpr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
-        rpr.addNewB().setVal(true);
+        fonts.setCs("黑体");
+        run.setFontFamily("黑体");
+        if (fontHalfPoints != null) {
+            rPr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+            rPr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
+        stripBold(rPr);
     }
 
     /**

@@ -1571,7 +1571,7 @@
                 }
                 if (showColumns[4] == 1 && item.areaLength && item.areaWidth) {
                     var areaLabel = count >= 2 ? '_' + (index + 1) : '';
-                    descriptionArr.push('面积S' + areaLabel + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
+                    descriptionArr.push('S' + areaLabel + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
                 }
                 if (showColumns[5] == 1 && item.deformation) {
                     descriptionArr.push('变形/位移：' + item.deformation + 'm');
@@ -1608,7 +1608,7 @@
             }
             if (showColumns[4] == 1 && item.areaLength && item.areaWidth) {
                 var areaLabel2 = item.areaIdentifier == 1 ? '均' : (item.areaIdentifier == 2 ? '总' : item.areaIdentifier);
-                descriptionArr.push('面积S_' + areaLabel2 + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
+                descriptionArr.push('S_' + areaLabel2 + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
             }
             if (showColumns[5] == 1 && item.deformationRangeStart && item.deformationRangeEnd) {
                 descriptionArr.push('变形/位移：' + item.deformationRangeStart + '~' + item.deformationRangeEnd + 'm');

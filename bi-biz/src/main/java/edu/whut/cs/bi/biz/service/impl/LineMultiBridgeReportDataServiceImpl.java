@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  * 定期检查多桥报告数据Service实现。
  *
  * <p>桥梁归属用现有 key 字段做逻辑分区，不改动 bi_report_data 表结构。
- * 子桥：__task_101__designPoints；大桥：__group_g1__overallOverview；线路：line-project-overview。</p>
+ * 子桥：__task_101__designPoints；大桥：__group_g1__overallOverview；线路：line-route-overview。</p>
  */
 @Slf4j
 @Service
