@@ -66,6 +66,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Async;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
+import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
 
 import javax.annotation.Resource;
 
@@ -4744,52 +4745,11 @@ public class ReportServiceImpl implements IReportService {
                 return;
             }
 
-            // 步骤1：在标题段落后创建第一个分节符（结束当前分节）
-            CTP ctP = afterParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 如果已存在sectPr，先移除以避免冲突
-            if (pPr.isSetSectPr()) {
-                pPr.unsetSectPr();
-            }
-
-            // 创建分节符，使用NEXT_PAGE确保后续横向内容在新页面开始
-            CTSectPr sectPr = pPr.addNewSectPr();
-            CTSectType sectType = sectPr.addNewType();
-            sectType.setVal(STSectionMark.NEXT_PAGE);
-
-            log.info("在标题段落后添加了第一个分节符");
-
-            // 步骤2：在标题段落后立即创建横向分节符段落
-            XmlCursor cursor = afterParagraph.getCTP().newCursor();
-            cursor.toEndToken();
-            cursor.toNextToken();
-
-            // 在指定位置插入新段落
-            XWPFParagraph landscapeParagraph = document.insertNewParagraph(cursor);
-            landscapeParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置横向分节符
-            CTP ctpLandscape = landscapeParagraph.getCTP();
-            CTPPr pPrLandscape = ctpLandscape.isSetPPr() ? ctpLandscape.getPPr() : ctpLandscape.addNewPPr();
-
-            // 创建分节符并设置横向
-            CTSectPr sectPrLandscape = pPrLandscape.addNewSectPr();
-
-            // 创建页尺寸对象并设置横向
-            CTPageSz pageSize = sectPrLandscape.addNewPgSz();
-            pageSize.setOrient(STPageOrientation.LANDSCAPE);
-            pageSize.setW(BigInteger.valueOf(16838)); // 设置页面宽度
-            pageSize.setH(BigInteger.valueOf(11906)); // 设置页面高度
-
-            // 设置适合横向布局的页边距
-            CTPageMar pgMar = sectPrLandscape.addNewPgMar();
-            pgMar.setTop(BigInteger.valueOf(1796)); // 3.17cm
-            pgMar.setBottom(BigInteger.valueOf(1423)); // 2.51cm
-            pgMar.setLeft(BigInteger.valueOf(1440)); // 2.54cm
-            pgMar.setRight(BigInteger.valueOf(1440)); // 2.54cm
-
-            log.info("在标题段落后添加了横向分节符");
+            WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
+            CTSectPr currentSection = WordSectionLayoutUtils.findSectionContaining(document, afterParagraph);
+            WordSectionLayoutUtils.closeCurrentSection(afterParagraph, currentSection);
+            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.insertLandscapeSectionEnd(
+                    document, afterParagraph, layouts);
 
             // 步骤3：从横向分节符段落后获取cursor位置，创建表格
             XmlCursor tableCursor = landscapeParagraph.getCTP().newCursor();
@@ -4805,31 +4765,7 @@ public class ReportServiceImpl implements IReportService {
                     bridgeName
             );
 
-            // 步骤4：在表格后创建纵向分节符，恢复纵向布局
-            XWPFParagraph sectionParagraph = document.createParagraph();
-            sectionParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置纵向分节符
-            CTP ctpPortrait = sectionParagraph.getCTP();
-            CTPPr pPrPortrait = ctpPortrait.isSetPPr() ? ctpPortrait.getPPr() : ctpPortrait.addNewPPr();
-
-            // 创建分节符并设置纵向
-            CTSectPr sectPrPortrait = pPrPortrait.addNewSectPr();
-            CTSectType sectTypePortrait = sectPrPortrait.addNewType();
-            sectTypePortrait.setVal(STSectionMark.CONTINUOUS);
-
-            // 设置页面尺寸为纵向
-            CTPageSz pageSizePortrait = sectPrPortrait.addNewPgSz();
-            pageSizePortrait.setOrient(STPageOrientation.PORTRAIT);
-            pageSizePortrait.setW(BigInteger.valueOf(11906)); // 21.0cm
-            pageSizePortrait.setH(BigInteger.valueOf(16838)); // 29.7cm
-
-            // 设置纵向页边距
-            CTPageMar pgMarPortrait = sectPrPortrait.addNewPgMar();
-            pgMarPortrait.setTop(BigInteger.valueOf(1440)); // 2.51cm
-            pgMarPortrait.setBottom(BigInteger.valueOf(1440)); // 2.51cm
-            pgMarPortrait.setLeft(BigInteger.valueOf(1796)); // 2.54cm
-            pgMarPortrait.setRight(BigInteger.valueOf(1796)); // 2.54cm
+            WordSectionLayoutUtils.insertPortraitSectionAfter(document, landscapeParagraph, layouts);
 
             log.info("在表格后设置了纵向分节符");
 

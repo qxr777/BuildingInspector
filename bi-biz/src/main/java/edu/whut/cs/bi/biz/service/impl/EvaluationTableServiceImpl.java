@@ -9,12 +9,11 @@ import edu.whut.cs.bi.biz.service.EvaluationTableService;
 import edu.whut.cs.bi.biz.service.IConditionService;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
+import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.deepoove.poi.util.TableTools;
@@ -58,11 +57,14 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
                 return;
             }
 
-            // 在四句话段落后创建第一个分节符（结束当前分节）
-            addSectionBreakAfterParagraph(document, afterParagraph);
+            WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
+            CTSectPr currentSection = WordSectionLayoutUtils.findSectionContaining(document, afterParagraph);
 
-            // 在四句话段落后立即创建横向分节符，并获取新插入的段落
-            XWPFParagraph landscapeParagraph = addLandscapeSectionBreakAfterParagraph(document, afterParagraph);
+            // 结束当前竖版分节，页眉仍用当前节的竖版页眉
+            WordSectionLayoutUtils.closeCurrentSection(afterParagraph, currentSection);
+            // 横版分节必须绑模板里的横版页眉，logo 才能落在横版右页边
+            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.insertLandscapeSectionEnd(
+                    document, afterParagraph, layouts);
 
             // 从横向分节符段落后获取cursor位置
             XmlCursor cursor = landscapeParagraph.getCTP().newCursor();
@@ -81,8 +83,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             // 使用XmlCursor在标题后插入表格
             createComplexEvaluationTableWithCursor(document, cursor, structureData, evaluation);
 
-            // 在表格后创建纵向分节符，恢复纵向布局
-            addPortraitSectionBreakAfterTable(document, afterParagraph);
+            // 紧挨横版节恢复竖版，并绑回竖版页眉；不能在文档末尾另起一节
+            WordSectionLayoutUtils.insertPortraitSectionAfter(document, landscapeParagraph, layouts);
 
             log.info("第八章技术状况评定表格生成完成");
 
@@ -103,128 +105,6 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             }
         }
         return -1;
-    }
-
-
-    /**
-     * 在四句话段落后创建第一个分节符
-     *
-     * @param document       Word文档
-     * @param afterParagraph 四句话段落
-     */
-    private void addSectionBreakAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph) {
-        try {
-            // 在四句话段落中直接设置分节符
-            CTP ctP = afterParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 如果已存在sectPr，先移除以避免冲突
-            if (pPr.isSetSectPr()) {
-                pPr.unsetSectPr();
-            }
-
-            // 创建分节符，使用NEXT_PAGE确保后续横向内容在新页面开始
-            CTSectPr sectPr = pPr.addNewSectPr();
-            CTSectType sectType = sectPr.addNewType();
-            sectType.setVal(STSectionMark.NEXT_PAGE);
-
-            log.info("在四句话段落后添加了第一个分节符");
-
-        } catch (Exception e) {
-            log.error("在四句话段落后添加分节符失败", e);
-            throw e;
-        }
-    }
-
-    /**
-     * 在四句话段落后立即创建一个新段落并设置横向分节符
-     *
-     * @param document       Word文档
-     * @param afterParagraph 四句话段落
-     */
-    private XWPFParagraph addLandscapeSectionBreakAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph) {
-        try {
-            // 使用XmlCursor在四句话段落后插入新段落
-            XmlCursor cursor = afterParagraph.getCTP().newCursor();
-            cursor.toEndToken();
-            cursor.toNextToken();
-
-            // 在指定位置插入新段落
-            XWPFParagraph newParagraph = document.insertNewParagraph(cursor);
-            newParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置横向分节符
-            CTP ctP = newParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 创建分节符并设置横向
-            CTSectPr sectPr = pPr.addNewSectPr();
-            // 关键：不设置NEXT_PAGE，让横向设置在当前页面生效
-            // 这样XmlCursor就能正确定位到横向区域
-
-            // 创建页尺寸对象并设置横向
-            CTPageSz pageSize = sectPr.addNewPgSz();
-            pageSize.setOrient(STPageOrientation.LANDSCAPE);
-            pageSize.setW(BigInteger.valueOf(16838)); // 设置页面宽度
-            pageSize.setH(BigInteger.valueOf(11906)); // 设置页面高度
-
-            // 设置适合横向布局的页边距
-            CTPageMar pgMar = sectPr.addNewPgMar();
-            pgMar.setTop(BigInteger.valueOf(1796)); // 3.17cm
-            pgMar.setBottom(BigInteger.valueOf(1423)); // 2.51cm
-            pgMar.setLeft(BigInteger.valueOf(1440)); // 2.54cm
-            pgMar.setRight(BigInteger.valueOf(1440)); // 2.54cm
-
-            log.info("在四句话段落后立即添加了横向分节符");
-
-            return newParagraph;
-
-        } catch (Exception e) {
-            log.error("在四句话段落后添加横向分节符失败", e);
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * 在表格后创建纵向分节符，恢复纵向布局
-     *
-     * @param document       Word文档
-     * @param afterParagraph 四句话段落（用于定位）
-     */
-    private void addPortraitSectionBreakAfterTable(XWPFDocument document, XWPFParagraph afterParagraph) {
-        try {
-            // 创建一个新段落来承载纵向分节符
-            XWPFParagraph sectionParagraph = document.createParagraph();
-            sectionParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置纵向分节符
-            CTP ctP = sectionParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 创建分节符并设置纵向
-            CTSectPr sectPr = pPr.addNewSectPr();
-            CTSectType sectType = sectPr.addNewType();
-            sectType.setVal(STSectionMark.CONTINUOUS);
-
-            // 设置页面尺寸为纵向
-            CTPageSz pageSize = sectPr.addNewPgSz();
-            pageSize.setOrient(STPageOrientation.PORTRAIT);
-            pageSize.setW(BigInteger.valueOf(11906)); // 21.0cm
-            pageSize.setH(BigInteger.valueOf(16838)); // 29.7cm
-
-            // 设置纵向页边距
-            CTPageMar pgMar = sectPr.addNewPgMar();
-            pgMar.setTop(BigInteger.valueOf(1440)); // 2.51cm
-            pgMar.setBottom(BigInteger.valueOf(1440)); // 2.51cm
-            pgMar.setLeft(BigInteger.valueOf(1796)); // 2.54cm
-            pgMar.setRight(BigInteger.valueOf(1796)); // 2.54cm
-
-            log.info("在表格后设置了纵向分节符");
-
-        } catch (Exception e) {
-            log.error("在表格后设置纵向分节符失败", e);
-            throw e;
-        }
     }
 
 

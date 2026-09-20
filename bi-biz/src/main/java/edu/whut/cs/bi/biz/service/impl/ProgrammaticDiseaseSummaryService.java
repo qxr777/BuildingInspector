@@ -73,6 +73,11 @@ public class ProgrammaticDiseaseSummaryService {
     private static final Pattern SPECIAL_AREA_IN_SQUARE_CENTIMETRES = Pattern.compile("(?i)cm(?:²|2|\\^2)");
     private static final Pattern OTHER_CATEGORY = Pattern.compile("^其他(?:[（(].*[）)])?$");
     private static final Pattern TRAILING_DESCRIPTION_PUNCTUATION = Pattern.compile("[\\s，,；;。．.]+$");
+    // 只去掉开头的构件编号，多个编号或复杂句子不参与简化。
+    private static final Pattern COMPONENT_DESCRIPTION_PREFIX = Pattern.compile(
+            "^[A-Za-z0-9_\\-—－、\\s]+[#＃]");
+    private static final Pattern SIMPLE_DESCRIPTION_COUNT = Pattern.compile(
+            "^([^#＃，,；;。\\d=＝:：%％]+?)\\s*([1-9]\\d*)\\s*([条处个颗联])$");
     private static final Pattern PERCENT_IN_DESCRIPTION = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*%");
 
     public String summarize(List<Disease> diseases, String sectionName) {
@@ -119,20 +124,30 @@ public class ProgrammaticDiseaseSummaryService {
                 String position = displayPosition(positionSummary.position(), componentEntry.getKey());
                 positionTexts.add(position + categories);
             }
-            lines.add((lines.size() + 1) + "）" + componentEntry.getKey() + "："
-                    + String.join("；", positionTexts) + "。");
+            lines.add(componentEntry.getKey() + "：" + String.join("；", positionTexts) + "。");
         }
-        return String.join("\n", lines);
+        return joinSummaryLines(lines);
     }
 
     private String renderGeneral(
             LinkedHashMap<ScopeKey, LinkedHashMap<CategoryKey, MeasurementAccumulator>> scopes) {
         List<String> lines = new ArrayList<>();
         for (Map.Entry<ScopeKey, LinkedHashMap<CategoryKey, MeasurementAccumulator>> entry : scopes.entrySet()) {
-            lines.add((lines.size() + 1) + "）" + entry.getKey().component() + "："
-                    + formatCategories(entry.getValue()) + "。");
+            lines.add(entry.getKey().component() + "：" + formatCategories(entry.getValue()) + "。");
         }
-        return String.join("\n", lines);
+        return joinSummaryLines(lines);
+    }
+
+    /** 只有一条小结时不写 1），多条才编号。 */
+    private String joinSummaryLines(List<String> lines) {
+        if (lines.size() == 1) {
+            return lines.get(0);
+        }
+        List<String> numbered = new ArrayList<>(lines.size());
+        for (int i = 0; i < lines.size(); i++) {
+            numbered.add((i + 1) + "）" + lines.get(i));
+        }
+        return String.join("\n", numbered);
     }
 
     private String formatCategories(LinkedHashMap<CategoryKey, MeasurementAccumulator> categories) {
@@ -229,19 +244,18 @@ public class ProgrammaticDiseaseSummaryService {
         private BigDecimal angleMaximum;
         private BigDecimal ratioMinimum;
         private BigDecimal ratioMaximum;
-        private final List<String> descriptions = new ArrayList<>();
+        private final List<DescriptionEntry> descriptions = new ArrayList<>();
 
         void accept(Disease disease) {
             String description = normalizeDescription(disease.getDescription());
-            if (hasText(description)) {
-                descriptions.add(description);
-            }
-
             List<DiseaseDetail> details = disease.getDiseaseDetails() == null
                     ? List.of() : disease.getDiseaseDetails();
             long effectiveQuantity = disease.getQuantity() > 0
                     ? disease.getQuantity() : Math.max(1, details.size());
             quantity += effectiveQuantity;
+            if (hasText(description)) {
+                descriptions.add(new DescriptionEntry(description, effectiveQuantity));
+            }
 
             boolean lengthInMillimetres = isLengthInMillimetres(disease.getDescription());
             boolean areaInSquareCentimetres = isAreaInSquareCentimetres(disease.getDescription());
@@ -368,9 +382,43 @@ public class ProgrammaticDiseaseSummaryService {
                 appendNumberOrRange(text, ratioMinimum, ratioMaximum, "%", true);
             }
             if (OTHER_CATEGORY.matcher(category.name()).matches() && !descriptions.isEmpty()) {
-                text.append('，').append(String.join("，", descriptions));
+                text.append("，其中").append(summarizeOtherDescriptions(category.unit()));
             }
             return text.toString();
+        }
+
+        private record DescriptionEntry(String text, long quantity) {
+        }
+
+        private record DescriptionPart(CategoryKey key, String original) {
+        }
+
+        private String summarizeOtherDescriptions(String quantityUnit) {
+            Map<CategoryKey, BigDecimal> counts = new LinkedHashMap<>();
+            List<DescriptionPart> ordered = new ArrayList<>();
+            for (DescriptionEntry entry : descriptions) {
+                String body = COMPONENT_DESCRIPTION_PREFIX.matcher(entry.text()).replaceFirst("").trim();
+                Matcher matcher = SIMPLE_DESCRIPTION_COUNT.matcher(body);
+                // 数量、单位必须和主表一致；无法可靠解析时保留原文。
+                if (!matcher.matches()
+                        || !matcher.group(3).equals(quantityUnit)
+                        || new BigDecimal(matcher.group(2)).compareTo(BigDecimal.valueOf(entry.quantity())) != 0) {
+                    ordered.add(new DescriptionPart(null, entry.text()));
+                    continue;
+                }
+                CategoryKey key = new CategoryKey(matcher.group(1).trim(), matcher.group(3));
+                if (!counts.containsKey(key)) {
+                    ordered.add(new DescriptionPart(key, null));
+                }
+                counts.merge(key, BigDecimal.valueOf(entry.quantity()), BigDecimal::add);
+            }
+            List<String> result = new ArrayList<>();
+            for (DescriptionPart part : ordered) {
+                CategoryKey key = part.key();
+                result.add(key == null ? part.original()
+                        : key.name() + counts.get(key).toPlainString() + key.unit());
+            }
+            return String.join("、", result);
         }
 
         private static String normalizeDescription(String description) {

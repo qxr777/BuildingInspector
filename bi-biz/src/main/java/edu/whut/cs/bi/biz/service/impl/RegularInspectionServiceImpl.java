@@ -8,6 +8,7 @@ import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.ConditionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -232,7 +233,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         XWPFRun run1 = paragraph1.createRun();
         run1.setText("公路管理机构名称：");
         run1.setFontSize(9);
-        run1.setFontFamily("宋体");
+        ReportGenerateTools.setMixedFontFamily(run1, ReportGenerateTools.TABLE_FONT_HALF_POINTS);
 
         // 横向合并所有11列
         mergeHorizontalCells(table, 0, 0, 10);
@@ -806,10 +807,8 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         paragraph.setSpacingAfter(0);
         paragraph.setSpacingBefore(0);
 
-        XWPFRun run = paragraph.createRun();
-        run.setText(text);
-        run.setFontSize(9);
-        run.setFontFamily("宋体");
+        ReportGenerateTools.setParagraphMixedFontText(
+                paragraph, text, ReportGenerateTools.TABLE_FONT_HALF_POINTS);
 
         // 设置单元格垂直居中
         CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
@@ -835,10 +834,8 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         paragraph.setSpacingAfter(0);
         paragraph.setSpacingBefore(0);
 
-        XWPFRun run = paragraph.createRun();
-        run.setText(text);
-        run.setFontSize(9);
-        run.setFontFamily("宋体");
+        ReportGenerateTools.setParagraphMixedFontText(
+                paragraph, text, ReportGenerateTools.TABLE_FONT_HALF_POINTS);
 
         // 设置单元格垂直居中
         CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
@@ -956,6 +953,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             ReportTemplateValueUtils.addAliasProperties(properties);
             // 将表格中的占位符 替换。
             replacePlaceholdersInTables(document, properties);
+            ReportGenerateTools.applyMixedFontsToTables(document);
             //！！！ 注意 ， 这里考虑到 基本卡片的 最后 清除了 所有表格中的占位符 ，所以这里没有再次清除。
         }
     }
@@ -1018,13 +1016,8 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                 paragraph.removeRun(i);
             }
 
-            // 创建新的run并设置替换后的文本
-            XWPFRun newRun = paragraph.createRun();
-            newRun.setText(text.replace(placeholder, value));
-
-            // 设置字体为宋体小五
-            newRun.setFontFamily("宋体");
-            newRun.setFontSize(9);
+            ReportGenerateTools.setParagraphMixedFontText(
+                    paragraph, text.replace(placeholder, value), ReportGenerateTools.TABLE_FONT_HALF_POINTS);
         }
     }
 

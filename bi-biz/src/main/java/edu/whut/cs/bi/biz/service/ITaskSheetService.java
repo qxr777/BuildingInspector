@@ -74,6 +74,12 @@ public interface ITaskSheetService {
     /** App 上传 JSON 表格类型：碳化深度检测记录表 */
     String SHEET_TYPE_CARBON_DEPTH = "carbon_depth";
 
+    /** App 上传 JSON 表格类型：钢筋位置和保护层厚度检测记录表 */
+    String SHEET_TYPE_REBAR_COVER = "rebar_cover";
+
+    /** App 上传 JSON 表格类型：钢筋锈蚀电位检测记录表 */
+    String SHEET_TYPE_REBAR_CORROSION = "rebar_corrosion";
+
     /**
      * 判断表格类型是否支持 JSON → Word 预览/下载
      */

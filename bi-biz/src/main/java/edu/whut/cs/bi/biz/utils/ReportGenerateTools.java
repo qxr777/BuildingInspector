@@ -656,4 +656,201 @@ public class ReportGenerateTools {
         }
         return disease.getCrackType() + ReportConstants.DISEASE_TYPE_NAME_CRACK;
     }
+
+    /**
+     * 表格默认小五（9 磅 = 18 half-points）。
+     */
+    public static final int TABLE_FONT_HALF_POINTS = 18;
+
+    /**
+     * 把文档里所有表格的数字/英文改成 Times New Roman，中文保持宋体。
+     * Word/WPS 在 hint=eastAsia 时会用宋体画数字，所以数字必须拆成独立 run。
+     */
+    public static void applyMixedFontsToTables(XWPFDocument document) {
+        applyMixedFontsToTables(document, TABLE_FONT_HALF_POINTS);
+    }
+
+    public static void applyMixedFontsToTables(XWPFDocument document, int defaultHalfPoints) {
+        if (document == null) {
+            return;
+        }
+        for (XWPFTable table : document.getTables()) {
+            applyMixedFontsToTable(table, defaultHalfPoints);
+        }
+    }
+
+    public static void applyMixedFontsToTable(XWPFTable table, int defaultHalfPoints) {
+        if (table == null) {
+            return;
+        }
+        for (XWPFTableRow row : table.getRows()) {
+            for (XWPFTableCell cell : row.getTableCells()) {
+                for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                    rewriteParagraphMixedFonts(paragraph, defaultHalfPoints, "宋体");
+                }
+            }
+        }
+    }
+
+    public static void setParagraphMixedFontText(XWPFParagraph paragraph, String text, int fontHalfPoints) {
+        setParagraphMixedFontText(paragraph, text, fontHalfPoints, false, "宋体");
+    }
+
+    public static void setParagraphMixedFontText(XWPFParagraph paragraph, String text, int fontHalfPoints,
+                                                 boolean bold, String eastAsiaFont) {
+        if (paragraph == null) {
+            return;
+        }
+        while (!paragraph.getRuns().isEmpty()) {
+            paragraph.removeRun(0);
+        }
+        appendMixedFontRuns(paragraph, text == null ? "" : text, fontHalfPoints, bold, eastAsiaFont);
+    }
+
+    static void rewriteParagraphMixedFonts(XWPFParagraph paragraph, int defaultHalfPoints, String eastAsiaFont) {
+        if (paragraph == null || paragraphHasField(paragraph) || paragraphHasDrawing(paragraph)) {
+            return;
+        }
+        String text = paragraph.getText();
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        boolean bold = false;
+        int fontHalfPoints = defaultHalfPoints;
+        List<XWPFRun> runs = paragraph.getRuns();
+        if (runs != null) {
+            for (XWPFRun run : runs) {
+                if (Boolean.TRUE.equals(run.isBold())) {
+                    bold = true;
+                }
+                Integer size = runFontHalfPoints(run);
+                if (size != null) {
+                    fontHalfPoints = size;
+                    break;
+                }
+            }
+        }
+        while (!paragraph.getRuns().isEmpty()) {
+            paragraph.removeRun(0);
+        }
+        appendMixedFontRuns(paragraph, text, fontHalfPoints, bold, eastAsiaFont);
+    }
+
+    public static void appendMixedFontRuns(XWPFParagraph paragraph, String text, int fontHalfPoints,
+                                           boolean bold, String eastAsiaFont) {
+        if (paragraph == null) {
+            return;
+        }
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        String chineseFont = eastAsiaFont == null || eastAsiaFont.isEmpty() ? "宋体" : eastAsiaFont;
+        StringBuilder chunk = new StringBuilder();
+        Boolean ascii = null;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '\r') {
+                continue;
+            }
+            if (ch == '\n') {
+                flushMixedFontChunk(paragraph, chunk, ascii, fontHalfPoints, bold, chineseFont);
+                ascii = null;
+                if (!paragraph.getRuns().isEmpty()) {
+                    paragraph.getRuns().get(paragraph.getRuns().size() - 1).addBreak();
+                } else {
+                    paragraph.createRun().addBreak();
+                }
+                continue;
+            }
+            boolean currentAscii = isWesternChar(ch);
+            if (ascii != null && currentAscii != ascii) {
+                flushMixedFontChunk(paragraph, chunk, ascii, fontHalfPoints, bold, chineseFont);
+            }
+            ascii = currentAscii;
+            chunk.append(ch);
+        }
+        flushMixedFontChunk(paragraph, chunk, ascii, fontHalfPoints, bold, chineseFont);
+    }
+
+    private static void flushMixedFontChunk(XWPFParagraph paragraph, StringBuilder chunk, Boolean ascii,
+                                            int fontHalfPoints, boolean bold, String chineseFont) {
+        if (chunk.length() == 0) {
+            return;
+        }
+        XWPFRun run = paragraph.createRun();
+        run.setText(chunk.toString());
+        run.setBold(bold);
+        if (Boolean.TRUE.equals(ascii)) {
+            applyWesternFont(run, fontHalfPoints);
+        } else {
+            setMixedFontFamily(run, fontHalfPoints, chineseFont);
+        }
+        chunk.setLength(0);
+    }
+
+    /**
+     * 数字、英文必须四个字体槽都写 Times New Roman，否则 WPS/Word 在 eastAsia hint 下仍用宋体画数字。
+     */
+    private static void applyWesternFont(XWPFRun run, int fontHalfPoints) {
+        CTRPr rpr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+        while (rpr.sizeOfRFontsArray() > 0) {
+            rpr.removeRFonts(0);
+        }
+        while (rpr.sizeOfSzArray() > 0) {
+            rpr.removeSz(0);
+        }
+        while (rpr.sizeOfSzCsArray() > 0) {
+            rpr.removeSzCs(0);
+        }
+        CTFonts fonts = rpr.addNewRFonts();
+        fonts.setAscii("Times New Roman");
+        fonts.setHAnsi("Times New Roman");
+        fonts.setCs("Times New Roman");
+        fonts.setEastAsia("Times New Roman");
+        fonts.setHint(STHint.DEFAULT);
+        rpr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+        rpr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+    }
+
+    static boolean isWesternChar(char ch) {
+        return ch <= 0x7F;
+    }
+
+    private static boolean paragraphHasDrawing(XWPFParagraph paragraph) {
+        if (paragraph.getCTP() == null) {
+            return false;
+        }
+        for (CTR run : paragraph.getCTP().getRArray()) {
+            if (run.sizeOfDrawingArray() > 0 || run.sizeOfPictArray() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean paragraphHasField(XWPFParagraph paragraph) {
+        if (paragraph.getCTP() == null) {
+            return false;
+        }
+        String xml = paragraph.getCTP().xmlText();
+        return xml.contains("w:fldChar") || xml.contains("w:instrText");
+    }
+
+    private static Integer runFontHalfPoints(XWPFRun run) {
+        if (run == null || !run.getCTR().isSetRPr()) {
+            return null;
+        }
+        CTRPr rpr = run.getCTR().getRPr();
+        if (rpr.sizeOfSzArray() > 0 && rpr.getSzArray(0).getVal() != null) {
+            Object val = rpr.getSzArray(0).getVal();
+            if (val instanceof Number) {
+                return ((Number) val).intValue();
+            }
+        }
+        Double points = run.getFontSizeAsDouble();
+        if (points != null && points > 0) {
+            return (int) Math.round(points * 2);
+        }
+        return null;
+    }
 }

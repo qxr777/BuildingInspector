@@ -399,13 +399,13 @@
                             </div>
 
                             <div class="tab-pane" id="tab_9">
-                                <div class="alert alert-warning alert-custom">
-                                    <h4><i class="fa fa-info-circle"></i> 此章节功能可根据需求进一步开发</h4>
+                                <div class="alert alert-info alert-custom">
+                                    <h4><i class="fa fa-info-circle"></i> 碳化深度及锈蚀电位状况由系统根据检测记录自动生成</h4>
                                     <p><strong>章节名称：</strong>9. 碳化深度及锈蚀电位状况</p>
                                     <p><strong>当前处理方式：</strong></p>
                                     <ul>
-                                        <li>Word模板中会保留此章节的标题</li>
-                                        <li>生成报告后，请下载Word文档，手工填写检测数据</li>
+                                        <li>Word 模板占位符 <code>${carbonizationAssessment}</code> 依次生成碳化状况、锈蚀电位两张评定表</li>
+                                        <li>数据来自各子桥已提交的碳化深度、保护层、锈蚀电位检测记录</li>
                                     </ul>
                                 </div>
                             </div>
@@ -561,18 +561,23 @@
                                 </div>
                             </div>
                             <div class="tab-pane" id="tab_12">
-                                <div class="alert alert-warning alert-custom">
-                                    <h4><i class="fa fa-info-circle"></i> 附表内容根据后端导入的EXCEL自动填写</h4>
-                                    <p><strong>章节名称：</strong>12. 附表</p>
-                                    <p><strong>内容：</strong></p>
-                                    <ul>
-                                        <li>桥梁基本状况卡片（自动填入桥梁卡片属性）</li>
-                                        <li>桥梁技术状况检测记录表（自动填入各部件评分与缺损类型）</li>
-                                    </ul>
-                                    <p><strong>当前处理方式：</strong></p>
-                                    <ul>
-                                        <li>Word文档会根据后端数据自动填入，内容仍需核对</li>
-                                    </ul>
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">12. 附表</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <p>勾选需要生成「桥梁基本状况卡片」的子桥。技术状况评定表、定期检查记录表仍按全部子桥生成。</p>
+                                        <input type="hidden" data-original-key="appendixBridgeCardTaskIds" id="appendixBridgeCardTaskIds">
+                                        <div class="form-group" style="margin-bottom: 8px;">
+                                            <label class="checkbox-inline">
+                                                <input type="checkbox" id="appendixBridgeCardSelectAll"> 全选
+                                            </label>
+                                        </div>
+                                        <div id="appendixBridgeCardList"></div>
+                                        <div class="form-group text-center" style="margin-top: 20px;">
+                                            <button type="button" class="btn btn-primary" onclick="saveTabData('tab_12')">保存</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -663,6 +668,19 @@
                 saveTabDataSync(currentTabId);
             }
         });
+        $('#reportTabs a').on('shown.bs.tab', function (e) {
+            if ($(e.target).attr('href') === '#tab_12') {
+                renderAppendixCardChecks();
+            }
+        });
+        $(document).on('change', '.appendix-bridge-card-check', function () {
+            syncAppendixCardSelection();
+        });
+        $('#appendixBridgeCardSelectAll').on('change', function () {
+            var checked = $(this).prop('checked');
+            $('#appendixBridgeCardList .appendix-bridge-card-check').prop('checked', checked);
+            syncAppendixCardSelection();
+        });
 
         // 监听折叠面板事件
         $('.panel-heading').on('click', function () {
@@ -688,6 +706,89 @@
             }
         }
         return '任务 ' + taskId;
+    }
+
+    function findCurrentGroup() {
+        var groups = bridgeGroups.length ? bridgeGroups : savedBridgeGroups;
+        for (var i = 0; i < groups.length; i++) {
+            if (groups[i] && String(groups[i].id) === String(currentGroupId)) {
+                return groups[i];
+            }
+        }
+        return null;
+    }
+
+    function currentGroupTaskIds() {
+        var group = findCurrentGroup();
+        return group && group.taskIds ? group.taskIds : [];
+    }
+
+    function parseAppendixCardTaskIds(raw) {
+        if (raw == null || raw === '') {
+            return null;
+        }
+        try {
+            var parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                return null;
+            }
+            return parsed.map(function (id) {
+                return Number(id);
+            }).filter(function (id) {
+                return !isNaN(id);
+            });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function renderAppendixCardChecks() {
+        var $list = $('#appendixBridgeCardList').empty();
+        var taskIds = currentGroupTaskIds();
+        if (!currentGroupId) {
+            $list.append('<p class="text-muted">请先选择大桥。</p>');
+            $('#appendixBridgeCardSelectAll').prop('checked', false);
+            return;
+        }
+        if (taskIds.length === 0) {
+            $list.append('<p class="text-muted">当前大桥下没有子桥。</p>');
+            $('#appendixBridgeCardSelectAll').prop('checked', false);
+            return;
+        }
+        var selected = parseAppendixCardTaskIds($('#appendixBridgeCardTaskIds').val());
+        taskIds.forEach(function (taskId) {
+            var checked = selected == null || selected.indexOf(Number(taskId)) >= 0;
+            var $label = $('<label class="checkbox-inline" style="display:block;margin:6px 0;">');
+            $label.append(
+                $('<input type="checkbox" class="appendix-bridge-card-check">')
+                    .val(taskId)
+                    .prop('checked', checked)
+            );
+            $label.append(document.createTextNode(' ' + taskNameById(taskId)));
+            $list.append($label);
+        });
+        syncAppendixCardSelectAll();
+    }
+
+    function syncAppendixCardSelection() {
+        var $checks = $('#appendixBridgeCardList .appendix-bridge-card-check');
+        if ($checks.length === 0) {
+            return;
+        }
+        var selected = [];
+        $checks.filter(':checked').each(function () {
+            selected.push(Number($(this).val()));
+        });
+        $('#appendixBridgeCardTaskIds').val(JSON.stringify(selected));
+        syncAppendixCardSelectAll();
+    }
+
+    function syncAppendixCardSelectAll() {
+        var $checks = $('#appendixBridgeCardList .appendix-bridge-card-check');
+        $('#appendixBridgeCardSelectAll').prop(
+            'checked',
+            $checks.length > 0 && $checks.filter(':checked').length === $checks.length
+        );
     }
 
     function knownTaskIds() {
@@ -1103,6 +1204,7 @@
             }
             fillFormData(rows);
             applyBridgeGroupsFromForm();
+            renderAppendixCardChecks();
         }).fail(function () {
             if (seq !== loadSeq) {
                 return;
@@ -1163,6 +1265,7 @@
         if (diseaseValue) {
             updateDiseaseDisplay('single-diseases');
         }
+        renderAppendixCardChecks();
     }
 
     function processImageUrl(url, index, counter, container) {
@@ -1274,29 +1377,18 @@
             }
         });
 
-        // 添加病害选择字段 - 处理隐藏字段中的JSON数据
-        var diseaseDataAdded = false;
+        syncAppendixCardSelection();
         tabPane.find('input[type="hidden"][data-original-key]').each(function () {
-            var key = $(this).data('original-key');
-            var value = $(this).val();
-
-            // 检查是否是病害选择相关的字段
-            if (key && key.includes('focusDiseases')) {
-                console.log('处理病害选择字段:', key, '值:', value);
-
-                // 第一次添加病害数据时，先加一个空值，让Spring认为是数组
-                if (!diseaseDataAdded) {
-                    formData.append("dataKeys", "");
-                    formData.append("dataValues", "");
-                    formData.append("dataTypes", "0");
-                    diseaseDataAdded = true;
-                }
-
-                // 添加到FormData
-                formData.append("dataKeys", key);
-                formData.append("dataValues", value || "");
-                formData.append("dataTypes", "0");
+            if ($(this).hasClass('image-value-holder')) {
+                return;
             }
+            var key = $(this).data('original-key');
+            if (!key) {
+                return;
+            }
+            formData.append("dataKeys", key);
+            formData.append("dataValues", $(this).val() || "");
+            formData.append("dataTypes", "0");
         });
 
         // 打印所有formData内容

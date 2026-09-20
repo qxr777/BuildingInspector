@@ -4,6 +4,7 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.enums.DisposalSuggestionEnums;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
@@ -126,6 +127,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             }
             // 替换 无效的 占位符。
             replaceRemainingPlaceholders(document);
+            ReportGenerateTools.applyMixedFontsToTables(document);
         } catch (Exception e) {
             log.error("处理桥梁卡片数据失败", e);
             throw new RuntimeException("处理桥梁卡片数据失败：" + e.getMessage());
@@ -559,12 +561,8 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             }
 
             // 创建新的run并设置替换后的文本
-            XWPFRun newRun = paragraph.createRun();
-            newRun.setText(text.replace(placeholder, value));
-
-            // 设置字体为宋体小五
-            newRun.setFontFamily("宋体");
-            newRun.setFontSize(9);
+            ReportGenerateTools.setParagraphMixedFontText(
+                    paragraph, text.replace(placeholder, value), ReportGenerateTools.TABLE_FONT_HALF_POINTS);
         }
     }
 
@@ -579,15 +577,10 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                 paragraph.removeRun(i);
             }
 
-            // 创建新的run并设置替换后的文本
-            XWPFRun newRun = paragraph.createRun();
             // 使用正则表达式替换所有剩余的${xxx}格式的占位符
             String replacedText = text.replaceAll("\\$\\{[^}]*\\}", "/");
-            newRun.setText(replacedText);
-
-            // 设置字体为宋体小五
-            newRun.setFontFamily("宋体");
-            newRun.setFontSize(9);
+            ReportGenerateTools.setParagraphMixedFontText(
+                    paragraph, replacedText, ReportGenerateTools.TABLE_FONT_HALF_POINTS);
         }
     }
 
