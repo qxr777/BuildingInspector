@@ -3,6 +3,7 @@
 <head>
     <th:block th:include="include :: header('定期检查多桥报告数据填充')"/>
     <th:block th:include="include :: bootstrap-fileinput-css"/>
+    <th:block th:include="include :: select2-css"/>
     <style>
         .nav-tabs-custom {
             margin-bottom: 20px;
@@ -23,6 +24,15 @@
 
         .alert-custom {
             margin-bottom: 15px;
+        }
+
+        #wordMatchModal .select2-container,
+        #lineGroupSelector + .select2-container {
+            width: 100% !important;
+        }
+
+        #wordMatchModal .select2-dropdown {
+            z-index: 2060;
         }
 
         .image-upload-item {
@@ -105,6 +115,12 @@
                     <h5>定期检查多桥报告数据填充 - <span th:text="${report.name}"></span></h5>
                 </div>
                 <div class="ibox-content">
+                    <div class="well well-sm">
+                        <button type="button" class="btn btn-info" onclick="$('#wordMatchModal').modal('show')">
+                            <i class="fa fa-file-word-o"></i> Word 内容匹配
+                        </button>
+                        <span class="text-muted">匹配项目概况、构件编号规则及各大桥概况、设计要点、主要材料、技术建议，确认导入后生成时使用 Word 原格式。</span>
+                    </div>
                     <form class="form-horizontal m" id="form-report-data">
                         <input type="hidden" name="reportId" th:value="${report.id}">
 
@@ -179,7 +195,7 @@
                         <div class="form-group">
                             <label class="col-sm-2 control-label">当前大桥：</label>
                             <div class="col-sm-8">
-                                <select id="lineGroupSelector" class="form-control"></select>
+                                <select id="lineGroupSelector" class="form-control noselect2"></select>
                                 <small class="text-muted">1、3、8、10、11 节按大桥保存。外观检测、评定结果、附表按子桥自动生成。请先保存上方「大桥分组」。</small>
                             </div>
                         </div>
@@ -614,8 +630,49 @@
     </div>
 </div>
 
+<div class="modal fade" id="wordMatchModal" tabindex="-1" role="dialog" aria-labelledby="wordMatchTitle">
+    <div class="modal-dialog modal-lg" role="document" style="width:92%;max-width:1200px">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="关闭"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="wordMatchTitle">Word 内容匹配预览</h4>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">请先保存大桥分组。选择目标后点击“确认导入”，再重新生成报告；仅识别不会改变报告内容。点开目标下拉后可搜索大桥名或填报项。</p>
+                <div class="form-inline">
+                    <label for="wordMatchFile">来源 Word：</label>
+                    <input type="file" id="wordMatchFile" accept=".docx" class="form-control">
+                    <button type="button" id="wordMatchStart" class="btn btn-primary" onclick="startWordMatch()">识别并匹配</button>
+                </div>
+                <p id="wordMatchMessage" role="status" aria-live="polite" style="margin-top:12px"></p>
+                <div class="table-responsive" style="max-height:380px;overflow:auto">
+                    <table class="table table-bordered table-striped">
+                        <thead><tr><th>来源章节</th><th>目标填报项</th><th>状态</th><th>内容</th><th>操作</th></tr></thead>
+                        <tbody id="wordMatchRows"></tbody>
+                    </table>
+                </div>
+                <p id="wordMatchMissing" class="text-muted"></p>
+                <div id="wordMatchPreview" class="panel panel-default" style="display:none">
+                    <div class="panel-heading" id="wordMatchPreviewTitle"></div>
+                    <div class="panel-body">
+                        <p class="text-muted">内容核对预览：表格按行显示文字，图片仅统计数量。此处不还原 Word 版式，也不作为报告生成内容。</p>
+                        <p id="wordMatchPreviewWarnings" class="text-warning"></p>
+                        <pre id="wordMatchPreviewText" style="white-space:pre-wrap;max-height:360px;overflow:auto"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <label style="margin-right:16px"><input type="checkbox" id="wordMatchReplace"> 允许替换所选目标的已有内容</label>
+                <button type="button" class="btn btn-primary" id="wordMatchApply" onclick="applyWordMatches()" disabled>确认导入</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <th:block th:include="include :: footer"/>
 <th:block th:include="include :: bootstrap-fileinput-js"/>
+<th:block th:include="include :: select2-js"/>
 <script th:inline="javascript">
     var prefix = ctx + "biz/line_multi_bridge_data";
     var reportId = /*[[${report.id}]]*/ '';
@@ -628,6 +685,202 @@
     var bridgeGroups = [];
     var groupSeq = 0;
     var suppressGroupSelectorChange = false;
+    var wordMatchResult = null;
+    var wordMatchRequest = null;
+    var wordMatchSourceFile = null;
+    var wordMatchSaving = false;
+
+    function startWordMatch() {
+        var file = $('#wordMatchFile')[0].files[0];
+        if (!file || !/\.docx$/i.test(file.name) || file.size > 300 * 1024 * 1024) {
+            $('#wordMatchMessage').text('请选择不超过 300MB 的 .docx 文件。');
+            return;
+        }
+        if (wordMatchRequest) return;
+        wordMatchResult = null;
+        wordMatchSourceFile = null;
+        $('#wordMatchApply').prop('disabled', true);
+        $('#wordMatchReplace').prop('checked', false);
+        clearWordMatchRows();
+        $('#wordMatchMissing').empty();
+        $('#wordMatchPreview').hide();
+        $('#wordMatchMessage').text('正在识别 Word 正文章节，请稍候……');
+        $('#wordMatchStart, #wordMatchFile').prop('disabled', true);
+        var form = new FormData();
+        form.append('reportId', reportId);
+        form.append('file', file);
+        wordMatchRequest = $.ajax({
+            url: prefix + '/matchWord', type: 'POST', data: form,
+            processData: false, contentType: false,
+            success: function (response) {
+                if (response.code !== 0 || !response.data) {
+                    $('#wordMatchMessage').text(response.msg || '识别失败');
+                    return;
+                }
+                wordMatchResult = response.data;
+                wordMatchSourceFile = file;
+                $('#wordMatchMessage').text('识别到 ' + wordMatchResult.sections.length + ' 个内容片段。'
+                    + (wordMatchResult.warnings || []).join(' '));
+                renderWordMatches();
+            },
+            error: function () { $('#wordMatchMessage').text('识别请求失败，请检查文件或稍后重试。'); },
+            complete: function () {
+                wordMatchRequest = null;
+                $('#wordMatchStart, #wordMatchFile').prop('disabled', false);
+            }
+        });
+    }
+
+    function clearWordMatchRows() {
+        $('#wordMatchRows .word-match-select').each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) {
+                $(this).select2('destroy');
+            }
+        });
+        $('#wordMatchRows').empty();
+    }
+
+    function initSearchableSelect($el, extra) {
+        if (!$el || !$el.length || !$.fn.select2) {
+            return $el;
+        }
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+        $el.select2($.extend({
+            width: '100%',
+            theme: 'bootstrap',
+            language: {
+                noResults: function () { return '没有匹配项'; },
+                searching: function () { return '搜索中…'; }
+            }
+        }, extra || {}));
+        return $el;
+    }
+
+    function fillWordTargetOptions($select, targets, section) {
+        $select.empty().append($('<option>').val('').text('暂不匹配 / 忽略'));
+        targets.forEach(function (target) {
+            if ((section.key.indexOf('line-') === 0) !== (target.key.indexOf('line-') === 0)) return;
+            $select.append($('<option>').val(target.id).text((target.groupName || '') + ' → ' + (target.label || '')));
+        });
+        $select.val(section.targetId || '');
+    }
+
+    function sortedWordMatchTargets(targets) {
+        var fieldOrder = ['line-route-overview', 'line-component-numbering-rules',
+            'overallOverview', 'designPoints', 'mainMaterial', 'technicalAdvice'];
+        return targets.slice().sort(function (left, right) {
+            var bridgeOrder = (left.groupName || '').localeCompare(right.groupName || '', 'zh-CN', {numeric: true});
+            return bridgeOrder || (left.groupId || '').localeCompare(right.groupId || '', 'zh-CN', {numeric: true})
+                || fieldOrder.indexOf(left.key) - fieldOrder.indexOf(right.key);
+        });
+    }
+
+    function renderWordMatches() {
+        var result = wordMatchResult;
+        clearWordMatchRows();
+        var $rows = $('#wordMatchRows');
+        var sortedTargets = sortedWordMatchTargets(result.targets);
+        result.sections.forEach(function (section, index) {
+            var $row = $('<tr>');
+            $('<td>').text(section.sourcePath).appendTo($row);
+            var $select = $('<select class="form-control noselect2 word-match-select" aria-label="选择目标填报项">');
+            fillWordTargetOptions($select, sortedTargets, section);
+            $select.prop('disabled', section.empty).on('change', function () {
+                section.targetId = $(this).val() || null;
+                updateWordMatchStatuses();
+            });
+            $('<td style="min-width:280px">').append($select).appendTo($row);
+            initSearchableSelect($select, {
+                dropdownParent: $('#wordMatchModal'),
+                placeholder: '搜索大桥名称或填报项',
+                allowClear: true,
+                language: {
+                    noResults: function () { return '没有匹配的大桥或填报项'; },
+                    searching: function () { return '搜索中…'; }
+                }
+            });
+            $('<td>').attr('id', 'wordMatchStatus' + index).appendTo($row);
+            $('<td>').text(section.tableCount + ' 个表格，' + section.imageCount + ' 个图对象').appendTo($row);
+            var $preview = $('<button type="button" class="btn btn-default btn-xs">').text('预览').on('click', function () {
+                $('#wordMatchPreviewTitle').text(section.sourcePath);
+                $('#wordMatchPreviewText').text(section.text || '该片段没有可提取的文字。');
+                $('#wordMatchPreviewWarnings').text((section.warnings || []).join(' '));
+                $('#wordMatchPreview').show();
+            });
+            $('<td>').append($preview).appendTo($row);
+            $rows.append($row);
+        });
+        updateWordMatchStatuses();
+    }
+
+    function updateWordMatchStatuses() {
+        var result = wordMatchResult;
+        var counts = {};
+        result.sections.forEach(function (section) {
+            if (section.targetId && !section.empty) counts[section.targetId] = (counts[section.targetId] || 0) + 1;
+        });
+        result.sections.forEach(function (section, index) {
+            var target = result.targets.filter(function (item) { return item.id === section.targetId; })[0];
+            var status = section.empty ? '空章节，不匹配' : !target ? '未匹配 / 已忽略'
+                : counts[target.id] > 1 ? '目标冲突，请只保留一个来源'
+                : target.hasExistingContent ? '已匹配，已有填报内容' : '已匹配，目标为空';
+            $('#wordMatchStatus' + index).text(status);
+        });
+        var missing = result.targets.filter(function (target) { return !counts[target.id]; });
+        var conflict = Object.keys(counts).some(function (id) { return counts[id] > 1; });
+        $('#wordMatchApply').prop('disabled', wordMatchSaving || !wordMatchSourceFile || conflict || !Object.keys(counts).length);
+        $('#wordMatchMissing').text(missing.length ? '未匹配的填报项：' + missing.map(function (target) {
+            return target.groupName + ' / ' + target.label;
+        }).join('；') : '所有支持的填报项均已有来源匹配。');
+    }
+
+    function applyWordMatches() {
+        if (!wordMatchResult || !wordMatchSourceFile || wordMatchSaving) return;
+        var targets = wordMatchResult.targets;
+        var replace = $('#wordMatchReplace').prop('checked');
+        var selected = wordMatchResult.sections.filter(function (s) { return !s.empty && s.targetId; });
+        var seen = {};
+        var matches = [];
+        for (var i = 0; i < selected.length; i++) {
+            var source = selected[i];
+            var target = targets.filter(function (t) { return t.id === source.targetId; })[0];
+            if (!target || seen[target.id]) { $('#wordMatchMessage').text('目标有冲突，请检查匹配。'); return; }
+            if (target.hasExistingContent && !replace) {
+                $('#wordMatchMessage').text('目标已有内容。请勾选“允许替换”，或将对应片段设为忽略。'); return;
+            }
+            seen[target.id] = true;
+            matches.push({sourceId: source.id, groupId: target.groupId, key: target.key,
+                expectedVersion: target.version, replaceExisting: replace});
+        }
+        if (!matches.length) return;
+        var form = new FormData();
+        form.append('reportId', reportId); form.append('file', wordMatchSourceFile);
+        form.append('matches', JSON.stringify(matches));
+        wordMatchSaving = true;
+        $('#wordMatchModal input, #wordMatchModal select, #wordMatchStart, #wordMatchApply').prop('disabled', true);
+        $('#wordMatchMessage').text('正在验证内容完整性并保存原 Word，请稍候……');
+        $.ajax({url: prefix + '/importWord', type: 'POST', data: form, processData: false, contentType: false,
+            success: function (response) {
+                $('#wordMatchMessage').text(response.msg || '导入完成');
+                if (response.code === 0) {
+                    wordMatchSourceFile = null;
+                    selected.forEach(function (s) {
+                        $('#wordMatchStatus' + wordMatchResult.sections.indexOf(s)).text('已保存，生成时使用 Word 原格式');
+                    });
+                    loadReportData();
+                }
+            },
+            error: function () { $('#wordMatchMessage').text('导入请求未完成。请重新识别核对已保存状态后再试。'); },
+            complete: function () {
+                wordMatchSaving = false;
+                $('#wordMatchFile, #wordMatchStart, #wordMatchReplace').prop('disabled', false);
+                if (wordMatchSourceFile) renderWordMatches();
+                else $('#wordMatchApply').prop('disabled', true);
+            }
+        });
+    }
     if (typeof reportTasks === 'string') {
         try {
             reportTasks = JSON.parse(reportTasks);
@@ -965,11 +1218,18 @@
 
             if (unassigned.length > 0) {
                 var $addRow = $('<div class="form-inline"></div>');
-                var $select = $('<select class="form-control input-sm"></select>');
+                var $select = $('<select class="form-control input-sm noselect2"></select>');
                 unassigned.forEach(function (taskId) {
                     $select.append($('<option></option>').val(taskId).text(taskNameById(taskId)));
                 });
                 $addRow.append($select);
+                initSearchableSelect($select, {
+                    placeholder: '搜索未编入的桥梁',
+                    language: {
+                        noResults: function () { return '没有匹配的桥梁'; },
+                        searching: function () { return '搜索中…'; }
+                    }
+                });
                 $addRow.append(' ');
                 $addRow.append($('<button type="button" class="btn btn-sm btn-info">加入此大桥</button>')
                     .on('click', function () {
@@ -1127,6 +1387,13 @@
         }
         currentGroupId = $selector.val() || null;
         suppressGroupSelectorChange = false;
+        initSearchableSelect($selector, {
+            placeholder: '搜索或选择大桥',
+            language: {
+                noResults: function () { return '没有匹配的大桥'; },
+                searching: function () { return '搜索中…'; }
+            }
+        });
     }
 
     function initBridgeSelector() {
@@ -1138,13 +1405,16 @@
         $bridgePanes.find(
             'textarea[data-original-key], input[type="text"][data-original-key], input[type="hidden"][data-original-key], .image-value-holder'
         ).val('');
+        $bridgePanes.find('textarea[data-word-imported]').prop('readonly', false).removeAttr('data-word-imported');
+        $bridgePanes.find('.word-import-notice').remove();
         $bridgePanes.find('[id$="-display"]').val('请选择');
         $bridgePanes.find('.image-preview').empty();
     }
 
     // 初始化文件上传控件
     function initFileInputs() {
-        $('input[type="file"]').each(function () {
+        // Only photo fields use the image plugin; the Word matcher keeps its native DOCX picker.
+        $('#form-report-data .image-upload-item input[type="file"][data-key]').each(function () {
             var $this = $(this);
             var key = $this.data('key');
 
@@ -1220,6 +1490,16 @@
             var key = data.key;
             var value = data.value;
             var type = data.type;
+
+            if (type == 2) {
+                var reference;
+                try { reference = typeof value === 'string' ? JSON.parse(value) : value; } catch (e) { continue; }
+                var $field = $('textarea[data-original-key="' + key + '"]');
+                $field.val(reference.preview || '').prop('readonly', true).attr('data-word-imported', 'true');
+                $field.siblings('.word-import-notice').remove();
+                $('<p class="text-info word-import-notice">').text('已导入 Word：' + reference.sourceName + '。生成时保留原格式；如需更新，请重新导入该项。').insertAfter($field);
+                continue;
+            }
 
             if (type == 0) {
                 if (value != null && typeof value !== 'string') {
@@ -1364,6 +1644,7 @@
 
         // 添加文本字段
         tabPane.find('textarea').each(function () {
+            if ($(this).attr('data-word-imported')) return;
             var key = $(this).data('original-key');
             var value = $(this).val();
 

@@ -58,12 +58,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             }
 
             WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
-            CTSectPr currentSection = WordSectionLayoutUtils.findSectionContaining(document, afterParagraph);
-
-            // 结束当前竖版分节，页眉仍用当前节的竖版页眉
-            WordSectionLayoutUtils.closeCurrentSection(afterParagraph, currentSection);
-            // 横版分节必须绑模板里的横版页眉，logo 才能落在横版右页边
-            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.insertLandscapeSectionEnd(
+            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.beginLandscapeTableBlock(
                     document, afterParagraph, layouts);
 
             // 从横向分节符段落后获取cursor位置
@@ -83,8 +78,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             // 使用XmlCursor在标题后插入表格
             createComplexEvaluationTableWithCursor(document, cursor, structureData, evaluation);
 
-            // 紧挨横版节恢复竖版，并绑回竖版页眉；不能在文档末尾另起一节
-            WordSectionLayoutUtils.insertPortraitSectionAfter(document, landscapeParagraph, layouts);
+            // Following body retains its own portrait section; no empty section is inserted.
 
             log.info("第八章技术状况评定表格生成完成");
 

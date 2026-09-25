@@ -99,13 +99,16 @@ public final class WordSectionLayoutUtils {
         if (paragraph == null) {
             return;
         }
+        // On repeated insertion currentSection can belong to this very paragraph.
+        // Snapshot it before removing the old node, otherwise XMLBeans detaches it.
+        CTSectPr sourceSection = currentSection == null ? null : copySectPr(currentSection);
         CTP ctP = paragraph.getCTP();
         CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
         if (pPr.isSetSectPr()) {
             pPr.unsetSectPr();
         }
         CTSectPr sectPr = pPr.addNewSectPr();
-        copyPageSetup(currentSection, sectPr);
+        copyPageSetup(sourceSection, sectPr);
         ensureSectionType(sectPr, STSectionMark.NEXT_PAGE);
     }
 
@@ -123,25 +126,33 @@ public final class WordSectionLayoutUtils {
         } else {
             applyFallbackLandscapePage(sectPr);
         }
+        ensureSectionType(sectPr, STSectionMark.NEXT_PAGE);
         return paragraph;
     }
 
-    public static XWPFParagraph insertPortraitSectionAfter(XWPFDocument document, XWPFParagraph landscapeParagraph,
-                                                           Layouts layouts) {
-        XmlCursor cursor = landscapeParagraph.getCTP().newCursor();
-        cursor.toEndToken();
-        cursor.toNextToken();
-        XWPFParagraph paragraph = document.insertNewParagraph(cursor);
-        paragraph.setAlignment(ParagraphAlignment.LEFT);
-        CTPPr pPr = paragraph.getCTP().isSetPPr() ? paragraph.getCTP().getPPr() : paragraph.getCTP().addNewPPr();
-        CTSectPr sectPr = pPr.addNewSectPr();
-        if (layouts != null && layouts.portrait() != null) {
-            copyPageSetup(layouts.portrait(), sectPr);
-        } else {
-            applyFallbackPortraitPage(sectPr);
+    /**
+     * Start a landscape table block while preserving the following portrait body.
+     * Section properties terminate the preceding content; an empty portrait
+     * section immediately after the table would only create an empty page.
+     */
+    public static XWPFParagraph beginLandscapeTableBlock(XWPFDocument document, XWPFParagraph after,
+                                                         Layouts layouts) {
+        CTSectPr current = findSectionContaining(document, after);
+        boolean alreadyBoundary = after.getCTP().isSetPPr()
+                && after.getCTP().getPPr().isSetSectPr();
+        if (!alreadyBoundary) {
+            if (current == null) current = document.getDocument().getBody().addNewSectPr();
+            if (layouts != null && layouts.portrait() != null) {
+                copyPageSetup(layouts.portrait(), current);
+            } else {
+                applyFallbackPortraitPage(current);
+            }
+            ensureSectionType(current, STSectionMark.NEXT_PAGE);
         }
-        ensureSectionType(sectPr, STSectionMark.CONTINUOUS);
-        return paragraph;
+        // Repeated insertion at the same anchor must leave previous table
+        // sections intact; only the original following body was restored above.
+        closeCurrentSection(after, current);
+        return insertLandscapeSectionEnd(document, after, layouts);
     }
 
     public static CTSectPr findSectionContaining(XWPFDocument document, XWPFParagraph paragraph) {

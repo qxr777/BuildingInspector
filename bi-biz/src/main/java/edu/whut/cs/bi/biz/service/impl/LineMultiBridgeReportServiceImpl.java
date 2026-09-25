@@ -22,6 +22,8 @@ import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
+import edu.whut.cs.bi.biz.utils.WordImportSupport;
+import edu.whut.cs.bi.biz.utils.WordImportMerger;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
@@ -288,6 +290,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             document.write(out);
             out.close();
 
+            // Insert source XML last so existing global font/heading passes cannot erase its formatting.
+            mergeImportedWordContent(outputFile, allReportData, groups);
+
             FileMap reportFileMap = fileMapService.handleFileUploadFromFile(
                     outputFile,
                     report.getName() + "_" + System.currentTimeMillis() + ".docx",
@@ -316,6 +321,34 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             } catch (Exception e) {
                 log.warn("清理多桥报告资源失败", e);
             }
+        }
+    }
+
+    private void mergeImportedWordContent(File output, List<LineReportData> rows, List<LineBridgeGroup> groups) throws Exception {
+        Set<String> groupIds = groups.stream().map(LineBridgeGroup::getId).collect(Collectors.toSet());
+        Map<Long, java.nio.file.Path> sources = new HashMap<>();
+        List<WordImportMerger.Item> imports = new ArrayList<>();
+        try {
+            for (LineReportData row : rows) {
+                if (!WordImportSupport.isImported(row) || (row.getGroupId() != null && !groupIds.contains(row.getGroupId()))) continue;
+                WordImportSupport.Reference ref = WordImportSupport.reference(row);
+                java.nio.file.Path source = sources.get(ref.getFileId());
+                if (source == null) {
+                    FileMap stored = fileMapService.selectFileMapById(ref.getFileId());
+                    if (stored == null) throw new IllegalStateException("Word 来源文件已丢失：" + ref.getSourceName());
+                    source = java.nio.file.Files.createTempFile("word-import-source-", ".docx");
+                    sources.put(ref.getFileId(), source);
+                    String name = stored.getNewName();
+                    try (InputStream input = minioClient.getObject(GetObjectArgs.builder().bucket(minioConfig.getBucketName())
+                            .object(name.substring(0, 2) + "/" + name).build())) {
+                        java.nio.file.Files.copy(input, source, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+                imports.add(new WordImportMerger.Item(WordImportSupport.marker(row), source, ref.getStart(), ref.getEnd()));
+            }
+            WordImportMerger.merge(output.toPath(), imports);
+        } finally {
+            for (java.nio.file.Path source : sources.values()) java.nio.file.Files.deleteIfExists(source);
         }
     }
 
@@ -361,9 +394,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             testConclusionService.clearDiseaseSummaryCache();
             WordSectionLayoutUtils.Layouts headerLayouts = WordSectionLayoutUtils.snapshot(document);
 
-            replaceOverallOverviewInBridgeBlock(document, valueOf(dataMap, "overallOverview"));
+            boolean importedOverview = WordImportSupport.isImported(dataMap.get("overallOverview"));
+            if (importedOverview) WordImportSupport.prepare(document, dataMap.get("overallOverview"));
+            else replaceOverallOverviewInBridgeBlock(document, valueOf(dataMap, "overallOverview"));
             removeTechnicalStandardInBridgeBlock(document);
-            insertGroupOverviewImages(document, dataMap);
+            if (!importedOverview) insertGroupOverviewImages(document, dataMap);
 
             XWPFParagraph appendixHeading = findBridgeBlockHeading(document, "附表");
             XWPFParagraph blockEnd = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-end}");
@@ -560,6 +595,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         String routeOverview = null;
         String projectOverview = null;
+        boolean importedRoute = false;
         for (LineReportData data : reportDataList) {
             if (data.getTaskId() != null || !isBlank(data.getGroupId()) || data.getKey() == null) {
                 continue;
@@ -571,6 +607,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 continue;
             }
             String key = data.getKey();
+            if (WordImportSupport.isImported(data)) {
+                WordImportSupport.prepare(document, data);
+                if ("line-route-overview".equals(key)) importedRoute = true;
+                continue;
+            }
             if ("line-route-overview".equals(key)) {
                 routeOverview = data.getValue();
                 continue;
@@ -583,7 +624,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             replacePlaceholderWithBodyFormat(document, placeholder, data.getValue());
         }
         String overview = firstNonBlank(routeOverview, projectOverview);
-        if (!isBlank(overview)) {
+        if (!importedRoute && !isBlank(overview)) {
             replacePlaceholderWithBodyFormat(document, "${line-route-overview}", overview);
             replacePlaceholderWithBodyFormat(document, "${line-project-overview}", overview);
         }
@@ -1897,6 +1938,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 if ("overallOverview".equals(key) || LineBridgeGroup.DATA_KEY.equals(key)) {
                     continue;
                 }
+                if (WordImportSupport.isImported(data)) {
+                    WordImportSupport.prepare(document, data);
+                    continue;
+                }
                 if (isSurroundingEnvironmentKey(key)) {
                     continue;
                 }
@@ -2399,13 +2444,14 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
-        int[] widths = {700, 1600, 2200, 1400, 1800, 1100, 734};
+        // 18.6 cm = 10545 twips; preserve the original column proportions.
+        int[] widths = {774, 1770, 2433, 1548, 1991, 1217, 812};
         CTTblPr tblPr = table.getCTTbl().getTblPr();
         if (tblPr == null) {
             tblPr = table.getCTTbl().addNewTblPr();
         }
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(9534));
+        tblWidth.setW(BigInteger.valueOf(10545));
         tblWidth.setType(STTblWidth.DXA);
 
         int mergeStart = 1;
@@ -2463,8 +2509,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
-        int[] widths = {500, 1100, 1500, 650, 650, 650, 650, 650, 650, 650, 550, 650, 684};
-        applyColumnWidths(table, widths, 9534);
+        // 18.6 cm = 10545 twips; preserve the original column proportions.
+        int[] widths = {553, 1217, 1659, 719, 719, 719, 719, 719, 719, 719, 608, 719, 756};
+        applyColumnWidths(table, widths, 10545);
 
         int bridgeMergeStart = headerRows;
         for (int i = 0; i < rows.size(); i++) {

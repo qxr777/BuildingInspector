@@ -17,6 +17,9 @@ import edu.whut.cs.bi.biz.service.IReportDataService;
 import edu.whut.cs.bi.biz.service.IReportService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
+import edu.whut.cs.bi.biz.utils.LineReportWordMatcher;
+import edu.whut.cs.bi.biz.utils.WordImportSupport;
+import edu.whut.cs.bi.biz.service.impl.LineReportWordImportService;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +73,9 @@ public class LineMultiBridgeReportDataController extends BaseController {
     @Autowired
     private MinioConfig minioConfig;
 
+    @Autowired
+    private LineReportWordImportService wordImportService;
+
     /**
      * 多桥报告填报页面
      */
@@ -83,6 +89,57 @@ public class LineMultiBridgeReportDataController extends BaseController {
         mmap.put("reportTaskViewsJson", JSON.toJSONString(toReportTaskViews(reportTasks)));
         mmap.put("bridgeGroupsJson", JSON.toJSONString(lineReportDataService.resolveEffectiveGroups(id, reportTasks)));
         return FILL_PAGE;
+    }
+
+    /** Read-only preview: never writes form values or uploads source files to permanent storage. */
+    @RequiresPermissions("biz:report:edit")
+    @PostMapping("/matchWord")
+    @ResponseBody
+    public AjaxResult matchWord(@RequestParam("reportId") Long reportId,
+                                @RequestParam("file") MultipartFile file) {
+        if (file.isEmpty() || file.getSize() > LineReportWordMatcher.MAX_UPLOAD_BYTES) {
+            return AjaxResult.error("请选择不超过 300MB 的 Word 文件");
+        }
+        String name = file.getOriginalFilename();
+        if (name == null || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".docx")) {
+            return AjaxResult.error("目前仅支持 .docx 文件，请先在 Word 中另存为该格式");
+        }
+        Report report = reportService.selectReportById(reportId);
+        if (report == null) return AjaxResult.error("报告不存在");
+        try (java.io.InputStream input = file.getInputStream()) {
+            List<LineBridgeGroup> groups = lineReportDataService.resolveEffectiveGroups(reportId, selectReportTasks(report));
+            return AjaxResult.success("识别完成，尚未修改填报数据", LineReportWordMatcher.match(
+                    input, groups, lineReportDataService.selectByReportId(reportId)));
+        } catch (Exception e) {
+            logger.warn("Word 填报项匹配失败，reportId={}", reportId, e);
+            return AjaxResult.error("无法解析该 Word，请确认文件未加密、未损坏，且是有效的 .docx 文件");
+        }
+    }
+
+    @RequiresPermissions("biz:report_data:edit")
+    @Log(title = "多桥报告Word导入", businessType = BusinessType.UPDATE)
+    @PostMapping("/importWord")
+    @ResponseBody
+    public AjaxResult importWord(@RequestParam("reportId") Long reportId, @RequestParam("file") MultipartFile file,
+                                 @RequestParam("matches") String matches) {
+        if (file.isEmpty() || file.getSize() > LineReportWordMatcher.MAX_UPLOAD_BYTES
+                || file.getOriginalFilename() == null || !file.getOriginalFilename().toLowerCase(java.util.Locale.ROOT).endsWith(".docx"))
+            return AjaxResult.error("请选择不超过300MB的 .docx 文件");
+        Report report = reportService.selectReportById(reportId);
+        if (report == null) return AjaxResult.error("报告不存在");
+        try (java.io.InputStream input = file.getInputStream()) {
+            List<LineBridgeGroup> groups = lineReportDataService.resolveEffectiveGroups(reportId, selectReportTasks(report));
+            LineReportWordMatcher.Result parsed = LineReportWordMatcher.match(input, groups, lineReportDataService.selectByReportId(reportId));
+            List<LineReportWordImportService.Selection> selections = new com.fasterxml.jackson.databind.ObjectMapper().readValue(matches,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<LineReportWordImportService.Selection>>() { });
+            int count = wordImportService.apply(reportId, file, parsed, selections);
+            return AjaxResult.success("已导入 " + count + " 项，重新生成报告时将使用 Word 原格式内容");
+        } catch (IllegalArgumentException e) {
+            return AjaxResult.error(e.getMessage());
+        } catch (Exception e) {
+            logger.error("保存Word导入失败，reportId={}", reportId, e);
+            return AjaxResult.error("导入保存失败，请检查文件后重试，原填报数据未替换");
+        }
     }
 
     /**
@@ -129,6 +186,7 @@ public class LineMultiBridgeReportDataController extends BaseController {
         try {
             Map<String, List<MultipartFile>> filesByKey = groupFilesByKey(dataKeys, dataTypes, files);
             List<LineReportData> dataList = new ArrayList<>();
+            List<LineReportData> previous = lineReportDataService.selectByReportId(reportId);
 
             for (int i = 0; i < dataKeys.length; i++) {
                 String key = dataKeys[i];
@@ -137,6 +195,11 @@ public class LineMultiBridgeReportDataController extends BaseController {
                     continue;
                 }
                 Integer type = dataTypes != null && i < dataTypes.length ? dataTypes[i] : 0;
+                // An ordinary form autosave must never replace a formatted Word source reference.
+                if (previous.stream().anyMatch(row -> WordImportSupport.isImported(row)
+                        && Objects.equals(row.getKey(), key) && Objects.equals(row.getTaskId(), taskId)
+                        && Objects.equals(row.getGroupId(), groupId == null || groupId.isBlank() ? null : groupId.trim()))) continue;
+                if (type != null && type == WordImportSupport.TYPE) continue;
                 String submittedValue = dataValues != null && i < dataValues.length ? dataValues[i] : null;
 
                 boolean lineKey = key.startsWith("line-") || key.startsWith("line.");

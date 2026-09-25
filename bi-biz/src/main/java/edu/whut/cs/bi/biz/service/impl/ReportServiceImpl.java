@@ -4746,9 +4746,7 @@ public class ReportServiceImpl implements IReportService {
             }
 
             WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
-            CTSectPr currentSection = WordSectionLayoutUtils.findSectionContaining(document, afterParagraph);
-            WordSectionLayoutUtils.closeCurrentSection(afterParagraph, currentSection);
-            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.insertLandscapeSectionEnd(
+            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.beginLandscapeTableBlock(
                     document, afterParagraph, layouts);
 
             // 步骤3：从横向分节符段落后获取cursor位置，创建表格
@@ -4765,9 +4763,7 @@ public class ReportServiceImpl implements IReportService {
                     bridgeName
             );
 
-            WordSectionLayoutUtils.insertPortraitSectionAfter(document, landscapeParagraph, layouts);
-
-            log.info("在表格后设置了纵向分节符");
+            log.info("横版表格生成完成，后续正文保留竖版");
 
         } catch (Exception e) {
             log.error("生成单个病害对比表格失败", e);

@@ -5,6 +5,8 @@ import edu.whut.cs.bi.biz.domain.LineReportData;
 import edu.whut.cs.bi.biz.domain.ReportData;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.ReportDataMapper;
+import edu.whut.cs.bi.biz.mapper.ReportMapper;
+import edu.whut.cs.bi.biz.utils.WordImportSupport;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.ILineMultiBridgeReportDataService;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,9 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
     private ReportDataMapper reportDataMapper;
 
     @Autowired
+    private ReportMapper reportMapper;
+
+    @Autowired
     private IFileMapService fileMapService;
 
     @Override
@@ -76,6 +81,7 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
         if (dataList == null || dataList.isEmpty()) {
             return 0;
         }
+        if (reportMapper.lockForDataUpdate(reportId) == null) throw new IllegalArgumentException("报告不存在");
 
         Map<String, LineReportData> existingDataMap = new HashMap<>();
         for (LineReportData existingData : selectByReportId(reportId)) {
@@ -93,6 +99,7 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
             }
             newData.setReportId(reportId);
             LineReportData existingData = existingDataMap.get(scopedKey(newData));
+            if (WordImportSupport.isImported(existingData) && !WordImportSupport.isImported(newData)) continue;
 
             if (existingData != null) {
                 newData.setId(existingData.getId());
@@ -122,6 +129,22 @@ public class LineMultiBridgeReportDataServiceImpl implements ILineMultiBridgeRep
 
         log.info("保存多桥报告数据完成 - reportId: {}, 影响行数: {}", reportId, result);
         return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int saveWordImports(Long reportId, List<LineReportData> rows, Map<String, String> versions) {
+        if (reportMapper.lockForDataUpdate(reportId) == null) throw new IllegalArgumentException("报告不存在");
+        Map<String, LineReportData> current = new HashMap<>();
+        for (LineReportData row : selectByReportId(reportId)) {
+            if (row.getTaskId() == null) current.put(WordImportSupport.scopeKey(row.getGroupId(), row.getKey()), row);
+        }
+        for (LineReportData row : rows) {
+            String key = WordImportSupport.scopeKey(row.getGroupId(), row.getKey());
+            if (!Objects.equals(versions.get(key), WordImportSupport.version(current.get(key))))
+                throw new IllegalArgumentException("填报内容在导入期间发生变化，请重新识别");
+        }
+        return saveBatch(reportId, rows);
     }
 
     @Override

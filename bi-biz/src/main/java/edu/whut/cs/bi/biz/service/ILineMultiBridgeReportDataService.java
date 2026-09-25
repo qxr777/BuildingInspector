@@ -37,6 +37,8 @@ public interface ILineMultiBridgeReportDataService {
      */
     int saveBatch(Long reportId, List<LineReportData> dataList);
 
+    int saveWordImports(Long reportId, List<LineReportData> dataList, java.util.Map<String, String> versions);
+
     /**
      * 读取填报页保存的大桥分组。未配置时返回空列表。
      */
