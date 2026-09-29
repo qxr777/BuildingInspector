@@ -87,6 +87,9 @@ public interface IReportService {
    */
   String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException;
 
+  /** 根据报告部位选择病害汇总方式。 */
+  String getDiseaseSummary(List<Disease> diseases, String sectionName) throws JsonProcessingException;
+
   /**
    * 克隆报告
    *

@@ -29,4 +29,9 @@ public interface RegularInspectionService {
      * 填充单桥 的定期检查记录表
      */
     void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task, Project project, ReportTemplateTypes templateType);
+
+    /** 多桥附表可开启 Excel 字典养护建议匹配。 */
+    void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task,
+                                               Project project, ReportTemplateTypes templateType,
+                                               boolean generateMaintenanceRecommendations);
 }

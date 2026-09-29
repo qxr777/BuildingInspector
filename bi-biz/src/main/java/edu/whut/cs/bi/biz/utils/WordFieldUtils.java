@@ -120,6 +120,47 @@ public class WordFieldUtils {
      * @return 返回表格的书签名，用于后续引用
      */
     public static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor, Integer chapterNumber, AtomicInteger tableCounter) {
+        return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter, 22, 240, false);
+    }
+
+    /**
+     * 创建表格标题，支持自定义字号与行距。
+     *
+     * @param fontHalfPoints 字号（half-points，五号为 21）
+     * @param lineTwips      行距（twips，1.5 倍为 360）
+     */
+    public static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
+                                                       Integer chapterNumber, AtomicInteger tableCounter,
+                                                       int fontHalfPoints, long lineTwips) {
+        return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter,
+                fontHalfPoints, lineTwips, true, true, 120);
+    }
+
+    /**
+     * 创建表格标题，并指定是否加粗、段前段后间距。
+     *
+     * @param bold             是否加粗
+     * @param beforeAfterTwips 段前段后间距（twips，0 表示不要段前段后）
+     */
+    public static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
+                                                       Integer chapterNumber, AtomicInteger tableCounter,
+                                                       int fontHalfPoints, long lineTwips,
+                                                       boolean bold, long beforeAfterTwips) {
+        return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter,
+                fontHalfPoints, lineTwips, true, bold, beforeAfterTwips);
+    }
+
+    private static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
+                                                        Integer chapterNumber, AtomicInteger tableCounter,
+                                                        int fontHalfPoints, long lineTwips, boolean applyCustomStyle) {
+        return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter,
+                fontHalfPoints, lineTwips, applyCustomStyle, true, 120);
+    }
+
+    private static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
+                                                        Integer chapterNumber, AtomicInteger tableCounter,
+                                                        int fontHalfPoints, long lineTwips, boolean applyCustomStyle,
+                                                        boolean bold, long beforeAfterTwips) {
         XWPFParagraph paragraph;
         if (cursor != null) {
             paragraph = document.insertNewParagraph(cursor);
@@ -128,26 +169,15 @@ public class WordFieldUtils {
             paragraph = document.createParagraph();
         }
 
-        paragraph.setAlignment(ParagraphAlignment.CENTER);
-
-        // 设置段落样式
-        try {
-            paragraph.setStyle("12");
-        } catch (Exception e) {
-            // 如果样式不存在，手动设置格式
-            CTPPr ppr = paragraph.getCTP().getPPr();
-            if (ppr == null) {
-                ppr = paragraph.getCTP().addNewPPr();
+        if (applyCustomStyle) {
+            applyTableCaptionStyle(paragraph, lineTwips, beforeAfterTwips);
+        } else {
+            paragraph.setAlignment(ParagraphAlignment.CENTER);
+            try {
+                paragraph.setStyle("12");
+            } catch (Exception e) {
+                applyTableCaptionStyle(paragraph, lineTwips, beforeAfterTwips);
             }
-
-            CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
-            spacing.setAfter(BigInteger.valueOf(120));
-            spacing.setBefore(BigInteger.valueOf(120));
-            spacing.setLine(BigInteger.valueOf(240));
-            spacing.setLineRule(STLineSpacingRule.AUTO);
-
-            CTJc jc = ppr.isSetJc() ? ppr.getJc() : ppr.addNewJc();
-            jc.setVal(STJc.CENTER);
         }
 
         // 使用传入的计数器生成书签名
@@ -156,9 +186,13 @@ public class WordFieldUtils {
         // 添加静态前缀"表"字
         XWPFRun prefixRun = paragraph.createRun();
         prefixRun.setText("表");
-        prefixRun.setFontFamily("黑体");
-        prefixRun.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(22));
-        prefixRun.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(22));
+        if (applyCustomStyle) {
+            applyHeitiRun(prefixRun, fontHalfPoints, bold);
+        } else {
+            prefixRun.setFontFamily("黑体");
+            prefixRun.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+            prefixRun.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
 
         // 创建书签开始 - 只包围编号部分
         CTBookmark bookmarkStart = paragraph.getCTP().addNewBookmarkStart();
@@ -182,11 +216,93 @@ public class WordFieldUtils {
         // 添加标题文本
         XWPFRun titleRun = paragraph.createRun();
         titleRun.setText(" " + titleText);
-        titleRun.setFontFamily("黑体");
-        titleRun.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(22));
-        titleRun.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(22));
+        if (applyCustomStyle) {
+            applyHeitiRun(titleRun, fontHalfPoints, bold);
+        } else {
+            titleRun.setFontFamily("黑体");
+            titleRun.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+            titleRun.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
 
         return bookmarkName;
+    }
+
+    /**
+     * 表格标题：黑体、居中，并指定字号与行距。
+     */
+    public static void applyTableCaptionStyle(XWPFParagraph paragraph, long lineTwips) {
+        applyTableCaptionStyle(paragraph, lineTwips, 120);
+    }
+
+    /**
+     * 表格标题：黑体、居中，并指定行距和段前段后。
+     *
+     * @param beforeAfterTwips 段前段后间距（twips，0 表示不要段前段后）
+     */
+    public static void applyTableCaptionStyle(XWPFParagraph paragraph, long lineTwips, long beforeAfterTwips) {
+        paragraph.setAlignment(ParagraphAlignment.CENTER);
+        try {
+            // 题注样式：居中、1.5 倍行距、黑体。不要用样式 12（正文缩进）。
+            paragraph.setStyle("13");
+        } catch (Exception ignored) {
+            // 样式不存在时仍按手动格式输出
+        }
+
+        CTPPr ppr = paragraph.getCTP().getPPr();
+        if (ppr == null) {
+            ppr = paragraph.getCTP().addNewPPr();
+        }
+        if (ppr.isSetInd()) {
+            ppr.unsetInd();
+        }
+        CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
+        spacing.setAfter(BigInteger.valueOf(beforeAfterTwips));
+        spacing.setBefore(BigInteger.valueOf(beforeAfterTwips));
+        if (spacing.isSetBeforeLines()) {
+            spacing.unsetBeforeLines();
+        }
+        if (spacing.isSetAfterLines()) {
+            spacing.unsetAfterLines();
+        }
+        spacing.setLine(BigInteger.valueOf(lineTwips));
+        spacing.setLineRule(STLineSpacingRule.AUTO);
+        CTJc jc = ppr.isSetJc() ? ppr.getJc() : ppr.addNewJc();
+        jc.setVal(STJc.CENTER);
+    }
+
+    private static void applyHeitiRun(XWPFRun run, int fontHalfPoints, boolean bold) {
+        run.setBold(bold);
+        run.setFontFamily("黑体");
+        CTR ctr = run.getCTR();
+        CTRPr rpr = ctr.isSetRPr() ? ctr.getRPr() : ctr.addNewRPr();
+        CTFonts fonts = rpr.sizeOfRFontsArray() > 0 ? rpr.getRFontsArray(0) : rpr.addNewRFonts();
+        fonts.setAscii("黑体");
+        fonts.setHAnsi("黑体");
+        fonts.setEastAsia("黑体");
+        if (rpr.sizeOfSzArray() > 0) {
+            rpr.getSzArray(0).setVal(BigInteger.valueOf(fontHalfPoints));
+        } else {
+            rpr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
+        if (rpr.sizeOfSzCsArray() > 0) {
+            rpr.getSzCsArray(0).setVal(BigInteger.valueOf(fontHalfPoints));
+        } else {
+            rpr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
+        if (bold) {
+            if (rpr.sizeOfBArray() > 0) {
+                rpr.getBArray(0).setVal(true);
+            } else {
+                rpr.addNewB().setVal(true);
+            }
+        } else {
+            while (rpr.sizeOfBArray() > 0) {
+                rpr.removeB(0);
+            }
+            while (rpr.sizeOfBCsArray() > 0) {
+                rpr.removeBCs(0);
+            }
+        }
     }
 
     /**
@@ -270,34 +386,38 @@ public class WordFieldUtils {
      * @return 生成的书签名
      */
     public static String createFigureCaptionInParagraph(XWPFParagraph paragraph, String titleText, Integer chapterNumber, String bookmarkName) {
-        paragraph.setAlignment(ParagraphAlignment.CENTER);
-        paragraph.setStyle("12");
-        paragraph.setSpacingBefore(100);
-        paragraph.setSpacingAfter(200);
+        return createFigureCaptionInParagraph(paragraph, titleText, chapterNumber, bookmarkName, 360, 0);
+    }
+
+    /**
+     * 在现有段落中创建图片标题域，并指定行距与段前段后。
+     *
+     * @param lineTwips        行距（twips，单倍为 240，1.5 倍为 360）
+     * @param beforeAfterTwips 段前段后间距（twips，0 表示不要段前段后）
+     */
+    public static String createFigureCaptionInParagraph(XWPFParagraph paragraph, String titleText, Integer chapterNumber,
+                                                       String bookmarkName, long lineTwips, long beforeAfterTwips) {
+        applyTableCaptionStyle(paragraph, lineTwips, beforeAfterTwips);
 
         // 生成或使用指定的书签名
         if (bookmarkName == null) {
             bookmarkName = "Figure_" + bookmarkCounter.getAndIncrement();
         }
 
-        // 添加静态前缀"图"字
+        // 添加静态前缀"图"字：五号黑体，不加粗
         XWPFRun prefixRun = paragraph.createRun();
         prefixRun.setText("图");
-        prefixRun.setFontFamily("黑体");
-        prefixRun.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(21));
-        prefixRun.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(21));
+        applyHeitiRun(prefixRun, 21, false);
 
         // 创建书签开始 - 只包围编号部分
         CTBookmark bookmarkStart = paragraph.getCTP().addNewBookmarkStart();
         bookmarkStart.setName(bookmarkName);
         bookmarkStart.setId(BigInteger.valueOf(bookmarkCounter.get()));
 
-        // 创建图片序号域（使用平铺多域显示"3-1"格式）
+        // 创建图片序号域（STYLEREF + 连接符 + SEQ，显示为图x-x）
         if (chapterNumber != null) {
-            // 按章节编号 - 不创建内部书签
             createChapterSequenceFieldWithoutBookmark(paragraph, "图", chapterNumber);
         } else {
-            // 全文档编号 - 不创建内部书签
             createSequenceFieldWithoutBookmark(paragraph, "图");
         }
 
@@ -310,9 +430,7 @@ public class WordFieldUtils {
         if (titleText != null && !titleText.isEmpty()) {
             XWPFRun titleRun = paragraph.createRun();
             titleRun.setText(" " + titleText);
-            titleRun.setFontFamily("黑体");
-            titleRun.getCTR().addNewRPr().addNewSz().setVal(BigInteger.valueOf(21));
-            titleRun.getCTR().getRPr().addNewSzCs().setVal(BigInteger.valueOf(21));
+            applyHeitiRun(titleRun, 21, false);
         }
 
         return bookmarkName;
@@ -324,7 +442,7 @@ public class WordFieldUtils {
      * @param paragraph    要插入引用的段落
      * @param bookmarkName 表格的书签名
      * @param prefixText   前缀文本（如"具体检测结果见下表"）
-     * @param suffixText   后缀文本（如":"）
+     * @param suffixText   后缀文本（如"："）
      */
     public static void createTableReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         XWPFRun prefixRun = paragraph.createRun();
@@ -345,7 +463,7 @@ public class WordFieldUtils {
      * @param paragraph    要插入引用的段落
      * @param bookmarkName 表格的书签名，格式如"Table_Chapter3_1"
      * @param prefixText   前缀文本（如"具体检测结果见下表"）
-     * @param suffixText   后缀文本（如":"）
+     * @param suffixText   后缀文本（如"："）
      */
     public static void createChapterTableReference(XWPFParagraph paragraph, String bookmarkName, String prefixText, String suffixText) {
         XWPFRun prefixRun = paragraph.createRun();
@@ -357,9 +475,8 @@ public class WordFieldUtils {
         prefixRPr.addNewSz().setVal(BigInteger.valueOf(24)); // 12号字体
         prefixRPr.addNewSzCs().setVal(BigInteger.valueOf(24));
 
-        // 使用REF域引用表格标题的完整内容
-        // 关键：REF域应该能够引用到书签包围的完整内容
-        createReferenceField(paragraph, bookmarkName);
+        // 引用表号（如 3.1）：Times New Roman 小四，CHARFORMAT 避免域更新时带回题注黑体
+        createReferenceField(paragraph, bookmarkName, "Times New Roman", "Times New Roman", 24, true);
 
         if (suffixText != null && !suffixText.isEmpty()) {
             XWPFRun suffixRun = paragraph.createRun();
@@ -416,9 +533,8 @@ public class WordFieldUtils {
             prefixRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
         }
 
-        // 使用REF域引用图片标题的完整内容
-        // 关键：REF域应该能够引用到书签包围的完整内容
-        createReferenceField(paragraph, bookmarkName);
+        // 引用图号（如 3.1）：Times New Roman 五号，CHARFORMAT 避免域更新时带回题注字体
+        createReferenceField(paragraph, bookmarkName, "Times New Roman", "Times New Roman", 21, true);
 
         if (suffixText != null && !suffixText.isEmpty()) {
             XWPFRun suffixRun = paragraph.createRun();
@@ -627,37 +743,58 @@ public class WordFieldUtils {
      * @param bookmarkName 要引用的书签名称
      */
     public static void createReferenceField(XWPFParagraph paragraph, String bookmarkName) {
-        // 创建域开始
+        createReferenceField(paragraph, bookmarkName, "宋体", "宋体", 21, false);
+    }
+
+    private static void createReferenceField(XWPFParagraph paragraph, String bookmarkName,
+                                             String asciiFont, String eastAsiaFont,
+                                             int fontHalfPoints, boolean charFormat) {
         CTR ctr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(ctr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTFldChar fieldBegin = ctr.addNewFldChar();
         fieldBegin.setFldCharType(STFldCharType.BEGIN);
 
-        // 创建域代码
         CTR instrCtr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(instrCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTText instrText = instrCtr.addNewInstrText();
-        instrText.setStringValue("REF " + bookmarkName + " \\h");
+        String instruction = "REF " + bookmarkName + " \\h";
+        if (charFormat) {
+            instruction += " \\* CHARFORMAT";
+        }
+        instrText.setStringValue(instruction);
 
-        // 创建域分隔符
         CTR sepCtr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(sepCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTFldChar fieldSep = sepCtr.addNewFldChar();
         fieldSep.setFldCharType(STFldCharType.SEPARATE);
 
-        // 创建域结果（占位显示）
         CTR resultCtr = paragraph.getCTP().addNewR();
-        // 设置引用域结果的字体格式，与表格内容保持一致
-        CTRPr resultRPr = resultCtr.addNewRPr();
-        resultRPr.addNewRFonts().setAscii("宋体");
-        resultRPr.addNewRFonts().setEastAsia("宋体");
-        resultRPr.addNewSz().setVal(BigInteger.valueOf(21));
-        resultRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-
+        applyFieldRunFont(resultCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTText resultText = resultCtr.addNewT();
-        resultText.setStringValue("3.1"); // 占位文本，REF域会引用QUOTE域的结果
+        resultText.setStringValue("3.1");
 
-        // 创建域结束
         CTR endCtr = paragraph.getCTP().addNewR();
+        applyFieldRunFont(endCtr, asciiFont, eastAsiaFont, fontHalfPoints);
         CTFldChar fieldEnd = endCtr.addNewFldChar();
         fieldEnd.setFldCharType(STFldCharType.END);
+    }
+
+    private static void applyFieldRunFont(CTR ctr, String asciiFont, String eastAsiaFont, int fontHalfPoints) {
+        CTRPr rpr = ctr.isSetRPr() ? ctr.getRPr() : ctr.addNewRPr();
+        CTFonts fonts = rpr.sizeOfRFontsArray() > 0 ? rpr.getRFontsArray(0) : rpr.addNewRFonts();
+        fonts.setAscii(asciiFont);
+        fonts.setHAnsi(asciiFont);
+        fonts.setEastAsia(eastAsiaFont);
+        if (rpr.sizeOfSzArray() > 0) {
+            rpr.getSzArray(0).setVal(BigInteger.valueOf(fontHalfPoints));
+        } else {
+            rpr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
+        if (rpr.sizeOfSzCsArray() > 0) {
+            rpr.getSzCsArray(0).setVal(BigInteger.valueOf(fontHalfPoints));
+        } else {
+            rpr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+        }
     }
 
     /**

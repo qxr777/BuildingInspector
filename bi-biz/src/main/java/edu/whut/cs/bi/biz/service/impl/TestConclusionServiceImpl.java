@@ -6,15 +6,22 @@ import edu.whut.cs.bi.biz.service.IBiEvaluationService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.IReportService;
 import edu.whut.cs.bi.biz.service.TestConclusionService;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
+import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.xmlbeans.XmlCursor;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTInd;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTJc;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSpacing;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STJc;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STLineSpacingRule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -84,9 +91,8 @@ public class TestConclusionServiceImpl implements TestConclusionService {
 
             // 添加结论文本
             XWPFRun run = targetParagraph.createRun();
-            run.setText("\t" + content);
-            run.setFontSize(12);
-            run.setFontFamily("宋体");
+            run.setText(content.toString());
+            applyBodyRun(run, false);
 
             log.info("第十章检测结论处理完成");
 
@@ -146,25 +152,20 @@ public class TestConclusionServiceImpl implements TestConclusionService {
                 return; // 只处理到第三层
             }
 
-            // 第一层：桥梁名称
+            // 第一层：桥梁名称（检测结论的下一级，例如 3.11.1.1）
             if (level == 1) {
                 XWPFParagraph bridgePara = document.insertNewParagraph(cursor);
                 cursor.toNextToken();
 
-                // 设置为下一级标题样式
-                bridgePara.setStyle("4"); // 根据实际需要调整标题级别
+                bridgePara.setStyle("5");
                 bridgePara.setAlignment(ParagraphAlignment.LEFT);
 
                 XWPFRun bridgeRun = bridgePara.createRun();
                 bridgeRun.setText(bridgeName);
-                bridgeRun.setBold(false);
-                bridgeRun.setFontFamily("黑体");
+                applyHeitiSmallFour(bridgeRun);
 
                 // 递归处理子节点（第二层）
-                List<BiObject> secondLevelNodes = allNodes.stream()
-                        .filter(obj -> node.getId().equals(obj.getParentId()))
-                        .sorted((a, b) -> a.getName().compareTo(b.getName()))
-                        .collect(Collectors.toList());
+                List<BiObject> secondLevelNodes = ReportTemplateValueUtils.sortedReportChildren(allNodes, node.getId());
 
                 for (BiObject secondNode : secondLevelNodes) {
                     if (("附属设施").equals(secondNode.getName())) {
@@ -173,26 +174,20 @@ public class TestConclusionServiceImpl implements TestConclusionService {
                     writeBridgeStructureTree(document, secondNode, allNodes, cursor, level + 1, bridgeName);
                 }
             }
-            // 第二层：结构类型（上部结构、下部结构、桥面系）
+            // 第二层：结构类型（上部结构、下部结构、桥面系，例如 3.11.1.1.1）
             else if (level == 2) {
                 XWPFParagraph structurePara = document.insertNewParagraph(cursor);
                 cursor.toNextToken();
 
-                // 设置为下下级标题样式
-                structurePara.setStyle("5"); // 根据实际需要调整标题级别
+                structurePara.setStyle("6");
                 structurePara.setAlignment(ParagraphAlignment.LEFT);
 
                 XWPFRun structureRun = structurePara.createRun();
                 structureRun.setText(node.getName());
-                structureRun.setBold(false);
-                structureRun.setFontFamily("黑体");
+                applyHeitiSmallFour(structureRun);
 
                 // 处理第三层节点
-                List<BiObject> thirdLevelNodes = allNodes.stream()
-                        .filter(obj -> node.getId().equals(obj.getParentId()))
-                        .filter(obj -> !obj.getName().contains("其他")) // 过滤掉"其他"节点
-                        .sorted((a, b) -> a.getName().compareTo(b.getName()))
-                        .collect(Collectors.toList());
+                List<BiObject> thirdLevelNodes = ReportTemplateValueUtils.sortedReportChildren(allNodes, node.getId());
 
                 int index = 1;
                 for (BiObject thirdNode : thirdLevelNodes) {
@@ -208,61 +203,102 @@ public class TestConclusionServiceImpl implements TestConclusionService {
     }
 
     /**
-     * 写入第三层内容（构件级别）
+     * 写入第三层内容（构件级别）。每条单独成段，用首行缩进，不再用 Tab。
      */
     private void writeThirdLevelContent(XWPFDocument document, BiObject node,
                                         XmlCursor cursor, int index) {
         try {
+            XWPFParagraph titlePara = insertTitleParagraph(document, cursor);
+            XWPFRun titleRun = titlePara.createRun();
+            titleRun.setText("（" + index + "）" + node.getName());
+            applyHeitiSmallFour(titleRun);
 
-            // 创建内容段落
-            XWPFParagraph contentPara = document.insertNewParagraph(cursor);
-            cursor.toNextToken();
-
-            // 设置段落格式
-            setupParagraphFormat(contentPara);
-
-            // 第一部分：编号和标题
-            XWPFRun titleRun = contentPara.createRun();
-            titleRun.setText("\t（" + index + "）" + node.getName());
-            titleRun.setFontSize(12);
-            titleRun.setBold(true);
-            titleRun.setFontFamily("宋体");
-
-            // 换行
-            titleRun.addBreak();
-
-            // 获取病害汇总（优先使用第三章缓存的结果）
             String diseaseSummary = getOrCreateDiseaseSummary(node.getId());
+            if (NO_SUCH_COMPONENT_TEXT.equals(diseaseSummary == null ? null : diseaseSummary.trim())) {
+                XWPFParagraph noComponentPara = insertBodyParagraph(document, cursor);
+                XWPFRun noComponentRun = noComponentPara.createRun();
+                noComponentRun.setText(NO_SUCH_COMPONENT_TEXT);
+                applyBodyRun(noComponentRun, false);
+            } else if (diseaseSummary != null && !diseaseSummary.trim().isEmpty()) {
+                XWPFParagraph introPara = insertBodyParagraph(document, cursor);
+                XWPFRun introRun = introPara.createRun();
+                introRun.setText("经检查，" + node.getName() + "主要病害为：");
+                applyBodyRun(introRun, false);
 
-            if (diseaseSummary != null && !diseaseSummary.trim().isEmpty()) {
-                // 第二部分：检查结果开头
-                XWPFRun introRun = contentPara.createRun();
-                introRun.setText("\t经检查，" + node.getName() + "主要病害为：");
-                introRun.setFontSize(12);
-                introRun.setBold(true);
-                introRun.setFontFamily("宋体");
-                // 如果有病害汇总（从第三章缓存获取），添加病害汇总
                 String[] lines = diseaseSummary.split("\\r?\\n");
                 for (String line : lines) {
-                    if (!line.trim().isEmpty()) {
-                        XWPFRun diseaseRun = contentPara.createRun();
-                        diseaseRun.addBreak();
-                        diseaseRun.setText("\t" + line.trim());
-                        diseaseRun.setFontSize(12);
-                        diseaseRun.setFontFamily("宋体");
+                    if (line.trim().isEmpty()) {
+                        continue;
                     }
+                    XWPFParagraph diseasePara = insertBodyParagraph(document, cursor);
+                    XWPFRun diseaseRun = diseasePara.createRun();
+                    diseaseRun.setText(line.trim());
+                    applyBodyRun(diseaseRun, false);
                 }
             } else {
-                // 没有缓存的病害汇总，说明第三章没有处理这个节点或没有病害
-                XWPFRun noDiseaseRun = contentPara.createRun();
-                noDiseaseRun.setText("\t经检查，" + node.getName() + "未见明显病害。");
-                noDiseaseRun.setFontSize(12);
-                noDiseaseRun.setFontFamily("宋体");
+                XWPFParagraph noDiseasePara = insertBodyParagraph(document, cursor);
+                XWPFRun noDiseaseRun = noDiseasePara.createRun();
+                noDiseaseRun.setText("经检查，" + node.getName() + "未见明显病害。");
+                applyBodyRun(noDiseaseRun, false);
             }
-
         } catch (Exception e) {
             log.error("写入第三层内容失败: nodeName={}", node.getName(), e);
             throw e;
+        }
+    }
+
+    private XWPFParagraph insertBodyParagraph(XWPFDocument document, XmlCursor cursor) {
+        XWPFParagraph paragraph = document.insertNewParagraph(cursor);
+        cursor.toNextToken();
+        setupParagraphFormat(paragraph);
+        return paragraph;
+    }
+
+    private XWPFParagraph insertTitleParagraph(XWPFDocument document, XmlCursor cursor) {
+        XWPFParagraph paragraph = document.insertNewParagraph(cursor);
+        cursor.toNextToken();
+        paragraph.setAlignment(ParagraphAlignment.LEFT);
+        CTPPr ppr = paragraph.getCTP().getPPr();
+        if (ppr == null) {
+            ppr = paragraph.getCTP().addNewPPr();
+        }
+        CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
+        spacing.setLine(BigInteger.valueOf(360));
+        spacing.setLineRule(STLineSpacingRule.AUTO);
+        return paragraph;
+    }
+
+    private void applyBodyRun(XWPFRun run, boolean bold) {
+        ReportGenerateTools.setMixedFontFamily(run, 24);
+        run.setBold(bold);
+    }
+
+    private void applyHeitiSmallFour(XWPFRun run) {
+        run.setBold(false);
+        run.setColor("000000");
+        run.setFontFamily("黑体");
+        CTRPr rPr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+        while (rPr.sizeOfRFontsArray() > 0) {
+            rPr.removeRFonts(0);
+        }
+        while (rPr.sizeOfSzArray() > 0) {
+            rPr.removeSz(0);
+        }
+        while (rPr.sizeOfSzCsArray() > 0) {
+            rPr.removeSzCs(0);
+        }
+        CTFonts fonts = rPr.addNewRFonts();
+        fonts.setAscii("黑体");
+        fonts.setHAnsi("黑体");
+        fonts.setEastAsia("黑体");
+        fonts.setCs("黑体");
+        rPr.addNewSz().setVal(BigInteger.valueOf(24));
+        rPr.addNewSzCs().setVal(BigInteger.valueOf(24));
+        while (rPr.sizeOfBArray() > 0) {
+            rPr.removeB(0);
+        }
+        while (rPr.sizeOfBCsArray() > 0) {
+            rPr.removeBCs(0);
         }
     }
 
@@ -298,23 +334,28 @@ public class TestConclusionServiceImpl implements TestConclusionService {
     }
 
     /**
-     * 设置段落格式
+     * 正文：两端对齐、首行缩进 2 字符、1.5 倍行距。
      */
     private void setupParagraphFormat(XWPFParagraph paragraph) {
-        // 设置段落左对齐
-        paragraph.setAlignment(ParagraphAlignment.LEFT);
-
-        // 设置1.5倍行距
+        String style = paragraph.getStyle();
+        if (style != null && style.trim().matches("[1-9]")) {
+            paragraph.setStyle(null);
+        }
+        paragraph.setAlignment(ParagraphAlignment.BOTH);
         CTPPr ppr = paragraph.getCTP().getPPr();
         if (ppr == null) {
             ppr = paragraph.getCTP().addNewPPr();
         }
+        if (ppr.isSetOutlineLvl()) {
+            ppr.unsetOutlineLvl();
+        }
+        CTJc jc = ppr.isSetJc() ? ppr.getJc() : ppr.addNewJc();
+        jc.setVal(STJc.BOTH);
         CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
-        spacing.setLine(BigInteger.valueOf(360)); // 1.5倍行距
-
-        // 设置缩进
+        spacing.setLine(BigInteger.valueOf(360));
+        spacing.setLineRule(STLineSpacingRule.AUTO);
         CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
-        ind.setFirstLine(BigInteger.valueOf(0));
+        ind.setFirstLine(BigInteger.valueOf(480));
         ind.setLeft(BigInteger.valueOf(0));
     }
 

@@ -40,10 +40,10 @@ public class DiseaseComparisonTableUtils {
         int totalRows = 2 + data.size();
         int totalCols = 11; // 桥梁名称(1) + 部位(2) + 构件(1) + 病害种类(1) + 2023(2) + 2024(2) + 发展情况(1) + 备注(1)
 
-        // 创建表格标题
+        // 表题：黑体五号（21 half-points）；默认 22 会在 Word 里显示成 11 磅
         String titleText = bridgeName + "病害汇总统计表";
         String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, titleText, cursor,
-                chapterNum, tableCounter);
+                chapterNum, tableCounter, 21, 240, false, 0);
 
         // 创建基础表格
         XWPFTable table;
@@ -118,6 +118,7 @@ public class DiseaseComparisonTableUtils {
 
         // 应用表头合并
         applyHeaderMerges(table);
+        ReportGenerateTools.setTableHeaderRepeat(table, 2);
     }
 
     /**
@@ -235,7 +236,9 @@ public class DiseaseComparisonTableUtils {
     }
 
     /**
-     * 设置单元格文本
+     * 设置单元格文本。
+     * 表头：宋体小五、数字 Times New Roman 小五、加粗（表名题注才是黑体）。
+     * 表内：宋体小五、数字 Times New Roman 小五。
      */
     private static void setCellText(XWPFTableCell cell, String text, boolean isHeader, boolean isCenter) {
         if (text == null) text = "";
@@ -244,20 +247,16 @@ public class DiseaseComparisonTableUtils {
         XWPFParagraph paragraph = cell.addParagraph();
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-
-        // 设置字体
-        run.setFontFamily("宋体");
-        run.setFontSize(9);
         run.setBold(isHeader);
+        // 表头、表内均为小五 = 9pt = 18 half-points
+        ReportGenerateTools.setMixedFontFamily(run, 18, "宋体");
 
-        // 设置对齐方式
         if (isCenter) {
             paragraph.setAlignment(ParagraphAlignment.CENTER);
         } else {
             paragraph.setAlignment(ParagraphAlignment.LEFT);
         }
 
-        // 设置单元格垂直对齐
         CTTcPr tcPr = cell.getCTTc().getTcPr();
         if (tcPr == null) {
             tcPr = cell.getCTTc().addNewTcPr();

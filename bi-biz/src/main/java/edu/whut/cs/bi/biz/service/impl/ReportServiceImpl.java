@@ -66,6 +66,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Async;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
+import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
 
 import javax.annotation.Resource;
 
@@ -159,6 +160,9 @@ public class ReportServiceImpl implements IReportService {
 
     @Resource
     private Report1LevelSingleBridgeService report1LevelSingleBridgeService;
+
+    @Resource
+    private ILineMultiBridgeReportService lineMultiBridgeReportService;
 
     @Resource
     private ReadFileService readFileService;
@@ -354,7 +358,10 @@ public class ReportServiceImpl implements IReportService {
                 if (template != null) {
                     templateType = ReportTemplateTypes.getEnumByDesc(template.getName());
                 }
-                if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
+                if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
+                    log.info("检测到多桥定期检查模板：{}，使用独立多桥生成逻辑", template.getName());
+                    return lineMultiBridgeReportService.generateReportDocument(report, tasks, template);
+                } else if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
                     // 等待所有任务完成
                     Task task = tasks.get(0);
                     Disease disease = new Disease();
@@ -2373,7 +2380,7 @@ public class ReportServiceImpl implements IReportService {
 
             // Part 1: 加粗的开头部分
             XWPFRun runBold = introPara.createRun();
-            runBold.setText("经检查，" + node.getName() + " 主要病害为:");
+            runBold.setText("经检查，" + node.getName() + " 主要病害为：");
             runBold.setBold(true);
             runBold.setFontSize(12); // 设置字号与后面一致
 
@@ -2382,7 +2389,7 @@ public class ReportServiceImpl implements IReportService {
             log.info("开始生成病害小结");
             String diseaseString = "";
             try {
-                diseaseString = getDiseaseSummary(nodeDiseases);
+                diseaseString = getDiseaseSummary(nodeDiseases, node.getName());
                 diseaseString = normalizeDiseaseSummary(diseaseString, node.getName());
             } catch (Exception e) {
                 log.error("ai小结病害失败，使用原始病害拼接兜底，生成报告继续。", e);
@@ -2441,7 +2448,7 @@ public class ReportServiceImpl implements IReportService {
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, node.getName() + "检测结果表", cursor, 3, chapter3TableCounter);
 
             // 创建章节格式的表格引用域
-            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", ":");
+            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark, "具体检测结果见下表", "：");
 
             // 创建表格
             XWPFTable table;
@@ -2580,10 +2587,11 @@ public class ReportServiceImpl implements IReportService {
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
                             break;
                         case 5:
-                            cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+                            cellR.setText(!"0".equals(d.getParticipateAssess()) && d.getLevel() > 0
+                                    ? String.valueOf(d.getLevel()) : "/");
                             break;
                         case 6:
                             cellR.setText(d.getDevelopmentTrend());
@@ -2932,7 +2940,7 @@ public class ReportServiceImpl implements IReportService {
                 String componentDiseaseSummary = "";
                 try {
                     // 有病害，调用病害小结生成
-                    componentDiseaseSummary = getDiseaseSummary(componentDiseases);
+                    componentDiseaseSummary = getDiseaseSummary(componentDiseases, component.getName());
                     // 去掉换行，因为每个部件显示在一段
                     componentDiseaseSummary = componentDiseaseSummary
                             .replace("\n", "")
@@ -3140,10 +3148,11 @@ public class ReportServiceImpl implements IReportService {
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
                             break;
                         case 5:
-                            cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
+                            cellR.setText(!"0".equals(d.getParticipateAssess()) && d.getLevel() > 0
+                                    ? String.valueOf(d.getLevel()) : "/");
                             break;
                         case 6:
                             cellR.setText(d.getDevelopmentTrend());
@@ -4610,11 +4619,17 @@ public class ReportServiceImpl implements IReportService {
 
 
     public String getDiseaseSummary(List<Disease> diseases) throws JsonProcessingException {
+        return getDiseaseSummary(diseases, null);
+    }
+
+    public String getDiseaseSummary(List<Disease> diseases, String sectionName) throws JsonProcessingException {
         // 瘦身
         List<Disease2ReportSummaryAiVO> less = Disease2ReportSummaryAiVO.convert(diseases);
         // 序列化为JSON字符串
         ObjectMapper mapper = new ObjectMapper();
-        String diseasesJson = mapper.writeValueAsString(less);
+        // 传入所属部位，由 AI 服务决定是否保留位置分组；旧调用仍兼容数组请求。
+        Object payload = sectionName == null ? less : Map.of("sectionName", sectionName, "diseases", less);
+        String diseasesJson = mapper.writeValueAsString(payload);
         // 发送POST请求
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -4730,52 +4745,9 @@ public class ReportServiceImpl implements IReportService {
                 return;
             }
 
-            // 步骤1：在标题段落后创建第一个分节符（结束当前分节）
-            CTP ctP = afterParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 如果已存在sectPr，先移除以避免冲突
-            if (pPr.isSetSectPr()) {
-                pPr.unsetSectPr();
-            }
-
-            // 创建分节符，使用NEXT_PAGE确保后续横向内容在新页面开始
-            CTSectPr sectPr = pPr.addNewSectPr();
-            CTSectType sectType = sectPr.addNewType();
-            sectType.setVal(STSectionMark.NEXT_PAGE);
-
-            log.info("在标题段落后添加了第一个分节符");
-
-            // 步骤2：在标题段落后立即创建横向分节符段落
-            XmlCursor cursor = afterParagraph.getCTP().newCursor();
-            cursor.toEndToken();
-            cursor.toNextToken();
-
-            // 在指定位置插入新段落
-            XWPFParagraph landscapeParagraph = document.insertNewParagraph(cursor);
-            landscapeParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置横向分节符
-            CTP ctpLandscape = landscapeParagraph.getCTP();
-            CTPPr pPrLandscape = ctpLandscape.isSetPPr() ? ctpLandscape.getPPr() : ctpLandscape.addNewPPr();
-
-            // 创建分节符并设置横向
-            CTSectPr sectPrLandscape = pPrLandscape.addNewSectPr();
-
-            // 创建页尺寸对象并设置横向
-            CTPageSz pageSize = sectPrLandscape.addNewPgSz();
-            pageSize.setOrient(STPageOrientation.LANDSCAPE);
-            pageSize.setW(BigInteger.valueOf(16838)); // 设置页面宽度
-            pageSize.setH(BigInteger.valueOf(11906)); // 设置页面高度
-
-            // 设置适合横向布局的页边距
-            CTPageMar pgMar = sectPrLandscape.addNewPgMar();
-            pgMar.setTop(BigInteger.valueOf(1796)); // 3.17cm
-            pgMar.setBottom(BigInteger.valueOf(1423)); // 2.51cm
-            pgMar.setLeft(BigInteger.valueOf(1440)); // 2.54cm
-            pgMar.setRight(BigInteger.valueOf(1440)); // 2.54cm
-
-            log.info("在标题段落后添加了横向分节符");
+            WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
+            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.beginLandscapeTableBlock(
+                    document, afterParagraph, layouts);
 
             // 步骤3：从横向分节符段落后获取cursor位置，创建表格
             XmlCursor tableCursor = landscapeParagraph.getCTP().newCursor();
@@ -4791,33 +4763,7 @@ public class ReportServiceImpl implements IReportService {
                     bridgeName
             );
 
-            // 步骤4：在表格后创建纵向分节符，恢复纵向布局
-            XWPFParagraph sectionParagraph = document.createParagraph();
-            sectionParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置纵向分节符
-            CTP ctpPortrait = sectionParagraph.getCTP();
-            CTPPr pPrPortrait = ctpPortrait.isSetPPr() ? ctpPortrait.getPPr() : ctpPortrait.addNewPPr();
-
-            // 创建分节符并设置纵向
-            CTSectPr sectPrPortrait = pPrPortrait.addNewSectPr();
-            CTSectType sectTypePortrait = sectPrPortrait.addNewType();
-            sectTypePortrait.setVal(STSectionMark.CONTINUOUS);
-
-            // 设置页面尺寸为纵向
-            CTPageSz pageSizePortrait = sectPrPortrait.addNewPgSz();
-            pageSizePortrait.setOrient(STPageOrientation.PORTRAIT);
-            pageSizePortrait.setW(BigInteger.valueOf(11906)); // 21.0cm
-            pageSizePortrait.setH(BigInteger.valueOf(16838)); // 29.7cm
-
-            // 设置纵向页边距
-            CTPageMar pgMarPortrait = sectPrPortrait.addNewPgMar();
-            pgMarPortrait.setTop(BigInteger.valueOf(1440)); // 2.51cm
-            pgMarPortrait.setBottom(BigInteger.valueOf(1440)); // 2.51cm
-            pgMarPortrait.setLeft(BigInteger.valueOf(1796)); // 2.54cm
-            pgMarPortrait.setRight(BigInteger.valueOf(1796)); // 2.54cm
-
-            log.info("在表格后设置了纵向分节符");
+            log.info("横版表格生成完成，后续正文保留竖版");
 
         } catch (Exception e) {
             log.error("生成单个病害对比表格失败", e);

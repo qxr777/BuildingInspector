@@ -7,13 +7,13 @@ import edu.whut.cs.bi.biz.domain.Condition;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.service.EvaluationTableService;
 import edu.whut.cs.bi.biz.service.IConditionService;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
+import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.deepoove.poi.util.TableTools;
@@ -57,11 +57,9 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
                 return;
             }
 
-            // 在四句话段落后创建第一个分节符（结束当前分节）
-            addSectionBreakAfterParagraph(document, afterParagraph);
-
-            // 在四句话段落后立即创建横向分节符，并获取新插入的段落
-            XWPFParagraph landscapeParagraph = addLandscapeSectionBreakAfterParagraph(document, afterParagraph);
+            WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
+            XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.beginLandscapeTableBlock(
+                    document, afterParagraph, layouts);
 
             // 从横向分节符段落后获取cursor位置
             XmlCursor cursor = landscapeParagraph.getCTP().newCursor();
@@ -71,7 +69,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             String tableTitle = bridgeName + "桥梁技术状况评定表";
 
             // 使用XmlCursor在指定位置创建表格标题
-            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(document, tableTitle, cursor, 8, tableCounter);
+            String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
+                    document, tableTitle, cursor, 8, tableCounter, 21, 240, false, 0);
 
             // 获取第二层和第三层结构
             Map<String, List<BiObject>> structureData = collectStructureData(building.getRootObjectId(), evaluation.getId());
@@ -79,8 +78,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             // 使用XmlCursor在标题后插入表格
             createComplexEvaluationTableWithCursor(document, cursor, structureData, evaluation);
 
-            // 在表格后创建纵向分节符，恢复纵向布局
-            addPortraitSectionBreakAfterTable(document, afterParagraph);
+            // Following body retains its own portrait section; no empty section is inserted.
 
             log.info("第八章技术状况评定表格生成完成");
 
@@ -101,128 +99,6 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             }
         }
         return -1;
-    }
-
-
-    /**
-     * 在四句话段落后创建第一个分节符
-     *
-     * @param document       Word文档
-     * @param afterParagraph 四句话段落
-     */
-    private void addSectionBreakAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph) {
-        try {
-            // 在四句话段落中直接设置分节符
-            CTP ctP = afterParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 如果已存在sectPr，先移除以避免冲突
-            if (pPr.isSetSectPr()) {
-                pPr.unsetSectPr();
-            }
-
-            // 创建分节符，使用NEXT_PAGE确保后续横向内容在新页面开始
-            CTSectPr sectPr = pPr.addNewSectPr();
-            CTSectType sectType = sectPr.addNewType();
-            sectType.setVal(STSectionMark.NEXT_PAGE);
-
-            log.info("在四句话段落后添加了第一个分节符");
-
-        } catch (Exception e) {
-            log.error("在四句话段落后添加分节符失败", e);
-            throw e;
-        }
-    }
-
-    /**
-     * 在四句话段落后立即创建一个新段落并设置横向分节符
-     *
-     * @param document       Word文档
-     * @param afterParagraph 四句话段落
-     */
-    private XWPFParagraph addLandscapeSectionBreakAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph) {
-        try {
-            // 使用XmlCursor在四句话段落后插入新段落
-            XmlCursor cursor = afterParagraph.getCTP().newCursor();
-            cursor.toEndToken();
-            cursor.toNextToken();
-
-            // 在指定位置插入新段落
-            XWPFParagraph newParagraph = document.insertNewParagraph(cursor);
-            newParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置横向分节符
-            CTP ctP = newParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 创建分节符并设置横向
-            CTSectPr sectPr = pPr.addNewSectPr();
-            // 关键：不设置NEXT_PAGE，让横向设置在当前页面生效
-            // 这样XmlCursor就能正确定位到横向区域
-
-            // 创建页尺寸对象并设置横向
-            CTPageSz pageSize = sectPr.addNewPgSz();
-            pageSize.setOrient(STPageOrientation.LANDSCAPE);
-            pageSize.setW(BigInteger.valueOf(16838)); // 设置页面宽度
-            pageSize.setH(BigInteger.valueOf(11906)); // 设置页面高度
-
-            // 设置适合横向布局的页边距
-            CTPageMar pgMar = sectPr.addNewPgMar();
-            pgMar.setTop(BigInteger.valueOf(1796)); // 3.17cm
-            pgMar.setBottom(BigInteger.valueOf(1423)); // 2.51cm
-            pgMar.setLeft(BigInteger.valueOf(1440)); // 2.54cm
-            pgMar.setRight(BigInteger.valueOf(1440)); // 2.54cm
-
-            log.info("在四句话段落后立即添加了横向分节符");
-
-            return newParagraph;
-
-        } catch (Exception e) {
-            log.error("在四句话段落后添加横向分节符失败", e);
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * 在表格后创建纵向分节符，恢复纵向布局
-     *
-     * @param document       Word文档
-     * @param afterParagraph 四句话段落（用于定位）
-     */
-    private void addPortraitSectionBreakAfterTable(XWPFDocument document, XWPFParagraph afterParagraph) {
-        try {
-            // 创建一个新段落来承载纵向分节符
-            XWPFParagraph sectionParagraph = document.createParagraph();
-            sectionParagraph.setAlignment(ParagraphAlignment.LEFT);
-
-            // 在新段落中设置纵向分节符
-            CTP ctP = sectionParagraph.getCTP();
-            CTPPr pPr = ctP.isSetPPr() ? ctP.getPPr() : ctP.addNewPPr();
-
-            // 创建分节符并设置纵向
-            CTSectPr sectPr = pPr.addNewSectPr();
-            CTSectType sectType = sectPr.addNewType();
-            sectType.setVal(STSectionMark.CONTINUOUS);
-
-            // 设置页面尺寸为纵向
-            CTPageSz pageSize = sectPr.addNewPgSz();
-            pageSize.setOrient(STPageOrientation.PORTRAIT);
-            pageSize.setW(BigInteger.valueOf(11906)); // 21.0cm
-            pageSize.setH(BigInteger.valueOf(16838)); // 29.7cm
-
-            // 设置纵向页边距
-            CTPageMar pgMar = sectPr.addNewPgMar();
-            pgMar.setTop(BigInteger.valueOf(1440)); // 2.51cm
-            pgMar.setBottom(BigInteger.valueOf(1440)); // 2.51cm
-            pgMar.setLeft(BigInteger.valueOf(1796)); // 2.54cm
-            pgMar.setRight(BigInteger.valueOf(1796)); // 2.54cm
-
-            log.info("在表格后设置了纵向分节符");
-
-        } catch (Exception e) {
-            log.error("在表格后设置纵向分节符失败", e);
-            throw e;
-        }
     }
 
 
@@ -325,6 +201,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
             // 填充复杂表头（两行表头）
             fillComplexTableHeader(table);
+            ReportGenerateTools.setTableHeaderRepeat(table, 2);
 
             // 填充数据并处理合并
             fillComplexTableData(table, structureData, evaluation);
@@ -344,23 +221,23 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
      */
     private void setColumnWidths(XWPFTable table) {
         try {
-            // 定义每列的宽度（单位：twips，1英寸=1440 twips）- 适用于横向页面
+            // 总宽 26cm（14742 twips）；各列按原比例缩放
             int[] columnWidths = {
-                    1000,  // 列0: 部位
-                    800,   // 列1: 部件类别i
-                    2000,  // 列2: 评价部件
-                    1000,  // 列3: 权重标准值
-                    1000,  // 列4: 折算权重值
-                    1000,  // 列5: 技术状况评分
-                    1200,  // 列6: 主要部件技术状况等级
-                    1000,  // 列7: 加权得分
-                    800,   // 列8: 权重
-                    1000,  // 列9: 评价项目
-                    1000,  // 列10: 技术状况评分
-                    1000,  // 列11: 技术状况等级
-                    1000,  // 列12: 加权得分
-                    1000,  // 列13: 技术状况评分Dr
-                    1200   // 列14: 技术状况等级Dj
+                    922,   // 列0: 部位
+                    737,   // 列1: 部件类别i
+                    1843,  // 列2: 评价部件
+                    922,   // 列3: 权重标准值
+                    922,   // 列4: 折算权重值
+                    922,   // 列5: 技术状况评分
+                    1106,  // 列6: 主要部件技术状况等级
+                    922,   // 列7: 加权得分
+                    737,   // 列8: 权重
+                    922,   // 列9: 评价项目
+                    922,   // 列10: 技术状况评分
+                    922,   // 列11: 技术状况等级
+                    922,   // 列12: 加权得分
+                    922,   // 列13: 技术状况评分Dr
+                    1106   // 列14: 技术状况等级Dj
             };
 
             // 设置每一行的每一列的宽度
@@ -409,9 +286,9 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
         jc.setVal(STJcTable.CENTER);
 
-        // 设置表格宽度为100%以适应横向页面
+        // 表格总宽 26cm（1cm ≈ 567 twips）
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(15000)); // 设置更大宽度适应横向布局
+        tblWidth.setW(BigInteger.valueOf(26 * 567));
         tblWidth.setType(STTblWidth.DXA);
 
         // 设置表格固定布局
@@ -466,31 +343,20 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
     /**
-     * 设置表头单元格内容（完全避免操作CTTcPr以保护合并属性）
-     *
-     * @param cell 单元格
-     * @param text 文本内容
+     * 表头：宋体小五、数字 Times New Roman 小五、加粗（表名题注才是黑体）。
      */
     private void setHeaderCellContentSafely(XWPFTableCell cell, String text) {
         if (text == null) text = "";
 
-        // 清除默认内容
         cell.removeParagraph(0);
 
         XWPFParagraph paragraph = cell.addParagraph();
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-
-        // 设置字体
-        run.setFontFamily("宋体");
-        run.setFontSize(9);
         run.setBold(true);
+        ReportGenerateTools.setMixedFontFamily(run, 18, "宋体");
 
-        // 设置对齐方式
         paragraph.setAlignment(ParagraphAlignment.CENTER);
-
-        // 不设置单元格级别的垂直对齐，避免操作CTTcPr
-        // 垂直对齐将通过表格样式或合并后统一设置
     }
 
     /**
@@ -903,10 +769,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
     }
 
     /**
-     * 设置单元格内容和样式（完全避免操作CTTcPr以保护合并属性）
-     *
-     * @param cell 单元格
-     * @param text 文本内容
+     * 表内：宋体小五、数字 Times New Roman 小五。
      */
     private void setCellContent(XWPFTableCell cell, String text) {
         if (text == null) text = "";
@@ -915,16 +778,9 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         XWPFParagraph paragraph = cell.addParagraph();
         XWPFRun run = paragraph.createRun();
         run.setText(text);
-
-        // 设置字体
-        run.setFontFamily("宋体");
-        run.setFontSize(9);
         run.setBold(false);
+        ReportGenerateTools.setMixedFontFamily(run, 18, "宋体");
 
-        // 设置对齐方式
         paragraph.setAlignment(ParagraphAlignment.CENTER);
-
-        // 不设置单元格级别的垂直对齐，避免操作CTTcPr
-        // 垂直对齐将通过表格样式或合并后统一设置
     }
 }

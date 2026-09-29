@@ -106,7 +106,10 @@
             }
             
             // 重新初始化select2以应用multiple属性变化
-            $("#taskIds").select2("destroy").select2({ width: "100%" });
+            $("#taskIds").select2("destroy").select2({
+                width: "100%",
+                closeOnSelect: !$("#taskIds").prop("multiple")
+            });
             // 清空已选择的值
             $("#taskIds").val("").trigger("change");
             $("#taskIdsInput").val("");
@@ -211,4 +214,4 @@
     }
 </script>
 </body>
-</html> 
+</html>

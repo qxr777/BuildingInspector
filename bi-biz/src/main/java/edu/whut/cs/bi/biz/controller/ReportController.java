@@ -21,6 +21,7 @@ import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.ReportServiceImpl;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import io.minio.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.poi.xwpf.usermodel.*;
@@ -61,6 +62,9 @@ public class ReportController extends BaseController {
 
     @Autowired
     private IReportService reportService;
+
+    @Autowired
+    private ILineMultiBridgeReportService lineMultiBridgeReportService;
 
     @Autowired
     private ReportMapper reportMapper;
@@ -272,12 +276,12 @@ public class ReportController extends BaseController {
 
             // Part 1: 加粗的开头部分
             XWPFRun runBold = introPara.createRun();
-            runBold.setText("经检查，" + node.getName() + " 主要病害为:");
+            runBold.setText("经检查，" + node.getName() + " 主要病害为：");
             runBold.setBold(true);
             runBold.setFontSize(12); // 设置字号与后面一致
 
             // Part 2: 生成病害小结
-            String diseaseString = reportService.getDiseaseSummary(nodeDiseases);
+            String diseaseString = reportService.getDiseaseSummary(nodeDiseases, node.getName());
             // 按行分割字符串并创建多个段落
             String[] lines = diseaseString.split("\\r?\\n"); // 支持Windows(\r\n)和Unix(\n)换行符
 
@@ -328,7 +332,7 @@ public class ReportController extends BaseController {
 
             tableNumber = "4." + tableCounter++; // 生成表格编号
             XWPFRun runTableRef = tableRefPara.createRun();
-            runTableRef.setText("具体检测结果见下表 " + tableNumber + ":");
+            runTableRef.setText("具体检测结果见下表 " + tableNumber + "：");
             runTableRef.setFontSize(12); // 设置字号
 
             // 添加表格编号
@@ -438,7 +442,7 @@ public class ReportController extends BaseController {
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
                             break;
                         case 5:
                             cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
@@ -660,6 +664,8 @@ public class ReportController extends BaseController {
             Map<String, Object> data = new HashMap<>();
             data.put("templateName", template.getName());
             data.put("templateId", template.getId());
+            data.put("fillUrl", ReportTemplateTypes.resolveFillPath(template.getName(), id));
+            data.put("fillTitle", ReportTemplateTypes.resolveFillTitle(template.getName()));
 
             return AjaxResult.success("获取模板信息成功", data);
         } catch (Exception e) {
@@ -756,10 +762,24 @@ public class ReportController extends BaseController {
                 }
             }
 
+            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+            if (template == null) {
+                return AjaxResult.error("报告模板不存在");
+            }
+            if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
+                tasks = lineMultiBridgeReportService.orderTasksBySelection(taskIds, tasks);
+                String error = lineMultiBridgeReportService.validateTasks(report, tasks);
+                if (error != null) {
+                    return AjaxResult.error(error);
+                }
+                reportServiceImpl.generateReportDocumentAsync(report, tasks, null, template);
+                return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
+            }
+
             // 验证所有任务是否属于同一组合桥下的子桥
             Long rootParentId = null;
             Set<Long> parentObjectIds = new HashSet<>();
-            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+
             if(template.getName().contains("斜拉桥、悬索桥通用")) {
                 for (Task task : tasks) {
                     Building building = task.getBuilding();

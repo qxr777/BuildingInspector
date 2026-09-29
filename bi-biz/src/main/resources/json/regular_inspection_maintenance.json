@@ -1,0 +1,302 @@
+[
+  {
+    "componentName": "ALL",
+    "diseaseType": "蜂窝、麻面",
+    "recommendation": "环氧砂浆封闭处置"
+  },
+  {
+    "componentName": "ALL",
+    "diseaseType": "剥落、掉角",
+    "recommendation": "环氧砂浆封闭处置"
+  },
+  {
+    "componentName": "ALL",
+    "diseaseType": "空洞、孔洞",
+    "recommendation": "环氧砂浆封闭处置"
+  },
+  {
+    "componentName": "ALL",
+    "diseaseType": "剥落露筋",
+    "recommendation": "环氧砂浆封闭处置"
+  },
+  {
+    "componentName": "ALL",
+    "diseaseType": "麻面露筋",
+    "recommendation": "环氧砂浆封闭处置"
+  },
+  {
+    "componentName": "ALL",
+    "diseaseType": "空洞露筋",
+    "recommendation": "环氧砂浆封闭处置"
+  },
+  {
+    "componentName": "上部承重构件、上部一般构件",
+    "diseaseType": "连续梁桥裂缝",
+    "recommendation": "压力注胶法灌注环氧树脂处理"
+  },
+  {
+    "componentName": "上部承重构件、上部一般构件",
+    "diseaseType": "连续刚构桥裂缝",
+    "recommendation": "压力注胶法灌注环氧树脂处理"
+  },
+  {
+    "componentName": "上部承重构件、上部一般构件",
+    "diseaseType": "悬臂梁桥裂缝",
+    "recommendation": "压力注胶法灌注环氧树脂处理"
+  },
+  {
+    "componentName": "上部承重构件、上部一般构件",
+    "diseaseType": "T形刚构桥裂缝",
+    "recommendation": "压力注胶法灌注环氧树脂处理"
+  },
+  {
+    "componentName": "上部承重构件、上部一般构件",
+    "diseaseType": "简支梁（板）桥裂缝",
+    "recommendation": "压力注胶法灌注环氧树脂处理"
+  },
+  {
+    "componentName": "上部承重构件、上部一般构件",
+    "diseaseType": "刚架桥裂缝",
+    "recommendation": "压力注胶法灌注环氧树脂处理"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "橡胶支座老化变质",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "橡胶支座老化开裂",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "板式支座缺陷",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "板式支座位置串动",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "板式支座位置脱空",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "板式支座位置剪切超限",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "板式支座位置剪切变形",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "板式支座位置偏移",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "盆式支座组件损坏",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "聚四氟乙烯滑板磨损",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "盆式支座位移",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "盆式支座转角超限",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "钢支座组件缺陷",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "钢支座功能缺陷",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "钢支座位移",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "钢支座部件磨损",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "支座",
+    "diseaseType": "钢支座部件裂缝",
+    "recommendation": "加强观测，必要时更换支座"
+  },
+  {
+    "componentName": "桥墩、桥台、墩台基础、栏杆护栏",
+    "diseaseType": "裂缝",
+    "recommendation": "压力注胶法灌注环氧树脂处理"
+  },
+  {
+    "componentName": "桥墩、桥台",
+    "diseaseType": "磨损",
+    "recommendation": "采用混凝土修补找平，必要时增设钢筋网片并浇筑混凝土保护层"
+  },
+  {
+    "componentName": "桥墩、桥台",
+    "diseaseType": "混凝土碳化",
+    "recommendation": "先凿除碳化层，并对钢筋除锈，再用碳纤维布加固"
+  },
+  {
+    "componentName": "桥墩、桥台",
+    "diseaseType": "混凝土腐蚀",
+    "recommendation": "先凿除腐蚀层，并对钢筋除锈，再用碳纤维布加固"
+  },
+  {
+    "componentName": "墩台基础",
+    "diseaseType": "冲刷",
+    "recommendation": "应采取措施，防止进一步冲刷"
+  },
+  {
+    "componentName": "墩台基础",
+    "diseaseType": "基底淘空",
+    "recommendation": "应及时回填，防止进一步冲刷"
+  },
+  {
+    "componentName": "墩台基础",
+    "diseaseType": "桩基外露",
+    "recommendation": "应及时回填，防止进一步冲刷"
+  },
+  {
+    "componentName": "墩台基础",
+    "diseaseType": "磨损",
+    "recommendation": "应采取措施，防止进一步冲蚀磨损"
+  },
+  {
+    "componentName": "墩台基础",
+    "diseaseType": "混凝土腐蚀",
+    "recommendation": "应采取措施，防止进一步冲蚀腐蚀"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "波浪拥包",
+    "recommendation": "铣刨拥包凸起部分，用热沥青混合料填补"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "高低不平",
+    "recommendation": "铣刨找平罩面"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "车辙",
+    "recommendation": "进行微表处，必要时铣刨重铺"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "泛油",
+    "recommendation": "撒布细集料处置，必要时铣刨重铺"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "松散",
+    "recommendation": "清扫撒布粘结料封闭，必要时铣刨重铺"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "露骨",
+    "recommendation": "采用封层保护，必要时铣刨重铺"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "坑槽",
+    "recommendation": "切割清理病害体，用热沥青混合料回填压实"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "龟裂",
+    "recommendation": "做封层防渗，必要时铣刨重铺"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "块裂",
+    "recommendation": "灌缝封闭防水，必要时铣刨重铺"
+  },
+  {
+    "componentName": "桥面铺装",
+    "diseaseType": "裂缝",
+    "recommendation": "灌缝封闭防水，必要时铣刨重铺"
+  },
+  {
+    "componentName": "伸缩缝装置",
+    "diseaseType": "凹凸不平",
+    "recommendation": "应及时调整伸缩缝位置"
+  },
+  {
+    "componentName": "伸缩缝装置",
+    "diseaseType": "锚固区混凝土裂缝",
+    "recommendation": "沥青修补"
+  },
+  {
+    "componentName": "伸缩缝装置",
+    "diseaseType": "失效",
+    "recommendation": "加强观测，必要时更换伸缩缝"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "桥面排水明沟堵塞",
+    "recommendation": "及时疏通"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "泄水管堵塞",
+    "recommendation": "及时疏通"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "排水管锚固件松脱",
+    "recommendation": "及时更换锚固件"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "排水管锚固件缺失",
+    "recommendation": "及时补设锚固件"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "排水管堵塞",
+    "recommendation": "及时疏通"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "排水管连接松脱",
+    "recommendation": "重新对接密封"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "排水管缺件",
+    "recommendation": "及时补设"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "排水管破损",
+    "recommendation": "及时更换"
+  },
+  {
+    "componentName": "排水系统",
+    "diseaseType": "排水管脱落",
+    "recommendation": "及时补设"
+  }
+]

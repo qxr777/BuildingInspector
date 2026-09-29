@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 病害对比数据处理服务
@@ -18,6 +20,12 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class DiseaseComparisonService {
+
+    private static final Pattern AREA_MULTIPLIER_PATTERN = Pattern.compile(
+            "m(?:²|2)?\\s*[×xX*]\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern AVERAGE_LENGTH_VALUE_PATTERN = Pattern.compile(
+            "(?:(?:长度\\s*)?L\\s*均|平均长度)\\s*[=:：]?\\s*(\\d+(?:\\.\\d+)?)\\s*m",
+            Pattern.CASE_INSENSITIVE);
 
     @Autowired
     private BiObjectMapper biObjectMapper;
@@ -75,50 +83,30 @@ public class DiseaseComparisonService {
                 .collect(Collectors.toList());
 
        log.info("开始批量查询病害数据，构件数量: " + level4ObjectIds.size() +
-                "，当前年份: " + currentYear + "，上一年份: " + previousYear);
+                "，当前年份: " + currentYear);
 
-        // 批量查询当前年份和上一年份的病害数据（2次查询替代N*2次查询）
         List<Disease> currentYearDiseases = diseaseMapper.selectDiseaseComponentData(level4ObjectIds, bubuildingId, currentYear);
-        List<Disease> previousYearDiseases = diseaseMapper.selectDiseaseComponentData(level4ObjectIds, bubuildingId, previousYear);
 
         long queryTime = System.currentTimeMillis() - startTime;
         log.info("批量查询完成，当前年份病害: " + currentYearDiseases.size() +
-                "条，上一年份病害: " + previousYearDiseases.size() +
                 "条，查询耗时: " + queryTime + "ms");
 
-        // 批量查询病害详情
-        List<Long> allDiseaseIds = new ArrayList<>();
-        allDiseaseIds.addAll(currentYearDiseases.stream()
+        List<Long> allDiseaseIds = currentYearDiseases.stream()
                 .filter(disease -> disease.getId() != null)
                 .map(Disease::getId)
-                .collect(Collectors.toList()));
-        allDiseaseIds.addAll(previousYearDiseases.stream()
-                .filter(disease -> disease.getId() != null)
-                .map(Disease::getId)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
 
         List<DiseaseDetail> allDiseaseDetails = new ArrayList<>();
         if (!allDiseaseIds.isEmpty()) {
             allDiseaseDetails = diseaseDetailMapper.selectDiseaseDetailsByDiseaseIds(allDiseaseIds);
         }
 
-        // 将病害详情按病害ID分组
         Map<Long, List<DiseaseDetail>> diseaseDetailMap = allDiseaseDetails.stream()
                 .collect(Collectors.groupingBy(DiseaseDetail::getDiseaseId));
 
-        // 为当前年份病害设置详情
         for (Disease disease : currentYearDiseases) {
             if (disease.getId() != null) {
-                List<DiseaseDetail> diseaseDetails = diseaseDetailMap.getOrDefault(disease.getId(), new ArrayList<>());
-                disease.setDiseaseDetails(diseaseDetails);
-            }
-        }
-
-        // 为上一年份病害设置详情
-        for (Disease disease : previousYearDiseases) {
-            if (disease.getId() != null) {
-                List<DiseaseDetail> diseaseDetails = diseaseDetailMap.getOrDefault(disease.getId(), new ArrayList<>());
-                disease.setDiseaseDetails(diseaseDetails);
+                disease.setDiseaseDetails(diseaseDetailMap.getOrDefault(disease.getId(), new ArrayList<>()));
             }
         }
 
@@ -126,14 +114,7 @@ public class DiseaseComparisonService {
         log.info("病害详情查询完成，详情数量: " + allDiseaseDetails.size() +
                 "条，详情查询耗时: " + detailQueryTime + "ms");
 
-        // 按构件ID和病害类型ID分组当前年份数据
         Map<Long, Map<Long, List<Disease>>> currentYearGrouped = currentYearDiseases.stream()
-                .filter(disease -> disease.getBiObjectId() != null && disease.getDiseaseTypeId() != null)
-                .collect(Collectors.groupingBy(Disease::getBiObjectId,
-                        Collectors.groupingBy(Disease::getDiseaseTypeId)));
-
-        // 按构件ID和病害类型ID分组上一年份数据
-        Map<Long, Map<Long, List<Disease>>> previousYearGrouped = previousYearDiseases.stream()
                 .filter(disease -> disease.getBiObjectId() != null && disease.getDiseaseTypeId() != null)
                 .collect(Collectors.groupingBy(Disease::getBiObjectId,
                         Collectors.groupingBy(Disease::getDiseaseTypeId)));
@@ -148,51 +129,49 @@ public class DiseaseComparisonService {
 
             // 获取该构件的病害数据
             Map<Long, List<Disease>> currentYearDiseasesByType = currentYearGrouped.getOrDefault(componentId, new HashMap<>());
-            Map<Long, List<Disease>> previousYearDiseasesByType = previousYearGrouped.getOrDefault(componentId, new HashMap<>());
 
-            // 获取所有病害类型ID
-            Set<Long> allDiseaseTypeIds = new HashSet<>();
-            allDiseaseTypeIds.addAll(currentYearDiseasesByType.keySet());
-            allDiseaseTypeIds.addAll(previousYearDiseasesByType.keySet());
-
-            // 为每种病害类型创建对比数据
-            for (Long diseaseTypeId : allDiseaseTypeIds) {
-                // 从病害数据中获取病害类型名称
-                String diseaseTypeName = getDiseaseTypeNameFromDiseases(diseaseTypeId,
-                        currentYearDiseasesByType, previousYearDiseasesByType);
+            for (Long diseaseTypeId : currentYearDiseasesByType.keySet()) {
+                List<Disease> typeDiseases = currentYearDiseasesByType.get(diseaseTypeId);
+                String diseaseTypeName = getDiseaseTypeNameFromDiseases(typeDiseases);
                 if (diseaseTypeName == null) continue;
+
+                List<Disease> lastYearDiseases = filterByTrends(typeDiseases,
+                        "稳定", "发展", "已维修", "部分维修", "未找到");
+                List<Disease> thisYearDiseases = filterByTrends(typeDiseases,
+                        "稳定", "新增", "发展", "部分维修");
+                List<Disease> repairedDiseases = filterByTrends(typeDiseases, "已维修");
+                List<Disease> developingDiseases = filterByTrends(typeDiseases, "发展");
+                List<Disease> partiallyRepairedDiseases = filterByTrends(typeDiseases, "部分维修");
+                List<Disease> missingDiseases = filterByTrends(typeDiseases, "未找到");
+                List<Disease> addedDiseases = filterByTrends(typeDiseases, "新增");
+                if (lastYearDiseases.isEmpty() && thisYearDiseases.isEmpty()) {
+                    continue;
+                }
 
                 DiseaseComparisonData data = new DiseaseComparisonData();
 
                 data.setCurrentYear(currentYear);
                 data.setLastYear(previousYear);
 
-                // 设置层级信息
                 data.setBridgeName(hierarchy.getBridgeName());
                 data.setPosition1(hierarchy.getPosition1());
                 data.setPosition2(hierarchy.getPosition2());
                 data.setComponent(hierarchy.getComponent());
                 data.setDiseaseType(diseaseTypeName);
 
-                // 设置层级ID
                 data.setRootObjectId(hierarchy.getRootObjectId());
                 data.setLevel2ObjectId(hierarchy.getLevel2ObjectId());
                 data.setLevel3ObjectId(hierarchy.getLevel3ObjectId());
                 data.setLevel4ObjectId(hierarchy.getLevel4ObjectId());
                 data.setDiseaseTypeId(diseaseTypeId);
 
-                // 处理当前年份数据
-                List<Disease> currentDiseases = currentYearDiseasesByType.getOrDefault(diseaseTypeId, new ArrayList<>());
-                data.setQuantity2024(currentDiseases.size());
-                data.setSeverity2024(generateSeverityDescription(currentDiseases));
-
-                // 处理上一年份数据
-                List<Disease> previousDiseases = previousYearDiseasesByType.getOrDefault(diseaseTypeId, new ArrayList<>());
-                data.setQuantity2023(previousDiseases.size());
-                data.setSeverity2023(generateSeverityDescription(previousDiseases));
-
-                // 生成发展情况描述
-                data.setDevelopmentStatus(generateDevelopmentStatus(previousDiseases, currentDiseases));
+                data.setQuantity2023(sumQuantity(lastYearDiseases));
+                data.setSeverity2023(generateSeverityDescription(lastYearDiseases));
+                data.setQuantity2024(sumQuantity(thisYearDiseases));
+                data.setSeverity2024(generateSeverityDescription(thisYearDiseases));
+                data.setDevelopmentStatus(generateDevelopmentStatus(
+                        repairedDiseases, developingDiseases, partiallyRepairedDiseases,
+                        missingDiseases, addedDiseases));
 
                 comparisonData.add(data);
             }
@@ -264,28 +243,42 @@ public class DiseaseComparisonService {
     /**
      * 从病害数据中获取病害类型名称
      */
-    private String getDiseaseTypeNameFromDiseases(Long diseaseTypeId,
-                                                  Map<Long, List<Disease>> currentYearDiseases,
-                                                  Map<Long, List<Disease>> previousYearDiseases) {
-        // 先从当前年份的病害中查找
-        List<Disease> currentDiseases = currentYearDiseases.get(diseaseTypeId);
-        if (currentDiseases != null && !currentDiseases.isEmpty()) {
-            Disease disease = currentDiseases.get(0);
-            if (disease.getDiseaseType() != null) {
-                return disease.getDiseaseType().getName();
-            }
+    private String getDiseaseTypeNameFromDiseases(List<Disease> diseases) {
+        if (diseases == null || diseases.isEmpty()) {
+            return null;
         }
-
-        // 如果当前年份没有，从上一年份的病害中查找
-        List<Disease> previousDiseases = previousYearDiseases.get(diseaseTypeId);
-        if (previousDiseases != null && !previousDiseases.isEmpty()) {
-            Disease disease = previousDiseases.get(0);
-            if (disease.getDiseaseType() != null) {
-                return disease.getDiseaseType().getName();
-            }
+        Disease disease = diseases.get(0);
+        if (disease.getDiseaseType() != null) {
+            return disease.getDiseaseType().getName();
         }
-
         return null;
+    }
+
+    private static List<Disease> filterByTrends(List<Disease> diseases, String... trends) {
+        Set<String> allowed = new HashSet<>(Arrays.asList(trends));
+        return diseases.stream()
+                .filter(disease -> allowed.contains(trendOf(disease)))
+                .collect(Collectors.toList());
+    }
+
+    private static String trendOf(Disease disease) {
+        if (disease == null || disease.getDevelopmentTrend() == null) {
+            return "";
+        }
+        return disease.getDevelopmentTrend().trim();
+    }
+
+    /**
+     * 病害数量以数据库 quantity 字段为准，不能用病害记录条数代替。
+     */
+    static int sumQuantity(List<Disease> diseases) {
+        if (diseases == null || diseases.isEmpty()) {
+            return 0;
+        }
+        return diseases.stream()
+                .filter(Objects::nonNull)
+                .mapToInt(disease -> Math.max(disease.getQuantity(), 0))
+                .sum();
     }
 
     /**
@@ -296,10 +289,8 @@ public class DiseaseComparisonService {
             return "/";
         }
 
-        // 使用通用的数据汇总方法
         DiseaseAggregateData data = extractAggregateData(diseases);
 
-        // 生成汇总描述
         StringBuilder sb = new StringBuilder();
 
         if (data.hasLengthData && data.totalLength > 0) {
@@ -320,7 +311,6 @@ public class DiseaseComparisonService {
             sb.append(String.format("面积%.4f㎡", data.totalArea));
         }
 
-        // 如果没有结构化数据，返回默认描述
         if (sb.length() == 0) {
             sb.append("/");
         }
@@ -329,89 +319,35 @@ public class DiseaseComparisonService {
     }
 
     /**
-     * 生成发展情况描述
+     * 根据单条病害的发展趋势生成变化说明。
      */
-    private String generateDevelopmentStatus(List<Disease> previousDiseases, List<Disease> currentDiseases) {
-        int previousCount = previousDiseases.size();
-        int currentCount = currentDiseases.size();
+    private String generateDevelopmentStatus(List<Disease> repairedDiseases,
+                                             List<Disease> developingDiseases,
+                                             List<Disease> partiallyRepairedDiseases,
+                                             List<Disease> missingDiseases,
+                                             List<Disease> addedDiseases) {
+        List<String> statusParts = new ArrayList<>();
+        appendTrendStatus(statusParts, "修复", repairedDiseases);
+        appendTrendStatus(statusParts, "部分维修", partiallyRepairedDiseases);
+        appendTrendStatus(statusParts, "未找到", missingDiseases);
+        appendTrendStatus(statusParts, "发展", developingDiseases);
 
-        // 提取前一年的汇总数据
-        DiseaseAggregateData previousData = extractAggregateData(previousDiseases);
-
-        // 提取当前年的汇总数据
-        DiseaseAggregateData currentData = extractAggregateData(currentDiseases);
-
-        StringBuilder status = new StringBuilder();
-
-        int quantityChange = currentCount - previousCount;
-
-        if (quantityChange > 0) {
-            // 新增病害
-            status.append("新增").append(quantityChange).append("条");
-
-            // 计算长度、宽度、面积的变化
-            double lengthChange = currentData.totalLength - previousData.totalLength;
-            double widthChange = currentData.maxWidth - previousData.maxWidth;
-            double areaChange = currentData.totalArea - previousData.totalArea;
-
-            if (lengthChange > 0) {
-                status.append("，长度增加").append(String.format("%.2f", lengthChange)).append("m");
+        if (addedDiseases != null && !addedDiseases.isEmpty()) {
+            StringBuilder added = new StringBuilder("新增")
+                    .append(sumQuantity(addedDiseases)).append("条");
+            String addedSeverity = generateSeverityDescription(addedDiseases);
+            if (addedSeverity != null && !addedSeverity.isEmpty() && !"/".equals(addedSeverity)) {
+                added.append("，").append(addedSeverity);
             }
-            if (widthChange > 0) {
-                status.append("，宽度增加").append(String.format("%.2f", widthChange)).append("mm");
-            }
-            if (areaChange > 0) {
-                status.append("，面积增加").append(String.format("%.4f", areaChange)).append("㎡");
-            }
-
-        } else if (quantityChange < 0) {
-            // 减少病害（修复）
-            status.append("修复").append(Math.abs(quantityChange)).append("条");
-
-            // 计算长度、宽度、面积的修复量
-            double lengthReduced = previousData.totalLength - currentData.totalLength;
-            double widthReduced = previousData.maxWidth - currentData.maxWidth; // 宽度看最大值的变化
-            double areaReduced = previousData.totalArea - currentData.totalArea;
-
-            if (lengthReduced > 0) {
-                status.append("，长度修复").append(String.format("%.2f", lengthReduced)).append("m");
-            }
-            if (widthReduced > 0) {
-                status.append("，宽度修复").append(String.format("%.2f", widthReduced)).append("mm");
-            }
-            if (areaReduced > 0) {
-                status.append("，面积修复").append(String.format("%.4f", areaReduced)).append("㎡");
-            }
-
-        } else {
-            // 数量没有变化，但可能有程度变化
-            double lengthChange = currentData.totalLength - previousData.totalLength;
-            double widthChange = currentData.maxWidth - previousData.maxWidth;
-            double areaChange = currentData.totalArea - previousData.totalArea;
-
-            if (Math.abs(lengthChange) > 0.01 || Math.abs(widthChange) > 0.01 || Math.abs(areaChange) > 0.0001) {
-                status.append("数量稳定");
-                if (lengthChange > 0) {
-                    status.append("，长度增加").append(String.format("%.2f", lengthChange)).append("m");
-                } else if (lengthChange < 0) {
-                    status.append("，长度减少").append(String.format("%.2f", Math.abs(lengthChange))).append("m");
-                }
-                if (widthChange > 0) {
-                    status.append("，宽度增加").append(String.format("%.2f", widthChange)).append("mm");
-                } else if (widthChange < 0) {
-                    status.append("，宽度减少").append(String.format("%.2f", Math.abs(widthChange))).append("mm");
-                }
-                if (areaChange > 0) {
-                    status.append("，面积增加").append(String.format("%.4f", areaChange)).append("㎡");
-                } else if (areaChange < 0) {
-                    status.append("，面积减少").append(String.format("%.4f", Math.abs(areaChange))).append("㎡");
-                }
-            } else {
-                status.append("稳定");
-            }
+            statusParts.add(added.toString());
         }
+        return statusParts.isEmpty() ? "稳定" : String.join("，", statusParts);
+    }
 
-        return status.toString();
+    private static void appendTrendStatus(List<String> statusParts, String label, List<Disease> diseases) {
+        if (diseases != null && !diseases.isEmpty()) {
+            statusParts.add(label + sumQuantity(diseases) + "条");
+        }
     }
 
     /**
@@ -424,53 +360,181 @@ public class DiseaseComparisonService {
             return data;
         }
 
-        // 遍历每个病害
         for (Disease disease : diseases) {
             List<DiseaseDetail> details = disease.getDiseaseDetails();
             if (details == null || details.isEmpty()) {
                 continue;
             }
-
-            // 遍历每个病害的详情
-            for (DiseaseDetail detail : details) {
-                // 汇总长度
-                if (detail.getLength1() != null) {
-                    data.totalLength += detail.getLength1().doubleValue();
-                    data.hasLengthData = true;
-                }
-
-                // 统计宽度范围
-                if (detail.getCrackWidth() != null) {
-                    double width = detail.getCrackWidth().doubleValue();
-                    data.minWidth = Math.min(data.minWidth, width);
-                    data.maxWidth = Math.max(data.maxWidth, width);
-                    data.hasWidthData = true;
-                }
-
-                // 计算面积
-                if (detail.getAreaLength() != null && detail.getAreaWidth() != null) {
-                    double area = detail.getAreaLength().doubleValue() * detail.getAreaWidth().doubleValue();
-                    data.totalArea += area;
-                    data.hasAreaData = true;
-                }
-
-                // 统计长度范围 宽度范围
-                if (detail.getLengthRangeStart() != null || detail.getLengthRangeEnd() != null || detail.getCrackWidthRangeStart() != null || detail.getCrackWidthRangeEnd() != null) {
-                    double lengthRangeStart = detail.getLengthRangeStart() == null ? 0 : detail.getLengthRangeStart().doubleValue();
-                    double lengthRangeEnd = detail.getLengthRangeEnd() == null ? 0 : detail.getLengthRangeEnd().doubleValue();
-                    data.totalLength += ((lengthRangeEnd - lengthRangeStart) / 2) * disease.getQuantity();
-                    data.hasLengthData = true;
-                    double widthMin = detail.getCrackWidthRangeStart() == null ? 0 : detail.getCrackWidthRangeStart().doubleValue();
-                    double widthMax = detail.getCrackWidthRangeEnd() == null ? 0 : detail.getCrackWidthRangeEnd().doubleValue();
-                    data.minWidth = Math.min(data.minWidth, widthMin);
-                    data.maxWidth = Math.max(data.maxWidth, widthMax);
-                    data.hasWidthData = true;
-                    break;
-                }
-            }
+            addLengthData(data, disease, details);
+            addWidthData(data, details);
+            addAreaData(data, disease, details);
         }
 
         return data;
+    }
+
+    private static void addLengthData(DiseaseAggregateData data, Disease disease,
+                                      List<DiseaseDetail> details) {
+        List<Double> exactLengths = new ArrayList<>();
+        for (DiseaseDetail detail : details) {
+            if (detail.getLength1() != null) exactLengths.add(detail.getLength1().doubleValue());
+            if (detail.getLength2() != null) exactLengths.add(detail.getLength2().doubleValue());
+            if (detail.getLength3() != null) exactLengths.add(detail.getLength3().doubleValue());
+        }
+        if (!exactLengths.isEmpty()) {
+            double sum = exactLengths.stream().mapToDouble(Double::doubleValue).sum();
+            String description = textOf(disease);
+            if (isAverageLength(description)) {
+                Double statedAverage = statedAverageLength(description);
+                sum = (statedAverage == null ? sum / exactLengths.size() : statedAverage)
+                        * positiveQuantity(disease);
+            } else if (!isTotalLength(description)
+                    && exactLengths.size() == 1 && positiveQuantity(disease) > 1) {
+                // 一条结构化明细对应多处病害时，该值按每处尺寸处理。
+                sum *= positiveQuantity(disease);
+            }
+            data.totalLength += sum;
+            data.hasLengthData = true;
+            return;
+        }
+
+        for (DiseaseDetail detail : details) {
+            if (detail.getLengthRangeStart() == null && detail.getLengthRangeEnd() == null) {
+                continue;
+            }
+            double start = detail.getLengthRangeStart() == null
+                    ? detail.getLengthRangeEnd().doubleValue()
+                    : detail.getLengthRangeStart().doubleValue();
+            double end = detail.getLengthRangeEnd() == null
+                    ? start
+                    : detail.getLengthRangeEnd().doubleValue();
+            data.totalLength += ((start + end) / 2D) * positiveQuantity(disease);
+            data.hasLengthData = true;
+            return;
+        }
+    }
+
+    private static void addWidthData(DiseaseAggregateData data, List<DiseaseDetail> details) {
+        for (DiseaseDetail detail : details) {
+            if (detail.getCrackWidth() != null || detail.getWidth() != null) {
+                double width = (detail.getCrackWidth() != null
+                        ? detail.getCrackWidth()
+                        : detail.getWidth()).doubleValue();
+                data.minWidth = Math.min(data.minWidth, width);
+                data.maxWidth = Math.max(data.maxWidth, width);
+                data.hasWidthData = true;
+            }
+            if (detail.getCrackWidthRangeStart() != null || detail.getCrackWidthRangeEnd() != null) {
+                double start = detail.getCrackWidthRangeStart() == null
+                        ? detail.getCrackWidthRangeEnd().doubleValue()
+                        : detail.getCrackWidthRangeStart().doubleValue();
+                double end = detail.getCrackWidthRangeEnd() == null
+                        ? start
+                        : detail.getCrackWidthRangeEnd().doubleValue();
+                data.minWidth = Math.min(data.minWidth, Math.min(start, end));
+                data.maxWidth = Math.max(data.maxWidth, Math.max(start, end));
+                data.hasWidthData = true;
+            }
+        }
+    }
+
+    private static void addAreaData(DiseaseAggregateData data, Disease disease,
+                                    List<DiseaseDetail> details) {
+        List<AreaValue> areas = details.stream()
+                .filter(detail -> detail.getAreaLength() != null && detail.getAreaWidth() != null)
+                .map(detail -> new AreaValue(
+                        detail.getAreaLength().doubleValue() * detail.getAreaWidth().doubleValue(),
+                        detail.getAreaIdentifier()))
+                .collect(Collectors.toList());
+        if (areas.isEmpty()) {
+            return;
+        }
+
+        double total;
+        boolean hasStructuredIdentifier = areas.stream()
+                .anyMatch(area -> Objects.equals(area.identifier, 1) || Objects.equals(area.identifier, 2));
+        if (hasStructuredIdentifier) {
+            double ordinary = areas.stream()
+                    .filter(area -> area.identifier == null || area.identifier == 0)
+                    .mapToDouble(area -> area.value).sum();
+            List<AreaValue> averages = areas.stream()
+                    .filter(area -> Objects.equals(area.identifier, 1)).collect(Collectors.toList());
+            double average = averages.isEmpty() ? 0 : averages.stream()
+                    .mapToDouble(area -> area.value).average().orElse(0) * positiveQuantity(disease);
+            double statedTotals = areas.stream()
+                    .filter(area -> Objects.equals(area.identifier, 2))
+                    .mapToDouble(area -> area.value).sum();
+            total = ordinary + average + statedTotals;
+        } else {
+            String description = textOf(disease);
+            double sum = areas.stream().mapToDouble(area -> area.value).sum();
+            if (isTotalArea(description) || isIndexedArea(description)) {
+                total = sum;
+            } else {
+                Integer multiplier = explicitAreaMultiplier(description);
+                if (multiplier != null) {
+                    total = areas.get(0).value * multiplier;
+                } else if (isAverageArea(description)) {
+                    total = areas.stream().mapToDouble(area -> area.value).average().orElse(0)
+                            * positiveQuantity(disease);
+                } else if (areas.size() == 1 && positiveQuantity(disease) > 1) {
+                    total = sum * positiveQuantity(disease);
+                } else {
+                    total = sum;
+                }
+            }
+        }
+        data.totalArea += total;
+        data.hasAreaData = true;
+    }
+
+    private static int positiveQuantity(Disease disease) {
+        return Math.max(disease == null ? 0 : disease.getQuantity(), 0);
+    }
+
+    private static String textOf(Disease disease) {
+        return disease == null || disease.getDescription() == null ? "" : disease.getDescription();
+    }
+
+    private static boolean isAverageLength(String description) {
+        return description.contains("L均") || description.contains("长度均")
+                || description.contains("平均长度");
+    }
+
+    private static Double statedAverageLength(String description) {
+        Matcher matcher = AVERAGE_LENGTH_VALUE_PATTERN.matcher(description);
+        return matcher.find() ? Double.parseDouble(matcher.group(1)) : null;
+    }
+
+    private static boolean isTotalLength(String description) {
+        return description.contains("L总") || description.contains("总长度");
+    }
+
+    private static boolean isAverageArea(String description) {
+        return description.contains("S均") || description.contains("平均面积");
+    }
+
+    private static boolean isTotalArea(String description) {
+        return description.contains("S总") || description.contains("总面积");
+    }
+
+    private static boolean isIndexedArea(String description) {
+        return description.matches("(?s).*S_?\\d+\\s*=.*");
+    }
+
+    private static Integer explicitAreaMultiplier(String description) {
+        Matcher matcher = AREA_MULTIPLIER_PATTERN.matcher(description);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : null;
+    }
+
+    private static final class AreaValue {
+        private final double value;
+        private final Integer identifier;
+
+        private AreaValue(double value, Integer identifier) {
+            this.value = value;
+            this.identifier = identifier;
+        }
     }
 
     /**
