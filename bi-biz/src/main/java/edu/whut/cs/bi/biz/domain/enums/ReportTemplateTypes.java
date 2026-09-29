@@ -8,6 +8,8 @@ public enum ReportTemplateTypes {
     LEVEL_1_BEAM_BRIDGE(3, new String[]{"梁桥", "一级"}),
     TEST_TEMPLATE(99, new String[]{"测试"});
 
+    private static final String REGULAR_MULTI_BRIDGE_TEMPLATE_NAME = "2026普通桥梁定期检查报告模板";
+
     private Integer type;
     private String[] desc;
 
@@ -50,7 +52,8 @@ public enum ReportTemplateTypes {
     }
 
     public static boolean isMultiBridge(String templateName) {
-        return templateName != null && templateName.contains("多桥");
+        return templateName != null && (templateName.contains("多桥")
+                || REGULAR_MULTI_BRIDGE_TEMPLATE_NAME.equals(templateName.trim()));
     }
 
     /**
@@ -95,6 +98,9 @@ public enum ReportTemplateTypes {
     public static ReportTemplateTypes getEnumByDesc(String templateName) {
         if (templateName == null) {
             return null;
+        }
+        if (isMultiBridge(templateName)) {
+            return MULTI_BRIDGE;
         }
         for (ReportTemplateTypes item : ReportTemplateTypes.values()) {
             boolean flag = true;

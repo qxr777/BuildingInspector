@@ -174,7 +174,10 @@
                     $("#taskIds").html(html);
 
                     // 重新初始化select2以应用multiple属性
-                    $("#taskIds").select2("destroy").select2({ width: "100%" });
+                    $("#taskIds").select2("destroy").select2({
+                        width: "100%",
+                        closeOnSelect: !$("#taskIds").prop("multiple")
+                    });
                     
                     // 回显选中的任务
                     $("#taskIds").val(taskIdsArray).trigger("change");
@@ -227,4 +230,4 @@
     }
 </script>
 </body>
-</html> 
+</html>

@@ -9,6 +9,7 @@ import edu.whut.cs.bi.biz.mapper.ConditionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
+import edu.whut.cs.bi.biz.utils.RegularInspectionMaintenanceMatcher;
 import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -621,6 +622,15 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
      */
     private Map<Long, String> batchGetComponentDiseaseTypes(List<Long> level3Ids, Long buildingId, Long projectId, List<BiObject> allObjects) {
         Map<Long, String> resultMap = new HashMap<>();
+        batchGetComponentDiseaseTypeNames(level3Ids, buildingId, projectId, allObjects)
+                .forEach((id, names) -> resultMap.put(id, names.isEmpty() ? "/" : String.join("、", names)));
+        return resultMap;
+    }
+
+    // 保留原始名称列表，避免把“蜂窝、麻面”等单个病害误拆成多个病害。
+    private Map<Long, List<String>> batchGetComponentDiseaseTypeNames(List<Long> level3Ids, Long buildingId,
+                                                                    Long projectId, List<BiObject> allObjects) {
+        Map<Long, List<String>> resultMap = new HashMap<>();
 
         try {
             if (level3Ids.isEmpty() || allObjects == null || allObjects.isEmpty()) {
@@ -660,7 +670,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                 List<Long> level4Ids = level3ToLevel4Map.getOrDefault(level3Id, Collections.emptyList());
 
                 // 收集所有第四层节点的病害类型
-                Set<String> diseaseTypeNames = new HashSet<>();
+                Set<String> diseaseTypeNames = new LinkedHashSet<>();
 
                 for (Long level4Id : level4Ids) {
                     List<Disease> diseases = diseasesByComponent.getOrDefault(level4Id, Collections.emptyList());
@@ -673,12 +683,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                     }
                 }
 
-                // 用顿号连接病害类型名称
-                if (!diseaseTypeNames.isEmpty()) {
-                    resultMap.put(level3Id, String.join("、", diseaseTypeNames));
-                } else {
-                    resultMap.put(level3Id, "/");
-                }
+                resultMap.put(level3Id, new ArrayList<>(diseaseTypeNames));
             }
         } catch (Exception e) {
             log.error("批量获取构件病害类型失败: error={}", e.getMessage(), e);
@@ -855,6 +860,13 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
     @Override
     public void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task, Project project, ReportTemplateTypes templateType) {
+        fillSingleBridgeRegularInspectionTable(document, building, task, project, templateType, false);
+    }
+
+    @Override
+    public void fillSingleBridgeRegularInspectionTable(XWPFDocument document, Building building, Task task,
+                                                      Project project, ReportTemplateTypes templateType,
+                                                      boolean generateMaintenanceRecommendations) {
         if (null != templateType && (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType()) || ReportTemplateTypes.is1LevelSigleBridge(templateType.getType()))) {
             // 拿到 建筑 部件树 的根节点 。
             BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
@@ -906,7 +918,8 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             // 批量查询所有构件的评分
             Map<Long, String> componentScoreMap = batchGetComponentScores(allLevel3Ids, building.getId(), project.getId(), task);
             // 批量查询所有构件的病害类型
-            Map<Long, String> componentDiseaseTypesMap = batchGetComponentDiseaseTypes(allLevel3Ids, building.getId(), project.getId(), allObjects);
+            Map<Long, List<String>> componentDiseaseTypesMap = batchGetComponentDiseaseTypeNames(
+                    allLevel3Ids, building.getId(), project.getId(), allObjects);
 
             List<String> recordComponentNameList = null;
             // 使用 enum 中的 list 查询固定格式 的 表格cell 应该填入的值。
@@ -933,9 +946,13 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                 Long objectId = idMap.get(name);
                 String scoreStr = "/";
                 String typeStr = "/";
+                List<String> diseaseTypeNames = Collections.emptyList();
                 if (null != objectId) {
                     scoreStr = componentWeightMap.get(objectId).compareTo(BigDecimal.ZERO) == 0 ? "/" : componentScoreMap.get(objectId);
-                    typeStr = componentWeightMap.get(objectId).compareTo(BigDecimal.ZERO) == 0 ? "/" : componentDiseaseTypesMap.get(objectId);
+                    if (componentWeightMap.get(objectId).compareTo(BigDecimal.ZERO) != 0) {
+                        diseaseTypeNames = componentDiseaseTypesMap.getOrDefault(objectId, Collections.emptyList());
+                        typeStr = diseaseTypeNames.isEmpty() ? "/" : String.join("、", diseaseTypeNames);
+                    }
                 }
                 Property propertyScore = new Property();
                 propertyScore.setName("评分" + i);
@@ -947,6 +964,10 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
 
                 properties.add(propertyScore);
                 properties.add(propertyType);
+                if (generateMaintenanceRecommendations) {
+                    fillMaintenanceRecommendation(document, i,
+                            RegularInspectionMaintenanceMatcher.match(name, diseaseTypeNames));
+                }
             }
             // 处理 定期检查记录表特殊 的 属性。
             processSingleBridgeRecordTableSpecialProp(properties, building);
@@ -956,6 +977,52 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             ReportGenerateTools.applyMixedFontsToTables(document);
             //！！！ 注意 ， 这里考虑到 基本卡片的 最后 清除了 所有表格中的占位符 ，所以这里没有再次清除。
         }
+    }
+
+    /**
+     * 模板现有养护建议单元格为空，依据同一行的类型占位符定位。
+     * 从表头计算养护建议所在的网格列，兼容 Word 的额外网格及支座等合并行。
+     */
+    private void fillMaintenanceRecommendation(XWPFDocument document, int componentIndex, String recommendation) {
+        String typePlaceholder = "${类型" + componentIndex + "}";
+        for (XWPFTable table : document.getTables()) {
+            int recommendationColumn = findMaintenanceRecommendationColumn(table);
+            if (recommendationColumn < 0) {
+                continue;
+            }
+            for (XWPFTableRow row : table.getRows()) {
+                if (row.getTableCells().stream().noneMatch(cell -> cell.getText().contains(typePlaceholder))) {
+                    continue;
+                }
+                int column = 0;
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    if (column == recommendationColumn) {
+                        setCellText(cell, recommendation);
+                        break;
+                    }
+                    column += gridSpan(cell);
+                }
+            }
+        }
+    }
+
+    private int findMaintenanceRecommendationColumn(XWPFTable table) {
+        for (XWPFTableRow row : table.getRows()) {
+            int column = 0;
+            for (XWPFTableCell cell : row.getTableCells()) {
+                if (cell.getText().contains("养护建议")) {
+                    return column;
+                }
+                column += gridSpan(cell);
+            }
+        }
+        return -1;
+    }
+
+    private int gridSpan(XWPFTableCell cell) {
+        CTTcPr properties = cell.getCTTc().getTcPr();
+        return properties != null && properties.isSetGridSpan()
+                ? properties.getGridSpan().getVal().intValue() : 1;
     }
 
     private List<Property> loadBridgeProperties(Building building) {

@@ -124,44 +124,6 @@
                     <form class="form-horizontal m" id="form-report-data">
                         <input type="hidden" name="reportId" th:value="${report.id}">
 
-                        <div id="tab_line_project">
-                            <div class="panel panel-default">
-                                <div class="panel-heading">
-                                    <h4 class="panel-title">第一章 项目概况</h4>
-                                </div>
-                                <div class="panel-body">
-                                    <p class="text-muted">整份报告共用一份，不随下方桥梁切换变化。</p>
-                                    <div class="form-group">
-                                        <label class="control-label">项目概况：</label>
-                                        <textarea class="form-control" data-original-key="line-route-overview" rows="8"
-                                                  placeholder="填写线路、项目背景、检测范围等项目概况"></textarea>
-                                    </div>
-                                    <div class="text-center">
-                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_project')">保存项目概况</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="tab_line_chapter2">
-                            <div class="panel panel-default">
-                                <div class="panel-heading">
-                                    <h4 class="panel-title">第二章 构件编号及划分原则</h4>
-                                </div>
-                                <div class="panel-body">
-                                    <p class="text-muted">整份报告共用一份，不随下方桥梁切换变化。</p>
-                                    <div class="form-group">
-                                        <label class="control-label">2.1 构件编号规则：</label>
-                                        <textarea class="form-control" data-original-key="line-component-numbering-rules" rows="8"
-                                                  placeholder="填写构件编号规则说明，如编号组成、各字段含义及示例"></textarea>
-                                    </div>
-                                    <div class="text-center">
-                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_chapter2')">保存第二章内容</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         <div id="tab_line_groups">
                             <div class="panel panel-default">
                                 <div class="panel-heading">
@@ -187,6 +149,51 @@
                                         <button type="button" class="btn btn-default" onclick="addBridgeGroup()">新增大桥</button>
                                         <button type="button" class="btn btn-default" onclick="resetBridgeGroupsOnePerTask()">按每座桥单独成组</button>
                                         <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_groups')">保存大桥分组</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tab_line_project">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">第一章 项目概况</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <p class="text-muted">整份报告共用一份，不随下方桥梁切换变化。</p>
+                                    <div class="form-group">
+                                        <label class="control-label" for="line-report-header">报告页眉：</label>
+                                        <textarea id="line-report-header" class="form-control" data-original-key="line-report-header"
+                                                  rows="2" style="min-height: 60px;"
+                                                  placeholder="填写整份报告使用的完整页眉文字"></textarea>
+                                        <small class="text-muted">整份报告共用，横版和竖版页眉使用相同文字。留空时使用报告名称。</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="control-label">项目概况：</label>
+                                        <textarea class="form-control" data-original-key="line-route-overview" rows="8"
+                                                  placeholder="填写线路、项目背景、检测范围等项目概况"></textarea>
+                                    </div>
+                                    <div class="text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_project')">保存项目概况及页眉</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tab_line_chapter2">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">第二章 构件编号及划分原则</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <p class="text-muted">整份报告共用一份，不随下方桥梁切换变化。</p>
+                                    <div class="form-group">
+                                        <label class="control-label">2.1 构件编号规则：</label>
+                                        <textarea class="form-control" data-original-key="line-component-numbering-rules" rows="8"
+                                                  placeholder="填写构件编号规则说明，如编号组成、各字段含义及示例"></textarea>
+                                    </div>
+                                    <div class="text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_chapter2')">保存第二章内容</button>
                                     </div>
                                 </div>
                             </div>

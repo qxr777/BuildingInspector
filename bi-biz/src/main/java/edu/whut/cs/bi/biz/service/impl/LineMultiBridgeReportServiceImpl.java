@@ -68,6 +68,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     private static final String KEY_CONCERN_DISEASES_PLACEHOLDER = "${keyConcernDiseases}";
     private static final String CARBONIZATION_ASSESSMENT_PLACEHOLDER = "${carbonizationAssessment}";
     private static final String APPENDIX_BRIDGE_CARD_TASK_IDS_KEY = "appendixBridgeCardTaskIds";
+    private static final String REPORT_HEADER_KEY = "line-report-header";
     private static final List<String> KEY_CONCERN_STRUCTURE_ORDER =
             List.of("上部结构", "下部结构", "桥面系", "附属设施");
 
@@ -284,6 +285,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             document.getSettings().setUpdateFields();
             applyDocumentHeadingStyles(document);
             WordSectionLayoutUtils.rebindHeadersByOrientation(document, headerLayouts);
+            applyReportHeader(document, allReportData, report);
 
             outputFile = File.createTempFile("line_multi_bridge_report_" + report.getId(), ".docx");
             out = new FileOutputStream(outputFile);
@@ -607,6 +609,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 continue;
             }
             String key = data.getKey();
+            if (REPORT_HEADER_KEY.equals(key)) {
+                // 页眉最后统一替换，不套用填报正文的字体和段落格式。
+                continue;
+            }
             if (WordImportSupport.isImported(data)) {
                 WordImportSupport.prepare(document, data);
                 if ("line-route-overview".equals(key)) importedRoute = true;
@@ -627,6 +633,74 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         if (!importedRoute && !isBlank(overview)) {
             replacePlaceholderWithBodyFormat(document, "${line-route-overview}", overview);
             replacePlaceholderWithBodyFormat(document, "${line-project-overview}", overview);
+        }
+    }
+
+    /** 线路级页眉在分节与桥梁章节生成完成后替换，保留各页眉的模板格式。 */
+    private void applyReportHeader(XWPFDocument document, List<LineReportData> reportDataList, Report report) {
+        String headerText = null;
+        if (reportDataList != null) {
+            for (LineReportData data : reportDataList) {
+                if (data != null && data.getTaskId() == null && isBlank(data.getGroupId())
+                        && REPORT_HEADER_KEY.equals(data.getKey())
+                        && (data.getType() == null || data.getType() == 0)) {
+                    headerText = data.getValue();
+                    break;
+                }
+            }
+        }
+        String value = firstNonBlank(headerText, report == null ? null : report.getName());
+        replaceReportHeaderText(document, "${" + REPORT_HEADER_KEY + "}", safeText(value));
+    }
+
+    /** 仅替换页眉文本节点，跨 run 占位符、表格和文本框均可处理，字体/图片/段落属性不变。 */
+    private void replaceReportHeaderText(XWPFDocument document, String placeholder, String value) {
+        String namespace = "declare namespace w='http://schemas.openxmlformats.org/wordprocessingml/2006/main' ";
+        for (XWPFHeader header : document.getHeaderList()) {
+            List<XmlObject> paragraphs = new ArrayList<>();
+            for (XWPFParagraph paragraph : header.getParagraphs()) {
+                paragraphs.add(paragraph.getCTP());
+            }
+            Collections.addAll(paragraphs, header._getHdrFtr().selectPath(namespace + ".//w:p"));
+            for (XmlObject paragraph : paragraphs) {
+                XmlObject[] nodes = paragraph.selectPath(namespace + ".//w:t");
+                List<String> texts = new ArrayList<>();
+                int[] offsets = new int[nodes.length + 1];
+                StringBuilder original = new StringBuilder();
+                for (int i = 0; i < nodes.length; i++) {
+                    try (XmlCursor cursor = nodes[i].newCursor()) {
+                        String text = safeText(cursor.getTextValue());
+                        texts.add(text);
+                        original.append(text);
+                        offsets[i + 1] = original.length();
+                    }
+                }
+                boolean replaced = false;
+                // 从后往前替换，避免同一段落多次出现占位符时字符位置偏移。
+                for (int start = original.lastIndexOf(placeholder); start >= 0;
+                     start = original.lastIndexOf(placeholder, start - 1)) {
+                    int end = start + placeholder.length();
+                    boolean inserted = false;
+                    for (int i = 0; i < nodes.length; i++) {
+                        if (offsets[i + 1] <= start || offsets[i] >= end) {
+                            continue;
+                        }
+                        String text = texts.get(i);
+                        int from = Math.max(0, start - offsets[i]);
+                        int to = Math.min(offsets[i + 1] - offsets[i], end - offsets[i]);
+                        texts.set(i, text.substring(0, from) + (inserted ? "" : value) + text.substring(to));
+                        inserted = true;
+                    }
+                    replaced = true;
+                }
+                if (replaced) {
+                    for (int i = 0; i < nodes.length; i++) {
+                        try (XmlCursor cursor = nodes[i].newCursor()) {
+                            cursor.setTextValue(texts.get(i));
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -2444,14 +2518,14 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
-        // 18.6 cm = 10545 twips; preserve the original column proportions.
-        int[] widths = {774, 1770, 2433, 1548, 1991, 1217, 812};
+        // 17.5 cm = 9921 twips; preserve the original column proportions.
+        int[] widths = {728, 1665, 2289, 1457, 1873, 1145, 764};
         CTTblPr tblPr = table.getCTTbl().getTblPr();
         if (tblPr == null) {
             tblPr = table.getCTTbl().addNewTblPr();
         }
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(10545));
+        tblWidth.setW(BigInteger.valueOf(9921));
         tblWidth.setType(STTblWidth.DXA);
 
         int mergeStart = 1;
@@ -2509,9 +2583,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
-        // 18.6 cm = 10545 twips; preserve the original column proportions.
-        int[] widths = {553, 1217, 1659, 719, 719, 719, 719, 719, 719, 719, 608, 719, 756};
-        applyColumnWidths(table, widths, 10545);
+        // 17.5 cm = 9921 twips; preserve the original column proportions.
+        int[] widths = {520, 1145, 1561, 676, 676, 676, 676, 676, 676, 676, 572, 676, 715};
+        applyColumnWidths(table, widths, 9921);
 
         int bridgeMergeStart = headerRows;
         for (int i = 0; i < rows.size(); i++) {
@@ -3817,7 +3891,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             applyBridgeIdentity(appendixSource, building, project);
             if (part == AppendixPart.INSPECTION_TABLE) {
                 regularInspectionService.fillSingleBridgeRegularInspectionTable(
-                        appendixSource, building, task, project, BRIDGE_CHAPTER_TEMPLATE_TYPE);
+                        appendixSource, building, task, project, BRIDGE_CHAPTER_TEMPLATE_TYPE, true);
             } else {
                 BiEvaluation evaluation = task.getId() == null
                         ? null : biEvaluationService.selectBiEvaluationByTaskId(task.getId());
