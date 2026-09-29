@@ -4271,8 +4271,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 全文标题：黑体、不加粗。二级～三级四号，四级及以下小四；段前段后各 0.5 行、1.5 倍行距。
-     * 一级只取消加粗并改黑体，不改模板字号。
+     * 全文标题：中文黑体，数字/英文 Times New Roman，不加粗。二级～三级四号，四级及以下小四。
+     * 段前段后各 0.5 行、1.5 倍行距；一级沿用模板字号。
      */
     private void applyDocumentHeadingStyles(XWPFDocument document) {
         if (document == null) {
@@ -4580,18 +4580,18 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 标题：黑体、不加粗。二级～三级四号，四级及以下小四。段前段后 0.5 行，1.5 倍行距。
+     * 标题：中文黑体，数字/英文 Times New Roman，不加粗。二级～三级四号，四级及以下小四。
      */
     private void applyHeadingFormat(XWPFParagraph paragraph, int headingLevel) {
         if (paragraph == null || headingLevel < 1) {
             return;
         }
+        // 章节合并直接替换了 CTP，原对象可能仍缓存空的 runs；从当前 XML 重建。
+        paragraph = new XWPFParagraph(paragraph.getCTP(), paragraph.getBody());
         applyParagraphLineSpacing(paragraph, true);
         paragraph.setAlignment(ParagraphAlignment.LEFT);
         Integer fontHalfPoints = headingLevel == 1 ? null : (headingLevel <= 3 ? 28 : 24);
-        for (XWPFRun run : paragraph.getRuns()) {
-            applyHeadingRun(run, fontHalfPoints);
-        }
+        applyHeadingRuns(paragraph, fontHalfPoints);
     }
 
     /**
@@ -4645,6 +4645,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     private void applyHeadingLook(XWPFParagraph paragraph, int fontHalfPoints) {
+        paragraph = new XWPFParagraph(paragraph.getCTP(), paragraph.getBody());
         applyParagraphLineSpacing(paragraph, true);
         paragraph.setAlignment(ParagraphAlignment.LEFT);
         List<XWPFRun> runs = paragraph.getRuns();
@@ -4653,9 +4654,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             applyHeadingRun(run, fontHalfPoints);
             return;
         }
-        for (XWPFRun run : runs) {
-            applyHeadingRun(run, fontHalfPoints);
-        }
+        applyHeadingRuns(paragraph, fontHalfPoints);
     }
 
     /**
@@ -4794,6 +4793,63 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
     }
 
+    /** 标题中数字/英文独立成 run，避免 WPS 按中文字体显示桥名中的数字。 */
+    private void applyHeadingRuns(XWPFParagraph paragraph, Integer fontHalfPoints) {
+        List<XWPFRun> runs = new ArrayList<>(paragraph.getRuns());
+        for (int i = runs.size() - 1; i >= 0; i--) {
+            XWPFRun run = runs.get(i);
+            applyHeadingRun(run, fontHalfPoints);
+            if (!isPlainHeadingRun(run)) {
+                continue;
+            }
+            String text = run.text();
+            if (text.isEmpty()) {
+                continue;
+            }
+            List<String> chunks = new ArrayList<>();
+            int start = 0;
+            for (int j = 1; j <= text.length(); j++) {
+                if (j == text.length() || (text.charAt(j) <= 0x7F) != (text.charAt(start) <= 0x7F)) {
+                    chunks.add(text.substring(start, j));
+                    start = j;
+                }
+            }
+            if (chunks.size() < 2) {
+                continue;
+            }
+            CTRPr properties = (CTRPr) run.getCTR().getRPr().copy();
+            while (run.getCTR().sizeOfTArray() > 0) {
+                run.getCTR().removeT(0);
+            }
+            run.setText(chunks.get(0));
+            applyHeadingRun(run, fontHalfPoints);
+            for (int j = 1; j < chunks.size(); j++) {
+                XWPFRun part = paragraph.insertNewRun(i + j);
+                part.getCTR().setRPr((CTRPr) properties.copy());
+                part.setText(chunks.get(j));
+                applyHeadingRun(part, fontHalfPoints);
+            }
+        }
+    }
+
+    private boolean isPlainHeadingRun(XWPFRun run) {
+        // 保留域、图片、换行及超链接的结构，只拆普通文本。
+        if (run instanceof XWPFHyperlinkRun) {
+            return false;
+        }
+        try (XmlCursor cursor = run.getCTR().newCursor()) {
+            if (cursor.toFirstChild()) {
+                do {
+                    String name = cursor.getName().getLocalPart();
+                    if (!"rPr".equals(name) && !"t".equals(name)) {
+                        return false;
+                    }
+                } while (cursor.toNextSibling());
+            }
+        }
+        return true;
+    }
+
     private void applyHeadingRun(XWPFRun run, Integer fontHalfPoints) {
         run.setBold(false);
         run.setColor("000000");
@@ -4808,11 +4864,13 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             rPr.removeSzCs(0);
         }
         CTFonts fonts = rPr.addNewRFonts();
-        fonts.setAscii("黑体");
-        fonts.setHAnsi("黑体");
-        fonts.setEastAsia("黑体");
-        fonts.setCs("黑体");
-        run.setFontFamily("黑体");
+        boolean western = !run.text().isEmpty() && run.text().chars().allMatch(ch -> ch <= 0x7F);
+        String font = western ? "Times New Roman" : "黑体";
+        fonts.setAscii(font);
+        fonts.setHAnsi(font);
+        fonts.setEastAsia(font);
+        fonts.setCs(font);
+        fonts.setHint(STHint.DEFAULT);
         if (fontHalfPoints != null) {
             rPr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
             rPr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
