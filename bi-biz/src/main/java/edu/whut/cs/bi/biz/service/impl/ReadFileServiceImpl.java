@@ -344,29 +344,30 @@ public class ReadFileServiceImpl implements ReadFileService {
     @Override
     public void readDiseaseExcel(MultipartFile file, Long taskId) {
         Task task = taskService.selectTaskById(taskId);
-        List<Component> components = componentService.selectComponentList(new Component());
-        Map<String, List<Component>> componentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
         Set<Disease> diseaseSet = new ConcurrentHashSet<>();
 
         Building building = buildingMapper.selectBuildingById(task.getBuildingId());
-
-        String loginUser = ShiroUtils.getLoginName();
-
-        // 病害类型”其他“，当病害类型都不存在时，默认为其他 (5)
-        DiseaseType otherDiseaseType = diseaseTypeMapper.selectDiseaseTypeByCode("0.0.0.0-5");
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             for (int j = 0; j < 1; j++) {
 //            for (int j = 0; j < workbook.getNumberOfSheets(); j++) {
                 Sheet sheet = workbook.getSheetAt(j); // 获取第一个工作表
 
-                List<BiObject> threeBiObjects = biObjectMapper.selectBiObjectAndChildrenThreeLevel(building.getRootObjectId());
                 List<BiObject> allBiObjects = biObjectMapper.selectBiObjectAndChildren(building.getRootObjectId());
 
-                addComponent(sheet, threeBiObjects, allBiObjects, componentMap);
+                validateJiaotouComponentLevels(sheet, building.getRootObjectId(), allBiObjects);
 
-                components = componentService.selectComponentList(new Component());
-                Map<String, List<Component>> newComponentMap = components.stream().collect(Collectors.groupingBy(Component::getName));
-                componentMap = newComponentMap;
+                List<Component> components = componentService.selectComponentList(new Component());
+                Map<String, List<Component>> componentMap = components.stream()
+                        .collect(Collectors.groupingBy(Component::getName));
+                addComponent(sheet, building.getRootObjectId(), allBiObjects, componentMap);
+
+                List<Component> newComponents = componentService.selectComponentList(new Component());
+                Map<String, List<Component>> newComponentMap = newComponents.stream()
+                        .collect(Collectors.groupingBy(Component::getName));
+
+                String loginUser = ShiroUtils.getLoginName();
+                // 病害类型“其他”，当病害类型不存在时默认为其他 (5)
+                DiseaseType otherDiseaseType = diseaseTypeMapper.selectDiseaseTypeByCode("0.0.0.0-5");
 
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 Subject subject = ThreadContext.getSubject();
@@ -412,22 +413,10 @@ public class ReadFileServiceImpl implements ReadFileService {
                         String developmentTrend = getCellValueAsString(row.getCell(14));
                         String remark = getCellValueAsString(row.getCell(15));
 
-                        BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
-
-                        if (biObject3 == null) {
-                            biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
-                            if (biObject3 == null)
-                                throw new RuntimeException("第" + (finalI + 1) + "行数据未找到对应的部件：" + component_3);
-                        }
-                        BiObject finalBiObject = biObject3;
-                        BiObject biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals(component_4))
-                                .findFirst().orElse(null);
-
-                        if (biObject4 == null) {
-                            biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals("其他")).findFirst().orElse(null);
-                            if (biObject4 == null)
-                                throw new RuntimeException("第" + (finalI + 1) + "行数据未找到对应的部件：" + component_4);
-                        }
+                        JiaotouObjectPath objectPath = resolveJiaotouObjectPath(
+                                component_3, component_4, building.getRootObjectId(), allBiObjects);
+                        BiObject biObject3 = objectPath.getComponent3();
+                        BiObject biObject4 = objectPath.getComponent4();
 
                         List<Component> componentList = newComponentMap.get(componentCode + "#" + component_4);
                         BiObject finalBiObject1 = biObject4;
@@ -624,7 +613,92 @@ public class ReadFileServiceImpl implements ReadFileService {
         return jsonSb.toString();
     }
 
-    private void addComponent(Sheet sheet, List<BiObject> threeBiObjects, List<BiObject> allBiObjects, Map<String, List<Component>> componentMap) {
+    void validateJiaotouComponentLevels(Sheet sheet, Long rootObjectId, List<BiObject> allBiObjects) {
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 3; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null) {
+                continue;
+            }
+
+            String component3 = getCellValueAsString(row.getCell(3));
+            String component4 = getCellValueAsString(row.getCell(4));
+            boolean component3Blank = isBlankTemplateCell(component3);
+            boolean component4Blank = isBlankTemplateCell(component4);
+
+            if (component3Blank && component4Blank) {
+                continue;
+            }
+            if (component3Blank) {
+                errors.add("第" + (i + 1) + "行：构件不能为空");
+                continue;
+            }
+            if (component4Blank) {
+                errors.add("第" + (i + 1) + "行：构件2不能为空");
+                continue;
+            }
+
+            try {
+                resolveJiaotouObjectPath(component3, component4, rootObjectId, allBiObjects);
+            } catch (ServiceException e) {
+                errors.add("第" + (i + 1) + "行：" + e.getMessage());
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ServiceException("交投病害模板构件层级校验失败，共发现" + errors.size()
+                    + "处问题：\n- " + String.join("\n- ", errors));
+        }
+    }
+
+    private boolean isBlankTemplateCell(String value) {
+        return value == null || value.isEmpty() || "/".equals(value);
+    }
+
+    private JiaotouObjectPath resolveJiaotouObjectPath(String component3Name,
+                                                        String component4Name,
+                                                        Long rootObjectId,
+                                                        List<BiObject> allBiObjects) {
+        Map<Long, BiObject> objectsById = allBiObjects.stream()
+                .filter(object -> object.getId() != null)
+                .collect(Collectors.toMap(BiObject::getId, object -> object, (left, right) -> left));
+
+        List<BiObject> component3Candidates = allBiObjects.stream()
+                .filter(object -> component3Name.equals(object.getName()))
+                .filter(object -> isThirdLevelObject(object, rootObjectId, objectsById))
+                .collect(Collectors.toList());
+
+        if (component3Candidates.isEmpty()) {
+            throw new ServiceException("构件“" + component3Name + "”不是当前桥梁对象树中的第三级部件");
+        }
+
+        List<JiaotouObjectPath> paths = new ArrayList<>();
+        for (BiObject component3 : component3Candidates) {
+            allBiObjects.stream()
+                    .filter(object -> Objects.equals(object.getParentId(), component3.getId()))
+                    .filter(object -> component4Name.equals(object.getName()))
+                    .map(component4 -> new JiaotouObjectPath(component3, component4))
+                    .forEach(paths::add);
+        }
+
+        if (paths.isEmpty()) {
+            throw new ServiceException("构件2“" + component4Name + "”不是构件“"
+                    + component3Name + "”的直接子部件");
+        }
+        if (paths.size() > 1) {
+            throw new ServiceException("构件“" + component3Name + "”与构件2“"
+                    + component4Name + "”在当前桥梁对象树中存在多个匹配关系");
+        }
+        return paths.get(0);
+    }
+
+    private boolean isThirdLevelObject(BiObject object, Long rootObjectId, Map<Long, BiObject> objectsById) {
+        BiObject parent = objectsById.get(object.getParentId());
+        return parent != null && Objects.equals(parent.getParentId(), rootObjectId);
+    }
+
+    private void addComponent(Sheet sheet, Long rootObjectId, List<BiObject> allBiObjects, Map<String, List<Component>> componentMap) {
         Set<Component> componentSet = new HashSet<>();
 
         for (int i = 3; i <= sheet.getLastRowNum(); i++) {
@@ -648,22 +722,9 @@ public class ReadFileServiceImpl implements ReadFileService {
             }
 
 
-            BiObject biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals(component_3)).findFirst().orElse(null);
-
-            if (biObject3 == null) {
-                biObject3 = threeBiObjects.stream().filter(biObject -> biObject.getName().equals("其他")).findFirst().orElse(null);
-                if (biObject3 == null)
-                    throw new RuntimeException("第" + (i + 1) + "行数据未找到对应的部件：" + component_3);
-            }
-
-            BiObject finalBiObject = biObject3;
-            String finalComponent_ = component_4;
-            BiObject biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals(finalComponent_))
-                    .findFirst().orElse(null);
-            if (biObject4 == null) {
-                biObject4 = allBiObjects.stream().filter(biObject -> biObject.getParentId().equals(finalBiObject.getId()) && biObject.getName().equals("其他"))
-                        .findFirst().orElse(null);
-            }
+            JiaotouObjectPath objectPath = resolveJiaotouObjectPath(
+                    component_3, component_4, rootObjectId, allBiObjects);
+            BiObject biObject4 = objectPath.getComponent4();
 
             // 新增部件
             Component component = new Component();
@@ -695,6 +756,24 @@ public class ReadFileServiceImpl implements ReadFileService {
             componentService.insertComponent(component);
         }
 
+    }
+
+    private static class JiaotouObjectPath {
+        private final BiObject component3;
+        private final BiObject component4;
+
+        private JiaotouObjectPath(BiObject component3, BiObject component4) {
+            this.component3 = component3;
+            this.component4 = component4;
+        }
+
+        private BiObject getComponent3() {
+            return component3;
+        }
+
+        private BiObject getComponent4() {
+            return component4;
+        }
     }
 
     @Override

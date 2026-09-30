@@ -71,6 +71,14 @@ public interface IPackageService
     AjaxResult generateUserDataPackage(SysUser user);
 
     /**
+     * 请求异步刷新当前用户的数据包。
+     *
+     * @param userId 当前登录用户ID
+     * @return 任务受理状态
+     */
+    AjaxResult requestCurrentUserPackageRefresh(Long userId);
+
+    /**
      * 生成公共模板数据包，包含桥梁模板JSON和病害标度说明JSON。
      *
      * @return 生成结果

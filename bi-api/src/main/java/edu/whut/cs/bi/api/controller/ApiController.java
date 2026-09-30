@@ -821,6 +821,16 @@ public class ApiController {
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
     }
 
+    /**
+     * 异步重新生成当前登录用户的数据包。
+     * 同一用户已有任务正在执行时只返回处理中状态，不会重复提交。
+     */
+    @PostMapping("/user/dataPackage/refresh")
+    @ResponseBody
+    public AjaxResult refreshCurrentUserDataPackage() {
+        return packageService.requestCurrentUserPackageRefresh(ShiroUtils.getUserId());
+    }
+
 
     /**
      * 获取最新公共数据包下载信息。

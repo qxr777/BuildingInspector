@@ -90,12 +90,22 @@
 
 
     <select id="selectComponentsByBiObjectIdAndChildren" parameterType="Long" resultMap="ComponentResult">
+        <!-- MySQL 8+: 按 parent_id 索引遍历子树，避免逐行解析全表 ancestors。
+             仅对可达的对象 ID 去重，防止异常循环引用导致递归不终止。
+             与原查询一致，不过滤对象的 status/del_flag（包括已删除的中间节点）。 -->
+        with recursive component_object_tree (id) as (
+            select id from bi_object where id = #{biObjectId}
+            <if test="biObjectId != null and biObjectId == 0">
+                or parent_id = 0
+            </if>
+            union distinct
+            select child.id
+            from bi_object child
+            inner join component_object_tree parent on child.parent_id = parent.id
+        )
         <include refid="selectComponentVo"/>
-        where c.bi_object_id in (
-        select id from bi_object where id = #{biObjectId}
-        union
-        select id from bi_object where FIND_IN_SET(#{biObjectId}, ancestors)
-        ) and c.del_flag = '0'
+        inner join component_object_tree subtree on subtree.id = c.bi_object_id
+        where c.del_flag = '0'
     </select>
 
     <select id="selectComponent" resultType="edu.whut.cs.bi.biz.domain.Component">
