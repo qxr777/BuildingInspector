@@ -35,6 +35,7 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 import io.minio.GetPresignedObjectUrlArgs;
@@ -712,9 +713,6 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("并行生成报告数量达到上限，请稍后重试");
             }
 
-            if (report.getMinioId() != null) {
-                fileMapServiceImpl.deleteFileMapById(report.getMinioId());
-            }
             // 获取报告关联的任务ID
             String taskIdsStr = report.getTaskIds();
             if (taskIdsStr == null || taskIdsStr.isEmpty()) {
@@ -772,7 +770,7 @@ public class ReportController extends BaseController {
                 if (error != null) {
                     return AjaxResult.error(error);
                 }
-                reportServiceImpl.generateReportDocumentAsync(report, tasks, null, template);
+                reportServiceImpl.generateReportDocumentAsync(report, tasks, null, template, ShiroUtils.getLoginName());
                 return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
             }
 
@@ -838,7 +836,7 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("请选择同一个组合桥下的子桥任务");
             }
             // 异步生成报告
-            reportServiceImpl.generateReportDocumentAsync(report, tasks, rootParentId,template);
+            reportServiceImpl.generateReportDocumentAsync(report, tasks, rootParentId, template, ShiroUtils.getLoginName());
 
             return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
         } catch (Exception e) {

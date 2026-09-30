@@ -8,12 +8,17 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.domain.Component;
+import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.LineBridgeGroup;
 import edu.whut.cs.bi.biz.domain.LineReportData;
 import edu.whut.cs.bi.biz.domain.Report;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.service.ILineMultiBridgeReportDataService;
-import edu.whut.cs.bi.biz.service.IReportDataService;
+import edu.whut.cs.bi.biz.service.IComponentService;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.service.IReportService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
@@ -59,7 +64,13 @@ public class LineMultiBridgeReportDataController extends BaseController {
     private ILineMultiBridgeReportDataService lineReportDataService;
 
     @Autowired
-    private IReportDataService reportDataService;
+    private DiseaseMapper diseaseMapper;
+
+    @Autowired
+    private BiObjectMapper biObjectMapper;
+
+    @Autowired
+    private IComponentService componentService;
 
     @Autowired
     private IReportService reportService;
@@ -254,7 +265,7 @@ public class LineMultiBridgeReportDataController extends BaseController {
     }
 
     /**
-     * 获取当前大桥下各子桥的构件病害，供重点病害选择器按子桥分页使用。
+     * 获取当前大桥下各子桥本次任务的全部病害，保留每条记录用于逐条选择。
      */
     @PostMapping("/diseaseComponentData")
     @RequiresPermissions("biz:report_data:list")
@@ -288,28 +299,66 @@ public class LineMultiBridgeReportDataController extends BaseController {
             }
             Map<Long, Task> taskById = reportTasks.stream()
                     .collect(Collectors.toMap(Task::getId, task -> task, (left, right) -> left));
-            Map<Long, Map<String, Object>> byTask = reportDataService.getDiseaseComponentData(report);
             Map<String, Map<String, Object>> ordered = new LinkedHashMap<>();
             for (Long id : targetTaskIds) {
-                Map<String, Object> source = byTask.get(id);
-                Map<String, Object> taskData = source == null ? new HashMap<>() : new HashMap<>(source);
-                taskData.put("taskId", id);
                 Task task = taskById.get(id);
-                if (task != null) {
-                    taskData.put("buildingName", displayTaskName(task));
-                } else if (taskData.get("buildingName") == null) {
-                    taskData.put("buildingName", "未命名桥梁");
-                }
-                if (!(taskData.get("diseases") instanceof List)) {
-                    taskData.put("diseases", Collections.emptyList());
-                }
-                ordered.put(String.valueOf(id), taskData);
+                if (task == null) continue;
+                ordered.put(String.valueOf(id), buildTaskDiseaseRecords(task));
             }
             return AjaxResult.success("获取成功", ordered);
         } catch (Exception e) {
             logger.error("获取构件病害数据失败", e);
             return AjaxResult.error("获取构件病害数据失败：" + e.getMessage());
         }
+    }
+
+    private Map<String, Object> buildTaskDiseaseRecords(Task task) {
+        Disease query = new Disease();
+        query.setTaskId(task.getId());
+        query.setBuildingId(task.getBuildingId());
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(query);
+        if (diseases == null) diseases = Collections.emptyList();
+        List<Long> componentIds = diseases.stream().map(Disease::getComponentId)
+                .filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        Map<Long, Component> components = componentIds.isEmpty() ? Collections.emptyMap()
+                : componentService.selectComponentsByIds(componentIds).stream()
+                .collect(Collectors.toMap(Component::getId, item -> item, (left, right) -> left));
+        Map<Long, BiObject> objects = new HashMap<>();
+        List<Map<String, Object>> records = new ArrayList<>();
+        for (Disease disease : diseases) {
+            if (disease.getId() == null) continue;
+            Component component = components.get(disease.getComponentId());
+            BiObject object = disease.getBiObjectId() == null ? null
+                    : objects.computeIfAbsent(disease.getBiObjectId(), biObjectMapper::selectBiObjectById);
+            String componentName = object == null ? disease.getBiObjectName() : object.getName();
+            if (componentName == null || componentName.isBlank()) {
+                componentName = component == null ? "未分类构件" : component.getName();
+            }
+            Map<String, Object> record = new LinkedHashMap<>();
+            // ID 使用字符串，避免浏览器转换为数字时丢失大整数精度。
+            record.put("diseaseId", String.valueOf(disease.getId()));
+            record.put("componentId", disease.getBiObjectId() == null ? null : String.valueOf(disease.getBiObjectId()));
+            record.put("componentName", componentName);
+            record.put("componentCode", component == null ? "" : component.getCode());
+            record.put("diseaseTypeId", disease.getDiseaseTypeId() == null ? null : String.valueOf(disease.getDiseaseTypeId()));
+            String type = disease.getType();
+            if (type == null || type.isBlank()) {
+                type = disease.getDiseaseType() == null ? "未填写类型" : disease.getDiseaseType().getName();
+            } else {
+                type = type.substring(type.lastIndexOf('#') + 1);
+            }
+            record.put("diseaseTypeName", type);
+            record.put("position", disease.getPosition());
+            record.put("description", disease.getDescription());
+            record.put("level", disease.getLevel());
+            record.put("developmentTrend", disease.getDevelopmentTrend());
+            records.add(record);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("taskId", String.valueOf(task.getId()));
+        result.put("buildingName", displayTaskName(task));
+        result.put("diseases", records);
+        return result;
     }
 
     /**

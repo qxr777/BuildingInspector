@@ -19,6 +19,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.STSectionMark;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 按纸张方向保留模板里的横版 / 竖版页眉。
@@ -91,6 +92,32 @@ public final class WordSectionLayoutUtils {
                 }
             } else if (hasAnyHeader(sect) && layouts.portrait() != null) {
                 copyHeaderFooterRefs(layouts.portrait(), sect);
+            }
+        }
+    }
+
+    /**
+     * 保留扉页的罗马页码和正文第一次从 1 开始的设置；后续分节沿用前节页码。
+     * 模板中的横向分节可能自带 start=1，多桥章节复制后会反复重置正文页码。
+     */
+    public static void continueBodyPageNumbers(XWPFDocument document) {
+        boolean bodyNumberingStarted = false;
+        for (CTSectPr section : listSectPr(document)) {
+            if (!section.isSetPgNumType()) {
+                continue;
+            }
+            var pageNumber = section.getPgNumType();
+            if (!bodyNumberingStarted) {
+                String format = pageNumber.isSetFmt()
+                        ? pageNumber.getFmt().toString().toLowerCase(Locale.ROOT) : "";
+                if (format.contains("roman")) {
+                    continue;
+                }
+                bodyNumberingStarted = true;
+                continue;
+            }
+            if (pageNumber.isSetStart()) {
+                pageNumber.unsetStart();
             }
         }
     }

@@ -2,7 +2,6 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
@@ -124,7 +123,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
 
     @Override
-    public String generateReportDocument(Report report, Task task, ReportTemplateTypes templateType) {
+    public String generateReportDocument(Report report, Task task, ReportTemplateTypes templateType, String operator) {
         Long buildingId = task.getBuildingId();
         InputStream templateStream = null;
         FileOutputStream out = null;
@@ -260,7 +259,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             FileMap reportFileMap = fileMapService.handleFileUploadFromFile(
                     outputFile,
                     docFileName,
-                    ShiroUtils.getLoginName()
+                    operator
             );
             log.info("报告文档已上传到MinIO，文件ID: {}", reportFileMap.getId());
 

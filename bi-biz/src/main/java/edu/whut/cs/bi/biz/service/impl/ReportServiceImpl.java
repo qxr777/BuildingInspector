@@ -351,6 +351,11 @@ public class ReportServiceImpl implements IReportService {
      */
     @Override
     public String generateReportDocument(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
+        return generateReportDocument(report, tasks, rootParentId, template, ShiroUtils.getLoginName());
+    }
+
+    private String generateReportDocument(Report report, List<Task> tasks, Long rootParentId,
+                                          ReportTemplate template, String operator) {
         // 判断是否为单桥模板（根据模板名称判断）
         if (report != null && report.getReportTemplateId() != null) {
             try {
@@ -360,7 +365,7 @@ public class ReportServiceImpl implements IReportService {
                 }
                 if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
                     log.info("检测到多桥定期检查模板：{}，使用独立多桥生成逻辑", template.getName());
-                    return lineMultiBridgeReportService.generateReportDocument(report, tasks, template);
+                    return lineMultiBridgeReportService.generateReportDocument(report, tasks, template, operator);
                 } else if (template != null && templateType != null && ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())) {
                     // 等待所有任务完成
                     Task task = tasks.get(0);
@@ -379,7 +384,7 @@ public class ReportServiceImpl implements IReportService {
                     log.info("缩略图生成完成，共处理" + attachmentBySubjects.size() + "个附件");
                     log.info("检测到二级单桥模板：{}，使用二级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
-                    return generateSingleBridgeReportDocument(report, tasks.get(0), templateType);
+                    return generateSingleBridgeReportDocument(report, tasks.get(0), templateType, operator);
                 } else if (template != null && templateType != null && ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
                     // 等待所有任务完成
                     Task task = tasks.get(0);
@@ -398,13 +403,16 @@ public class ReportServiceImpl implements IReportService {
                     log.info("缩略图生成完成，共处理" + attachmentBySubjects.size() + "个附件");
                     log.info("检测到一级单桥模板：{}，使用一级单桥生成逻辑", template.getName());
                     // 添加 桥梁模板类型 参数。
-                    return report1LevelSingleBridgeService.generateReportDocument(report, tasks.get(0), templateType);
+                    return report1LevelSingleBridgeService.generateReportDocument(report, tasks.get(0), templateType, operator);
                 } else if (template != null && templateType != null && ReportTemplateTypes.isTestTemplate(templateType.getType())) {
                     log.info("检测到测试模板：{}，使用测试模板独立生成逻辑", template.getName());
                     // 调用测试模板独立生成方法
-                    return generateTestTemplateReportDocument(report, tasks, rootParentId, template);
+                    return generateTestTemplateReportDocument(report, tasks, rootParentId, template, operator);
                 }
             } catch (Exception e) {
+                if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
+                    throw new IllegalStateException(e.getMessage(), e);
+                }
                 log.error("获取模板信息失败，使用默认生成逻辑", e);
             }
         }
@@ -632,7 +640,7 @@ public class ReportServiceImpl implements IReportService {
             out.close();
 
             // 上传到MinIO
-            FileMap reportFileMap = fileMapService.handleFileUploadFromFile(outputFile, fileName, ShiroUtils.getLoginName());
+            FileMap reportFileMap = fileMapService.handleFileUploadFromFile(outputFile, fileName, operator);
 
             // 更新报告状态和MinioId已生成
             report.setStatus(1);
@@ -672,19 +680,26 @@ public class ReportServiceImpl implements IReportService {
      * @param tasks  任务列表
      */
     @Async("reportTaskExecutor")
-    public void generateReportDocumentAsync(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
+    public void generateReportDocumentAsync(Report report, List<Task> tasks, Long rootParentId,
+                                            ReportTemplate template, String operator) {
+        Long previousMinioId = report.getMinioId();
         try {
             // 更新报告状态为生成中
             Report updateReport = new Report();
             updateReport.setId(report.getId());
             updateReport.setStatus(2);
-            updateReport.setUpdateBy(ShiroUtils.getLoginName());
+            updateReport.setUpdateBy(operator);
+            updateReport.setRemark("");
             updateReport.setUpdateTime(new Date());
             reportMapper.updateReport(updateReport);
+            report.setRemark("");
 
             // 生成报告文档
             log.info("开始生成报告");
-            String minioId = generateReportDocument(report, tasks, rootParentId, template);
+            String minioId = generateReportDocument(report, tasks, rootParentId, template, operator);
+            if (minioId == null || minioId.isBlank()) {
+                throw new IllegalStateException("报告生成未返回文件ID");
+            }
             log.info("生成报告结束");
 
             // 更新报告状态为已生成并保存MinioID
@@ -692,16 +707,27 @@ public class ReportServiceImpl implements IReportService {
             updateReport.setId(report.getId());
             updateReport.setStatus(1);
             updateReport.setMinioId(Long.valueOf(minioId));
-            updateReport.setUpdateBy(ShiroUtils.getLoginName());
+            updateReport.setUpdateBy(operator);
+            updateReport.setRemark("");
             updateReport.setUpdateTime(new Date());
             reportMapper.updateReport(updateReport);
+
+            // 只有新文件已保存且报告状态已更新，才清理旧文件。
+            if (previousMinioId != null && !previousMinioId.equals(updateReport.getMinioId())) {
+                try {
+                    fileMapService.deleteFileMapById(previousMinioId);
+                } catch (Exception cleanupError) {
+                    log.warn("新报告已生成，清理旧文件失败: reportId={}, fileId={}",
+                            report.getId(), previousMinioId, cleanupError);
+                }
+            }
         } catch (Exception e) {
             log.error("异步生成报告文档失败", e);
             // 更新报告状态为生成失败
             Report updateReport = new Report();
             updateReport.setId(report.getId());
             updateReport.setStatus(3);
-            updateReport.setUpdateBy(ShiroUtils.getLoginName());
+            updateReport.setUpdateBy(operator);
             updateReport.setUpdateTime(new Date());
             // 2025 12.5 更新
             // 失败时设置 remark 为 错误原因 ， 在鼠标悬停时显示。
@@ -715,7 +741,8 @@ public class ReportServiceImpl implements IReportService {
      * 测试模板独立生成方法
      * 复用组合桥逻辑，但使用测试模板特有的处理方式
      */
-    public String generateTestTemplateReportDocument(Report report, List<Task> tasks, Long rootParentId, ReportTemplate template) {
+    public String generateTestTemplateReportDocument(Report report, List<Task> tasks, Long rootParentId,
+                                                     ReportTemplate template, String operator) {
         // 获取任务关联的建筑ID和项目ID
         Building buildingQry = new Building();
         buildingQry.setRootObjectId(rootParentId);
@@ -949,7 +976,7 @@ public class ReportServiceImpl implements IReportService {
             out.close();
 
             // 上传到MinIO
-            FileMap reportFileMap = fileMapService.handleFileUploadFromFile(outputFile, fileName, ShiroUtils.getLoginName());
+            FileMap reportFileMap = fileMapService.handleFileUploadFromFile(outputFile, fileName, operator);
 
             // 更新报告状态和MinioId已生成
             report.setStatus(1);
@@ -5986,7 +6013,8 @@ public class ReportServiceImpl implements IReportService {
      * @param task   任务
      * @return MinIO文件ID
      */
-    private String generateSingleBridgeReportDocument(Report report, Task task, ReportTemplateTypes templateType) {
+    private String generateSingleBridgeReportDocument(Report report, Task task,
+                                                      ReportTemplateTypes templateType, String operator) {
         Long buildingId = task.getBuildingId();
         InputStream templateStream = null;
         FileOutputStream out = null;
@@ -6130,7 +6158,7 @@ public class ReportServiceImpl implements IReportService {
             FileMap reportFileMap = fileMapService.handleFileUploadFromFile(
                     outputFile,
                     docFileName,
-                    ShiroUtils.getLoginName()
+                    operator
             );
             log.info("报告文档已上传到MinIO，文件ID: {}", reportFileMap.getId());
 

@@ -15,7 +15,8 @@ import java.util.Map;
  * 从碳化深度、保护层检测记录 JSON 汇总「混凝土构件碳化状况评定表」行。
  *
  * <p>桥梁名称用大桥下的子桥名；构件名称取该子桥碳化深度检测记录表。
- * 平均碳化深度取该构件各测点「均值」再平均；保护层厚度取该测区 10 根钢筋「均值」再平均。
+ * 各测点的 3 次碳化读数求平均后按 0.5 mm 五成双修约，再对同构件测点求平均并按同规则修约。
+ * 缺少完整读数的历史记录使用已保存的均值修约；保护层厚度取该测区 10 根钢筋「均值」再平均。
  * 评定标度暂不计算。</p>
  */
 public final class CarbonizationAssessmentTableBuilder {
@@ -48,7 +49,7 @@ public final class CarbonizationAssessmentTableBuilder {
         List<Row> rows = new ArrayList<>();
         String bridge = subBridgeName == null ? "" : subBridgeName.trim();
         for (Map.Entry<String, List<BigDecimal>> entry : carbonByComponent.entrySet()) {
-            BigDecimal carbon = average(entry.getValue());
+            BigDecimal carbon = carbonAverageAtHalfStep(entry.getValue());
             if (carbon == null) {
                 continue;
             }
@@ -60,7 +61,7 @@ public final class CarbonizationAssessmentTableBuilder {
             rows.add(new Row(
                     bridge,
                     entry.getKey(),
-                    formatNumber(carbon, 1, 2),
+                    carbon.setScale(1, RoundingMode.UNNECESSARY).toPlainString(),
                     cover == null ? "" : formatNumber(cover, 1, 2),
                     kc));
         }
@@ -74,12 +75,16 @@ public final class CarbonizationAssessmentTableBuilder {
             if (component.isEmpty()) {
                 continue;
             }
-            BigDecimal average = firstNumber(record, "average");
-            if (average == null) {
-                average = average(List.of(
-                        firstNumber(record, "value1"),
-                        firstNumber(record, "value2"),
-                        firstNumber(record, "value3")));
+            BigDecimal value1 = firstNumber(record, "value1");
+            BigDecimal value2 = firstNumber(record, "value2");
+            BigDecimal value3 = firstNumber(record, "value3");
+            BigDecimal average;
+            if (value1 != null && value2 != null && value3 != null) {
+                // 原始读数优先，避免已保存均值的预先取整影响五成双边界。
+                average = carbonAverageAtHalfStep(List.of(value1, value2, value3));
+            } else {
+                BigDecimal savedAverage = firstNumber(record, "average");
+                average = savedAverage == null ? null : carbonAverageAtHalfStep(List.of(savedAverage));
             }
             if (average == null) {
                 continue;
@@ -206,6 +211,15 @@ public final class CarbonizationAssessmentTableBuilder {
             }
         }
         return records;
+    }
+
+    private static BigDecimal carbonAverageAtHalfStep(List<BigDecimal> values) {
+        if (values == null || values.isEmpty()) return null;
+        BigDecimal sum = values.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal two = BigDecimal.valueOf(2);
+        // (sum / count) × 2 直接修约到整数，避免先计算有限小数平均值引入二次修约误差。
+        return sum.multiply(two).divide(BigDecimal.valueOf(values.size()), 0, RoundingMode.HALF_EVEN)
+                .divide(two);
     }
 
     private static BigDecimal average(List<BigDecimal> values) {

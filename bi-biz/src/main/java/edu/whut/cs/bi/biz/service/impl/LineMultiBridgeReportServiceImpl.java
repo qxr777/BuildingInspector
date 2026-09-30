@@ -3,7 +3,6 @@ package edu.whut.cs.bi.biz.service.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
@@ -16,11 +15,13 @@ import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.utils.CarbonizationAssessmentTableBuilder;
+import edu.whut.cs.bi.biz.utils.FocusDiseaseSelection;
 import edu.whut.cs.bi.biz.utils.DiseaseComparisonTableUtils;
 import edu.whut.cs.bi.biz.utils.RebarCorrosionAssessmentTableBuilder;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
+import edu.whut.cs.bi.biz.utils.WordReportPageNumberUtils;
 import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
 import edu.whut.cs.bi.biz.utils.WordImportSupport;
 import edu.whut.cs.bi.biz.utils.WordImportMerger;
@@ -199,7 +200,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * 同一份填报数据或相互覆盖占位符。</p>
      */
     @Override
-    public String generateReportDocument(Report report, List<Task> tasks, ReportTemplate template) {
+    public String generateReportDocument(Report report, List<Task> tasks, ReportTemplate template, String operator) {
         InputStream templateStream = null;
         FileOutputStream out = null;
         File outputFile = null;
@@ -208,13 +209,13 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         try {
             if (report == null || template == null || template.getMinioId() == null || tasks == null || tasks.isEmpty()) {
                 log.error("多桥报告缺少报告、模板或任务");
-                return null;
+                throw new IllegalArgumentException("多桥报告缺少报告、模板或任务");
             }
 
             FileMap fileMap = fileMapService.selectFileMapById(template.getMinioId());
             if (fileMap == null || fileMap.getNewName() == null) {
                 log.error("未找到多桥模板文件");
-                return null;
+                throw new IllegalStateException("未找到多桥模板文件");
             }
 
             String fileName = fileMap.getNewName();
@@ -285,7 +286,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             document.getSettings().setUpdateFields();
             applyDocumentHeadingStyles(document);
             WordSectionLayoutUtils.rebindHeadersByOrientation(document, headerLayouts);
+            WordSectionLayoutUtils.continueBodyPageNumbers(document);
             applyReportHeader(document, allReportData, report);
+            WordReportPageNumberUtils.useLastBodyPageForFooterTotal(document);
 
             outputFile = File.createTempFile("line_multi_bridge_report_" + report.getId(), ".docx");
             out = new FileOutputStream(outputFile);
@@ -298,14 +301,14 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             FileMap reportFileMap = fileMapService.handleFileUploadFromFile(
                     outputFile,
                     report.getName() + "_" + System.currentTimeMillis() + ".docx",
-                    ShiroUtils.getLoginName());
+                    operator);
             report.setMinioId(Long.valueOf(reportFileMap.getId()));
             report.setStatus(1);
             reportMapper.updateReport(report);
             return reportFileMap.getId().toString();
         } catch (Exception e) {
             log.error("生成多桥报告失败", e);
-            return null;
+            throw new IllegalStateException("生成多桥报告失败：" + e.getMessage(), e);
         } finally {
             try {
                 if (templateStream != null) {
@@ -1396,23 +1399,18 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         CTPPr ppr = p.getCTP().getPPr();
         if (ppr == null) ppr = p.getCTP().addNewPPr();
 
-        if (level == 3) {
-            // 上部承重构件、上部一般构件、支座等按正文：宋体小四、两端对齐、首行缩进2字，不加粗。
-            applyBodyFormat(p, true);
-            ReportGenerateTools.setParagraphMixedFontText(
-                    p, "（" + appearanceComponentOrdinal(node, allNodes) + "）" + node.getName(), 24);
-        } else {
-            int actualHeadingLevel = baseHeadingLevel + level;
-            String headingStyle = String.valueOf(Math.min(actualHeadingLevel, 9));
-            p.setStyle(headingStyle);
-            p.setAlignment(ParagraphAlignment.LEFT);
-            CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
-            ind.setFirstLine(BigInteger.valueOf(0));
-            ind.setLeft(BigInteger.valueOf(0));
-            XWPFRun run = p.createRun();
-            run.setText(node.getName());
-            applyHeadingFormat(p, actualHeadingLevel);
-        }
+        // 模板中 styleId=6 是五级标题。分项构件与上级结构同属标题树，
+        // 由模板自动编号，不能改成带手工“（1）”序号的正文段落。
+        int actualHeadingLevel = baseHeadingLevel + level;
+        String headingStyle = String.valueOf(Math.min(actualHeadingLevel, 9));
+        p.setStyle(headingStyle);
+        p.setAlignment(ParagraphAlignment.LEFT);
+        CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
+        ind.setFirstLine(BigInteger.valueOf(0));
+        ind.setLeft(BigInteger.valueOf(0));
+        XWPFRun run = p.createRun();
+        run.setText(node.getName());
+        applyHeadingFormat(p, actualHeadingLevel);
 
         // 写病害信息；已维修、未找到不进检测结果表，对应照片也不导出
         List<Disease> nodeDiseases = diseaseMap.getOrDefault(node.getId(), List.of()).stream()
@@ -1565,9 +1563,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
             jc.setVal(STJcTable.CENTER);
 
-            // 总宽约 16.8 cm（9534 twips）
+            // 总宽 17.5 cm（取整为 9921 twips）
+            int totalWidth = 9921;
             CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-            tblWidth.setW(BigInteger.valueOf(9534));
+            tblWidth.setW(BigInteger.valueOf(totalWidth));
             tblWidth.setType(STTblWidth.DXA);
 
             // 设置表头
@@ -1576,9 +1575,18 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             // 表头文本数组
             String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
 
-            // 修改列宽比例，确保总和不超过页面宽度
+            // 按现有比例分配列宽，累计取整确保列宽之和等于表格总宽
             Double[] columnWidthRatios = {0.08, 0.12, 0.12, 0.08, 0.32, 0.10, 0.08, 0.10};
-            int totalWidth = 9534;
+            int[] columnWidths = new int[columnWidthRatios.length];
+            double cumulativeRatio = 0;
+            int allocatedWidth = 0;
+            for (int i = 0; i < columnWidthRatios.length; i++) {
+                cumulativeRatio += columnWidthRatios[i];
+                int cumulativeWidth = i == columnWidthRatios.length - 1
+                        ? totalWidth : (int) Math.round(totalWidth * cumulativeRatio);
+                columnWidths[i] = cumulativeWidth - allocatedWidth;
+                allocatedWidth = cumulativeWidth;
+            }
 
             CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
             tblLayout.setType(STTblLayoutType.FIXED);
@@ -1613,7 +1621,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 }
 
                 // 计算每列的实际宽度
-                int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                int columnWidth = columnWidths[i];
                 CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                 tcW.setW(BigInteger.valueOf(columnWidth));
                 tcW.setType(STTblWidth.DXA);
@@ -1641,7 +1649,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                     // 设置单元格宽度与表头一致
                     CTTc cttc = cell.getCTTc();
                     CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
-                    int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                    int columnWidth = columnWidths[i];
                     CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                     tcW.setW(BigInteger.valueOf(columnWidth));
                     tcW.setType(STTblWidth.DXA);
@@ -1763,28 +1771,6 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel, bridgeName);
             idx++;
         }
-    }
-
-    /**
-     * 外观检测部件正文序号，如「（1）上部承重构件」。跳过「其他」「附属设施」。
-     */
-    private int appearanceComponentOrdinal(BiObject node, List<BiObject> allNodes) {
-        if (node == null || node.getParentId() == null) {
-            return 1;
-        }
-        List<BiObject> siblings = ReportTemplateValueUtils.sortedReportChildren(allNodes, node.getParentId());
-        int ordinal = 0;
-        for (BiObject sibling : siblings) {
-            if (sibling == null || sibling.getName() == null
-                    || SKIPPED_COMPONENT_NODE_NAMES.contains(sibling.getName())) {
-                continue;
-            }
-            ordinal++;
-            if (Objects.equals(sibling.getId(), node.getId())) {
-                return ordinal;
-            }
-        }
-        return Math.max(ordinal, 1);
     }
 
     /**
@@ -2023,6 +2009,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 if (type == 0) {
                     if (key != null && key.contains("focusDiseases")) {
                         try {
+                            Map<Long, Set<Long>> recordIds = FocusDiseaseSelection.parseRecordIds(value);
+                            if (recordIds != null) {
+                                generateSelectedFocusDiseases(document, recordIds, groupTasks);
+                                continue;
+                            }
                             List<ComponentDiseaseType> combinations = parseChooseDiseaseJson(value);
                             if (!combinations.isEmpty()) {
                                 generateGroupFocusOnDiseases(document, combinations, groupTasks, project);
@@ -2239,7 +2230,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     private void applyBridgeSiteEnvironmentTableLayout(XWPFTable table) {
-        final int[] widths = {550, 1450, 3950, 1350, 1012};
+        // 总宽 17.5 cm（9921 twips），按原列宽比例分配并保证合计一致。
+        final int[] widths = {656, 1731, 4715, 1611, 1208};
         CTTblPr tblPr = table.getCTTbl().getTblPr();
         if (tblPr == null) {
             tblPr = table.getCTTbl().addNewTblPr();
@@ -2247,6 +2239,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         CTTblWidth tableWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
         tableWidth.setW(BigInteger.valueOf(Arrays.stream(widths).sum()));
         tableWidth.setType(STTblWidth.DXA);
+        CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
+        tblLayout.setType(STTblLayoutType.FIXED);
 
         CTTblGrid grid = table.getCTTbl().getTblGrid();
         if (grid == null) {
@@ -2583,8 +2577,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         ReportGenerateTools.setTableHeaderRepeat(table, 1);
 
-        // 17.5 cm = 9921 twips; preserve the original column proportions.
-        int[] widths = {520, 1145, 1561, 676, 676, 676, 676, 676, 676, 676, 572, 676, 715};
+        // 总宽仍为 17.5 cm；给 5 个测试值和最小值更多空间，文字列可自行换行。
+        int[] widths = {520, 1145, 1250, 780, 780, 780, 780, 780, 780, 600, 520, 600, 606};
         applyColumnWidths(table, widths, 9921);
 
         int bridgeMergeStart = headerRows;
@@ -2599,15 +2593,21 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                     setTableCell(row, 1, item.bridgeName);
                     setTableCell(row, 2, item.location);
                     setTableCell(row, 3 + valueCols, item.minText);
+                    keepNumericCellOnOneLine(row.getCell(3 + valueCols));
                     setTableCell(row, 4 + valueCols, item.temperatureText);
+                    keepNumericCellOnOneLine(row.getCell(4 + valueCols));
                     setTableCell(row, 5 + valueCols, item.correctionText);
+                    keepNumericCellOnOneLine(row.getCell(5 + valueCols));
                     setTableCell(row, 6 + valueCols, item.correctedMinText);
+                    keepNumericCellOnOneLine(row.getCell(6 + valueCols));
                     setTableCell(row, 7 + valueCols, item.scaleText);
+                    keepNumericCellOnOneLine(row.getCell(7 + valueCols));
                 }
                 for (int c = 0; c < valueCols; c++) {
                     int valueIndex = r * valueCols + c;
                     String value = valueIndex < item.values.size() ? item.values.get(valueIndex) : "";
                     setTableCell(row, 3 + c, value);
+                    keepNumericCellOnOneLine(row.getCell(3 + c));
                 }
             }
             mergeVerticalCells(table, start, end, 0);
@@ -2650,6 +2650,18 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
         tblWidth.setW(BigInteger.valueOf(totalWidth));
         tblWidth.setType(STTblWidth.DXA);
+        CTTblLayoutType layout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
+        layout.setType(STTblLayoutType.FIXED);
+        CTTblGrid grid = table.getCTTbl().getTblGrid();
+        if (grid == null) {
+            grid = table.getCTTbl().addNewTblGrid();
+        }
+        while (grid.sizeOfGridColArray() > 0) {
+            grid.removeGridCol(0);
+        }
+        for (int width : widths) {
+            grid.addNewGridCol().setW(BigInteger.valueOf(width));
+        }
         for (XWPFTableRow row : table.getRows()) {
             for (int col = 0; col < widths.length && col < row.getTableCells().size(); col++) {
                 XWPFTableCell cell = row.getCell(col);
@@ -2662,6 +2674,20 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 cellWidth.setType(STTblWidth.DXA);
             }
         }
+    }
+
+    private void keepNumericCellOnOneLine(XWPFTableCell cell) {
+        CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+        if (!tcPr.isSetNoWrap()) {
+            tcPr.addNewNoWrap();
+        }
+        CTTcMar margins = tcPr.isSetTcMar() ? tcPr.getTcMar() : tcPr.addNewTcMar();
+        CTTblWidth left = margins.isSetLeft() ? margins.getLeft() : margins.addNewLeft();
+        left.setW(BigInteger.valueOf(40));
+        left.setType(STTblWidth.DXA);
+        CTTblWidth right = margins.isSetRight() ? margins.getRight() : margins.addNewRight();
+        right.setW(BigInteger.valueOf(40));
+        right.setType(STTblWidth.DXA);
     }
 
     /**
@@ -2922,9 +2948,55 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         return resolveDiseaseTypeLabel(disease);
     }
 
-    /**
-     * 生成大桥重点关注病害内容，按子桥分别写入勾选的构件+病害类型。
-     */
+    /** 新版按具体病害 ID 生成，查询限定当前子桥、本次任务。 */
+    private void generateSelectedFocusDiseases(XWPFDocument document, Map<Long, Set<Long>> selections,
+                                                List<Task> groupTasks) {
+        StringBuilder content = new StringBuilder();
+        int index = 1;
+        for (Task task : groupTasks) {
+            if (task == null || task.getBuilding() == null
+                    || selections.getOrDefault(task.getId(), Set.of()).isEmpty()) continue;
+            Disease query = new Disease();
+            query.setTaskId(task.getId());
+            query.setBuildingId(task.getBuilding().getId());
+            List<Disease> selected = FocusDiseaseSelection.selectedRecords(
+                    selections, task.getId(), diseaseMapper.selectDiseaseList(query));
+            if (selected.isEmpty()) continue;
+            if (groupTasks.size() > 1) content.append(safeText(task.getBuilding().getName())).append("\n");
+            Map<Long, Component> components = new HashMap<>();
+            Map<Long, BiObject> objects = new HashMap<>();
+            for (Disease disease : selected) {
+                BiObject object = disease.getBiObjectId() == null ? null
+                        : objects.computeIfAbsent(disease.getBiObjectId(), biObjectMapper::selectBiObjectById);
+                Component component = disease.getComponentId() == null ? null
+                        : components.computeIfAbsent(disease.getComponentId(), componentService::selectComponentById);
+                String name = object == null ? safeText(disease.getBiObjectName()) : safeText(object.getName());
+                content.append(index++).append(")").append(name);
+                if (component != null && !isBlank(component.getCode())) {
+                    content.append("（").append(component.getCode()).append("）");
+                }
+                if (!isBlank(disease.getPosition())) content.append(" ").append(disease.getPosition());
+                content.append(" ").append(resolveDiseaseTypeLabel(disease)).append("\n");
+                if (!isBlank(disease.getDescription())) {
+                    content.append(ReportGenerateTools.formatAppearanceDiseaseDescription(disease.getDescription())).append("\n");
+                }
+                disease.setBuildingId(task.getBuilding().getId());
+                String cause = disease.getCause();
+                if (isBlank(cause)) {
+                    try {
+                        cause = getDiseaseCause(disease);
+                    } catch (IllegalStateException e) {
+                        log.warn("重点病害成因资料不完整，diseaseId={}: {}", disease.getId(), e.getMessage());
+                    }
+                }
+                content.append("成因分析：\n").append(isBlank(cause) ? "需补充成因分析" : cause).append("\n");
+            }
+        }
+        String text = content.toString().trim();
+        writeFocusOnDiseases(document, text.isEmpty() ? "无重点关注病害" : text);
+    }
+
+    /** 兼容旧数据：按子桥分别写入勾选的构件 + 病害类型。 */
     private void generateGroupFocusOnDiseases(XWPFDocument document, List<ComponentDiseaseType> combinations,
                                               List<Task> groupTasks, Project project) {
         try {
@@ -3497,16 +3569,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 }
             }
         }
-
-        // 在表格后添加空段落
-        XWPFParagraph spacerAfter;
-        if (cursor != null) {
-            spacerAfter = document.insertNewParagraph(cursor);
-            cursor.toNextToken();
-        } else {
-            spacerAfter = document.createParagraph();
-        }
-        spacerAfter.setSpacingAfter(300);
+        // 照片表格后直接接下一分项标题；检测结果表后的空行已在图片前插入。
     }
 
 
@@ -4232,7 +4295,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             XWPFTableCell cell = table.getRow(i).getCell(col);
             if (cell != null) {
                 // 设置垂直合并
-                cell.getCTTc().addNewTcPr().addNewVMerge().setVal(STMerge.CONTINUE);
+                CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+                CTVMerge vMerge = tcPr.isSetVMerge() ? tcPr.getVMerge() : tcPr.addNewVMerge();
+                vMerge.setVal(STMerge.CONTINUE);
             }
         }
 

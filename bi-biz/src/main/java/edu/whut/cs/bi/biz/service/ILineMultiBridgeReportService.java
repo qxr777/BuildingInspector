@@ -35,7 +35,7 @@ public interface ILineMultiBridgeReportService {
     /**
      * 生成多桥定期检查报告。
      *
-     * @return 生成的报告文件ID，失败返回 null
+     * @return 生成的报告文件ID；失败时抛出异常
      */
-    String generateReportDocument(Report report, List<Task> tasks, ReportTemplate template);
+    String generateReportDocument(Report report, List<Task> tasks, ReportTemplate template, String operator);
 }
