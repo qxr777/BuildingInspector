@@ -145,11 +145,16 @@ class PropertyServiceImplTest {
         when(buildingMapper.selectBuildingList(any(Building.class))).thenReturn(Collections.emptyList());
         when(propertyMapper.deletePropertyById(7L)).thenReturn(1);
 
-        int rows = propertyService.deletePropertyById(7L);
+        try (org.mockito.MockedStatic<ShiroUtils> shiroMock = mockStatic(ShiroUtils.class)) {
+            shiroMock.when(ShiroUtils::getLoginName).thenReturn("tester");
 
-        assertEquals(1, rows);
-        verify(propertyMapper, times(1)).deleteObjectChildren(7L);
-        verify(propertyMapper, times(1)).deletePropertyById(7L);
+            int rows = propertyService.deletePropertyById(7L);
+
+            assertEquals(1, rows);
+            verify(buildingMapper, times(1)).clearRootPropertyIdByPropertyId(7L, "tester");
+            verify(propertyMapper, times(1)).deleteObjectChildren(7L);
+            verify(propertyMapper, times(1)).deletePropertyById(7L);
+        }
     }
 
     /**

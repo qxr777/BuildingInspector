@@ -19,6 +19,12 @@ public interface FileMapMapper {
      */
     public FileMap selectFileMapById(Long id);
 
+    public FileMap selectFileMapByOldName(String oldName);
+
+    public FileMap selectLatestCommonTemplatePackage();
+
+    public List<FileMap> selectCommonTemplatePackageList(FileMap fileMap);
+
     /**Sa
      * 查询文件管理列表
      * 

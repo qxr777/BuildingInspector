@@ -22,6 +22,7 @@ public class FileMap {
     private String createBy;
     private String fileType; // 新增的文件类型字段
     private String url;
+    private String packageSize;
     private String attachmentRemark;
 
     private Long subjectId;

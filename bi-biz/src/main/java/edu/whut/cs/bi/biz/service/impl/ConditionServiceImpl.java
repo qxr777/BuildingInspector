@@ -191,8 +191,10 @@ public class ConditionServiceImpl implements IConditionService {
             condition.setScore(finalScore);
         }
 
-        // 7. 设置技术状况等级
-        condition.setLevel(calculateLevel(condition.getScore()));
+        // 7. 以报告显示的一位小数作为正式得分，并据此设置技术状况等级
+        BigDecimal displayedScore = condition.getScore().setScale(1, RoundingMode.HALF_UP);
+        condition.setScore(displayedScore);
+        condition.setLevel(calculateLevel(displayedScore));
 
         // 8. 更新记录
         condition.setUpdateBy(ShiroUtils.getLoginName());

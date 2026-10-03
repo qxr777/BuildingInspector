@@ -222,6 +222,7 @@ class DiseaseServiceImplTest {
         Disease updateParam = new Disease();
         updateParam.setId(1L);
         updateParam.setDiseaseTypeId(8L);
+        updateParam.setBiObjectId(100L);
         updateParam.setImgNoExp(null);
         updateParam.setDiseaseDetails(Collections.singletonList(new DiseaseDetail()));
 
@@ -233,6 +234,7 @@ class DiseaseServiceImplTest {
         old.setId(1L);
         old.setDiseaseTypeId(8L);
         old.setComponentId(20L);
+        old.setBiObjectId(100L);
         old.setBiObjectName("腹板");
 
         DiseaseType type = new DiseaseType();
@@ -243,6 +245,7 @@ class DiseaseServiceImplTest {
         Component oldComponent = new Component();
         oldComponent.setId(20L);
         oldComponent.setCode("OLD-CODE");
+        oldComponent.setName("OLD-CODE#腹板");
         oldComponent.setBiObjectId(100L);
 
         when(diseaseMapper.selectDiseaseById(1L)).thenReturn(old);
@@ -267,6 +270,7 @@ class DiseaseServiceImplTest {
         Disease updateParam = new Disease();
         updateParam.setId(2L);
         updateParam.setDiseaseTypeId(9L);
+        updateParam.setBiObjectId(101L);
         updateParam.setImgNoExp("X、Y");
         updateParam.setDiseaseDetails(Collections.singletonList(new DiseaseDetail()));
 
@@ -278,6 +282,7 @@ class DiseaseServiceImplTest {
         old.setId(2L);
         old.setDiseaseTypeId(9L);
         old.setComponentId(21L);
+        old.setBiObjectId(101L);
         old.setBiObjectName("桥面");
 
         DiseaseType type = new DiseaseType();
@@ -288,6 +293,7 @@ class DiseaseServiceImplTest {
         Component oldComponent = new Component();
         oldComponent.setId(21L);
         oldComponent.setCode("C01");
+        oldComponent.setName("C01#桥面");
         oldComponent.setBiObjectId(101L);
 
         when(diseaseMapper.selectDiseaseById(2L)).thenReturn(old);
@@ -426,6 +432,7 @@ class DiseaseServiceImplTest {
         Disease updateParam = new Disease();
         updateParam.setId(4L);
         updateParam.setDiseaseTypeId(10L);
+        updateParam.setBiObjectId(201L);
         updateParam.setType("保持原值");
         updateParam.setImgNoExp(null);
         updateParam.setDiseaseDetails(Collections.emptyList());
@@ -438,6 +445,7 @@ class DiseaseServiceImplTest {
         old.setId(4L);
         old.setDiseaseTypeId(10L);
         old.setComponentId(40L);
+        old.setBiObjectId(201L);
         old.setBiObjectName("桥面");
 
         DiseaseType type = new DiseaseType();
@@ -448,6 +456,7 @@ class DiseaseServiceImplTest {
         Component oldComponent = new Component();
         oldComponent.setId(40L);
         oldComponent.setCode("C09");
+        oldComponent.setName("C09#桥面");
         oldComponent.setBiObjectId(201L);
 
         when(diseaseMapper.selectDiseaseById(4L)).thenReturn(old);
@@ -470,6 +479,7 @@ class DiseaseServiceImplTest {
         Disease updateParam = new Disease();
         updateParam.setId(5L);
         updateParam.setDiseaseTypeId(11L);
+        updateParam.setBiObjectId(202L);
         updateParam.setType("原类型");
         updateParam.setImgNoExp(null);
         updateParam.setDiseaseDetails(Collections.emptyList());
@@ -496,11 +506,12 @@ class DiseaseServiceImplTest {
 
         Component selectedComponent = new Component();
         selectedComponent.setId(888L);
+        selectedComponent.setName("NEW-CODE#盖梁");
 
         when(diseaseMapper.selectDiseaseById(5L)).thenReturn(old);
         when(diseaseTypeMapper.selectDiseaseTypeById(11L)).thenReturn(type);
         when(componentService.selectComponentById(50L)).thenReturn(oldComponent);
-        when(componentMapper.selectComponent(any(Component.class))).thenReturn(selectedComponent);
+        when(componentMapper.selectComponentList(any(Component.class))).thenReturn(Collections.singletonList(selectedComponent));
         when(diseaseMapper.updateDisease(updateParam)).thenReturn(1);
 
         int result = diseaseService.updateDisease(updateParam);
@@ -623,7 +634,7 @@ class DiseaseServiceImplTest {
         adImg.put("url", "u7");
 
         when(biObjectMapper.selectChildrenById(1000L)).thenReturn(Collections.singletonList(child));
-        when(diseaseMapper.selectDiseaseListByBiObjectIds(anyList(), eq(2000L))).thenReturn(Collections.singletonList(ds));
+        when(diseaseMapper.selectDiseaseListByBiObjectIds(anyList(), any(Disease.class))).thenReturn(Collections.singletonList(ds));
         when(componentService.selectComponentById(20L)).thenReturn(component);
         when(biObjectMapper.selectDirectParentById(300L)).thenReturn(parent);
         when(biObjectMapper.selectBiObjectById(302L)).thenReturn(grand);
@@ -877,6 +888,7 @@ class DiseaseServiceImplTest {
         updateParam.setId(21L);
         updateParam.setDiseaseTypeId(31L);
         updateParam.setBiObjectId(501L);
+        updateParam.setBiObjectName("腹板");
         updateParam.setType("原类型");
         updateParam.setImgNoExp(null);
         updateParam.setDiseaseDetails(Collections.emptyList());
@@ -900,6 +912,7 @@ class DiseaseServiceImplTest {
         Component oldComponent = new Component();
         oldComponent.setId(601L);
         oldComponent.setCode("C01");
+        oldComponent.setName("C01#腹板");
         oldComponent.setBiObjectId(501L);
 
         when(diseaseMapper.selectDiseaseById(21L)).thenReturn(old);
@@ -924,6 +937,7 @@ class DiseaseServiceImplTest {
         updateParam.setId(22L);
         updateParam.setDiseaseTypeId(32L);
         updateParam.setBiObjectId(777L);
+        updateParam.setBiObjectName("盖梁");
         updateParam.setImgNoExp(null);
         updateParam.setDiseaseDetails(Collections.emptyList());
 
@@ -950,11 +964,12 @@ class DiseaseServiceImplTest {
 
         Component selectedComponent = new Component();
         selectedComponent.setId(999L);
+        selectedComponent.setName("NEW-CODE#盖梁");
 
         when(diseaseMapper.selectDiseaseById(22L)).thenReturn(old);
         when(diseaseTypeMapper.selectDiseaseTypeById(32L)).thenReturn(type);
         when(componentService.selectComponentById(602L)).thenReturn(oldComponent);
-        when(componentMapper.selectComponent(any(Component.class))).thenReturn(selectedComponent);
+        when(componentMapper.selectComponentList(any(Component.class))).thenReturn(Collections.singletonList(selectedComponent));
         when(diseaseMapper.updateDisease(updateParam)).thenReturn(1);
 
         int result = diseaseService.newUpdateDisease(updateParam);
@@ -965,12 +980,13 @@ class DiseaseServiceImplTest {
     }
 
     @Test
-    void testNewUpdateDisease_RebindWithoutExistingComponent_UpdateOldComponent() {
-        // 中文注释：换绑且目标构件不存在时，更新旧构件
+    void testNewUpdateDisease_RebindWithoutExistingComponent_InsertNewComponent() {
+        // master 新行为：换绑且目标构件不存在时，在目标对象下新建构件，而非更新旧构件
         Disease updateParam = new Disease();
         updateParam.setId(23L);
         updateParam.setDiseaseTypeId(33L);
         updateParam.setBiObjectId(778L);
+        updateParam.setBiObjectName("桥面");
         updateParam.setImgNoExp(null);
         updateParam.setDiseaseDetails(Collections.singletonList(new DiseaseDetail()));
 
@@ -995,21 +1011,30 @@ class DiseaseServiceImplTest {
         oldComponent.setCode("OLD");
         oldComponent.setBiObjectId(503L);
 
+        BiObject targetBiObject = new BiObject();
+        targetBiObject.setId(778L);
+        targetBiObject.setName("目标对象");
+
         when(diseaseMapper.selectDiseaseById(23L)).thenReturn(old);
         when(diseaseTypeMapper.selectDiseaseTypeById(33L)).thenReturn(type);
         when(componentService.selectComponentById(603L)).thenReturn(oldComponent);
-        when(componentMapper.selectComponent(any(Component.class))).thenReturn(null);
+        when(componentMapper.selectComponentList(any(Component.class))).thenReturn(Collections.emptyList());
+        when(biObjectMapper.selectBiObjectById(778L)).thenReturn(targetBiObject);
+        doAnswer(invocation -> {
+            Component c = invocation.getArgument(0);
+            c.setId(701L);
+            return 1;
+        }).when(componentService).insertComponent(any(Component.class));
+        doNothing().when(diseaseDetailMapper).insertDiseaseDetails(anyList());
         when(diseaseMapper.updateDisease(updateParam)).thenReturn(1);
 
-        try (MockedStatic<ShiroUtils> shiroUtilsMock = mockStatic(ShiroUtils.class)) {
-            shiroUtilsMock.when(ShiroUtils::getLoginName).thenReturn("tester");
+        int result = diseaseService.newUpdateDisease(updateParam);
 
-            int result = diseaseService.newUpdateDisease(updateParam);
-
-            assertEquals(1, result);
-            verify(componentService, times(1)).updateComponent(any(Component.class));
-            verify(diseaseDetailMapper, times(1)).insertDiseaseDetails(anyList());
-        }
+        assertEquals(1, result);
+        assertEquals(701L, updateParam.getComponentId());
+        verify(componentService, times(1)).insertComponent(any(Component.class));
+        verify(componentService, never()).updateComponent(any(Component.class));
+        verify(diseaseDetailMapper, times(1)).insertDiseaseDetails(anyList());
     }
 
     @Test
@@ -1019,6 +1044,7 @@ class DiseaseServiceImplTest {
         updateParam.setId(24L);
         updateParam.setDiseaseTypeId(34L);
         updateParam.setBiObjectId(504L);
+        updateParam.setBiObjectName("腹板");
         updateParam.setImgNoExp("A、B");
         updateParam.setDiseaseDetails(Collections.emptyList());
 
@@ -1040,6 +1066,7 @@ class DiseaseServiceImplTest {
         Component oldComponent = new Component();
         oldComponent.setId(604L);
         oldComponent.setCode("C11");
+        oldComponent.setName("C11#腹板");
         oldComponent.setBiObjectId(504L);
 
         when(diseaseMapper.selectDiseaseById(24L)).thenReturn(old);
@@ -1064,6 +1091,7 @@ class DiseaseServiceImplTest {
         updateParam.setId(25L);
         updateParam.setDiseaseTypeId(35L);
         updateParam.setBiObjectId(505L);
+        updateParam.setBiObjectName("腹板");
         updateParam.setImgNoExp("X、Y");
         updateParam.setDiseaseDetails(Collections.emptyList());
 
@@ -1085,6 +1113,7 @@ class DiseaseServiceImplTest {
         Component oldComponent = new Component();
         oldComponent.setId(605L);
         oldComponent.setCode("C12");
+        oldComponent.setName("C12#腹板");
         oldComponent.setBiObjectId(505L);
 
         when(diseaseMapper.selectDiseaseById(25L)).thenReturn(old);

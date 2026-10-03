@@ -67,9 +67,100 @@
         </where>
     </select>
 
+    <select id="selectBuildingExactList" parameterType="Building" resultMap="BuildingResult">
+        <include refid="selectBuildingVo"/>
+        <where>
+            b.del_flag = '0'
+            <if test="name != null  and name != ''"> and b.name = #{name}</if>
+            <if test="area != null  and area != ''"> and b.area = #{area}</if>
+            <if test="line != null  and line != ''"> and b.line = #{line}</if>
+        </where>
+    </select>
+
+    <select id="selectBatchUpdateLineConflicts" resultMap="BuildingResult">
+        SELECT old_b.id, old_b.name, old_b.is_leaf, old_b.status, old_b.del_flag,
+               old_b.longitude, old_b.latitude, old_b.altitude, old_b.address,
+               old_b.area, old_b.line, old_b.admin_dept, old_b.weight, old_b.video_feed,
+               old_b.root_object_id, old_b.root_property_id, old_b.remark,
+               old_b.create_by, old_b.create_time, old_b.update_by, old_b.update_time
+        FROM bi_building old_b
+                 INNER JOIN bi_building target_b
+                            ON target_b.del_flag = '0'
+                           AND target_b.line = #{targetLine}
+                           AND target_b.name = old_b.name
+                           AND target_b.area = old_b.area
+                           AND target_b.id != old_b.id
+        WHERE old_b.del_flag = '0'
+          AND old_b.line = #{originalLine}
+        LIMIT 10
+    </select>
+
+    <select id="selectAbnormalBridgeSpanList" parameterType="Building" resultMap="BuildingWithParentResult">
+        SELECT result.*
+        FROM (
+            SELECT b.id, b.name, b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude,
+                   b.address, b.area, b.line, b.admin_dept, b.weight, b.video_feed, b.root_object_id,
+                   b.root_property_id, b.remark, b.create_by, b.create_time, b.update_by, b.update_time,
+                   pb.id as parent_id, pb.name as parent_name, o.parent_id as parent_object_id
+            FROM bi_building b
+                     LEFT JOIN bi_object o ON b.root_object_id = o.id AND o.del_flag = '0'
+                     LEFT JOIN bi_template_object t ON o.template_object_id = t.id AND t.del_flag = '0'
+                     LEFT JOIN bi_building pb ON pb.root_object_id = o.parent_id AND pb.del_flag = '0'
+            <where>
+                b.del_flag = '0'
+                AND b.is_leaf = '1'
+                AND (
+                    b.root_object_id IS NULL
+                    OR o.id IS NULL
+                    OR o.template_object_id IS NULL
+                    OR t.id IS NULL
+                )
+                <if test="name != null  and name != ''"> and b.name like concat('%', #{name}, '%')</if>
+                <if test="status != null  and status != ''"> and b.status = #{status}</if>
+                <if test="area != null  and area != ''"> and b.area = #{area}</if>
+                <if test="line != null  and line != ''"> and b.line = #{line}</if>
+                <if test="adminDept != null  and adminDept != ''"> and b.admin_dept = #{adminDept}</if>
+            </where>
+
+            UNION
+
+            SELECT DISTINCT pb.id, pb.name, pb.is_leaf, pb.status, pb.del_flag, pb.longitude, pb.latitude,
+                   pb.altitude, pb.address, pb.area, pb.line, pb.admin_dept, pb.weight, pb.video_feed,
+                   pb.root_object_id, pb.root_property_id, pb.remark, pb.create_by, pb.create_time,
+                   pb.update_by, pb.update_time, null as parent_id, null as parent_name, null as parent_object_id
+            FROM bi_building b
+                     JOIN bi_object o ON b.root_object_id = o.id AND o.del_flag = '0'
+                     LEFT JOIN bi_template_object t ON o.template_object_id = t.id AND t.del_flag = '0'
+                     JOIN bi_building pb ON pb.root_object_id = o.parent_id AND pb.del_flag = '0' AND pb.is_leaf = '0'
+            <where>
+                b.del_flag = '0'
+                AND b.is_leaf = '1'
+                AND (
+                    o.template_object_id IS NULL
+                    OR t.id IS NULL
+                )
+                <if test="name != null  and name != ''"> and b.name like concat('%', #{name}, '%')</if>
+                <if test="status != null  and status != ''"> and b.status = #{status}</if>
+                <if test="area != null  and area != ''"> and b.area = #{area}</if>
+                <if test="line != null  and line != ''"> and b.line = #{line}</if>
+                <if test="adminDept != null  and adminDept != ''"> and b.admin_dept = #{adminDept}</if>
+            </where>
+        ) result
+        ORDER BY result.is_leaf, result.id
+    </select>
+
     <select id="selectBuildingById" parameterType="Long" resultMap="BuildingResult">
         <include refid="selectBuildingVo"/>
         where b.id = #{id} and b.del_flag = '0'
+    </select>
+
+    <select id="selectBuildingsByIds" resultMap="BuildingResult">
+        <include refid="selectBuildingVo"/>
+        where b.id in
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and b.del_flag = '0'
     </select>
 
     <select id="selectProjectBuildingVOList" resultType="ProjectBuildingVO">
@@ -195,6 +286,33 @@
             <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>
         where id = #{id}
+    </update>
+
+    <update id="batchUpdateLine">
+        update bi_building
+        set line = #{targetLine},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where del_flag = '0'
+          and line = #{originalLine}
+    </update>
+
+    <update id="updateBuildingRootObjectId">
+        update bi_building
+        set root_object_id = #{rootObjectId},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where id = #{id}
+          and del_flag = '0'
+    </update>
+
+    <update id="clearRootPropertyIdByPropertyId">
+        update bi_building
+        set root_property_id = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where root_property_id = #{propertyId}
+          and del_flag = '0'
     </update>
 
     <delete id="deleteBuildingById" parameterType="Long">

@@ -14,13 +14,14 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
-import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
+import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.service.impl.ReportServiceImpl;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import io.minio.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.poi.xwpf.usermodel.*;
@@ -34,6 +35,7 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 import io.minio.GetPresignedObjectUrlArgs;
@@ -61,6 +63,9 @@ public class ReportController extends BaseController {
 
     @Autowired
     private IReportService reportService;
+
+    @Autowired
+    private ILineMultiBridgeReportService lineMultiBridgeReportService;
 
     @Autowired
     private ReportMapper reportMapper;
@@ -272,12 +277,12 @@ public class ReportController extends BaseController {
 
             // Part 1: 加粗的开头部分
             XWPFRun runBold = introPara.createRun();
-            runBold.setText("经检查，" + node.getName() + " 主要病害为:");
+            runBold.setText("经检查，" + node.getName() + " 主要病害为：");
             runBold.setBold(true);
             runBold.setFontSize(12); // 设置字号与后面一致
 
             // Part 2: 生成病害小结
-            String diseaseString = reportService.getDiseaseSummary(nodeDiseases);
+            String diseaseString = reportService.getDiseaseSummary(nodeDiseases, node.getName());
             // 按行分割字符串并创建多个段落
             String[] lines = diseaseString.split("\\r?\\n"); // 支持Windows(\r\n)和Unix(\n)换行符
 
@@ -328,7 +333,7 @@ public class ReportController extends BaseController {
 
             tableNumber = "4." + tableCounter++; // 生成表格编号
             XWPFRun runTableRef = tableRefPara.createRun();
-            runTableRef.setText("具体检测结果见下表 " + tableNumber + ":");
+            runTableRef.setText("具体检测结果见下表 " + tableNumber + "：");
             runTableRef.setFontSize(12); // 设置字号
 
             // 添加表格编号
@@ -438,7 +443,7 @@ public class ReportController extends BaseController {
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(d.getDescription() != null ? d.getDescription() : "/");
+                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
                             break;
                         case 5:
                             cellR.setText(d.getLevel() > 0 ? String.valueOf(d.getLevel()) : "/");
@@ -660,6 +665,8 @@ public class ReportController extends BaseController {
             Map<String, Object> data = new HashMap<>();
             data.put("templateName", template.getName());
             data.put("templateId", template.getId());
+            data.put("fillUrl", ReportTemplateTypes.resolveFillPath(template.getName(), id));
+            data.put("fillTitle", ReportTemplateTypes.resolveFillTitle(template.getName()));
 
             return AjaxResult.success("获取模板信息成功", data);
         } catch (Exception e) {
@@ -706,9 +713,6 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("并行生成报告数量达到上限，请稍后重试");
             }
 
-            if (report.getMinioId() != null) {
-                fileMapServiceImpl.deleteFileMapById(report.getMinioId());
-            }
             // 获取报告关联的任务ID
             String taskIdsStr = report.getTaskIds();
             if (taskIdsStr == null || taskIdsStr.isEmpty()) {
@@ -746,9 +750,6 @@ public class ReportController extends BaseController {
                 if (properties == null || properties.isEmpty()) {
                     return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
                 }
-                if (!isContainsNewBasicInfoCardProperty(properties)) {
-                    return AjaxResult.error("该桥梁的桥梁信息卡片需要更新，请使用Excel尝试导入");
-                }
                 BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
                 if (biEvaluation == null || biEvaluation.getSystemLevel() == null) {
                     return AjaxResult.error("该任务未进行评定，请评定后再生成报告");
@@ -759,11 +760,52 @@ public class ReportController extends BaseController {
                 }
             }
 
+            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+            if (template == null) {
+                return AjaxResult.error("报告模板不存在");
+            }
+            if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
+                tasks = lineMultiBridgeReportService.orderTasksBySelection(taskIds, tasks);
+                String error = lineMultiBridgeReportService.validateTasks(report, tasks);
+                if (error != null) {
+                    return AjaxResult.error(error);
+                }
+                reportServiceImpl.generateReportDocumentAsync(report, tasks, null, template, ShiroUtils.getLoginName());
+                return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
+            }
+
             // 验证所有任务是否属于同一组合桥下的子桥
             Long rootParentId = null;
             Set<Long> parentObjectIds = new HashSet<>();
-            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+
             if(template.getName().contains("斜拉桥、悬索桥通用")) {
+                for (Task task : tasks) {
+                    Building building = task.getBuilding();
+                    if (building == null) {
+                        return AjaxResult.error("任务关联的建筑不存在：任务ID " + task.getId());
+                    }
+
+                    // 查询建筑的根对象
+                    if (building.getRootObjectId() == null) {
+                        return AjaxResult.error("建筑未关联根对象：" + building.getName());
+                    }
+
+                    BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+                    if (rootObject == null) {
+                        return AjaxResult.error("建筑的根对象不存在：" + building.getName());
+                    }
+
+                    // 检查是否为子桥（parentId不为0）
+                    if (rootObject.getParentId() == null || rootObject.getParentId() == 0) {
+                        return AjaxResult.error("请选择组合桥的桥幅，建筑【" + building.getName() + "】不是组合桥桥幅");
+                    }
+                    rootParentId = rootObject.getParentId();
+                    parentObjectIds.add(rootObject.getParentId());
+                }
+            }
+
+            // 测试模板也需要验证是否为同一组合桥下的子桥
+            if(template.getName().contains("测试")) {
                 for (Task task : tasks) {
                     Building building = task.getBuilding();
                     if (building == null) {
@@ -794,20 +836,13 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("请选择同一个组合桥下的子桥任务");
             }
             // 异步生成报告
-            reportServiceImpl.generateReportDocumentAsync(report, tasks, rootParentId,template);
+            reportServiceImpl.generateReportDocumentAsync(report, tasks, rootParentId, template, ShiroUtils.getLoginName());
 
             return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
         } catch (Exception e) {
             logger.error("生成报告失败", e);
             return AjaxResult.error("生成报告失败：" + e.getMessage());
         }
-    }
-
-    private boolean isContainsNewBasicInfoCardProperty(List<Property> properties) {
-        Optional<Property> isNewProperty = properties.stream().filter(a -> a.getName().equals(ReportConstants.BRIDGE_BASIC_INFO_NEW_PROPERTY_NAME)).findFirst();
-        if (isNewProperty.isPresent()) {
-            return true;
-        } else return false;
     }
 
     /**

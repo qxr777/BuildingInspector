@@ -117,6 +117,11 @@ public class BuildingServiceImpl implements IBuildingService {
     public List<Building> selectBuildingList(Building building) {
         return buildingMapper.selectBuildingList(building);
     }
+
+    @Override
+    public List<Building> selectAbnormalBridgeSpanList(Building building) {
+        return buildingMapper.selectAbnormalBridgeSpanList(building);
+    }
     
     /**
      * 新增建筑
@@ -338,6 +343,28 @@ public class BuildingServiceImpl implements IBuildingService {
      * @param ids 需要删除的建筑主键
      * @return 结果
      */
+    @Override
+    @Transactional
+    public int batchUpdateLine(String originalLine, String targetLine) {
+        if (StringUtils.isEmpty(originalLine) || StringUtils.isEmpty(targetLine)) {
+            throw new RuntimeException("原线路和修改后的线路不能为空");
+        }
+        if (originalLine.equals(targetLine)) {
+            return 0;
+        }
+
+        List<Building> conflicts = buildingMapper.selectBatchUpdateLineConflicts(originalLine, targetLine);
+        if (CollUtil.isNotEmpty(conflicts)) {
+            String conflictNames = conflicts.stream()
+                    .limit(5)
+                    .map(Building::getName)
+                    .collect(Collectors.joining("、"));
+            throw new RuntimeException("修改后会产生同片区同线路同名桥梁：" + conflictNames);
+        }
+
+        return buildingMapper.batchUpdateLine(originalLine, targetLine, ShiroUtils.getLoginName());
+    }
+
     @Override
     @Transactional
     public int deleteBuildingByIds(String ids) {
@@ -759,6 +786,113 @@ public class BuildingServiceImpl implements IBuildingService {
     @Override
     public Building selectBuildingWithParentInfo(Long id) {
         return buildingMapper.selectBuildingWithParentInfo(id);
+    }
+
+    @Override
+    @Transactional
+    public int repairBridgeSpanObjectTree(Building building) {
+        if (building == null || building.getId() == null) {
+            throw new RuntimeException("修复桥幅ID不能为空");
+        }
+        if (building.getTemplateId() == null) {
+            throw new RuntimeException("修复桥幅模板ID不能为空");
+        }
+
+        Building existing = buildingMapper.selectBuildingById(building.getId());
+        if (existing == null) {
+            throw new RuntimeException("未找到需要修复的桥梁：" + building.getName());
+        }
+        if (!"1".equals(existing.getIsLeaf())) {
+            throw new RuntimeException("仅支持修复桥幅：" + existing.getName());
+        }
+        if (existing.getRootObjectId() != null) {
+            throw new RuntimeException("桥幅已存在构件树，无需修复：" + existing.getName());
+        }
+
+        Long parentRootObjectId = 0L;
+        if (building.getParentId() != null) {
+            Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+            if (parentBridge == null || parentBridge.getRootObjectId() == null) {
+                throw new RuntimeException("父桥不存在或未生成构件树：" + existing.getName());
+            }
+            parentRootObjectId = parentBridge.getRootObjectId();
+        }
+
+        BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
+        if (template == null) {
+            throw new RuntimeException("未找到指定模版：" + building.getTemplateId());
+        }
+        List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
+        Long rootObjectId = generateMaintenanceTree(existing.getName(), template, children, parentRootObjectId);
+        int rows = buildingMapper.updateBuildingRootObjectId(existing.getId(), rootObjectId, ShiroUtils.getLoginName());
+        if (rows <= 0) {
+            throw new RuntimeException("回写桥幅构件树失败：" + existing.getName());
+        }
+        return rows;
+    }
+
+    @Override
+    @Transactional
+    public int repairCombinationBridgeRoot(Building building) {
+        if (building == null || building.getId() == null) {
+            throw new RuntimeException("修复组合桥ID不能为空");
+        }
+
+        Building existing = buildingMapper.selectBuildingById(building.getId());
+        if (existing == null) {
+            throw new RuntimeException("未找到需要修复的组合桥：" + building.getName());
+        }
+        if (StringUtils.isNotEmpty(building.getArea()) && !building.getArea().equals(existing.getArea())) {
+            throw new RuntimeException("片区不一致，不能自动转换为组合桥：" + existing.getName());
+        }
+        if (StringUtils.isNotEmpty(building.getLine()) && !building.getLine().equals(existing.getLine())) {
+            throw new RuntimeException("线路不一致，不能自动转换为组合桥：" + existing.getName());
+        }
+        if ("0".equals(existing.getIsLeaf()) && existing.getRootObjectId() != null) {
+            return 0;
+        }
+        if (!"0".equals(existing.getIsLeaf()) && !"1".equals(existing.getIsLeaf())) {
+            throw new RuntimeException("桥梁类型异常，不能修复为组合桥：" + existing.getName());
+        }
+
+        Long parentRootObjectId = 0L;
+        if (building.getParentId() != null) {
+            Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+            if (parentBridge == null || parentBridge.getRootObjectId() == null) {
+                throw new RuntimeException("父桥不存在或未生成构件树：" + existing.getName());
+            }
+            parentRootObjectId = parentBridge.getRootObjectId();
+        }
+
+        if ("1".equals(existing.getIsLeaf()) && existing.getRootObjectId() != null) {
+            int deletedRows = biObjectService.logicDeleteByRootObjectId(existing.getRootObjectId(), ShiroUtils.getLoginName());
+            if (deletedRows <= 0) {
+                throw new RuntimeException("删除桥幅旧构件树失败：" + existing.getName());
+            }
+        }
+
+        BiObject rootObject = new BiObject();
+        rootObject.setName(existing.getName());
+        rootObject.setParentId(parentRootObjectId);
+        BiObject parentObject = biObjectService.selectBiObjectById(parentRootObjectId);
+        rootObject.setAncestors(parentObject == null ? "0" : parentObject.getAncestors() + "," + parentRootObjectId);
+        rootObject.setOrderNum(0);
+        rootObject.setStatus("0");
+        rootObject.setCreateBy(ShiroUtils.getLoginName());
+        rootObject.setCreateTime(DateUtils.getNowDate());
+        biObjectService.insertBiObject(rootObject);
+
+        Building update = new Building();
+        update.setId(existing.getId());
+        update.setIsLeaf("0");
+        update.setRootObjectId(rootObject.getId());
+        update.setUpdateBy(ShiroUtils.getLoginName());
+        update.setUpdateTime(DateUtils.getNowDate());
+        int rows = buildingMapper.updateBuilding(update);
+        if (rows <= 0) {
+            throw new RuntimeException("回写组合桥构件树失败：" + existing.getName());
+        }
+        return rows;
     }
     
     private static final Map<String, Long> BRIDGE_TYPE_MAP = new HashMap<>();

@@ -15,6 +15,8 @@ import java.util.Map;
  **/
 public interface TestConclusionService {
 
+    String NO_SUCH_COMPONENT_TEXT = "经检查，该桥无此构件。";
+
     /**
      * 处理第十章检测结论占位符
      *

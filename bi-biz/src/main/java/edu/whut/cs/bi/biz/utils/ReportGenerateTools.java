@@ -354,8 +354,7 @@ public class ReportGenerateTools {
 
                     // 如果有标题且不是封面图片，添加标题段落
                     if (imageTitle != null && !imageTitle.isEmpty() && !isCoverImage) {
-                        // 使用insertNewParagraph在指定位置插入，避免在文档末尾创建
-                        XWPFParagraph titleParagraph = document.insertNewParagraph(paragraph.getCTP().newCursor());
+                        XWPFParagraph titleParagraph = insertParagraphAfter(document, paragraph);
                         titleParagraph.setAlignment(ParagraphAlignment.CENTER);
                         titleParagraph.setStyle("12");
                         titleParagraph.setSpacingBefore(100);
@@ -445,6 +444,17 @@ public class ReportGenerateTools {
         log.warn("未找到占位符在文档中: {}, 请检查Word模板中是否存在该占位符", placeholder);
     }
 
+    private static XWPFParagraph insertParagraphAfter(XWPFDocument document, XWPFParagraph paragraph) {
+        org.apache.xmlbeans.XmlCursor cursor = paragraph.getCTP().newCursor();
+        try {
+            cursor.toEndToken();
+            cursor.toNextToken();
+            return document.insertNewParagraph(cursor);
+        } finally {
+            cursor.dispose();
+        }
+    }
+
     /**
      * 合并段落中的所有文本运行（Runs），解决Word将占位符分割的问题
      *
@@ -472,6 +482,19 @@ public class ReportGenerateTools {
 
 
     /**
+     * 设置表格前几行在跨页时重复显示（对应 Word「重复标题行」）。
+     */
+    public static void setTableHeaderRepeat(XWPFTable table, int headerRowCount) {
+        if (table == null || headerRowCount <= 0) {
+            return;
+        }
+        int limit = Math.min(headerRowCount, table.getNumberOfRows());
+        for (int i = 0; i < limit; i++) {
+            setTableHeaderRepeat(table.getRow(i));
+        }
+    }
+
+    /**
      * 设置表格标题行在跨页时重复显示
      * <p>
      * 当表格内容跨越多页时，会在每个新页面的顶部自动重复显示标题行，
@@ -481,14 +504,16 @@ public class ReportGenerateTools {
      * @param headerRow 需要设置为重复标题的表格行（通常是第一行）
      */
     public static void setTableHeaderRepeat(XWPFTableRow headerRow) {
+        if (headerRow == null) {
+            return;
+        }
         CTTrPr trPr = headerRow.getCtRow().getTrPr();
         if (trPr == null) {
             trPr = headerRow.getCtRow().addNewTrPr();
         }
-
-        // 设置 tblHeader 属性，标记该行为表头
-        // 直接添加tblHeader元素即表示启用
-        trPr.addNewTblHeader();
+        if (trPr.sizeOfTblHeaderArray() == 0) {
+            trPr.addNewTblHeader();
+        }
     }
 
     /**
@@ -522,20 +547,34 @@ public class ReportGenerateTools {
      * @param fontSize 字号（half-points，例如21表示10.5pt，20表示10pt）
      */
     public static void setMixedFontFamily(XWPFRun run, int fontSize) {
+        setMixedFontFamily(run, fontSize, "宋体");
+    }
+
+    /**
+     * 英文和数字使用 Times New Roman，中文使用指定字体。
+     *
+     * @param eastAsiaFont 中文字体，如「宋体」「黑体」
+     */
+    public static void setMixedFontFamily(XWPFRun run, int fontSize, String eastAsiaFont) {
         CTRPr rpr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
 
-        // 设置字体（直接添加，不检查isSet）
+        while (rpr.sizeOfRFontsArray() > 0) {
+            rpr.removeRFonts(0);
+        }
+        while (rpr.sizeOfSzArray() > 0) {
+            rpr.removeSz(0);
+        }
+        while (rpr.sizeOfSzCsArray() > 0) {
+            rpr.removeSzCs(0);
+        }
+
         CTFonts fonts = rpr.addNewRFonts();
-        fonts.setAscii("Times New Roman");        // ASCII字符（英文字母、数字、标点）
-        fonts.setHAnsi("Times New Roman");        // 高位ANSI字符（英文）
-        fonts.setEastAsia("宋体");                 // 东亚字符（中文）
+        fonts.setAscii("Times New Roman");
+        fonts.setHAnsi("Times New Roman");
+        fonts.setEastAsia(eastAsiaFont == null || eastAsiaFont.isEmpty() ? "宋体" : eastAsiaFont);
 
-        // 设置字号（直接添加，不检查isSet）
-        CTHpsMeasure sz = rpr.addNewSz();
-        sz.setVal(BigInteger.valueOf(fontSize));
-
-        CTHpsMeasure szCs = rpr.addNewSzCs();
-        szCs.setVal(BigInteger.valueOf(fontSize));
+        rpr.addNewSz().setVal(BigInteger.valueOf(fontSize));
+        rpr.addNewSzCs().setVal(BigInteger.valueOf(fontSize));
     }
 
     private static void clearParagraph(XWPFParagraph paragraph) {
@@ -594,6 +633,16 @@ public class ReportGenerateTools {
     }
 
     /**
+     * 外观检测表「病害描述」：去掉「面积 S=」里的「面积」，只保留 S=。
+     */
+    public static String formatAppearanceDiseaseDescription(String description) {
+        if (description == null || description.trim().isEmpty()) {
+            return "/";
+        }
+        return description.replaceAll("面积\\s*(?=S)", "");
+    }
+
+    /**
      * 针对报告的需求， 根据病害裂缝特征 返回 带有特征的病害类型 ， 例如 纵向裂缝。
      */
     public static String reportDiseaseTypeNameIfCrack(Disease disease) {
@@ -606,5 +655,202 @@ public class ReportGenerateTools {
             return disease.getDiseaseType().getName();
         }
         return disease.getCrackType() + ReportConstants.DISEASE_TYPE_NAME_CRACK;
+    }
+
+    /**
+     * 表格默认小五（9 磅 = 18 half-points）。
+     */
+    public static final int TABLE_FONT_HALF_POINTS = 18;
+
+    /**
+     * 把文档里所有表格的数字/英文改成 Times New Roman，中文保持宋体。
+     * Word/WPS 在 hint=eastAsia 时会用宋体画数字，所以数字必须拆成独立 run。
+     */
+    public static void applyMixedFontsToTables(XWPFDocument document) {
+        applyMixedFontsToTables(document, TABLE_FONT_HALF_POINTS);
+    }
+
+    public static void applyMixedFontsToTables(XWPFDocument document, int defaultHalfPoints) {
+        if (document == null) {
+            return;
+        }
+        for (XWPFTable table : document.getTables()) {
+            applyMixedFontsToTable(table, defaultHalfPoints);
+        }
+    }
+
+    public static void applyMixedFontsToTable(XWPFTable table, int defaultHalfPoints) {
+        if (table == null) {
+            return;
+        }
+        for (XWPFTableRow row : table.getRows()) {
+            for (XWPFTableCell cell : row.getTableCells()) {
+                for (XWPFParagraph paragraph : cell.getParagraphs()) {
+                    rewriteParagraphMixedFonts(paragraph, defaultHalfPoints, "宋体");
+                }
+            }
+        }
+    }
+
+    public static void setParagraphMixedFontText(XWPFParagraph paragraph, String text, int fontHalfPoints) {
+        setParagraphMixedFontText(paragraph, text, fontHalfPoints, false, "宋体");
+    }
+
+    public static void setParagraphMixedFontText(XWPFParagraph paragraph, String text, int fontHalfPoints,
+                                                 boolean bold, String eastAsiaFont) {
+        if (paragraph == null) {
+            return;
+        }
+        while (!paragraph.getRuns().isEmpty()) {
+            paragraph.removeRun(0);
+        }
+        appendMixedFontRuns(paragraph, text == null ? "" : text, fontHalfPoints, bold, eastAsiaFont);
+    }
+
+    static void rewriteParagraphMixedFonts(XWPFParagraph paragraph, int defaultHalfPoints, String eastAsiaFont) {
+        if (paragraph == null || paragraphHasField(paragraph) || paragraphHasDrawing(paragraph)) {
+            return;
+        }
+        String text = paragraph.getText();
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        boolean bold = false;
+        int fontHalfPoints = defaultHalfPoints;
+        List<XWPFRun> runs = paragraph.getRuns();
+        if (runs != null) {
+            for (XWPFRun run : runs) {
+                if (Boolean.TRUE.equals(run.isBold())) {
+                    bold = true;
+                }
+                Integer size = runFontHalfPoints(run);
+                if (size != null) {
+                    fontHalfPoints = size;
+                    break;
+                }
+            }
+        }
+        while (!paragraph.getRuns().isEmpty()) {
+            paragraph.removeRun(0);
+        }
+        appendMixedFontRuns(paragraph, text, fontHalfPoints, bold, eastAsiaFont);
+    }
+
+    public static void appendMixedFontRuns(XWPFParagraph paragraph, String text, int fontHalfPoints,
+                                           boolean bold, String eastAsiaFont) {
+        if (paragraph == null) {
+            return;
+        }
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        String chineseFont = eastAsiaFont == null || eastAsiaFont.isEmpty() ? "宋体" : eastAsiaFont;
+        StringBuilder chunk = new StringBuilder();
+        Boolean ascii = null;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '\r') {
+                continue;
+            }
+            if (ch == '\n') {
+                flushMixedFontChunk(paragraph, chunk, ascii, fontHalfPoints, bold, chineseFont);
+                ascii = null;
+                if (!paragraph.getRuns().isEmpty()) {
+                    paragraph.getRuns().get(paragraph.getRuns().size() - 1).addBreak();
+                } else {
+                    paragraph.createRun().addBreak();
+                }
+                continue;
+            }
+            boolean currentAscii = isWesternChar(ch);
+            if (ascii != null && currentAscii != ascii) {
+                flushMixedFontChunk(paragraph, chunk, ascii, fontHalfPoints, bold, chineseFont);
+            }
+            ascii = currentAscii;
+            chunk.append(ch);
+        }
+        flushMixedFontChunk(paragraph, chunk, ascii, fontHalfPoints, bold, chineseFont);
+    }
+
+    private static void flushMixedFontChunk(XWPFParagraph paragraph, StringBuilder chunk, Boolean ascii,
+                                            int fontHalfPoints, boolean bold, String chineseFont) {
+        if (chunk.length() == 0) {
+            return;
+        }
+        XWPFRun run = paragraph.createRun();
+        run.setText(chunk.toString());
+        run.setBold(bold);
+        if (Boolean.TRUE.equals(ascii)) {
+            applyWesternFont(run, fontHalfPoints);
+        } else {
+            setMixedFontFamily(run, fontHalfPoints, chineseFont);
+        }
+        chunk.setLength(0);
+    }
+
+    /**
+     * 数字、英文必须四个字体槽都写 Times New Roman，否则 WPS/Word 在 eastAsia hint 下仍用宋体画数字。
+     */
+    private static void applyWesternFont(XWPFRun run, int fontHalfPoints) {
+        CTRPr rpr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+        while (rpr.sizeOfRFontsArray() > 0) {
+            rpr.removeRFonts(0);
+        }
+        while (rpr.sizeOfSzArray() > 0) {
+            rpr.removeSz(0);
+        }
+        while (rpr.sizeOfSzCsArray() > 0) {
+            rpr.removeSzCs(0);
+        }
+        CTFonts fonts = rpr.addNewRFonts();
+        fonts.setAscii("Times New Roman");
+        fonts.setHAnsi("Times New Roman");
+        fonts.setCs("Times New Roman");
+        fonts.setEastAsia("Times New Roman");
+        fonts.setHint(STHint.DEFAULT);
+        rpr.addNewSz().setVal(BigInteger.valueOf(fontHalfPoints));
+        rpr.addNewSzCs().setVal(BigInteger.valueOf(fontHalfPoints));
+    }
+
+    static boolean isWesternChar(char ch) {
+        return ch <= 0x7F;
+    }
+
+    private static boolean paragraphHasDrawing(XWPFParagraph paragraph) {
+        if (paragraph.getCTP() == null) {
+            return false;
+        }
+        for (CTR run : paragraph.getCTP().getRArray()) {
+            if (run.sizeOfDrawingArray() > 0 || run.sizeOfPictArray() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean paragraphHasField(XWPFParagraph paragraph) {
+        if (paragraph.getCTP() == null) {
+            return false;
+        }
+        String xml = paragraph.getCTP().xmlText();
+        return xml.contains("w:fldChar") || xml.contains("w:instrText");
+    }
+
+    private static Integer runFontHalfPoints(XWPFRun run) {
+        if (run == null || !run.getCTR().isSetRPr()) {
+            return null;
+        }
+        CTRPr rpr = run.getCTR().getRPr();
+        if (rpr.sizeOfSzArray() > 0 && rpr.getSzArray(0).getVal() != null) {
+            Object val = rpr.getSzArray(0).getVal();
+            if (val instanceof Number) {
+                return ((Number) val).intValue();
+            }
+        }
+        Double points = run.getFontSizeAsDouble();
+        if (points != null && points > 0) {
+            return (int) Math.round(points * 2);
+        }
+        return null;
     }
 }

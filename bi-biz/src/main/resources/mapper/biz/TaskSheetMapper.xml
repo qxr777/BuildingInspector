@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.TaskSheetMapper">
+
+    <resultMap type="edu.whut.cs.bi.biz.domain.TaskSheet" id="TaskSheetResult">
+        <id     property="id"           column="id"/>
+        <result property="taskId"       column="task_id"/>
+        <result property="buildingId"   column="building_id"/>
+        <result property="sheetMinioId" column="sheet_minioId"/>
+        <result property="type"         column="type"/>
+    </resultMap>
+
+    <select id="selectListByTaskId" resultMap="TaskSheetResult">
+        SELECT id, task_id, building_id, sheet_minioId, type
+        FROM bi_task_sheets
+        WHERE task_id = #{taskId}
+    </select>
+
+    <select id="selectByTaskIdAndType" resultMap="TaskSheetResult">
+        SELECT id, task_id, building_id, sheet_minioId, type
+        FROM bi_task_sheets
+        WHERE task_id = #{taskId}
+          AND type = #{type}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="edu.whut.cs.bi.biz.domain.TaskSheet"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO bi_task_sheets (task_id, building_id, sheet_minioId, type)
+        VALUES (#{taskId}, #{buildingId}, #{sheetMinioId}, #{type})
+    </insert>
+
+    <update id="updateSheetMinioId" parameterType="edu.whut.cs.bi.biz.domain.TaskSheet">
+        UPDATE bi_task_sheets
+        SET sheet_minioId = #{sheetMinioId}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM bi_task_sheets WHERE id = #{id}
+    </delete>
+
+</mapper>

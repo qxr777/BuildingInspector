@@ -32,6 +32,14 @@ public interface IBuildingService {
     public List<Building> selectBuildingList(Building building);
 
     /**
+     * 查询异常桥幅及可确定的父级组合桥
+     *
+     * @param building 建筑
+     * @return 建筑集合
+     */
+    public List<Building> selectAbnormalBridgeSpanList(Building building);
+
+    /**
      * 新增建筑
      *
      * @param building 建筑
@@ -53,6 +61,8 @@ public interface IBuildingService {
      * @param ids 需要删除的建筑主键集合
      * @return 结果
      */
+    public int batchUpdateLine(String originalLine, String targetLine);
+
     public int deleteBuildingByIds(String ids);
 
     /**
@@ -96,6 +106,22 @@ public interface IBuildingService {
      * @return 带有父桥信息的建筑
      */
     public Building selectBuildingWithParentInfo(Long id);
+
+    /**
+     * 为已存在且缺少构件树的桥幅补建构件树
+     *
+     * @param building 桥幅信息，需包含id、templateId，可选parentId
+     * @return 更新结果
+     */
+    public int repairBridgeSpanObjectTree(Building building);
+
+    /**
+     * 修复组合桥根节点。若历史数据把组合桥保存为无构件树的桥幅，则转换为组合桥并补建根节点。
+     *
+     * @param building 组合桥信息，需包含id，可选parentId
+     * @return 更新结果
+     */
+    public int repairCombinationBridgeRoot(Building building);
 
     /**
      * excel导入建筑信息

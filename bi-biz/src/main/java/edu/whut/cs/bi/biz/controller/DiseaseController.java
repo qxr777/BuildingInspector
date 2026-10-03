@@ -73,6 +73,13 @@ import java.util.zip.ZipOutputStream;
 @Slf4j
 @RequestMapping("/biz/disease")
 public class DiseaseController extends BaseController {
+    private static final Long SPECIAL_QUANTITATIVE_TEMPLATE_OBJECT_ID = 15987L;
+
+    /** 特殊定量编辑仅作用于：上部结构 → 加劲梁 → 节段 */
+    private static final String SPECIAL_SEGMENT_NAME = "节段";
+    private static final String SPECIAL_GIRDER_NAME = "加劲梁";
+    private static final String SPECIAL_SUPERSTRUCTURE_NAME = "上部结构";
+
     private String prefix = "biz/disease";
 
     @Resource
@@ -852,10 +859,14 @@ public class DiseaseController extends BaseController {
     @GetMapping("/edit/{id}")
     public String edit(@PathVariable("id") Long id, ModelMap mmap) {
         Disease disease = diseaseService.selectDiseaseById(id);
+        mmap.put("readOnlyMode", false);
 
         BiObject biObject = disease.getBiObject();
         mmap.put("biObject", biObject);
-        if (biObject.getName().equals("其他")) {
+
+        boolean specialQuantitativeLayout = isSpecialQuantitativeLayout(disease, biObject);
+        mmap.put("specialQuantitativeLayout", specialQuantitativeLayout);
+        if (biObject != null && "其他".equals(biObject.getName())) {
             String customPosition = disease.getPosition();
             mmap.put("customPosition", customPosition);
         }
@@ -878,6 +889,64 @@ public class DiseaseController extends BaseController {
         mmap.put("disease", disease);
 
         return prefix + "/edit";
+    }
+
+    /**
+     * 是否使用特殊定量编辑布局：
+     * 桥梁根模板为 15987，且病害所在构件路径为 上部结构/加劲梁/节段。
+     */
+    private boolean isSpecialQuantitativeLayout(Disease disease, BiObject biObject) {
+        if (disease == null || disease.getBuildingId() == null) {
+            return false;
+        }
+
+        Building building = buildingMapper.selectBuildingById(disease.getBuildingId());
+        if (building == null || building.getRootObjectId() == null) {
+            return false;
+        }
+
+        BiObject rootObject = biObjectService.selectBiObjectById(building.getRootObjectId());
+        if (rootObject == null
+                || !SPECIAL_QUANTITATIVE_TEMPLATE_OBJECT_ID.equals(rootObject.getTemplateObjectId())) {
+            return false;
+        }
+
+        return isSpecialSegmentComponent(biObject);
+    }
+
+    /**
+     * 编辑时切换所属构件后，重新判断是否应使用特殊定量布局。
+     */
+    @RequiresPermissions("biz:disease:edit")
+    @GetMapping("/specialQuantitativeLayout/{diseaseId}/{biObjectId}")
+    @ResponseBody
+    public AjaxResult specialQuantitativeLayout(@PathVariable("diseaseId") Long diseaseId,
+                                                @PathVariable("biObjectId") Long biObjectId) {
+        Disease disease = diseaseService.selectDiseaseById(diseaseId);
+        BiObject biObject = biObjectService.selectBiObjectById(biObjectId);
+        if (disease == null || biObject == null) {
+            return error("病害或所属构件不存在");
+        }
+        return success(isSpecialQuantitativeLayout(disease, biObject));
+    }
+
+    /**
+     * 判断构件是否为「上部结构 → 加劲梁 → 节段」。
+     */
+    private boolean isSpecialSegmentComponent(BiObject biObject) {
+        if (biObject == null || !SPECIAL_SEGMENT_NAME.equals(biObject.getName())
+                || biObject.getParentId() == null) {
+            return false;
+        }
+
+        BiObject girder = biObjectService.selectBiObjectById(biObject.getParentId());
+        if (girder == null || !SPECIAL_GIRDER_NAME.equals(girder.getName())
+                || girder.getParentId() == null) {
+            return false;
+        }
+
+        BiObject superstructure = biObjectService.selectBiObjectById(girder.getParentId());
+        return superstructure != null && SPECIAL_SUPERSTRUCTURE_NAME.equals(superstructure.getName());
     }
 
     /**
@@ -923,6 +992,18 @@ public class DiseaseController extends BaseController {
     }
 
     /**
+     * 病害列表行内更新发展趋势，不触碰构件、病害详情和附件。
+     */
+    @RequiresPermissions("biz:disease:edit")
+    @Log(title = "病害发展趋势", businessType = BusinessType.UPDATE)
+    @PostMapping("/updateDevelopmentTrend")
+    @ResponseBody
+    public AjaxResult updateDevelopmentTrend(Long id, String developmentTrend) {
+        return toAjax(diseaseService.updateDevelopmentTrend(
+                id, developmentTrend, ShiroUtils.getLoginName()));
+    }
+
+    /**
      * 删除
      */
     @RequiresPermissions("biz:disease:remove")
@@ -934,14 +1015,34 @@ public class DiseaseController extends BaseController {
     }
 
     /**
-     * 修改病害
+     * 查看病害详情
      */
     @RequiresPermissions("biz:disease:list")
     @GetMapping("/showDiseaseDetail/{id}")
     public String showDiseaseDetail(@PathVariable("id") Long id, ModelMap mmap) {
         Disease disease = diseaseService.selectDiseaseById(id);
+        BiObject biObject = disease.getBiObject();
+
         mmap.put("disease", disease);
-        mmap.put("biObject", disease.getBiObject());
+        mmap.put("biObject", biObject);
+        mmap.put("readOnlyMode", true);
+        mmap.put("specialQuantitativeLayout", isSpecialQuantitativeLayout(disease, biObject));
+
+        if (biObject != null && "其他".equals(biObject.getName())) {
+            mmap.put("customPosition", disease.getPosition());
+        }
+
+        String imgNoExp = disease.getImgNoExp();
+        if (imgNoExp != null) {
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                List<String> imgs = mapper.readValue(imgNoExp, new TypeReference<List<String>>() {
+                });
+                disease.setImgNoExp(imgs.stream().collect(Collectors.joining("、")));
+            } catch (JsonProcessingException e) {
+                log.error("图片格式有误转化失败");
+            }
+        }
 
         return prefix + "/detail";
     }

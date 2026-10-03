@@ -356,4 +356,15 @@ public class ReportDataController extends BaseController {
         return "biz/report_data/fill_single_beam_level1";
     }
 
-} 
+    /**
+     * 跳转到测试模板报告数据填充页面
+     */
+    @RequiresPermissions("biz:report:edit")
+    @GetMapping("/fill_test/{id}")
+    public String fillTest(@PathVariable("id") Long id, ModelMap mmap) {
+        Report report = reportService.selectReportById(id);
+        mmap.put("report", report);
+        return "biz/report_data/fill_test";
+    }
+
+}

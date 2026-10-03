@@ -10,6 +10,8 @@ import java.util.List;
  * @author wanzheng
  */
 public interface ReportMapper {
+    @org.apache.ibatis.annotations.Select("select id from bi_report where id = #{id} for update")
+    Long lockForDataUpdate(@Param("id") Long id);
     /**
      * 查询检测报告
      * 
@@ -63,4 +65,4 @@ public interface ReportMapper {
      * @return 结果
      */
     public int deleteReportByIds(String[] ids);
-} 
+}

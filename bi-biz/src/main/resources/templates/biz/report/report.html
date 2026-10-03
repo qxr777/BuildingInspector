@@ -134,24 +134,9 @@
                 var url = prefix + '/fill/' + id;
                 var tabTitle = "报告模板填充";
 
-                if (result.code === 0 && result.data && result.data.templateName) {
-                    var templateName = result.data.templateName;
-
-                    // 单桥模板判断（梁桥）
-                    if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("梁桥") !== -1 && templateName.indexOf("二级") !== -1) {
-                        url = ctx + "biz/report_data/fill_single_beam/" + id;
-                        tabTitle = "二级单桥梁桥报告填充";
-                    }
-                    // 单桥模板判断（拱桥）
-                    else if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("拱桥") !== -1 && templateName.indexOf("二级") !== -1) {
-                        url = ctx + "biz/report_data/fill_single_arch/" + id;
-                        tabTitle = "二级单桥拱桥报告填充";
-                    }
-                    // 单桥模板判断（一级梁桥）
-                    else if (templateName.indexOf("单桥") !== -1 && templateName.indexOf("梁桥") !== -1 && templateName.indexOf("一级") !== -1) {
-                        url = ctx + "biz/report_data/fill_single_beam_level1/" + id;
-                        tabTitle = "一级单桥梁桥报告填充";
-                    }
+                if (result.code === 0 && result.data && result.data.fillUrl) {
+                    url = ctx + result.data.fillUrl;
+                    tabTitle = result.data.fillTitle || tabTitle;
                 }
 
                 $.modal.openTab(tabTitle, url);

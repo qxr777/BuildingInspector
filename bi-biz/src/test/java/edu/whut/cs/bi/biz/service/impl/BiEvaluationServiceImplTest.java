@@ -220,7 +220,7 @@ class BiEvaluationServiceImplTest {
         method.setAccessible(true);
         method.invoke(biEvaluationService, part, evaluation, 300L);
 
-        assertEquals(new BigDecimal("88.00"), evaluation.getSuperstructureScore());
+        assertEquals(new BigDecimal("88.0"), evaluation.getSuperstructureScore());
         assertEquals(2, evaluation.getSuperstructureLevel());
     }
 

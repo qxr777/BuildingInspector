@@ -4,6 +4,7 @@
     <th:block th:include="include :: header('病害列表')"/>
     <th:block th:include="include :: layout-latest-css"/>
     <th:block th:include="include :: ztree-css"/>
+    <th:block th:include="include :: bootstrap-select-css"/>
 </head>
 <body class="gray-bg">
 <div class="ui-layout-west">
@@ -40,9 +41,15 @@
                     <div class="select-list">
                         <ul>
                             <li>
+                                <label>关键字：</label>
+                                <input type="text" name="keyword" autocomplete="off"
+                                       placeholder="构件、病害或缺损关键字"
+                                       onkeydown="if (event.key === 'Enter') { $.table.search(); return false; }">
+                            </li>
+                            <li class="select-selectpicker">
                                 <label>评定标度：</label>
-                                <select name="level">
-                                    <option value="0">所有</option>
+                                <select id="levels" name="levels" class="selectpicker" multiple
+                                        data-none-selected-text="所有">
                                     <option value="1">1</option>
                                     <option value="2">2</option>
                                     <option value="3">3</option>
@@ -61,7 +68,7 @@
                             <li>
                                 <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i
                                         class="fa fa-search"></i>&nbsp;搜索</a>
-                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="resetDiseaseSearch()"><i
                                         class="fa fa-refresh"></i>&nbsp;重置</a>
                             </li>
                         </ul>
@@ -90,11 +97,19 @@
                 <a class="btn btn-warning" onclick="exportApparentReport()" shiro:hasPermission="biz:disease:export">
                     <i class="fa fa-download"></i> 导出记录表
                 </a>
-                <a class="btn btn-info" onclick="importCBMSDisease()" shiro:hasPermission="biz:disease:add">
+                <a class="btn btn-info" onclick="importCBMSDisease()"
+                   th:if="${task.project == null or task.project.year == null or task.project.year != #dates.year(#dates.createNow())}"
+                   shiro:hasPermission="biz:disease:add">
                     <i class="fa fa-upload"></i> 导入CBMS模板病害
                 </a>
-                <a class="btn btn-info" onclick="importHistoryDisease()" shiro:hasPermission="biz:disease:add">
+                <a class="btn btn-info" onclick="importHistoryDisease()"
+                   th:if="${task.project == null or task.project.year == null or task.project.year != #dates.year(#dates.createNow())}"
+                   shiro:hasPermission="biz:disease:add">
                     <i class="fa fa-upload"></i> 导入交投模板病害
+                </a>
+                <a class="btn btn-info" th:href="@{/file/jiaotou-disease-import-template.xlsx}" download="交投病害导入模板.xlsx"
+                   shiro:hasPermission="biz:disease:add">
+                    <i class="fa fa-download"></i> 交投病害模板下载
                 </a>
             </div>
             <div class="col-sm-12 select-table table-striped">
@@ -106,6 +121,7 @@
 <th:block th:include="include :: footer"/>
 <th:block th:include="include :: layout-latest-js"/>
 <th:block th:include="include :: ztree-js"/>
+<th:block th:include="include :: bootstrap-select-js"/>
 <link rel="stylesheet" th:href="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-editable.css}"/>
 <script th:src="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-editable.min.js}"></script>
 <script th:src="@{/ajax/libs/bootstrap-table/extensions/editable/bootstrap-table-editable.js}"></script>
@@ -284,7 +300,7 @@
         $('#bootstrap-table').on('editable-save.bs.table', function (e, field, row, oldValue, $el) {
             $.ajax({
                 type: 'POST',
-                url: prefix + "/edit",
+                url: prefix + "/updateDevelopmentTrend",
                 data: {
                     id: row.id,
                     developmentTrend: row[field]
@@ -304,6 +320,12 @@
                 }
             });
         });
+    }
+
+    function resetDiseaseSearch() {
+        document.getElementById('formId').reset();
+        $('#levels').selectpicker('refresh');
+        $.table.search('formId', 'bootstrap-table', 1);
     }
 
     window.addEventListener("storage", function (event) {

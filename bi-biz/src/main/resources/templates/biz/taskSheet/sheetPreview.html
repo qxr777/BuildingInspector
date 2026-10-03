@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${sheetName}">检测记录表</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #f0f0f0; font-family: "微软雅黑", sans-serif; }
+        #toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #toolbar span { font-size: 13px; color: #555; }
+        #loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: #888;
+            font-size: 14px;
+            gap: 12px;
+        }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 4px solid #e0e0e0;
+            border-top-color: #1a6fc4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #error-msg {
+            display: none;
+            color: #c0392b;
+            text-align: center;
+            padding: 40px;
+            font-size: 14px;
+        }
+        #docx-container {
+            max-width: 960px;
+            margin: 20px auto;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,.15);
+            padding: 20px;
+            min-height: 400px;
+        }
+        #docx-container .docx {
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+<div id="toolbar">
+    <span th:text="${sheetName}">检测记录表</span>
+</div>
+
+<div id="loading">
+    <div class="spinner"></div>
+    <span>正在生成表格，请稍候…</span>
+</div>
+
+<div id="error-msg"></div>
+
+<div id="docx-container" style="display:none;"></div>
+
+<script th:src="@{/ajax/libs/docx-preview/jszip.min.js}"></script>
+<script th:src="@{/ajax/libs/docx-preview/docx-preview.min.js}"></script>
+<script th:inline="javascript">
+    var taskId = /*[[${taskId}]]*/ null;
+    var sheetType = /*[[${type}]]*/ null;
+
+    (function () {
+        var urlBase = /*[[@{/biz/taskSheet/render/sheet/}]]*/ '/biz/taskSheet/render/sheet/';
+        var url = urlBase + taskId + '/' + encodeURIComponent(sheetType);
+
+        fetch(url, {
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/json;q=0.9, */*;q=0.8',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(function (resp) {
+                var contentType = (resp.headers.get('Content-Type') || '').toLowerCase();
+                if (!resp.ok) {
+                    return resp.text().then(function (text) {
+                        throw new Error(text || ('服务器返回 ' + resp.status));
+                    });
+                }
+                if (contentType.indexOf('json') >= 0 || contentType.indexOf('html') >= 0) {
+                    return resp.text().then(function (text) {
+                        try {
+                            var result = JSON.parse(text);
+                            throw new Error(result.msg || '服务器未返回 Word 文件');
+                        } catch (e) {
+                            if (e.message && e.message.indexOf('Unexpected token') < 0) {
+                                throw e;
+                            }
+                            throw new Error('服务器未返回 Word 文件，请确认该表格已提交且后端已部署最新代码');
+                        }
+                    });
+                }
+                return resp.arrayBuffer().then(function (buf) {
+                    if (!buf || buf.byteLength < 4) {
+                        throw new Error('服务器返回的 Word 文件为空');
+                    }
+                    return buf;
+                });
+            })
+            .then(function (buf) {
+                document.getElementById('loading').style.display = 'none';
+                var container = document.getElementById('docx-container');
+                container.style.display = 'block';
+                return docx.renderAsync(buf, container, null, {
+                    inWrapper: false,
+                    ignoreWidth: false,
+                    ignoreHeight: false,
+                    ignoreFonts: false,
+                    breakPages: true,
+                    useBase64URL: true
+                });
+            })
+            .then(function () {
+                var pages = document.querySelectorAll('#docx-container .docx');
+                var total = pages.length;
+                if (total > 0) {
+                    pages.forEach(function (page, idx) {
+                        page.style.position = 'relative';
+                        page.style.marginLeft = 'auto';
+                        page.style.marginRight = 'auto';
+                        if (idx < total - 1) {
+                            page.style.marginBottom = '20px';
+                        }
+                    });
+                }
+                if (total > 1) {
+                    pages.forEach(function (page, idx) {
+                        var badge = document.createElement('div');
+                        badge.style.cssText = 'position:absolute;top:8px;right:12px;font-size:11px;color:#333;pointer-events:none;';
+                        badge.textContent = '第 ' + (idx + 1) + ' 页 共 ' + total + ' 页';
+                        page.appendChild(badge);
+                    });
+                }
+            })
+            .catch(function (err) {
+                document.getElementById('loading').style.display = 'none';
+                var errEl = document.getElementById('error-msg');
+                errEl.style.display = 'block';
+                errEl.textContent = '表格生成失败：' + err.message;
+            });
+    })();
+</script>
+</body>
+</html>

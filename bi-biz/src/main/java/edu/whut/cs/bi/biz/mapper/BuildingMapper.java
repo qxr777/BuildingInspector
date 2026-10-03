@@ -25,12 +25,36 @@ public interface BuildingMapper {
     public Building selectBuildingById(Long id);
 
     /**
+     * 根据ID列表批量查询有效建筑。
+     *
+     * @param ids 建筑ID列表
+     * @return 建筑集合
+     */
+    public List<Building> selectBuildingsByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 查询建筑列表
      *
      * @param building 建筑
      * @return 建筑集合
      */
     public List<Building> selectBuildingList(Building building);
+
+    /**
+     * 查询异常桥幅及可确定的父级组合桥
+     *
+     * @param building 查询条件
+     * @return 建筑集合
+     */
+    public List<Building> selectAbnormalBridgeSpanList(Building building);
+
+    /**
+     * 按名称、片区、线路精确查询建筑
+     *
+     * @param building 建筑
+     * @return 建筑集合
+     */
+    public List<Building> selectBuildingExactList(Building building);
 
     /**
      * 查询建筑列表
@@ -55,6 +79,29 @@ public interface BuildingMapper {
      * @return 结果
      */
     public int updateBuilding(Building building);
+
+    /**
+     * 更新建筑根对象ID
+     *
+     * @param id 建筑ID
+     * @param rootObjectId 根对象ID
+     * @param updateBy 更新人
+     * @return 结果
+     */
+    public List<Building> selectBatchUpdateLineConflicts(@Param("originalLine") String originalLine, @Param("targetLine") String targetLine);
+
+    public int batchUpdateLine(@Param("originalLine") String originalLine, @Param("targetLine") String targetLine, @Param("updateBy") String updateBy);
+
+    public int updateBuildingRootObjectId(@Param("id") Long id, @Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
+
+    /**
+     * 清理引用指定属性根节点的建筑记录，避免属性删除后留下失效的根属性ID
+     *
+     * @param propertyId 属性根节点ID
+     * @param updateBy 更新人
+     * @return 结果
+     */
+    public int clearRootPropertyIdByPropertyId(@Param("propertyId") Long propertyId, @Param("updateBy") String updateBy);
 
     /**
      * 删除建筑
@@ -94,14 +141,6 @@ public interface BuildingMapper {
      * 根据名称查询建筑信息
      */
     List<Building> selectBuildingByNames(@Param("buildingSet") Set<String> buildingSet);
-
-    /**
-     * 根据 ID 列表批量查询建筑
-     *
-     * @param ids 建筑 ID 列表
-     * @return 建筑列表
-     */
-    List<Building> selectBuildingsByIds(@Param("ids") List<Long> ids);
 
     /**
      * 校验建筑名称唯一性（精确匹配）

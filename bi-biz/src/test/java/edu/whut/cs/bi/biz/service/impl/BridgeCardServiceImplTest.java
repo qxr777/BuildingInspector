@@ -140,7 +140,7 @@ class BridgeCardServiceImplTest {
     }
 
     /**
-     * 测试场景：调用私有方法处理特殊字段时，缺少“桥梁技术状况”会触发异常分支。
+     * 测试场景：调用私有方法处理特殊字段时，缺少“桥梁技术状况”不再抛异常，且不会添加上一次处治对策。
      */
     @Test
     void testProcessSpecialProp_MissingLastSysLevel() {
@@ -150,12 +150,11 @@ class BridgeCardServiceImplTest {
         List<Property> properties = new ArrayList<>();
         properties.add(prop("主桥上部构造结构形式", "钢箱梁"));
 
-        RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> invokePrivate("processSpecialProp",
-                        new Class[]{Building.class, List.class, ReportTemplateTypes.class, Integer.class},
-                        building, properties, ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE, null));
+        invokePrivate("processSpecialProp",
+                new Class[]{Building.class, List.class, ReportTemplateTypes.class, Integer.class},
+                building, properties, ReportTemplateTypes.LEVEL_2_BEAM_BRIDGE, null);
 
-        assertNotNull(ex);
+        assertTrue(properties.stream().noneMatch(p -> "上一次处治对策".equals(p.getName())));
     }
 
     /**

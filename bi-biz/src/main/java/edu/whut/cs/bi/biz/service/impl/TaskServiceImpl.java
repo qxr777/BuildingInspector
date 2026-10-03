@@ -1,8 +1,6 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.util.ObjUtil;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.exception.ServiceException;
@@ -386,14 +384,14 @@ public class TaskServiceImpl implements ITaskService {
         projectMapper.updateProject(project);
 
         int result = taskMapper.batchInsertTask(projectId, buildingIds, ShiroUtils.getLoginName());
-        
+
         // 触发用户级 SQLite 更新
         List<Long> users = projectUserMapper.selectUserIdsByProjectAndRole(projectId, ProjectUserRoleEnum.INSPECTOR.getValue());
         if(!users.isEmpty()) {
             packageMapper.batchUpdateUpdateTimeNow(users);
             users.forEach(uid -> sqliteService.generateUserSqliteSync(uid));
         }
-        
+
         return result;
     }
 

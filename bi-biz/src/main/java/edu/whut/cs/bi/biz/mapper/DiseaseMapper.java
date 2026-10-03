@@ -32,6 +32,14 @@ public interface DiseaseMapper {
     List<Disease> selectDiseaseList(Disease disease);
 
     /**
+     * 按任务ID批量查询病害，供纯Excel导出使用。
+     *
+     * @param taskIds 任务ID列表
+     * @return 病害集合
+     */
+    List<Disease> selectDiseaseListByTaskIds(@Param("taskIds") List<Long> taskIds);
+
+    /**
      * 新增病害
      *
      * @param disease 病害
@@ -69,9 +77,11 @@ public interface DiseaseMapper {
      * 根据biObjectId查询病害
      *
      * @param biObjectIds
+     * @param disease 查询条件
      * @return
      */
-    List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds,  @Param("projectId") Long projectId);
+    List<Disease> selectDiseaseListByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds,
+                                                  @Param("disease") Disease disease);
 
     /**
      * 批量插入病害
@@ -137,4 +147,6 @@ public interface DiseaseMapper {
      * @return 病害
      */
     public Disease selectByOfflineUuid(String offlineUuid);
+
+    int fillLocalIdWithId(@Param("list") List<Long> ids);
 }

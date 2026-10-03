@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('公共数据包')" />
+</head>
+<body class="gray-bg">
+<div class="container-div">
+    <div class="row">
+        <div class="col-sm-12 search-collapse">
+            <form id="formId">
+                <div class="select-list">
+                    <ul>
+                        <li>
+                            <label>文件名称：</label>
+                            <input type="text" name="oldName"/>
+                        </li>
+                        <li>
+                            <label>创建人：</label>
+                            <input type="text" name="createBy"/>
+                        </li>
+                        <li>
+                            <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                            <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                        </li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-sm-12 select-table table-striped">
+            <div class="btn-group-sm" id="toolbar" role="group">
+                <a class="btn btn-success" onclick="generateCommonPackage()" shiro:hasPermission="biz:commonPackage:add">
+                    <i class="fa fa-plus"></i> 生成最新数据包
+                </a>
+            </div>
+            <table id="bootstrap-table"></table>
+        </div>
+    </div>
+</div>
+<th:block th:include="include :: footer" />
+<script th:inline="javascript">
+    var prefix = ctx + "biz/commonPackage";
+
+    $(function() {
+        var options = {
+            url: prefix + "/list",
+            uniqueId: "id",
+            modalName: "公共数据包",
+            columns: [{
+                checkbox: true
+            },
+            {
+                field: 'oldName',
+                title: '文件名称',
+                formatter: function(value, row) {
+                    if (row.url) {
+                        return '<a href="javascript:void(0)" onclick="downloadCommonPackage(\'' + row.id + '\')">' + value + '</a>';
+                    }
+                    return value;
+                }
+            },
+            {
+                field: 'packageSize',
+                title: '文件大小'
+            },
+            {
+                field: 'createBy',
+                title: '创建人'
+            },
+            {
+                field: 'createTime',
+                title: '生成时间'
+            },
+            {
+                field: 'url',
+                title: '下载地址',
+                visible: false
+            },
+            {
+                title: '操作',
+                align: 'center',
+                formatter: function(value, row) {
+                    if (!row.url) {
+                        return '<span class="text-muted">不可下载</span>';
+                    }
+                    return '<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="downloadCommonPackage(\'' + row.id + '\')"><i class="fa fa-download"></i>下载</a>';
+                }
+            }]
+        };
+        $.table.init(options);
+    });
+
+    function downloadCommonPackage(id) {
+        var row = $("#bootstrap-table").bootstrapTable('getRowByUniqueId', id);
+        if (row && row.url) {
+            window.open(row.url, '_blank');
+        } else {
+            $.modal.alertWarning("文件不存在，请重新生成公共数据包");
+        }
+    }
+
+    function generateCommonPackage() {
+        $.modal.confirm("确认要生成最新公共数据包吗？", function() {
+            $.modal.loading("正在生成公共数据包，请稍候...");
+            $.operate.post(prefix + "/generate", {}, function(result) {
+                $.modal.closeLoading();
+                if (result.code == 0) {
+                    $.modal.alertSuccess("公共数据包生成成功");
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            });
+        });
+    }
+</script>
+</body>
+</html>

@@ -202,9 +202,10 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
             throw new RuntimeException("计算失败：" + part.getName() + "下没有有效的评定数据");
         }
 
-        // 计算最终得分
+        // 计算最终得分，并以报告显示的一位小数作为正式得分
         BigDecimal finalScore = totalWeight.compareTo(BigDecimal.ZERO) > 0 ?
                 weightedScore.divide(totalWeight, 2, RoundingMode.HALF_UP) : new BigDecimal("100");
+        finalScore = finalScore.setScale(1, RoundingMode.HALF_UP);
         int level = calculateLevel(finalScore);
 
         // 设置得分和等级
@@ -260,7 +261,8 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
 
         BigDecimal systemScore = superScore.multiply(superWeight)
                 .add(subScore.multiply(subWeight))
-                .add(deckScore.multiply(deckWeight));
+                .add(deckScore.multiply(deckWeight))
+                .setScale(1, RoundingMode.HALF_UP);
 
         biEvaluation.setSystemScore(systemScore);
 

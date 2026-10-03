@@ -101,7 +101,7 @@ class ConditionServiceImplTest {
 
             Condition result = conditionService.calculateCondition(biObject, 10L, 100L);
 
-            assertEquals(new BigDecimal("39"), result.getScore());
+            assertEquals(new BigDecimal("39.0"), result.getScore());
             assertEquals(5, result.getLevel());
             verify(conditionMapper, times(1)).updateCondition(existing);
         }

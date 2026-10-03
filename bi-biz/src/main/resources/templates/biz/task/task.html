@@ -78,6 +78,17 @@
             <a class="btn btn-success multiple disabled" onclick="batchExportDisease()" shiro:hasPermission="biz:disease:export">
                 <i class="fa fa-download"></i> 批量导出病害
             </a>
+            <a id="batch-export-disease-excel-btn" class="btn btn-info multiple disabled" onclick="batchExportDiseaseExcel()" shiro:hasPermission="biz:disease:export">
+                <i class="fa fa-file-excel-o"></i> 批量导出病害Excel
+            </a>
+            <a id="sort-by-name" class="btn btn-default task-sort-button" onclick="toggleTaskSort('buildingName')"
+               title="再次点击可切换升序/降序">
+                <i class="fa fa-sort"></i> 按名称降序/升序
+            </a>
+            <a id="sort-by-time" class="btn btn-primary task-sort-button" onclick="toggleTaskSort('updateTime')"
+               title="再次点击可切换升序/降序">
+                <i class="fa fa-sort-amount-desc"></i> 按时间升序/降序
+            </a>
         </div>
         <div class="col-sm-12 select-table table-striped">
             <table id="bootstrap-table"></table>
@@ -97,6 +108,14 @@
     var projectId = [[${projectId}]];
     var prefix = ctx + "biz/task";
     var evaluationPrefix = ctx + "biz/bievaluation";
+    var taskSheetPrefix = ctx + "biz/taskSheet";
+    var batchDiseaseExcelExportState = {
+        status: "idle",
+        taskIds: "",
+        blob: null,
+        fileName: "任务病害数据.xlsx",
+        xhr: null
+    };
 
     $(function () {
         // 若存在项目ID，则隐藏项目相关的查询条件
@@ -112,6 +131,8 @@
             updateUrl: prefix + "/edit/{id}",
             exportUrl: prefix + "/export",
             modalName: "检测任务",
+            sortName: "updateTime",
+            sortOrder: "desc",
 
             columns: [{
                 checkbox: true
@@ -185,13 +206,54 @@
                         actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="inspect(\'' + row.id + '\')"><i class="fa fa-search"></i>检查</a> ');
                         actions.push('<a class="btn btn-warning btn-xs ' + evaluateFlag + '" href="javascript:void(0)" onclick="doEvaluate(\'' + row.id + '\', \'' + row.building.rootObjectId + '\', \'' + row.building.name + '\')"><i class="fa fa-calculator"></i>评定</a> ');
                         actions.push('<a class="btn btn-primary btn-xs ' + evaluateDetailFlag + '" href="javascript:void(0)" onclick="viewEvaluateDetail(\'' + row.id + '\', \'' + row.building.name + '\')"><i class="fa fa-list-alt"></i>评定详情</a> ');
+                        actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="openTaskSheets(\'' + row.id + '\', \'' + (row.building.name || '').replace(/'/g, "\\'") + '\')"><i class="fa fa-table"></i>检测记录</a> ');
                         return actions.join('');
                     }
                 }]
         };
 
         $.table.init(options);
+        updateTaskSortButtons(options.sortName, options.sortOrder);
     });
+
+    function toggleTaskSort(sortName) {
+        var options = $('#bootstrap-table').bootstrapTable('getOptions');
+        var sortOrder;
+
+        if (options.sortName === sortName) {
+            sortOrder = options.sortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortOrder = sortName === 'buildingName' ? 'asc' : 'desc';
+        }
+
+        sortTasks(sortName, sortOrder);
+    }
+
+    function sortTasks(sortName, sortOrder) {
+        $.table.refreshOptions({
+            sortName: sortName,
+            sortOrder: sortOrder,
+            pageNumber: 1
+        });
+        updateTaskSortButtons(sortName, sortOrder);
+    }
+
+    function updateTaskSortButtons(sortName, sortOrder) {
+        $('.task-sort-button').removeClass('btn-primary').addClass('btn-default');
+        $('#sort-by-name').html('<i class="fa fa-sort"></i> 按名称降序/升序');
+        $('#sort-by-time').html('<i class="fa fa-sort"></i> 按时间升序/降序');
+
+        var directionIcon = sortOrder === 'asc' ? 'asc' : 'desc';
+        if (sortName === 'buildingName') {
+            $('#sort-by-name')
+                .removeClass('btn-default').addClass('btn-primary')
+                .html('<i class="fa fa-sort-alpha-' + directionIcon + '"></i> 按名称降序/升序');
+        } else {
+            $('#sort-by-time')
+                .removeClass('btn-default').addClass('btn-primary')
+                .html('<i class="fa fa-sort-amount-' + directionIcon + '"></i> 按时间升序/降序');
+        }
+    }
 
     function inspect(taskId) {
         var url = prefix + "/inspect/" + taskId;
@@ -323,6 +385,30 @@
         var url = ctx + "biz/building?name=" + encodeURIComponent(buildingName);
         $.modal.openTab("桥梁建筑管理", url);
     }
+
+    /**
+     * 打开任务表格数据列表（弹窗）
+     */
+    function openTaskSheets(taskId, buildingName) {
+        var url = taskSheetPrefix + "/sheets/" + taskId;
+        if (buildingName) {
+            url += "?buildingName=" + encodeURIComponent(buildingName);
+        }
+        var title = buildingName ? ("检测记录 - " + buildingName) : "检测记录";
+        top.layer.open({
+            type: 2,
+            title: title,
+            content: url,
+            area: ['960px', '580px'],
+            fix: false,
+            maxmin: true,
+            shade: 0.3,
+            shadeClose: true,
+            btn: ['关闭'],
+            btnAlign: 'r',
+            yes: function (index) { top.layer.close(index); }
+        });
+    }
     
     /**
      * 批量导出病害数据
@@ -354,6 +440,169 @@
                 downloadFrame.remove();
                 $.modal.closeLoading();
             }, 30000);
+        });
+    }
+
+    function resetBatchDiseaseExcelButton() {
+        var $button = $('#batch-export-disease-excel-btn');
+        $button.html('<i class="fa fa-file-excel-o"></i> 批量导出病害Excel');
+        $button.removeAttr('aria-disabled').removeData('export-state');
+        $button.toggleClass('disabled', $.table.selectColumns("id").length === 0);
+    }
+
+    function setBatchDiseaseExcelButtonProcessing() {
+        var $button = $('#batch-export-disease-excel-btn');
+        $button.addClass('disabled')
+            .attr('aria-disabled', 'true')
+            .data('export-state', 'processing')
+            .html('<i class="fa fa-spinner fa-spin"></i> 正在导出，请稍候...');
+    }
+
+    function getBatchDiseaseExcelFileName(xhr) {
+        var disposition = xhr.getResponseHeader('Content-Disposition') || '';
+        var encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (encodedName && encodedName[1]) {
+            return decodeURIComponent(encodedName[1].trim());
+        }
+
+        var normalName = disposition.match(/filename="?([^";]+)"?/i);
+        if (normalName && normalName[1]) {
+            return decodeURIComponent(normalName[1].trim().replace(/\+/g, '%20'));
+        }
+        return '任务病害数据.xlsx';
+    }
+
+    function readBatchDiseaseExcelError(xhr, fallbackMessage) {
+        var response = xhr.response;
+        if (!(response instanceof Blob)) {
+            finishBatchDiseaseExcelExport(false, fallbackMessage);
+            return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function () {
+            var message = fallbackMessage;
+            try {
+                var result = JSON.parse(reader.result);
+                message = result.msg || result.message || message;
+            } catch (e) {
+                if (reader.result) {
+                    message = reader.result;
+                }
+            }
+            finishBatchDiseaseExcelExport(false, message);
+        };
+        reader.onerror = function () {
+            finishBatchDiseaseExcelExport(false, fallbackMessage);
+        };
+        reader.readAsText(response, 'UTF-8');
+    }
+
+    function finishBatchDiseaseExcelExport(success, message) {
+        $.modal.closeLoading();
+        batchDiseaseExcelExportState.xhr = null;
+
+        if (success) {
+            batchDiseaseExcelExportState.status = 'completed';
+            // 请求完整结束后再关闭加载提示，并自动触发浏览器下载。
+            downloadBatchDiseaseExcel();
+            $.modal.msgSuccess('Excel已自动开始下载');
+            return;
+        }
+
+        batchDiseaseExcelExportState.status = 'idle';
+        batchDiseaseExcelExportState.taskIds = '';
+        batchDiseaseExcelExportState.blob = null;
+        resetBatchDiseaseExcelButton();
+        $.modal.alertError(message || '病害Excel导出失败，请稍后重试');
+    }
+
+    function downloadBatchDiseaseExcel() {
+        if (batchDiseaseExcelExportState.status !== 'completed' || !batchDiseaseExcelExportState.blob) {
+            return;
+        }
+
+        var objectUrl = window.URL.createObjectURL(batchDiseaseExcelExportState.blob);
+        var downloadLink = document.createElement('a');
+        downloadLink.href = objectUrl;
+        downloadLink.download = batchDiseaseExcelExportState.fileName || '任务病害数据.xlsx';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        window.setTimeout(function () {
+            window.URL.revokeObjectURL(objectUrl);
+        }, 1000);
+
+        batchDiseaseExcelExportState.status = 'idle';
+        batchDiseaseExcelExportState.taskIds = '';
+        batchDiseaseExcelExportState.blob = null;
+        resetBatchDiseaseExcelButton();
+    }
+
+    function startBatchDiseaseExcelExport(taskIds) {
+        if (batchDiseaseExcelExportState.status === 'processing') {
+            $.modal.alertWarning('病害Excel正在导出，请勿重复点击');
+            return;
+        }
+
+        var xhr = new XMLHttpRequest();
+        var url = ctx + "biz/task/batchExportExcel?taskIds=" + encodeURIComponent(taskIds);
+
+        batchDiseaseExcelExportState.status = 'processing';
+        batchDiseaseExcelExportState.taskIds = taskIds;
+        batchDiseaseExcelExportState.blob = null;
+        batchDiseaseExcelExportState.xhr = xhr;
+        setBatchDiseaseExcelButtonProcessing();
+        $.modal.loading("正在导出病害Excel，请稍候...");
+
+        xhr.open('GET', url, true);
+        // 导出耗时由后端数据量决定，不设置30秒前端超时。
+        xhr.timeout = 0;
+        xhr.responseType = 'blob';
+        xhr.onload = function () {
+            var contentType = xhr.getResponseHeader('Content-Type') || '';
+            var isExcel = contentType.indexOf('spreadsheetml') >= 0
+                || contentType.indexOf('application/octet-stream') >= 0;
+            if (xhr.status >= 200 && xhr.status < 300 && isExcel && xhr.response && xhr.response.size > 0) {
+                batchDiseaseExcelExportState.blob = xhr.response;
+                batchDiseaseExcelExportState.fileName = getBatchDiseaseExcelFileName(xhr);
+                finishBatchDiseaseExcelExport(true);
+            } else {
+                readBatchDiseaseExcelError(xhr, '服务器未返回有效的Excel文件');
+            }
+        };
+        xhr.onerror = function () {
+            finishBatchDiseaseExcelExport(false, '网络异常，病害Excel导出失败');
+        };
+        xhr.ontimeout = function () {
+            finishBatchDiseaseExcelExport(false, '病害Excel导出请求超时，请稍后重试');
+        };
+        xhr.onabort = function () {
+            finishBatchDiseaseExcelExport(false, '病害Excel导出已取消');
+        };
+        xhr.send();
+    }
+
+    /**
+     * 批量导出病害Excel，照片编号在Excel中作为图片URL超链接。
+     */
+    function batchExportDiseaseExcel() {
+        console.log("开始批量导出病害Excel");
+        var rows = $.table.selectColumns("id");
+        console.log("选中的任务ID:", rows);
+
+        if (batchDiseaseExcelExportState.status === 'processing') {
+            $.modal.alertWarning('病害Excel正在导出，请勿重复点击');
+            return;
+        }
+
+        if (rows.length == 0) {
+            $.modal.alertWarning("请至少选择一个任务");
+            return;
+        }
+
+        $.modal.confirm("确认要导出选中的" + rows.length + "个任务的病害Excel吗？", function() {
+            startBatchDiseaseExcelExport(rows.join(","));
         });
     }
 

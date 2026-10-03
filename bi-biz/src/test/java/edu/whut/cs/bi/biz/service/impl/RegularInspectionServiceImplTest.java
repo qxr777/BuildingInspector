@@ -227,8 +227,9 @@ class RegularInspectionServiceImplTest {
         verify(biObjectMapper, times(1)).selectBiObjectById(1L);
         verify(conditionMapper, times(2)).selectConditionList(any(Condition.class));
         verify(diseaseMapper, times(1)).selectDiseaseList(any(Disease.class));
-        verify(propertyService, times(1)).selectPropertyById(500L);
-        verify(propertyService, times(1)).selectPropertyList(rootProperty);
+        // loadBridgeProperties 与 processSingleBridgeRecordTableSpecialProp 各加载一次属性树
+        verify(propertyService, times(2)).selectPropertyById(500L);
+        verify(propertyService, times(2)).selectPropertyList(rootProperty);
     }
 
     /**
@@ -253,34 +254,12 @@ class RegularInspectionServiceImplTest {
         BiObject root = new BiObject();
         root.setId(1L);
 
-        BiObject level2 = new BiObject();
-        level2.setId(2L);
-        level2.setParentId(1L);
-
-        BiObject level3 = new BiObject();
-        level3.setId(3L);
-        level3.setParentId(2L);
-        level3.setName("支座");
-
         Property rootProperty = new Property();
         rootProperty.setId(500L);
 
-        BiEvaluation biEvaluation = new BiEvaluation();
-        biEvaluation.setId(100L);
-
-        Condition condition = new Condition();
-        condition.setBiObjectId(3L);
-        condition.setScore(BigDecimal.valueOf(80));
-        BiObject conditionObject = new BiObject();
-        conditionObject.setWeight(BigDecimal.ONE);
-        condition.setBiObject(conditionObject);
-
         when(biObjectMapper.selectBiObjectById(1L)).thenReturn(root);
-        when(biObjectMapper.selectChildrenById(1L)).thenReturn(List.of(level2, level3));
-        when(biEvaluationService.selectBiEvaluationByTaskId(30L)).thenReturn(biEvaluation);
-        when(conditionMapper.selectConditionList(any(Condition.class))).thenReturn(List.of(condition));
-        when(diseaseMapper.selectDiseaseList(any(Disease.class))).thenReturn(Collections.emptyList());
         when(propertyService.selectPropertyById(500L)).thenReturn(rootProperty);
+        // master 在流程早期通过 loadBridgeProperties 加载属性，异常应在此处直接向上抛出
         doThrow(new RuntimeException("property service error")).when(propertyService).selectPropertyList(rootProperty);
 
         assertThrows(RuntimeException.class,

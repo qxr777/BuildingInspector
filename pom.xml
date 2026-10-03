@@ -38,6 +38,7 @@
         <bi.version>1.0.0</bi.version>
         <mybatis-plus.version>3.5.1</mybatis-plus.version> <!-- mybatis-plus-boot-starter-->
         <lombok.version>1.18.36</lombok.version>
+        <aliyun.oss.version>3.17.4</aliyun.oss.version>
     </properties>
 
     <!-- 依赖声明 -->

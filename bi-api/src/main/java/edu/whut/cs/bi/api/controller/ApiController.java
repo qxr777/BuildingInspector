@@ -5,6 +5,8 @@ import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.core.domain.entity.SysDept;
+import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
@@ -12,10 +14,13 @@ import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.shiro.service.SysPasswordService;
+import com.ruoyi.system.service.ISysDeptService;
 import com.ruoyi.system.service.ISysDictDataService;
+import com.ruoyi.system.service.ISysRoleService;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.api.service.ApiService;
 import edu.whut.cs.bi.api.task.UserPackageTask;
+import edu.whut.cs.bi.api.util.OssBridgeUploadUtil;
 import edu.whut.cs.bi.api.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.api.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.api.vo.PropertyTreeVo;
@@ -25,6 +30,8 @@ import edu.whut.cs.bi.biz.controller.FileMapController;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.Package;
 import edu.whut.cs.bi.biz.domain.enums.ProjectUserRoleEnum;
+import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
+import edu.whut.cs.bi.biz.domain.vo.BatchCbmsDiseaseImportResult;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
@@ -38,12 +45,20 @@ import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
 import org.apache.commons.compress.utils.Lists;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -94,6 +109,12 @@ public class ApiController {
     private ISysUserService userService;
 
     @Resource
+    private ISysDeptService deptService;
+
+    @Resource
+    private ISysRoleService roleService;
+
+    @Resource
     private SysPasswordService passwordService;
 
     @Autowired
@@ -109,7 +130,16 @@ public class ApiController {
     private ApiService apiService;
 
     @Autowired
+    private OssBridgeUploadUtil ossBridgeUploadUtil;
+
+    @Autowired
     private PackageMapper packageMapper;
+
+    @Autowired
+    private IPackageService packageService;
+
+    @Autowired
+    private IAppPackageService appPackageService;
 
     @Autowired
     private UserPackageTask userPackageTask;
@@ -278,6 +308,22 @@ public class ApiController {
     /**
      * 根据项目 ProjectId 查询任务列表
      */
+//    @PostMapping("/disease/deleteByProject")
+//    @RequiresPermissions("biz:disease:remove")
+//    @Log(title = "批量删除项目任务病害", businessType = BusinessType.DELETE)
+//    public AjaxResult deleteDiseasesByProject(@RequestParam("projectName") String projectName,
+//                                              @RequestParam("year") Integer year,
+//                                              @RequestParam(value = "code", required = false) String code,
+//                                              @RequestParam(value = "projectCode", required = false) String projectCode) {
+//        try {
+//            String targetCode = code != null && !code.trim().isEmpty() ? code : projectCode;
+//            int deleted = diseaseService.deleteDiseasesByProjectIdentity(projectName, year, targetCode);
+//            return AjaxResult.success("删除成功").put("deletedCount", deleted);
+//        } catch (ServiceException e) {
+//            return AjaxResult.error(e.getMessage());
+//        }
+//    }
+
     @GetMapping("/project/{pid}/task")
     @RequiresPermissions("biz:task:list")
     @ResponseBody
@@ -349,13 +395,276 @@ public class ApiController {
     }
 
     /**
-     * 上传桥梁压缩包数据（包含结构和病害）
+     * 批量导入用户账号。
+     *
+     * Excel 前四列固定为：片区、姓名、手机号、登录账号。密码固定为 123456。
+     */
+    @Log(title = "API批量导入用户", businessType = BusinessType.IMPORT)
+    @PostMapping("/user/importAccounts")
+    @RequiresPermissions("system:user:add")
+    @ResponseBody
+    @Transactional
+    public AjaxResult batchImportUsers(@RequestParam("file") MultipartFile file,
+                                       @RequestParam(value = "skipExisting", defaultValue = "true") boolean skipExisting,
+                                       @RequestParam(value = "roleNames", defaultValue = "") String roleNames) throws Exception {
+        List<AccountImportRow> rows = readAccountImportRows(file);
+        if (rows.isEmpty()) {
+            return AjaxResult.error("导入用户数据不能为空");
+        }
+
+        Map<String, SysDept> deptByName = buildDeptByName();
+        Long[] roleIds = resolveAccountImportRoleIds(roleNames);
+        AccountImportResult result = new AccountImportResult();
+
+        for (AccountImportRow row : rows) {
+            AccountImportRowResult rowResult = new AccountImportRowResult(row);
+            try {
+                validateAccountImportRow(row);
+                SysDept dept = deptByName.get(row.getArea());
+                if (dept == null) {
+                    throw new IllegalArgumentException("未找到归属部门：" + row.getArea());
+                }
+
+                SysUser loginUser = userService.selectUserByLoginName(row.getLoginName());
+                if (loginUser != null) {
+                    if (skipExisting) {
+                        rowResult.skip("登录账号已存在");
+                        result.add(rowResult);
+                        continue;
+                    }
+                    throw new IllegalArgumentException("登录账号已存在");
+                }
+
+                if (!isEmpty(row.getPhone()) && userService.selectUserByPhoneNumber(row.getPhone()) != null) {
+                    if (skipExisting) {
+                        rowResult.skip("手机号已存在");
+                        result.add(rowResult);
+                        continue;
+                    }
+                    throw new IllegalArgumentException("手机号已存在");
+                }
+
+                deptService.checkDeptDataScope(dept.getDeptId());
+                roleService.checkRoleDataScope(roleIds);
+
+                SysUser user = new SysUser();
+                user.setDeptId(dept.getDeptId());
+                user.setLoginName(row.getLoginName());
+                user.setUserName(row.getName());
+                user.setPhonenumber(row.getPhone());
+                user.setSex("2");
+                user.setStatus("0");
+                user.setRoleIds(roleIds);
+                user.setPostIds(new Long[0]);
+                user.setRemark("API批量导入：" + row.getArea());
+                user.setSalt(ShiroUtils.randomSalt());
+                user.setPassword(passwordService.encryptPassword(user.getLoginName(), "123456", user.getSalt()));
+                user.setPwdUpdateDate(DateUtils.getNowDate());
+                user.setCreateBy(currentLoginName());
+                userService.insertUser(user);
+
+                rowResult.create();
+            } catch (Exception e) {
+                rowResult.fail(e.getMessage());
+            }
+            result.add(rowResult);
+        }
+
+        AjaxResult ajax = AjaxResult.success("导入完成，成功 " + result.getSuccessCount()
+                + " 个，跳过 " + result.getSkippedCount()
+                + " 个，失败 " + result.getFailureCount() + " 个");
+        ajax.put("successCount", result.getSuccessCount());
+        ajax.put("skippedCount", result.getSkippedCount());
+        ajax.put("failureCount", result.getFailureCount());
+        ajax.put("rows", result.getRows());
+        return ajax;
+    }
+
+    private List<AccountImportRow> readAccountImportRows(MultipartFile file) throws Exception {
+        List<AccountImportRow> rows = new ArrayList<>();
+        DataFormatter formatter = new DataFormatter();
+        try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row excelRow = sheet.getRow(i);
+                if (excelRow == null) {
+                    continue;
+                }
+                AccountImportRow row = new AccountImportRow();
+                row.setRowNum(i + 1);
+                row.setArea(cellString(excelRow, 0, formatter));
+                row.setName(cellString(excelRow, 1, formatter));
+                row.setPhone(cellString(excelRow, 2, formatter));
+                row.setLoginName(cellString(excelRow, 3, formatter));
+                if (isEmpty(row.getArea()) && isEmpty(row.getName()) && isEmpty(row.getPhone()) && isEmpty(row.getLoginName())) {
+                    continue;
+                }
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    private String cellString(Row row, int index, DataFormatter formatter) {
+        Cell cell = row.getCell(index);
+        if (cell == null) {
+            return "";
+        }
+        if (cell.getCellType() == CellType.NUMERIC) {
+            double value = cell.getNumericCellValue();
+            if (Math.rint(value) == value) {
+                return java.math.BigDecimal.valueOf(value).toPlainString().replaceFirst("\\.0$", "").trim();
+            }
+        }
+        return formatter.formatCellValue(cell).trim();
+    }
+
+    private void validateAccountImportRow(AccountImportRow row) {
+        if (isEmpty(row.getArea())) {
+            throw new IllegalArgumentException("片区不能为空");
+        }
+        if (isEmpty(row.getName())) {
+            throw new IllegalArgumentException("姓名不能为空");
+        }
+        if (isEmpty(row.getLoginName())) {
+            throw new IllegalArgumentException("登录账号不能为空");
+        }
+        if (!isEmpty(row.getPhone()) && !row.getPhone().matches("\\d{11}")) {
+            throw new IllegalArgumentException("手机号必须为11位数字");
+        }
+    }
+
+    private Map<String, SysDept> buildDeptByName() {
+        Map<String, SysDept> deptByName = new HashMap<>();
+        for (SysDept dept : deptService.selectDeptList(new SysDept())) {
+            if (dept.getDeptName() != null && !deptByName.containsKey(dept.getDeptName())) {
+                deptByName.put(dept.getDeptName(), dept);
+            }
+        }
+        return deptByName;
+    }
+
+    private Long[] resolveAccountImportRoleIds(String roleNames) {
+        Map<String, Long> roleByName = roleService.selectRoleAll().stream()
+                .filter(role -> !role.isAdmin())
+                .collect(Collectors.toMap(SysRole::getRoleName, SysRole::getRoleId, (left, right) -> left));
+        List<String> names = parseRoleNames(roleNames);
+        List<Long> roleIds = new ArrayList<>();
+        for (String roleName : names) {
+            Long roleId = "普通职员".equals(roleName)
+                    ? resolveRoleId(roleByName, "普通职员", "普通角色")
+                    : resolveRoleId(roleByName, roleName);
+            if (!roleIds.contains(roleId)) {
+                roleIds.add(roleId);
+            }
+        }
+        return roleIds.toArray(new Long[0]);
+    }
+
+    private List<String> parseRoleNames(String roleNames) {
+        String effectiveRoleNames = isEmpty(roleNames) ? "部门业务管理员,部门职员" : roleNames;
+        return Arrays.stream(effectiveRoleNames.split("[,，]"))
+                .map(String::trim)
+                .filter(name -> !name.isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    private Long resolveRoleId(Map<String, Long> roleByName, String... aliases) {
+        for (String alias : aliases) {
+            Long roleId = roleByName.get(alias);
+            if (roleId != null) {
+                return roleId;
+            }
+        }
+        throw new IllegalArgumentException("未找到角色：" + String.join("/", aliases));
+    }
+
+    private String currentLoginName() {
+        try {
+            String loginName = ShiroUtils.getLoginName();
+            return isEmpty(loginName) ? "api" : loginName;
+        } catch (Exception e) {
+            return "api";
+        }
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    @Data
+    private static class AccountImportRow {
+        private int rowNum;
+        private String area;
+        private String name;
+        private String phone;
+        private String loginName;
+    }
+
+    @Data
+    private static class AccountImportResult {
+        private int successCount;
+        private int skippedCount;
+        private int failureCount;
+        private List<AccountImportRowResult> rows = new ArrayList<>();
+
+        private void add(AccountImportRowResult row) {
+            rows.add(row);
+            if ("created".equals(row.getStatus())) {
+                successCount++;
+            } else if ("skipped".equals(row.getStatus())) {
+                skippedCount++;
+            } else {
+                failureCount++;
+            }
+        }
+    }
+
+    @Data
+    private static class AccountImportRowResult {
+        private int rowNum;
+        private String area;
+        private String name;
+        private String phone;
+        private String loginName;
+        private String status;
+        private String message;
+
+        private AccountImportRowResult(AccountImportRow row) {
+            this.rowNum = row.getRowNum();
+            this.area = row.getArea();
+            this.name = row.getName();
+            this.phone = row.getPhone();
+            this.loginName = row.getLoginName();
+        }
+
+        private void create() {
+            this.status = "created";
+            this.message = "创建成功";
+        }
+
+        private void skip(String message) {
+            this.status = "skipped";
+            this.message = message;
+        }
+
+        private void fail(String message) {
+            this.status = "failed";
+            this.message = message;
+        }
+    }
+
+    /**
+     * 平板端整包回传：上传一座桥的压缩包（结构、病害、立面/侧面照、检测记录表）。
+     * 文件名：buildingId.zip 或 buildingId_year.zip。
      * 压缩包结构：
      * - buildingId目录
      * - object.json (桥梁结构数据)
      * - disease目录
-     * - 2025.json (病害数据)
+     * - 年份.json (病害数据)
      * - 图片文件
+     * - frontPhoto.json (立面/侧面照索引)
+     * - sheets/ (检测记录表)
      */
     @Log(title = "上传桥梁数据", businessType = BusinessType.INSERT)
     @PostMapping("/upload/bridgeData")
@@ -370,7 +679,43 @@ public class ApiController {
         }
     }
 
-    // id 是buildId
+    /**
+     * 平板将大 ZIP 直传 OSS 后，调用本接口提交 objectName。
+     * 服务端从 OSS 流式读取并复用 bridgeData 的解析逻辑，解析成功后删除临时对象。
+     */
+    @Log(title = "从OSS解析桥梁数据", businessType = BusinessType.INSERT)
+    @PostMapping("/upload/bridgeData/oss")
+    @RequiresPermissions("biz:disease:add")
+    @ResponseBody
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult uploadBridgeDataFromOss(@RequestBody Map<String, String> request) {
+        if (request == null) {
+            return AjaxResult.error("请求体不能为空");
+        }
+
+        try {
+            String objectName = ossBridgeUploadUtil.validateObjectName(request.get("objectName"));
+            MultipartFile ossZipFile = ossBridgeUploadUtil.createMultipartFile(objectName);
+            AjaxResult result = apiService.uploadBridgeData(ossZipFile);
+            if (result.isError()) {
+                // 解析失败时回滚数据库操作，OSS 中的临时 ZIP 则保留以便排查或重试。
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            } else {
+                // 仅当数据库事务真正提交后删除，避免出现“ZIP 已删但数据未落库”。
+                ossBridgeUploadUtil.deleteObjectAfterTransactionCommit(objectName);
+            }
+            return result;
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return AjaxResult.error("处理上传文件失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 上传桥梁立面照、侧面照。
+     * id 为 buildingId；front 存为 newfront，side 存为 newside。
+     * 平板整包回传时，/upload/bridgeData 处理 frontPhoto.json 也会走到同一套附件逻辑。
+     */
     @PostMapping("/upload/bridgeDataImage")
     @ResponseBody
     public AjaxResult uploadBridgeDataImage(@RequestParam("id") long id, @RequestParam("front") MultipartFile frontFile[], @RequestParam("side") MultipartFile sideFile[]) {
@@ -383,7 +728,10 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
-    // id 是buildId
+    /**
+     * 查询桥梁立面照、侧面照。
+     * id 为 buildingId，返回 frontImages / sideImages 文件名列表。
+     */
     @GetMapping("/DataImage")
     @ResponseBody
     public AjaxResult getDataImage(@RequestParam("id") long id) {
@@ -403,6 +751,10 @@ public class ApiController {
         return AjaxResult.success("查询成功", map);
     }
 
+    /**
+     * Excel 批量导入病害到指定项目。
+     * 按桥名、部位、构件、病害类型解析行，补构件并写入病害；不带照片，也不是平板 ZIP 回传。
+     */
     @PostMapping("/upload/diseaseExcel")
     @ResponseBody
     public AjaxResult uploadDiseaseExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
@@ -411,6 +763,10 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
+    /**
+     * Excel 批量导入桥梁并挂到指定项目。
+     * 按区域、桥名、路线、桥型建桥（不存在则按模板新建），再为项目补检测任务；不管病害。
+     */
     @PostMapping("/upload/bridgeExcel")
     @ResponseBody
     public AjaxResult uploadBridgeExcel(@RequestParam("file") MultipartFile file, @RequestParam("projectId") Long projectId) {
@@ -419,6 +775,11 @@ public class ApiController {
         return AjaxResult.success("上传成功");
     }
 
+    /**
+     * 导入报告数据包 ZIP（非平板回传格式）。
+     * 压缩包内为 {zipName}/result.json（DiseaseReport），会匹配或新建项目、桥梁、任务，
+     * 再按报告结构写入构件、病害及图片。
+     */
     @PostMapping("/upload/diseaseZip")
     @ResponseBody
     public AjaxResult uploadDiseaseZip(@RequestParam("file") MultipartFile file) {
@@ -464,6 +825,39 @@ public class ApiController {
         return AjaxResult.success().put("url", downloadUrl).put("version", version).put("packageSize", packages.get(0).getPackageSize());
     }
 
+    /**
+     * 异步重新生成当前登录用户的数据包。
+     * 同一用户已有任务正在执行时只返回处理中状态，不会重复提交。
+     */
+    @PostMapping("/user/dataPackage/refresh")
+    @ResponseBody
+    public AjaxResult refreshCurrentUserDataPackage() {
+        return packageService.requestCurrentUserPackageRefresh(ShiroUtils.getUserId());
+    }
+
+
+    /**
+     * 获取最新公共数据包下载信息。
+     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无公共数据包或文件缺失。
+     * 公共数据包由后台“公共数据包”页面手动生成，本接口只返回最新已生成包的version、packageSize和MinIO下载url。
+     */
+    @GetMapping("/user/commonPackage")
+    @ResponseBody
+    public AjaxResult getCommonPackage() {
+        return packageService.getLatestCommonTemplatePackage();
+    }
+
+    /**
+     * 获取移动端App当前发布版本信息。
+     * 返回码遵循项目统一AjaxResult规范：code=0表示请求处理成功，code=500表示暂无发布包或文件映射缺失。
+     * 成功时返回version、apkName、packageSize、remark和MinIO下载url，用于移动端检查版本更新。
+     */
+    @GetMapping("/user/appUpdate")
+    @ResponseBody
+    public AjaxResult getAppUpdate() {
+        return appPackageService.getPublishedAppUpdate();
+    }
+
     @GetMapping("/user/dataPackageTest")
     @ResponseBody
     public AjaxResult getUserDataPackageTest() {
@@ -481,9 +875,9 @@ public class ApiController {
         }
         return AjaxResult.success("查询成功", building);
     }
-    
-    
-    
+
+
+
     /**
      * 通过word文件添加
      */
@@ -502,14 +896,14 @@ public class ApiController {
         Property property = new Property();
         property.setCreateBy(ShiroUtils.getLoginName());
         property.setUpdateBy(ShiroUtils.getLoginName());
-        
+
         Boolean read = propertyService.readWordFile(file, property, buildingId);
         if (read == null || !read) {
             throw new ServiceException("读取Word并写入属性失败");
         }
         Building building = null;
         building = buildingService.selectBuildingById(buildingId);
-        
+
         return building;
     }
 
@@ -553,8 +947,8 @@ public class ApiController {
                     BiTemplateObject biTemplateObject = collect.get(templateObjectId);
                     children.stream().filter(child -> child.getParentId().equals(child_3.getId()) && child.getName().equals(biTemplateObject.getName()))
                             .findFirst().ifPresent(child -> {
-                        templateToDiseaseTypeIds.computeIfAbsent(child.getId(), k -> new ArrayList<>()).add(diseaseTypeId);
-                    });
+                                templateToDiseaseTypeIds.computeIfAbsent(child.getId(), k -> new ArrayList<>()).add(diseaseTypeId);
+                            });
                 }
             });
         });
@@ -571,7 +965,7 @@ public class ApiController {
      */
     @PostMapping("/reassignComponentsFromOthers/{rootObjectId}")
     public AjaxResult reassignComponentsFromOthers(
-                                             @PathVariable("rootObjectId") Long rootObjectId) {
+            @PathVariable("rootObjectId") Long rootObjectId) {
         return AjaxResult.success(biObjectService.reassignComponentsFromOthers(rootObjectId));
     }
 
@@ -676,9 +1070,41 @@ public class ApiController {
     @PostMapping("/batchAddBuilding")
     @ResponseBody
     public AjaxResult batchAddBuilding(MultipartFile file, Long projectId) {
-        readFileService.ReadBuildingFile(file, projectId);
+        int importCount = readFileService.ReadBuildingFile(file, projectId);
+        AjaxResult ajax = AjaxResult.success("导入成功，共新增 " + importCount + " 座桥梁");
+        ajax.put("importCount", importCount);
+        return ajax;
+    }
 
-        return AjaxResult.success();
+    @PostMapping("/batchResumeBuilding")
+    @ResponseBody
+    public AjaxResult batchResumeBuilding(MultipartFile file) {
+        int resumeCount = readFileService.resumeBuildingFile(file);
+        AjaxResult ajax = AjaxResult.success("修复成功，共修复 " + resumeCount + " 座桥梁");
+        ajax.put("resumeCount", resumeCount);
+        return ajax;
+    }
+
+    @PostMapping("/batchImportBridgeCards")
+    @ResponseBody
+    public AjaxResult batchImportBridgeCards(MultipartFile file, Long projectId) {
+        BatchBridgeCardImportResult result = readFileService.batchImportBridgeCards(file, projectId);
+        AjaxResult ajax = AjaxResult.success("导入完成，成功 " + result.getSuccessCount()
+                + " 个，跳过 " + result.getSkippedCount()
+                + " 个，失败 " + result.getFailureCount() + " 个");
+        ajax.put("result", result);
+        return ajax;
+    }
+
+    @PostMapping("/batchImportCBMSDiseases")
+    @ResponseBody
+    public AjaxResult batchImportCBMSDiseases(MultipartFile file, Long projectId, String projectName) {
+        BatchCbmsDiseaseImportResult result = readFileService.batchImportCBMSDiseases(file, projectId, projectName);
+        AjaxResult ajax = AjaxResult.success("导入完成，成功 " + result.getSuccessCount()
+                + " 个，跳过 " + result.getSkippedCount()
+                + " 个，失败 " + result.getFailureCount() + " 个");
+        ajax.put("result", result);
+        return ajax;
     }
 
 
@@ -687,6 +1113,16 @@ public class ApiController {
      * 扫描2025-09-13至2025-09-14期间的病害数据，
      * 清理不一致的构件关联，并重新匹配或创建正确的构件
      */
+    @PostMapping("/building/batchUpdateLine")
+    @ResponseBody
+    public AjaxResult batchUpdateBuildingLine(@RequestParam("originalLine") String originalLine,
+                                              @RequestParam("targetLine") String targetLine) {
+        int updateCount = buildingService.batchUpdateLine(originalLine, targetLine);
+        AjaxResult ajax = AjaxResult.success("修改成功，共更新 " + updateCount + " 座桥梁");
+        ajax.put("updateCount", updateCount);
+        return ajax;
+    }
+
     @PostMapping("/fixDiseaseComponents")
     @ResponseBody
     @Transactional

@@ -165,7 +165,8 @@ class TestConclusionServiceImplTest {
         assertTrue(allText.contains("（1）主梁"));
         assertTrue(allText.contains("裂缝：长度2m"));
         assertFalse(allText.contains("附属设施"));
-        assertFalse(allText.contains("其他构件"));
+        // master 仅按精确名称跳过节点，"其他构件" 作为三级构件仍会成段输出
+        assertTrue(allText.contains("（2）其他构件"));
     }
 
     /**

@@ -1,5 +1,7 @@
 package edu.whut.cs.bi.api.service.impl;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.exception.ServiceException;
@@ -19,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import java.io.*;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -57,6 +60,8 @@ public class ApiServiceImpl implements ApiService {
     private TaskServiceImpl taskServiceImpl;
     @Autowired
     private TaskMapper taskMapper;
+    @Autowired
+    private ITaskSheetService taskSheetService;
 
     /**
      * 上传桥梁压缩包
@@ -75,6 +80,7 @@ public class ApiServiceImpl implements ApiService {
 
         Path tempDir = null;
         Long buildingId = null;
+        Long projectId = null;
         Calendar calendar = Calendar.getInstance();
         int currentYear = calendar.get(Calendar.YEAR);
 
@@ -92,6 +98,19 @@ public class ApiServiceImpl implements ApiService {
             } catch (NumberFormatException e) {
                 throw new ServiceException("压缩包文件名格式错误，应为：buildingId.zip 或 buildingId_year.zip");
             }
+
+            // TEMP: 20260913 确保保存所有压缩包目录存在
+            Path normalZipDir = Paths.get("logs", "sys-normal-zips");
+            Files.createDirectories(normalZipDir);
+
+            // 构造文件名：时间戳 + 原始文件名
+            String timeSuffix = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String safeFileName = (file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.zip");
+            Path normalZipPath = normalZipDir.resolve(timeSuffix + "_" + safeFileName);
+
+            // 保存原始压缩包
+            Files.copy(file.getInputStream(), normalZipPath, StandardCopyOption.REPLACE_EXISTING);
+            // TEMP: end of 20260913 确保压缩包目录存在
 
             // 创建临时目录存放解压文件
             tempDir = Files.createTempDirectory("bridge_upload_");
@@ -147,6 +166,7 @@ public class ApiServiceImpl implements ApiService {
             if (jsonFilePathOpt.isPresent()) {
                 String jsonFilePath = jsonFilePathOpt.get();
                 String diseaseJson = new String(Files.readAllBytes(extractedFiles.get(jsonFilePath)));
+                diseaseJson = sanitizeDiseaseJson(diseaseJson);
                 // 检查JSON格式，处理可能的包装对象
                 JSONObject jsonObject;
                 List<Disease> diseases;
@@ -160,7 +180,8 @@ public class ApiServiceImpl implements ApiService {
                         diseases = JSONObject.parseArray(diseaseJson, Disease.class);
                     }
                 } catch (Exception e) {
-                    throw  new ServiceException("病害数据JSON格式错误: " + e.getMessage());
+                    log.error("病害JSON解析失败，原始JSON: {}", diseaseJson, e);
+                    throw new ServiceException("病害数据JSON格式错误: " + e.getMessage());
                 }
 
                 for (Disease disease : diseases) {
@@ -169,7 +190,6 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
                 // 批量保存病害数据
-                Long projectId = null;
                 if (!diseases.isEmpty()) {
                     projectId =diseases.get(0).getProjectId();
                     diseaseService.batchSaveDiseases(diseases);
@@ -337,6 +357,8 @@ public class ApiServiceImpl implements ApiService {
                     }
                 }
             }
+            //处理检测任务的表格数据
+            importInspectionSheets(extractedFiles, buildingId, projectId);
 
             return AjaxResult.success("桥梁数据上传成功");
         } catch (Exception e) {
@@ -374,12 +396,120 @@ public class ApiServiceImpl implements ApiService {
         }
     }
 
+    private void importInspectionSheets(Map<String, Path> extractedFiles, Long buildingId, Long projectId) throws IOException {
+        String sheetsPrefix = buildingId + "/sheets/";
+        List<Map.Entry<String, Path>> sheetEntries = extractedFiles.entrySet().stream()
+                .filter(entry -> isInspectionSheetJson(entry.getKey(), sheetsPrefix))
+                .sorted(Map.Entry.comparingByKey())
+                .toList();
+        if (sheetEntries.isEmpty()) {
+            return;
+        }
+
+        if (projectId == null) {
+            throw new ServiceException("检测记录表导入失败：无法通过病害数据获取projectId，不能定位检测任务");
+        }
+
+        Task task = resolveUniqueTaskForSheets(projectId, buildingId);
+        for (Map.Entry<String, Path> entry : sheetEntries) {
+            String sheetType = extractSheetType(entry.getKey(), sheetsPrefix);
+            validateSheetType(sheetType);
+
+            byte[] jsonBytes = Files.readAllBytes(entry.getValue());
+            taskSheetService.saveOrUpdateSheet(task.getId(), buildingId, sheetType, jsonBytes, sheetType + ".json");
+        }
+    }
+
+    private boolean isInspectionSheetJson(String path, String sheetsPrefix) {
+        if (path == null || !path.startsWith(sheetsPrefix) || !path.endsWith(".json")) {
+            return false;
+        }
+        String relativePath = path.substring(sheetsPrefix.length());
+        return !relativePath.isEmpty() && !relativePath.contains("/");
+    }
+
+    private String extractSheetType(String path, String sheetsPrefix) {
+        String fileName = path.substring(sheetsPrefix.length());
+        return fileName.substring(0, fileName.length() - ".json".length());
+    }
+
+    private Task resolveUniqueTaskForSheets(Long projectId, Long buildingId) {
+        Task queryTask = new Task();
+        queryTask.setProjectId(projectId);
+        queryTask.setBuildingId(buildingId);
+        List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
+        if (tasks == null || tasks.isEmpty()) {
+            throw new ServiceException("检测记录表导入失败：未找到projectId=" + projectId + "、buildingId=" + buildingId + "对应的检测任务");
+        }
+        if (tasks.size() > 1) {
+            throw new ServiceException("检测记录表导入失败：projectId=" + projectId + "、buildingId=" + buildingId + "匹配到多个检测任务");
+        }
+        return tasks.get(0);
+    }
+
+    private void validateSheetType(String sheetType) {
+        if (!taskSheetService.supportsJsonSheetWord(sheetType)) {
+            throw new ServiceException("检测记录表导入失败：不支持的表格类型 " + sheetType);
+        }
+    }
+
     public void uploadBridgeDataImage(long id, MultipartFile frontFile[], MultipartFile sideFile[]) {
         for (int i = 0; i < frontFile.length; i++) {
             fileMapController.uploadAttachment(id, frontFile[i], "newfront", i);
         }
         for (int i = 0; i < sideFile.length; i++) {
             fileMapController.uploadAttachment(id, sideFile[i], "newside", i);
+        }
+    }
+
+    private static final Set<String> NUMERIC_FIELDS = new HashSet<>(Arrays.asList(
+            "reference1LocationStart", "reference1LocationEnd",
+            "reference2LocationStart", "reference2LocationEnd",
+            "length1", "length2", "length3", "width", "heightDepth", "crackWidth",
+            "areaLength", "areaWidth", "deformation",
+            "lengthRangeStart", "lengthRangeEnd",
+            "widthRangeStart", "widthRangeEnd",
+            "heightDepthRangeStart", "heightDepthRangeEnd",
+            "crackWidthRangeStart", "crackWidthRangeEnd",
+            "areaRangeStart", "areaRangeEnd",
+            "deformationRangeStart", "deformationRangeEnd",
+            "areaIdentifier", "angle", "numeratorRatio", "denominatorRatio"
+    ));
+
+    private String sanitizeDiseaseJson(String json) {
+        json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"普通\"", "\"areaIdentifier\":0");
+        json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"平均\"", "\"areaIdentifier\":1");
+        json = json.replaceAll("\"areaIdentifier\"\\s*:\\s*\"总计\"", "\"areaIdentifier\":2");
+        Object parsed = JSON.parse(json);
+        sanitizeNumericFields(parsed);
+        return JSON.toJSONString(parsed);
+    }
+
+    private void sanitizeNumericFields(Object obj) {
+        if (obj instanceof JSONObject) {
+            JSONObject jsonObj = (JSONObject) obj;
+            for (String key : new HashSet<>(jsonObj.keySet())) {
+                Object value = jsonObj.get(key);
+                if (value instanceof String) {
+                    String s = ((String) value).trim();
+                    if (s.isEmpty()) {
+                        jsonObj.put(key, null);
+                    } else if (NUMERIC_FIELDS.contains(key)) {
+                        try {
+                            new BigDecimal(s);
+                        } catch (NumberFormatException e) {
+                            jsonObj.put(key, null);
+                        }
+                    }
+                } else if (value instanceof JSONObject || value instanceof JSONArray) {
+                    sanitizeNumericFields(value);
+                }
+            }
+        } else if (obj instanceof JSONArray) {
+            JSONArray arr = (JSONArray) obj;
+            for (int i = 0; i < arr.size(); i++) {
+                sanitizeNumericFields(arr.get(i));
+            }
         }
     }
 }

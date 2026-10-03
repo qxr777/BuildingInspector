@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
+import edu.whut.cs.bi.biz.service.ReadFileService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -48,6 +49,9 @@ public class BuildingController extends BaseController {
     @Autowired
     private IBiObjectService biObjectService;
 
+    @Resource
+    private ReadFileService readFileService;
+
     @RequiresPermissions("biz:building:view")
     @GetMapping()
     public String building(@RequestParam(value = "name", required = false) String name, ModelMap mmap) {
@@ -66,6 +70,18 @@ public class BuildingController extends BaseController {
     public TableDataInfo list(Building building) {
         startPage();
         List<Building> list = buildingService.selectBuildingList(building);
+        return getDataTable(list);
+    }
+
+    /**
+     * 查询异常桥幅及其父级组合桥列表
+     */
+    @RequiresPermissions("biz:building:list")
+    @PostMapping("/abnormalList")
+    @ResponseBody
+    public TableDataInfo abnormalList(Building building) {
+        startPage();
+        List<Building> list = buildingService.selectAbnormalBridgeSpanList(building);
         return getDataTable(list);
     }
 
@@ -194,6 +210,21 @@ public class BuildingController extends BaseController {
     }
 
     /**
+     * 批量修改桥梁线路
+     */
+    @RequiresPermissions("biz:building:edit")
+    @Log(title = "建筑", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchUpdateLine")
+    @ResponseBody
+    public AjaxResult batchUpdateLine(@RequestParam("originalLine") String originalLine,
+                                      @RequestParam("targetLine") String targetLine) {
+        int updateCount = buildingService.batchUpdateLine(originalLine, targetLine);
+        AjaxResult ajax = AjaxResult.success("修改成功，共更新 " + updateCount + " 座桥梁");
+        ajax.put("updateCount", updateCount);
+        return ajax;
+    }
+
+    /**
      * 删除建筑
      */
     @RequiresPermissions("biz:building:remove")
@@ -218,6 +249,29 @@ public class BuildingController extends BaseController {
     @Log(title = "建筑", businessType = BusinessType.IMPORT)
     public AjaxResult readJsonFile(@RequestPart("file") MultipartFile file) throws IOException {
         return toAjax(buildingService.importJson(file));
+    }
+
+    /**
+     * 打开桥梁Excel批量导入页面
+     */
+    @RequiresPermissions("biz:building:add")
+    @GetMapping("/importExcel")
+    public String importExcel() {
+        return prefix + "/importExcel";
+    }
+
+    /**
+     * 通过Excel批量导入桥梁
+     */
+    @RequiresPermissions("biz:building:add")
+    @Log(title = "桥梁批量导入", businessType = BusinessType.IMPORT)
+    @PostMapping("/batchAddBuilding")
+    @ResponseBody
+    public AjaxResult batchAddBuilding(@RequestPart("file") MultipartFile file) {
+        int importCount = readFileService.ReadBuildingFile(file, null);
+        AjaxResult ajax = AjaxResult.success("导入成功，共新增 " + importCount + " 座桥梁");
+        ajax.put("importCount", importCount);
+        return ajax;
     }
 
     /**

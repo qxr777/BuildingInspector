@@ -37,6 +37,9 @@
             <a class="btn btn-success" id="correctWeightsBtn" onclick="correctWeights()" shiro:hasPermission="biz:object:edit">
                 <i class="fa fa-wrench"></i> 一键修正权重
             </a>
+            <a class="btn btn-warning" id="repairCountsBtn" onclick="repairCounts()" style="display: none;" shiro:hasPermission="biz:object:edit">
+                <i class="fa fa-sort-numeric-asc"></i> 修正构件数量
+            </a>
             <a class="btn btn-info" id="expandAllBtn">
                 <i class="fa fa-exchange"></i> 展开/折叠
             </a>
@@ -291,6 +294,35 @@
         });
     }
 
+    // 修正构件数量
+    function repairCounts() {
+        $.modal.confirm("确认要修正构件数量吗？如果发现count数量冲突，本次修正会整体回退。", function() {
+            var index = $.modal.loading("正在修正构件数量，请稍候...");
+
+            $.ajax({
+                type: "post",
+                url: prefix + "/repairCounts",
+                data: {
+                    "rootObjectId": rootObjectId
+                },
+                success: function(result) {
+                    $.modal.closeLoading(index);
+
+                    if (result.code == 0) {
+                        $.modal.alertSuccess(result.msg || "构件数量修正成功");
+                        $.treeTable.refresh();
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                },
+                error: function() {
+                    $.modal.closeLoading(index);
+                    $.modal.alertError("操作失败，请稍后重试");
+                }
+            });
+        });
+    }
+
     // 获取根节点状态
     function getRootObjectStatus() {
         $.ajax({
@@ -320,9 +352,11 @@
         if (isLocked) {
             // 锁定状态，禁用一键修正权重按钮
             $('#correctWeightsBtn').addClass('disabled').attr('onclick', '');
+            $('#repairCountsBtn').addClass('disabled').attr('onclick', '');
         } else {
             // 非锁定状态，启用一键修正权重按钮
             $('#correctWeightsBtn').removeClass('disabled').attr('onclick', 'correctWeights()');
+            $('#repairCountsBtn').removeClass('disabled').attr('onclick', 'repairCounts()');
         }
     }
 

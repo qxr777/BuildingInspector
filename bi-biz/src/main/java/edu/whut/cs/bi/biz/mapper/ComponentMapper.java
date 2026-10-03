@@ -58,7 +58,7 @@ public interface ComponentMapper {
      * @param biObjectId 部件ID
      * @return 构件集合
      */
-    public List<Component> selectComponentsByBiObjectIdAndChildren(Long biObjectId);
+    public List<Component> selectComponentsByBiObjectIdAndChildren(@Param("biObjectId") Long biObjectId);
 
     /**
      * 新增构件

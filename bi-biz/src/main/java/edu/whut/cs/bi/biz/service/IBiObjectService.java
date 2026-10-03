@@ -183,6 +183,15 @@ public interface IBiObjectService {
     int correctAllWeights(Long rootObjectId);
 
     /**
+     * 修复对象树构件数量。非0 count作为可信锚点保留，0/null节点用子树合计补齐；
+     * 若非0 count与子树合计冲突，则中止本次修复。
+     *
+     * @param rootObjectId 根对象ID
+     * @return 更新的记录数
+     */
+    int repairCountsFromSubtree(Long rootObjectId);
+
+    /**
      * 批量更新对象及其子节点的组件信息
      *
      * @param rootObjectId 根对象ID

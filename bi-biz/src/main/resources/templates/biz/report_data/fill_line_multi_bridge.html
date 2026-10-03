@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('定期检查多桥报告数据填充')"/>
+    <th:block th:include="include :: bootstrap-fileinput-css"/>
+    <th:block th:include="include :: select2-css"/>
+    <style>
+        .nav-tabs-custom {
+            margin-bottom: 20px;
+            background: #fff;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+        }
+
+        .nav-tabs-custom > .nav-tabs {
+            margin: 0;
+            border-bottom-color: #f4f4f4;
+            flex-wrap: wrap;
+        }
+
+        .nav-tabs-custom > .nav-tabs > li {
+            float: left;
+        }
+
+        .alert-custom {
+            margin-bottom: 15px;
+        }
+
+        #wordMatchModal .select2-container,
+        #lineGroupSelector + .select2-container {
+            width: 100% !important;
+        }
+
+        #wordMatchModal .select2-dropdown {
+            z-index: 2060;
+        }
+
+        .image-upload-item {
+            margin-bottom: 15px;
+        }
+
+        .image-preview {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .image-item {
+            position: relative;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .image-actions {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            z-index: 10;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 3px;
+            padding: 2px;
+        }
+
+        .image-item img {
+            max-width: 200px;
+            max-height: 150px;
+            border: 1px solid #ddd;
+            padding: 3px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .bridge-group-card {
+            border: 1px solid #e7eaec;
+            border-radius: 3px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+
+        .bridge-group-card .group-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .bridge-group-card .group-title-row .form-control {
+            flex: 1;
+        }
+
+        .sub-bridge-table {
+            margin-bottom: 8px;
+        }
+
+        .unassigned-task-list .btn {
+            margin: 0 6px 6px 0;
+        }
+
+        .group-empty-hint {
+            color: #888;
+            margin: 6px 0;
+        }
+    </style>
+</head>
+<body class="white-bg">
+<div class="wrapper wrapper-content animated fadeInRight">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <h5>定期检查多桥报告数据填充 - <span th:text="${report.name}"></span></h5>
+                </div>
+                <div class="ibox-content">
+                    <div class="well well-sm">
+                        <button type="button" class="btn btn-info" onclick="$('#wordMatchModal').modal('show')">
+                            <i class="fa fa-file-word-o"></i> Word 内容匹配
+                        </button>
+                        <span class="text-muted">匹配项目概况、构件编号规则及各大桥概况、设计要点、主要材料、技术建议，确认导入后生成时使用 Word 原格式。</span>
+                    </div>
+                    <form class="form-horizontal m" id="form-report-data">
+                        <input type="hidden" name="reportId" th:value="${report.id}">
+
+                        <div id="tab_line_groups">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">大桥分组</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <p class="text-muted">
+                                        把本报告选中的多座桥梁任务合成一座「大桥」。大桥名称、大桥顺序、大桥下子桥顺序都在这里确定。
+                                        构件数量、外观检测、评定结果之后会按「大桥 → 子桥」生成；子桥与当前桥梁任务同一级。
+                                        未编入任何大桥的任务，生成时仍各自作为一座大桥。
+                                    </p>
+                                    <textarea id="line-bridge-groups-value" class="hidden"
+                                              data-original-key="line-bridge-groups"></textarea>
+
+                                    <div class="form-group">
+                                        <label class="control-label">未编入大桥的桥梁：</label>
+                                        <div id="unassignedTaskList" class="unassigned-task-list"></div>
+                                    </div>
+
+                                    <div id="bridgeGroupList"></div>
+
+                                    <div class="text-center">
+                                        <button type="button" class="btn btn-default" onclick="addBridgeGroup()">新增大桥</button>
+                                        <button type="button" class="btn btn-default" onclick="resetBridgeGroupsOnePerTask()">按每座桥单独成组</button>
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_groups')">保存大桥分组</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tab_line_project">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">第一章 项目概况</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <p class="text-muted">整份报告共用一份，不随下方桥梁切换变化。</p>
+                                    <div class="form-group">
+                                        <label class="control-label" for="line-report-header">报告页眉：</label>
+                                        <textarea id="line-report-header" class="form-control" data-original-key="line-report-header"
+                                                  rows="2" style="min-height: 60px;"
+                                                  placeholder="填写整份报告使用的完整页眉文字"></textarea>
+                                        <small class="text-muted">整份报告共用，横版和竖版页眉使用相同文字。留空时使用报告名称。</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="control-label">项目概况：</label>
+                                        <textarea class="form-control" data-original-key="line-route-overview" rows="8"
+                                                  placeholder="填写线路、项目背景、检测范围等项目概况"></textarea>
+                                    </div>
+                                    <div class="text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_project')">保存项目概况及页眉</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tab_line_chapter2">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">第二章 构件编号及划分原则</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <p class="text-muted">整份报告共用一份，不随下方桥梁切换变化。</p>
+                                    <div class="form-group">
+                                        <label class="control-label">2.1 构件编号规则：</label>
+                                        <textarea class="form-control" data-original-key="line-component-numbering-rules" rows="8"
+                                                  placeholder="填写构件编号规则说明，如编号组成、各字段含义及示例"></textarea>
+                                    </div>
+                                    <div class="text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_chapter2')">保存第二章内容</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-sm-2 control-label">当前大桥：</label>
+                            <div class="col-sm-8">
+                                <select id="lineGroupSelector" class="form-control noselect2"></select>
+                                <small class="text-muted">1、3、8、10、11 节按大桥保存。外观检测、评定结果、附表按子桥自动生成。请先保存上方「大桥分组」。</small>
+                            </div>
+                        </div>
+
+                        <!-- 选项卡导航 -->
+                        <div class="nav-tabs-custom">
+                            <ul class="nav nav-tabs" id="reportTabs">
+                                <li class="active"><a href="#tab_1" data-toggle="tab">1. 桥梁概况</a></li>
+                                <li><a href="#tab_2" data-toggle="tab">2. 外观检测结果</a></li>
+                                <li><a href="#tab_3" data-toggle="tab">3. 周边环境调查</a></li>
+                                <li><a href="#tab_4" data-toggle="tab">4. 与上一次检查病害变化情况分析</a></li>
+                                <li><a href="#tab_5" data-toggle="tab">5. 评定结果</a></li>
+                                <li><a href="#tab_6" data-toggle="tab">6. 近年评定结果对比分析</a></li>
+                                <li><a href="#tab_7" data-toggle="tab">7. 空间变位检测结果</a></li>
+                                <li><a href="#tab_8" data-toggle="tab">8. 墩台倾斜度</a></li>
+                                <li><a href="#tab_9" data-toggle="tab">9. 碳化深度及锈蚀电位状况</a></li>
+                                <li><a href="#tab_10" data-toggle="tab">10. 重点关注病害及主要病害成因分析</a></li>
+                                <li><a href="#tab_11" data-toggle="tab">11. 结论与建议</a></li>
+                                <li><a href="#tab_12" data-toggle="tab">12. 附表</a></li>
+                            </ul>
+                        </div>
+
+                        <!-- 选项卡内容 -->
+                        <div class="tab-content">
+
+                            <!-- Tab1 桥梁概况 -->
+                            <div class="tab-pane active" id="tab_1">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">1.1 整体概况</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="form-group">
+                                            <label class="control-label">整体概况：</label>
+                                            <textarea class="form-control" data-original-key="overallOverview" rows="8"
+                                                      placeholder="填写该座大桥的整体概况（位置、规模、结构型式等）"></textarea>
+                                        </div>
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">左幅正面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftFront">
+                                            <input type="hidden" class="image-value-holder" data-original-key="leftFront">
+                                            <div class="image-preview" data-original-key="leftFront"></div>
+                                        </div>
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">右幅正面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightFront">
+                                            <input type="hidden" class="image-value-holder" data-original-key="rightFront">
+                                            <div class="image-preview" data-original-key="rightFront"></div>
+                                        </div>
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">左幅立面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftSide">
+                                            <input type="hidden" class="image-value-holder" data-original-key="leftSide">
+                                            <div class="image-preview" data-original-key="leftSide"></div>
+                                        </div>
+                                        <div class="form-group image-upload-item">
+                                            <label class="control-label">右幅立面照：</label>
+                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightSide">
+                                            <input type="hidden" class="image-value-holder" data-original-key="rightSide">
+                                            <div class="image-preview" data-original-key="rightSide"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">1.2 设计要点</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <textarea class="form-control" data-original-key="designPoints" rows="5"
+                                                  placeholder="填写设计标准、结构体系、跨径组合等设计要点"></textarea>
+                                    </div>
+                                </div>
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">1.3 主要材料</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <textarea class="form-control" data-original-key="mainMaterial" rows="5"
+                                                  placeholder="填写混凝土、钢材、支座、伸缩缝等主要材料"></textarea>
+                                    </div>
+                                </div>
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">1.4 历史检测情况</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <textarea class="form-control" data-original-key="historicalInspectionStatus" rows="5"
+                                                  placeholder="填写历史检测时间、检测结论及主要问题"></textarea>
+                                    </div>
+                                </div>
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">1.5 历史维修情况</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <textarea class="form-control" data-original-key="historicalMaintenanceStatus" rows="5"
+                                                  placeholder="填写历史维修、加固及处治情况"></textarea>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_1')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <!-- Tab2 外观检测结果 -->
+                            <div class="tab-pane" id="tab_2">
+                                <div class="alert alert-success alert-custom">
+                                    <h4><i class="fa fa-check-circle"></i> 此章节由系统自动生成</h4>
+                                    <p><strong>章节名称：</strong>2. 外观检测结果</p>
+                                    <p><strong>生成内容：</strong></p>
+                                    <ul>
+                                        <li>上部结构的检测情况和病害统计</li>
+                                        <li>下部结构的检测情况和病害统计</li>
+                                        <li>桥面系的检测情况和病害统计</li>
+                                    </ul>
+                                    <p class="text-muted"><i class="fa fa-info-circle"></i>
+                                        系统会根据病害库、构件库自动生成外观检测结果。</p>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_3">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">3. 周边环境调查</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="form-group">
+                                            <label class="control-label">周边环境调查：</label>
+                                            <textarea class="form-control" data-original-key="surroundingEnvironment" rows="8"
+                                                      placeholder="填写桥梁周边地形、水文、交通、既有病害环境及对结构的影响"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_3')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_4">
+                                <div class="alert alert-success alert-custom">
+                                    <h4><i class="fa fa-check-circle"></i> 此章节由系统自动生成</h4>
+                                    <p><strong>章节名称：</strong>4. 与上一次检查病害变化情况分析</p>
+                                    <p><strong>生成内容：</strong></p>
+                                    <ul>
+                                        <li>按当前大桥下的子桥顺序，各生成一张「病害汇总统计表」</li>
+                                        <li>对比上年与本年同一构件、同一病害种类的数量和程度</li>
+                                        <li>表题为 Word 域「表x.x」，打开文档后更新域即可</li>
+                                    </ul>
+                                    <p class="text-muted"><i class="fa fa-info-circle"></i> 无需在此页填写。没有上年检查时，上年列为空或「/」。</p>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_5">
+                                <div class="alert alert-success alert-custom">
+                                    <h4><i class="fa fa-check-circle"></i> 此章节由系统自动生成</h4>
+                                    <p><strong>章节名称：</strong>5. 评定结果</p>
+                                    <p><strong>生成内容：</strong></p>
+                                    <ul>
+                                        <li>依据《公路桥梁技术状况评定标准》（JTG/T H21-2011）</li>
+                                        <li>自动计算上部结构、下部结构、桥面系、全桥的技术状况评分和等级</li>
+                                        <li>生成评定结果表格和评定说明</li>
+                                    </ul>
+                                    <p class="text-muted"><i class="fa fa-info-circle"></i>
+                                        系统会根据病害数据自动计算评分，并生成完整的评定结果表格。</p>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_6">
+                                <div class="alert alert-success alert-custom">
+                                    <h4><i class="fa fa-check-circle"></i> 此章节由系统自动生成</h4>
+                                    <p><strong>章节名称：</strong>6. 近年评定结果对比分析</p>
+                                    <p><strong>生成内容：</strong></p>
+                                    <ul>
+                                        <li>自动查询历史评定数据</li>
+                                        <li>生成近年评定结果对比分析表</li>
+                                        <li>展示技术状况的变化趋势</li>
+                                    </ul>
+                                    <p class="text-muted"><i class="fa fa-info-circle"></i> 系统会从历史任务中提取评定数据，自动生成对比分析。</p>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_7">
+                                <div class="alert alert-warning alert-custom">
+                                    <h4><i class="fa fa-info-circle"></i> 此章节功能可根据需求进一步开发</h4>
+                                    <p><strong>章节名称：</strong>7. 空间变位检测结果</p>
+                                    <p><strong>当前处理方式：</strong></p>
+                                    <ul>
+                                        <li>Word模板中会保留此章节的标题</li>
+                                        <li>生成报告后，请下载Word文档，手工填写检测数据</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_8">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">8. 墩台倾斜度</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="form-group">
+                                            <label class="control-label">墩台倾斜度：</label>
+                                            <textarea class="form-control" data-original-key="pierTilt" rows="8"
+                                                      placeholder="填写各墩台倾斜度检测位置、检测数据及评价"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_8')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane" id="tab_9">
+                                <div class="alert alert-info alert-custom">
+                                    <h4><i class="fa fa-info-circle"></i> 碳化深度及锈蚀电位状况由系统根据检测记录自动生成</h4>
+                                    <p><strong>章节名称：</strong>9. 碳化深度及锈蚀电位状况</p>
+                                    <p><strong>当前处理方式：</strong></p>
+                                    <ul>
+                                        <li>Word 模板占位符 <code>${carbonizationAssessment}</code> 依次生成碳化状况、锈蚀电位两张评定表</li>
+                                        <li>数据来自各子桥已提交的碳化深度、保护层、锈蚀电位检测记录</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="tab-pane" id="tab_10">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">10. 重点关注病害及主要病害成因分析</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="alert alert-info">
+                                            <p><i class="fa fa-info-circle"></i> 显示当前大桥下各子桥本次检测的全部病害，按构件分类。可搜索、按标度筛选，并逐条勾选重点病害，报告按所选记录生成成因分析。</p>
+                                        </div>
+
+                                        <!-- 病害选择器 -->
+                                        <div class="form-group">
+                                            <label class="control-label">选择重点关注病害:</label>
+                                            <div class="row">
+                                                <div class="col-md-10">
+                                                    <input type="text" class="form-control" readonly
+                                                           id="single-diseases-display"
+                                                           placeholder="请选择重点关注病害"
+                                                           onclick="showDiseaseSelector('single-diseases')">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button type="button" class="btn btn-primary"
+                                                            onclick="showDiseaseSelector('single-diseases')">
+                                                        <i class="fa fa-list"></i> 选择病害
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <!-- 隐藏字段存储JSON数据 -->
+                                            <input type="hidden" name="dataValues[${focusDiseases}]"
+                                                   data-original-key="${focusDiseases}"
+                                                   id="single-diseases-value">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_10')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane" id="tab_11">
+                                <div class="panel-group" id="accordion_conclusion">
+
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title">
+                                                <a data-toggle="collapse" data-parent="#accordion_conclusion"
+                                                   href="#collapse_8_1">
+                                                    <i class="fa fa-chevron-down"></i> 11.1 检测结论（自动生成）
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_8_1" class="panel-collapse collapse in">
+                                            <div class="panel-body">
+                                                <div class="alert alert-success">
+                                                    <p><i class="fa fa-check-circle"></i> 报告中会在「结论与建议」下自动加上「检测结论」标题，并生成评定结论文本。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title">
+                                                <a data-toggle="collapse" data-parent="#accordion_conclusion"
+                                                   href="#collapse_8_2">
+                                                    <i class="fa fa-chevron-right"></i> 11.1.1 主要病害
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_8_2" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="alert alert-warning">
+                                                    <p><i class="fa fa-info-circle"></i>
+                                                        系统会利用ai大模型生成主要病害，但仍需要核对。
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title">
+                                                <a data-toggle="collapse" data-parent="#accordion_conclusion"
+                                                   href="#collapse_8_3">
+                                                    <i class="fa fa-chevron-right"></i> 11.1.2 空间变位检测结论（下载后填写）
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_8_3" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="alert alert-warning">
+                                                    <p><i class="fa fa-info-circle"></i>
+                                                        此部分会在Word中保留标题，请根据检测结果手工填写结论。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title">
+                                                <a data-toggle="collapse" data-parent="#accordion_conclusion"
+                                                   href="#collapse_8_4">
+                                                    <i class="fa fa-chevron-right"></i> 11.1.3 碳化深度及锈蚀电位状况（下载后填写）
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_8_4" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="alert alert-warning">
+                                                    <p><i class="fa fa-info-circle"></i>
+                                                        此部分会在Word中保留标题，请根据检测结果手工填写结论。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h4 class="panel-title">
+                                                <a data-toggle="collapse" data-parent="#accordion_conclusion"
+                                                   href="#collapse_8_5">
+                                                    <i class="fa fa-chevron-right"></i> 11.2 技术建议（必填）
+                                                </a>
+                                            </h4>
+                                        </div>
+                                        <div id="collapse_8_5" class="panel-collapse collapse">
+                                            <div class="panel-body">
+                                                <div class="form-group">
+                                                    <label class="control-label">技术建议:</label>
+                                                    <textarea class="form-control"
+                                                              name="dataValues[technicalAdvice]"
+                                                              data-original-key="technicalAdvice"
+                                                              rows="10"
+                                                              placeholder="请填写针对本次检测的技术建议，包括维修养护建议、注意事项等"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_11')">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane" id="tab_12">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">12. 附表</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <p>勾选需要生成「桥梁基本状况卡片」的子桥。技术状况评定表、定期检查记录表仍按全部子桥生成。</p>
+                                        <input type="hidden" data-original-key="appendixBridgeCardTaskIds" id="appendixBridgeCardTaskIds">
+                                        <div class="form-group" style="margin-bottom: 8px;">
+                                            <label class="checkbox-inline">
+                                                <input type="checkbox" id="appendixBridgeCardSelectAll"> 全选
+                                            </label>
+                                        </div>
+                                        <div id="appendixBridgeCardList"></div>
+                                        <div class="form-group text-center" style="margin-top: 20px;">
+                                            <button type="button" class="btn btn-primary" onclick="saveTabData('tab_12')">保存</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 病害选择器：按子桥、构件分类，逐条勾选 -->
+<div class="modal fade" id="diseaseSelectModal" tabindex="-1" role="dialog" aria-labelledby="diseaseSelectModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="diseaseSelectModalLabel">选择病害</h4>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="diseaseTaskTabs" role="tablist" style="margin-bottom: 15px;"></ul>
+                <div class="tab-content" id="diseaseTaskTabContent">
+                    <div class="text-center" style="padding: 50px;">
+                        <i class="fa fa-spinner fa-spin"></i> 正在加载数据...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmDiseaseSelection">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="wordMatchModal" tabindex="-1" role="dialog" aria-labelledby="wordMatchTitle">
+    <div class="modal-dialog modal-lg" role="document" style="width:92%;max-width:1200px">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="关闭"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="wordMatchTitle">Word 内容匹配预览</h4>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">请先保存大桥分组。选择目标后点击“确认导入”，再重新生成报告；仅识别不会改变报告内容。点开目标下拉后可搜索大桥名或填报项。</p>
+                <div class="form-inline">
+                    <label for="wordMatchFile">来源 Word：</label>
+                    <input type="file" id="wordMatchFile" accept=".docx" class="form-control">
+                    <button type="button" id="wordMatchStart" class="btn btn-primary" onclick="startWordMatch()">识别并匹配</button>
+                </div>
+                <p id="wordMatchMessage" role="status" aria-live="polite" style="margin-top:12px"></p>
+                <div class="table-responsive" style="max-height:380px;overflow:auto">
+                    <table class="table table-bordered table-striped">
+                        <thead><tr><th>来源章节</th><th>目标填报项</th><th>状态</th><th>内容</th><th>操作</th></tr></thead>
+                        <tbody id="wordMatchRows"></tbody>
+                    </table>
+                </div>
+                <p id="wordMatchMissing" class="text-muted"></p>
+                <div id="wordMatchPreview" class="panel panel-default" style="display:none">
+                    <div class="panel-heading" id="wordMatchPreviewTitle"></div>
+                    <div class="panel-body">
+                        <p class="text-muted">内容核对预览：表格按行显示文字，图片仅统计数量。此处不还原 Word 版式，也不作为报告生成内容。</p>
+                        <p id="wordMatchPreviewWarnings" class="text-warning"></p>
+                        <pre id="wordMatchPreviewText" style="white-space:pre-wrap;max-height:360px;overflow:auto"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <label style="margin-right:16px"><input type="checkbox" id="wordMatchReplace"> 允许替换所选目标的已有内容</label>
+                <button type="button" class="btn btn-primary" id="wordMatchApply" onclick="applyWordMatches()" disabled>确认导入</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block th:include="include :: footer"/>
+<th:block th:include="include :: bootstrap-fileinput-js"/>
+<th:block th:include="include :: select2-js"/>
+<script th:inline="javascript">
+    var prefix = ctx + "biz/line_multi_bridge_data";
+    var reportId = /*[[${report.id}]]*/ '';
+    var reportTasks = [(${reportTaskViewsJson} ?: '[]')];
+    var savedBridgeGroups = [(${bridgeGroupsJson} ?: '[]')];
+    var currentGroupId = null;
+    var currentSelectorType = ''; // 当前选择器类型
+    var diseaseComponentData = {}; // {taskId: {taskId, buildingName, diseases: []}}
+    var loadSeq = 0;
+    var bridgeGroups = [];
+    var groupSeq = 0;
+    var suppressGroupSelectorChange = false;
+    var wordMatchResult = null;
+    var wordMatchRequest = null;
+    var wordMatchSourceFile = null;
+    var wordMatchSaving = false;
+
+    function startWordMatch() {
+        var file = $('#wordMatchFile')[0].files[0];
+        if (!file || !/\.docx$/i.test(file.name) || file.size > 300 * 1024 * 1024) {
+            $('#wordMatchMessage').text('请选择不超过 300MB 的 .docx 文件。');
+            return;
+        }
+        if (wordMatchRequest) return;
+        wordMatchResult = null;
+        wordMatchSourceFile = null;
+        $('#wordMatchApply').prop('disabled', true);
+        $('#wordMatchReplace').prop('checked', false);
+        clearWordMatchRows();
+        $('#wordMatchMissing').empty();
+        $('#wordMatchPreview').hide();
+        $('#wordMatchMessage').text('正在识别 Word 正文章节，请稍候……');
+        $('#wordMatchStart, #wordMatchFile').prop('disabled', true);
+        var form = new FormData();
+        form.append('reportId', reportId);
+        form.append('file', file);
+        wordMatchRequest = $.ajax({
+            url: prefix + '/matchWord', type: 'POST', data: form,
+            processData: false, contentType: false,
+            success: function (response) {
+                if (response.code !== 0 || !response.data) {
+                    $('#wordMatchMessage').text(response.msg || '识别失败');
+                    return;
+                }
+                wordMatchResult = response.data;
+                wordMatchSourceFile = file;
+                $('#wordMatchMessage').text('识别到 ' + wordMatchResult.sections.length + ' 个内容片段。'
+                    + (wordMatchResult.warnings || []).join(' '));
+                renderWordMatches();
+            },
+            error: function () { $('#wordMatchMessage').text('识别请求失败，请检查文件或稍后重试。'); },
+            complete: function () {
+                wordMatchRequest = null;
+                $('#wordMatchStart, #wordMatchFile').prop('disabled', false);
+            }
+        });
+    }
+
+    function clearWordMatchRows() {
+        $('#wordMatchRows .word-match-select').each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) {
+                $(this).select2('destroy');
+            }
+        });
+        $('#wordMatchRows').empty();
+    }
+
+    function initSearchableSelect($el, extra) {
+        if (!$el || !$el.length || !$.fn.select2) {
+            return $el;
+        }
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+        $el.select2($.extend({
+            width: '100%',
+            theme: 'bootstrap',
+            language: {
+                noResults: function () { return '没有匹配项'; },
+                searching: function () { return '搜索中…'; }
+            }
+        }, extra || {}));
+        return $el;
+    }
+
+    function fillWordTargetOptions($select, targets, section) {
+        $select.empty().append($('<option>').val('').text('暂不匹配 / 忽略'));
+        targets.forEach(function (target) {
+            if ((section.key.indexOf('line-') === 0) !== (target.key.indexOf('line-') === 0)) return;
+            $select.append($('<option>').val(target.id).text((target.groupName || '') + ' → ' + (target.label || '')));
+        });
+        $select.val(section.targetId || '');
+    }
+
+    function sortedWordMatchTargets(targets) {
+        var fieldOrder = ['line-route-overview', 'line-component-numbering-rules',
+            'overallOverview', 'designPoints', 'mainMaterial', 'technicalAdvice'];
+        return targets.slice().sort(function (left, right) {
+            var bridgeOrder = (left.groupName || '').localeCompare(right.groupName || '', 'zh-CN', {numeric: true});
+            return bridgeOrder || (left.groupId || '').localeCompare(right.groupId || '', 'zh-CN', {numeric: true})
+                || fieldOrder.indexOf(left.key) - fieldOrder.indexOf(right.key);
+        });
+    }
+
+    function renderWordMatches() {
+        var result = wordMatchResult;
+        clearWordMatchRows();
+        var $rows = $('#wordMatchRows');
+        var sortedTargets = sortedWordMatchTargets(result.targets);
+        result.sections.forEach(function (section, index) {
+            var $row = $('<tr>');
+            $('<td>').text(section.sourcePath).appendTo($row);
+            var $select = $('<select class="form-control noselect2 word-match-select" aria-label="选择目标填报项">');
+            fillWordTargetOptions($select, sortedTargets, section);
+            $select.prop('disabled', section.empty).on('change', function () {
+                section.targetId = $(this).val() || null;
+                updateWordMatchStatuses();
+            });
+            $('<td style="min-width:280px">').append($select).appendTo($row);
+            initSearchableSelect($select, {
+                dropdownParent: $('#wordMatchModal'),
+                placeholder: '搜索大桥名称或填报项',
+                allowClear: true,
+                language: {
+                    noResults: function () { return '没有匹配的大桥或填报项'; },
+                    searching: function () { return '搜索中…'; }
+                }
+            });
+            $('<td>').attr('id', 'wordMatchStatus' + index).appendTo($row);
+            $('<td>').text(section.tableCount + ' 个表格，' + section.imageCount + ' 个图对象').appendTo($row);
+            var $preview = $('<button type="button" class="btn btn-default btn-xs">').text('预览').on('click', function () {
+                $('#wordMatchPreviewTitle').text(section.sourcePath);
+                $('#wordMatchPreviewText').text(section.text || '该片段没有可提取的文字。');
+                $('#wordMatchPreviewWarnings').text((section.warnings || []).join(' '));
+                $('#wordMatchPreview').show();
+            });
+            $('<td>').append($preview).appendTo($row);
+            $rows.append($row);
+        });
+        updateWordMatchStatuses();
+    }
+
+    function updateWordMatchStatuses() {
+        var result = wordMatchResult;
+        var counts = {};
+        result.sections.forEach(function (section) {
+            if (section.targetId && !section.empty) counts[section.targetId] = (counts[section.targetId] || 0) + 1;
+        });
+        result.sections.forEach(function (section, index) {
+            var target = result.targets.filter(function (item) { return item.id === section.targetId; })[0];
+            var status = section.empty ? '空章节，不匹配' : !target ? '未匹配 / 已忽略'
+                : counts[target.id] > 1 ? '目标冲突，请只保留一个来源'
+                : target.hasExistingContent ? '已匹配，已有填报内容' : '已匹配，目标为空';
+            $('#wordMatchStatus' + index).text(status);
+        });
+        var missing = result.targets.filter(function (target) { return !counts[target.id]; });
+        var conflict = Object.keys(counts).some(function (id) { return counts[id] > 1; });
+        $('#wordMatchApply').prop('disabled', wordMatchSaving || !wordMatchSourceFile || conflict || !Object.keys(counts).length);
+        $('#wordMatchMissing').text(missing.length ? '未匹配的填报项：' + missing.map(function (target) {
+            return target.groupName + ' / ' + target.label;
+        }).join('；') : '所有支持的填报项均已有来源匹配。');
+    }
+
+    function applyWordMatches() {
+        if (!wordMatchResult || !wordMatchSourceFile || wordMatchSaving) return;
+        var targets = wordMatchResult.targets;
+        var replace = $('#wordMatchReplace').prop('checked');
+        var selected = wordMatchResult.sections.filter(function (s) { return !s.empty && s.targetId; });
+        var seen = {};
+        var matches = [];
+        for (var i = 0; i < selected.length; i++) {
+            var source = selected[i];
+            var target = targets.filter(function (t) { return t.id === source.targetId; })[0];
+            if (!target || seen[target.id]) { $('#wordMatchMessage').text('目标有冲突，请检查匹配。'); return; }
+            if (target.hasExistingContent && !replace) {
+                $('#wordMatchMessage').text('目标已有内容。请勾选“允许替换”，或将对应片段设为忽略。'); return;
+            }
+            seen[target.id] = true;
+            matches.push({sourceId: source.id, groupId: target.groupId, key: target.key,
+                expectedVersion: target.version, replaceExisting: replace});
+        }
+        if (!matches.length) return;
+        var form = new FormData();
+        form.append('reportId', reportId); form.append('file', wordMatchSourceFile);
+        form.append('matches', JSON.stringify(matches));
+        wordMatchSaving = true;
+        $('#wordMatchModal input, #wordMatchModal select, #wordMatchStart, #wordMatchApply').prop('disabled', true);
+        $('#wordMatchMessage').text('正在验证内容完整性并保存原 Word，请稍候……');
+        $.ajax({url: prefix + '/importWord', type: 'POST', data: form, processData: false, contentType: false,
+            success: function (response) {
+                $('#wordMatchMessage').text(response.msg || '导入完成');
+                if (response.code === 0) {
+                    wordMatchSourceFile = null;
+                    selected.forEach(function (s) {
+                        $('#wordMatchStatus' + wordMatchResult.sections.indexOf(s)).text('已保存，生成时使用 Word 原格式');
+                    });
+                    loadReportData();
+                }
+            },
+            error: function () { $('#wordMatchMessage').text('导入请求未完成。请重新识别核对已保存状态后再试。'); },
+            complete: function () {
+                wordMatchSaving = false;
+                $('#wordMatchFile, #wordMatchStart, #wordMatchReplace').prop('disabled', false);
+                if (wordMatchSourceFile) renderWordMatches();
+                else $('#wordMatchApply').prop('disabled', true);
+            }
+        });
+    }
+    if (typeof reportTasks === 'string') {
+        try {
+            reportTasks = JSON.parse(reportTasks);
+        } catch (e) {
+            reportTasks = [];
+        }
+    }
+    if (!Array.isArray(reportTasks)) {
+        reportTasks = [];
+    }
+    if (typeof savedBridgeGroups === 'string') {
+        try {
+            savedBridgeGroups = JSON.parse(savedBridgeGroups);
+        } catch (e) {
+            savedBridgeGroups = [];
+        }
+    }
+    if (!Array.isArray(savedBridgeGroups)) {
+        savedBridgeGroups = [];
+    }
+
+    $(function () {
+        initGroupSelector();
+
+        // 初始化文件上传控件
+        initFileInputs();
+
+        // 加载报告数据
+        loadReportData();
+
+        // 监听选项卡切换事件（自动保存）
+        $('#reportTabs a').on('show.bs.tab', function (e) {
+            var currentTab = $('.nav-tabs li.active a').attr("href");
+            var targetTab = $(e.target).attr("href");
+
+            if (currentTab && currentTab !== targetTab) {
+                var currentTabId = currentTab.replace('#', '');
+                saveTabDataSync(currentTabId);
+            }
+        });
+        $('#reportTabs a').on('shown.bs.tab', function (e) {
+            if ($(e.target).attr('href') === '#tab_12') {
+                renderAppendixCardChecks();
+            }
+        });
+        $(document).on('change', '.appendix-bridge-card-check', function () {
+            syncAppendixCardSelection();
+        });
+        $('#appendixBridgeCardSelectAll').on('change', function () {
+            var checked = $(this).prop('checked');
+            $('#appendixBridgeCardList .appendix-bridge-card-check').prop('checked', checked);
+            syncAppendixCardSelection();
+        });
+
+        // 监听折叠面板事件
+        $('.panel-heading').on('click', function () {
+            var $icon = $(this).find('.fa');
+            if ($icon.hasClass('fa-chevron-down')) {
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+            } else {
+                $icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+            }
+        });
+    });
+
+    var LINE_LEVEL_TAB_IDS = ['tab_line_project', 'tab_line_chapter2', 'tab_line_groups'];
+
+    function isLineLevelTab(tabId) {
+        return LINE_LEVEL_TAB_IDS.indexOf(tabId) >= 0;
+    }
+
+    function taskNameById(taskId) {
+        for (var i = 0; i < reportTasks.length; i++) {
+            if (String(reportTasks[i].id) === String(taskId)) {
+                return reportTasks[i].name || ('任务 ' + taskId);
+            }
+        }
+        return '任务 ' + taskId;
+    }
+
+    function findCurrentGroup() {
+        var groups = bridgeGroups.length ? bridgeGroups : savedBridgeGroups;
+        for (var i = 0; i < groups.length; i++) {
+            if (groups[i] && String(groups[i].id) === String(currentGroupId)) {
+                return groups[i];
+            }
+        }
+        return null;
+    }
+
+    function currentGroupTaskIds() {
+        var group = findCurrentGroup();
+        return group && group.taskIds ? group.taskIds : [];
+    }
+
+    function parseAppendixCardTaskIds(raw) {
+        if (raw == null || raw === '') {
+            return null;
+        }
+        try {
+            var parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                return null;
+            }
+            return parsed.map(function (id) {
+                return Number(id);
+            }).filter(function (id) {
+                return !isNaN(id);
+            });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function renderAppendixCardChecks() {
+        var $list = $('#appendixBridgeCardList').empty();
+        var taskIds = currentGroupTaskIds();
+        if (!currentGroupId) {
+            $list.append('<p class="text-muted">请先选择大桥。</p>');
+            $('#appendixBridgeCardSelectAll').prop('checked', false);
+            return;
+        }
+        if (taskIds.length === 0) {
+            $list.append('<p class="text-muted">当前大桥下没有子桥。</p>');
+            $('#appendixBridgeCardSelectAll').prop('checked', false);
+            return;
+        }
+        var selected = parseAppendixCardTaskIds($('#appendixBridgeCardTaskIds').val());
+        taskIds.forEach(function (taskId) {
+            var checked = selected == null || selected.indexOf(Number(taskId)) >= 0;
+            var $label = $('<label class="checkbox-inline" style="display:block;margin:6px 0;">');
+            $label.append(
+                $('<input type="checkbox" class="appendix-bridge-card-check">')
+                    .val(taskId)
+                    .prop('checked', checked)
+            );
+            $label.append(document.createTextNode(' ' + taskNameById(taskId)));
+            $list.append($label);
+        });
+        syncAppendixCardSelectAll();
+    }
+
+    function syncAppendixCardSelection() {
+        var $checks = $('#appendixBridgeCardList .appendix-bridge-card-check');
+        if ($checks.length === 0) {
+            return;
+        }
+        var selected = [];
+        $checks.filter(':checked').each(function () {
+            selected.push(Number($(this).val()));
+        });
+        $('#appendixBridgeCardTaskIds').val(JSON.stringify(selected));
+        syncAppendixCardSelectAll();
+    }
+
+    function syncAppendixCardSelectAll() {
+        var $checks = $('#appendixBridgeCardList .appendix-bridge-card-check');
+        $('#appendixBridgeCardSelectAll').prop(
+            'checked',
+            $checks.length > 0 && $checks.filter(':checked').length === $checks.length
+        );
+    }
+
+    function knownTaskIds() {
+        return reportTasks.map(function (task) {
+            return String(task.id);
+        });
+    }
+
+    function nextGroupId() {
+        groupSeq += 1;
+        return 'g' + Date.now() + '_' + groupSeq;
+    }
+
+    function assignedTaskIdSet() {
+        var used = {};
+        for (var i = 0; i < bridgeGroups.length; i++) {
+            var taskIds = bridgeGroups[i].taskIds || [];
+            for (var j = 0; j < taskIds.length; j++) {
+                used[String(taskIds[j])] = true;
+            }
+        }
+        return used;
+    }
+
+    function unassignedTaskIds() {
+        var used = assignedTaskIdSet();
+        return knownTaskIds().filter(function (id) {
+            return !used[id];
+        });
+    }
+
+    function collectGroupNamesFromDom() {
+        $('#bridgeGroupList .bridge-group-card').each(function () {
+            var index = parseInt($(this).attr('data-index'), 10);
+            if (!isNaN(index) && bridgeGroups[index]) {
+                bridgeGroups[index].name = $(this).find('.group-name-input').val() || '';
+            }
+        });
+    }
+
+    function defaultBridgeGroups() {
+        return reportTasks.map(function (task) {
+            return {
+                id: 'solo-' + task.id,
+                name: task.name || ('任务 ' + task.id),
+                taskIds: [Number(task.id)]
+            };
+        });
+    }
+
+    function applyBridgeGroupsFromForm() {
+        var raw = $('#line-bridge-groups-value').val();
+        var parsed = parseBridgeGroupsValue(raw);
+        if (parsed === null) {
+            renderBridgeGroups();
+            return;
+        }
+        if (parsed.length === 0) {
+            bridgeGroups = [];
+            renderBridgeGroups();
+            return;
+        }
+        var known = {};
+        knownTaskIds().forEach(function (id) {
+            known[id] = true;
+        });
+        bridgeGroups = parsed.map(function (group) {
+            var taskIds = (group.taskIds || []).map(function (id) {
+                return String(id);
+            }).filter(function (id) {
+                return known[id];
+            }).filter(function (id, index, arr) {
+                return arr.indexOf(id) === index;
+            }).map(function (id) {
+                return Number(id);
+            });
+            return {
+                id: group.id || nextGroupId(),
+                name: group.name || '',
+                taskIds: taskIds
+            };
+        });
+        renderBridgeGroups();
+    }
+
+    function parseBridgeGroupsValue(raw) {
+        if (raw == null || raw === '') {
+            return [];
+        }
+        if (Array.isArray(raw)) {
+            return raw;
+        }
+        if (typeof raw === 'object') {
+            return [raw];
+        }
+        var text = String(raw).trim();
+        if (!text) {
+            return [];
+        }
+        try {
+            var parsed = JSON.parse(text);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.warn('大桥分组JSON无法解析，保留当前编辑结果', e);
+            return null;
+        }
+    }
+
+    function renderBridgeGroups() {
+        var unassigned = unassignedTaskIds();
+        var $unassigned = $('#unassignedTaskList').empty();
+        if (unassigned.length === 0) {
+            $unassigned.append('<span class="group-empty-hint">全部桥梁已编入大桥</span>');
+        } else {
+            unassigned.forEach(function (taskId) {
+                $unassigned.append(
+                    $('<span class="btn btn-xs btn-white">').text(taskNameById(taskId))
+                );
+            });
+        }
+
+        var $list = $('#bridgeGroupList').empty();
+        if (bridgeGroups.length === 0) {
+            $list.append('<p class="group-empty-hint">尚未创建大桥，可点「新增大桥」或「按每座桥单独成组」。</p>');
+            refreshGroupSelector();
+            return;
+        }
+
+        bridgeGroups.forEach(function (group, index) {
+            var $card = $('<div class="bridge-group-card"></div>').attr('data-index', index);
+            var $title = $('<div class="group-title-row"></div>');
+            $title.append($('<span class="text-muted">').text('大桥 ' + (index + 1)));
+            $title.append($('<input type="text" class="form-control group-name-input">')
+                .val(group.name || '')
+                .attr('placeholder', '例如：东分块 3#高架桥'));
+            $title.append($('<button type="button" class="btn btn-xs btn-default">上移</button>')
+                .prop('disabled', index === 0)
+                .on('click', function () { moveBridgeGroup(index, -1); }));
+            $title.append($('<button type="button" class="btn btn-xs btn-default">下移</button>')
+                .prop('disabled', index === bridgeGroups.length - 1)
+                .on('click', function () { moveBridgeGroup(index, 1); }));
+            $title.append($('<button type="button" class="btn btn-xs btn-danger">删除</button>')
+                .on('click', function () { removeBridgeGroup(index); }));
+            $card.append($title);
+
+            var $table = $('<table class="table table-bordered table-condensed sub-bridge-table"></table>');
+            $table.append('<thead><tr><th style="width:70px;">顺序</th><th>子桥（桥梁任务）</th><th style="width:180px;">操作</th></tr></thead>');
+            var $tbody = $('<tbody></tbody>');
+            var taskIds = group.taskIds || [];
+            if (taskIds.length === 0) {
+                $tbody.append('<tr><td colspan="3" class="group-empty-hint">还没有子桥，从下方把未编入桥梁加进来。</td></tr>');
+            } else {
+                taskIds.forEach(function (taskId, taskIndex) {
+                    var $tr = $('<tr></tr>');
+                    $tr.append($('<td>').text(taskIndex + 1));
+                    $tr.append($('<td>').text(taskNameById(taskId)));
+                    var $ops = $('<td></td>');
+                    $ops.append($('<button type="button" class="btn btn-xs btn-default">上移</button>')
+                        .prop('disabled', taskIndex === 0)
+                        .on('click', function () { moveSubBridge(index, taskIndex, -1); }));
+                    $ops.append(' ');
+                    $ops.append($('<button type="button" class="btn btn-xs btn-default">下移</button>')
+                        .prop('disabled', taskIndex === taskIds.length - 1)
+                        .on('click', function () { moveSubBridge(index, taskIndex, 1); }));
+                    $ops.append(' ');
+                    $ops.append($('<button type="button" class="btn btn-xs btn-warning">移出</button>')
+                        .on('click', function () { removeSubBridge(index, taskIndex); }));
+                    $tr.append($ops);
+                    $tbody.append($tr);
+                });
+            }
+            $table.append($tbody);
+            $card.append($table);
+
+            if (unassigned.length > 0) {
+                var $addRow = $('<div class="form-inline"></div>');
+                var $select = $('<select class="form-control input-sm noselect2"></select>');
+                unassigned.forEach(function (taskId) {
+                    $select.append($('<option></option>').val(taskId).text(taskNameById(taskId)));
+                });
+                $addRow.append($select);
+                initSearchableSelect($select, {
+                    placeholder: '搜索未编入的桥梁',
+                    language: {
+                        noResults: function () { return '没有匹配的桥梁'; },
+                        searching: function () { return '搜索中…'; }
+                    }
+                });
+                $addRow.append(' ');
+                $addRow.append($('<button type="button" class="btn btn-sm btn-info">加入此大桥</button>')
+                    .on('click', function () {
+                        addSubBridge(index, $select.val());
+                    }));
+                $card.append($addRow);
+            }
+
+            $list.append($card);
+        });
+        refreshGroupSelector();
+    }
+
+    function addBridgeGroup() {
+        collectGroupNamesFromDom();
+        bridgeGroups.push({
+            id: nextGroupId(),
+            name: '',
+            taskIds: []
+        });
+        renderBridgeGroups();
+    }
+
+    function resetBridgeGroupsOnePerTask() {
+        collectGroupNamesFromDom();
+        bridgeGroups = defaultBridgeGroups();
+        renderBridgeGroups();
+    }
+
+    function removeBridgeGroup(index) {
+        collectGroupNamesFromDom();
+        bridgeGroups.splice(index, 1);
+        renderBridgeGroups();
+    }
+
+    function moveBridgeGroup(index, offset) {
+        collectGroupNamesFromDom();
+        var target = index + offset;
+        if (target < 0 || target >= bridgeGroups.length) {
+            return;
+        }
+        var current = bridgeGroups[index];
+        bridgeGroups[index] = bridgeGroups[target];
+        bridgeGroups[target] = current;
+        renderBridgeGroups();
+    }
+
+    function addSubBridge(groupIndex, taskId) {
+        collectGroupNamesFromDom();
+        if (!taskId || !bridgeGroups[groupIndex]) {
+            return;
+        }
+        var used = assignedTaskIdSet();
+        if (used[String(taskId)]) {
+            return;
+        }
+        bridgeGroups[groupIndex].taskIds = bridgeGroups[groupIndex].taskIds || [];
+        bridgeGroups[groupIndex].taskIds.push(Number(taskId));
+        renderBridgeGroups();
+    }
+
+    function removeSubBridge(groupIndex, taskIndex) {
+        collectGroupNamesFromDom();
+        if (!bridgeGroups[groupIndex] || !bridgeGroups[groupIndex].taskIds) {
+            return;
+        }
+        bridgeGroups[groupIndex].taskIds.splice(taskIndex, 1);
+        renderBridgeGroups();
+    }
+
+    function moveSubBridge(groupIndex, taskIndex, offset) {
+        collectGroupNamesFromDom();
+        var taskIds = bridgeGroups[groupIndex] && bridgeGroups[groupIndex].taskIds;
+        if (!taskIds) {
+            return;
+        }
+        var target = taskIndex + offset;
+        if (target < 0 || target >= taskIds.length) {
+            return;
+        }
+        var current = taskIds[taskIndex];
+        taskIds[taskIndex] = taskIds[target];
+        taskIds[target] = current;
+        renderBridgeGroups();
+    }
+
+    function syncBridgeGroupsToForm() {
+        collectGroupNamesFromDom();
+        var payload = [];
+        for (var i = 0; i < bridgeGroups.length; i++) {
+            var group = bridgeGroups[i];
+            var taskIds = (group.taskIds || []).map(function (id) {
+                return Number(id);
+            }).filter(function (id) {
+                return !isNaN(id);
+            });
+            var name = (group.name || '').trim();
+            if (!name && taskIds.length === 0) {
+                continue;
+            }
+            if (!name) {
+                return '第 ' + (i + 1) + ' 座大桥已有子桥，请填写大桥名称';
+            }
+            if (taskIds.length === 0) {
+                return '第 ' + (i + 1) + ' 座大桥还没有子桥，请点「加入此大桥」把桥梁加进去';
+            }
+            payload.push({
+                id: group.id || nextGroupId(),
+                name: name,
+                taskIds: taskIds
+            });
+        }
+        if (payload.length === 0) {
+            return '请先点「新增大桥」，填写大桥名称，再把未编入的桥梁加进去，然后保存';
+        }
+        $('#line-bridge-groups-value').val(JSON.stringify(payload));
+        return null;
+    }
+
+    function initGroupSelector() {
+        refreshGroupSelector();
+        $('#lineGroupSelector').on('change', function () {
+            if (suppressGroupSelectorChange) {
+                return;
+            }
+            saveTabDataSync('tab_line_project');
+            saveTabDataSync('tab_line_chapter2');
+            var activeHref = $('#reportTabs li.active a').attr('href');
+            if (activeHref) {
+                saveTabDataSync(activeHref.replace('#', ''));
+            }
+            currentGroupId = $(this).val() || null;
+            diseaseComponentData = {};
+            clearBridgeFormData();
+            loadReportData();
+        });
+    }
+
+    function refreshGroupSelector() {
+        var $selector = $('#lineGroupSelector');
+        var previous = currentGroupId || $selector.val();
+        suppressGroupSelectorChange = true;
+        $selector.empty();
+        var groups = bridgeGroups.length ? bridgeGroups : savedBridgeGroups;
+        groups.forEach(function (group) {
+            if (!group || !group.id) {
+                return;
+            }
+            var label = (group.name || '未命名大桥');
+            var count = (group.taskIds || []).length;
+            $selector.append($('<option></option>').val(group.id).text(label + '（' + count + '座子桥）'));
+        });
+        if (previous && $selector.find('option[value="' + previous + '"]').length) {
+            $selector.val(previous);
+        }
+        currentGroupId = $selector.val() || null;
+        suppressGroupSelectorChange = false;
+        initSearchableSelect($selector, {
+            placeholder: '搜索或选择大桥',
+            language: {
+                noResults: function () { return '没有匹配的大桥'; },
+                searching: function () { return '搜索中…'; }
+            }
+        });
+    }
+
+    function initBridgeSelector() {
+        refreshGroupSelector();
+    }
+
+    function clearBridgeFormData() {
+        var $bridgePanes = $('.tab-pane').not('#tab_line_project');
+        $bridgePanes.find(
+            'textarea[data-original-key], input[type="text"][data-original-key], input[type="hidden"][data-original-key], .image-value-holder'
+        ).val('');
+        $bridgePanes.find('textarea[data-word-imported]').prop('readonly', false).removeAttr('data-word-imported');
+        $bridgePanes.find('.word-import-notice').remove();
+        $bridgePanes.find('[id$="-display"]').val('请选择');
+        $bridgePanes.find('.image-preview').empty();
+    }
+
+    // 初始化文件上传控件
+    function initFileInputs() {
+        // Only photo fields use the image plugin; the Word matcher keeps its native DOCX picker.
+        $('#form-report-data .image-upload-item input[type="file"][data-key]').each(function () {
+            var $this = $(this);
+            var key = $this.data('key');
+
+            $this.fileinput({
+                'theme': 'fa',
+                language: 'zh',
+                showUpload: false,
+                showCaption: false,
+                showRemove: true,
+                showPreview: true,
+                browseClass: "btn btn-primary",
+                fileType: "any",
+                previewFileIcon: "<i class='glyphicon glyphicon-king'></i>",
+                allowedFileExtensions: ['jpg', 'jpeg', 'png', 'gif'],
+                fileActionSettings: {
+                    showUpload: false,
+                    showZoom: true,
+                    showDrag: false,
+                    showDownload: false,
+                    removeIcon: '<i class="fa fa-trash"></i>'
+                }
+            });
+        });
+    }
+
+    // 加载报告数据。线路级和当前桥梁分开取，过期请求直接丢弃，避免切桥后把上一座桥的数据填回来。
+    function loadReportData() {
+        var seq = ++loadSeq;
+        var groupId = currentGroupId;
+        var requests = [$.ajax({
+            url: prefix + "/list",
+            type: "post",
+            data: {"reportId": reportId},
+            dataType: "json"
+        })];
+        if (groupId) {
+            requests.push($.ajax({
+                url: prefix + "/list",
+                type: "post",
+                data: {"reportId": reportId, "groupId": groupId},
+                dataType: "json"
+            }));
+        }
+
+        $.when.apply($, requests).done(function () {
+            if (seq !== loadSeq) {
+                return;
+            }
+            var rows = [];
+            var responses = requests.length === 1 ? [arguments[0]] : Array.prototype.map.call(arguments, function (item) {
+                return item[0];
+            });
+            for (var i = 0; i < responses.length; i++) {
+                if (responses[i] && responses[i].rows) {
+                    rows = rows.concat(responses[i].rows);
+                }
+            }
+            fillFormData(rows);
+            applyBridgeGroupsFromForm();
+            renderAppendixCardChecks();
+        }).fail(function () {
+            if (seq !== loadSeq) {
+                return;
+            }
+            $.modal.alertError("加载数据失败");
+        });
+    }
+
+    // 填充表单数据
+    function fillFormData(dataList) {
+        for (var i = 0; i < dataList.length; i++) {
+            var data = dataList[i];
+            var key = data.key;
+            var value = data.value;
+            var type = data.type;
+
+            if (type == 2) {
+                var reference;
+                try { reference = typeof value === 'string' ? JSON.parse(value) : value; } catch (e) { continue; }
+                var $field = $('textarea[data-original-key="' + key + '"]');
+                $field.val(reference.preview || '').prop('readonly', true).attr('data-word-imported', 'true');
+                $field.siblings('.word-import-notice').remove();
+                $('<p class="text-info word-import-notice">').text('已导入 Word：' + reference.sourceName + '。生成时保留原格式；如需更新，请重新导入该项。').insertAfter($field);
+                continue;
+            }
+
+            if (type == 0) {
+                if (value != null && typeof value !== 'string') {
+                    value = JSON.stringify(value);
+                }
+                $('textarea[data-original-key="' + key + '"]').val(value);
+                $('input[type="text"][data-original-key="' + key + '"]').val(value);
+                $('input[type="hidden"][data-original-key="' + key + '"]').val(value);
+                if (key === 'line-project-overview') {
+                    $('textarea[data-original-key="line-route-overview"]').val(value);
+                }
+            } else if (type == 1) {
+                if (value) {
+                    var $valueHolder = $('.image-value-holder[data-original-key="' + key + '"]');
+                    var $previewContainer = $('.image-preview[data-original-key="' + key + '"]');
+                    if ($valueHolder.length > 0) {
+                        $valueHolder.val(value);
+                        var imageUrls = value.split(',');
+                        var validUrls = [];
+                        for (var j = 0; j < imageUrls.length; j++) {
+                            if (imageUrls[j].trim()) {
+                                validUrls.push(imageUrls[j].trim());
+                            }
+                        }
+                        if (validUrls.length === 0) {
+                            $previewContainer.empty();
+                        } else {
+                            $previewContainer.html('<div class="text-center"><i class="fa fa-spinner fa-spin"></i> 正在加载图片...</div>');
+                            var loadCounter = {total: validUrls.length, loaded: 0, results: [], originalIds: []};
+                            for (var j = 0; j < validUrls.length; j++) {
+                                processImageUrl(validUrls[j], j, loadCounter, $previewContainer);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 特殊处理病害选择器显示
+        var diseaseValue = $('input[data-original-key="${focusDiseases}"]').val();
+        console.log('加载病害数据 - diseaseValue:', diseaseValue);
+        console.log('加载病害数据 - diseaseValue type:', typeof diseaseValue);
+        if (diseaseValue) {
+            updateDiseaseDisplay('single-diseases');
+        }
+        renderAppendixCardChecks();
+    }
+
+    function processImageUrl(url, index, counter, container) {
+        counter.originalIds[index] = url;
+        if (/^\d+$/.test(url)) {
+            $.ajax({
+                url: prefix + "/getFileUrl",
+                type: "post",
+                data: {"fileId": url},
+                dataType: "json",
+                success: function (result) {
+                    counter.results[index] = (result.code == 0) ? result.data : "#";
+                    updateImagePreview(counter, container);
+                },
+                error: function () {
+                    counter.results[index] = "#";
+                    updateImagePreview(counter, container);
+                }
+            });
+        } else {
+            counter.results[index] = url;
+            updateImagePreview(counter, container);
+        }
+    }
+
+    function updateImagePreview(counter, container) {
+        counter.loaded++;
+        if (counter.loaded < counter.total) {
+            return;
+        }
+        var imgHtml = '';
+        for (var i = 0; i < counter.results.length; i++) {
+            if (!counter.results[i]) {
+                continue;
+            }
+            var originalId = counter.originalIds[i];
+            imgHtml += '<div class="image-item" data-id="' + originalId + '">';
+            imgHtml += '<div class="image-actions"><a href="javascript:void(0);" class="btn btn-xs btn-danger remove-image" title="删除"><i class="fa fa-trash"></i></a></div>';
+            imgHtml += '<a href="' + counter.results[i] + '" target="_blank"><img src="' + counter.results[i] + '" alt="预览图"></a>';
+            imgHtml += '</div>';
+        }
+        container.html(imgHtml);
+        container.find('.remove-image').on('click', function () {
+            var imageId = String($(this).closest('.image-item').data('id'));
+            var originalKey = container.data('original-key');
+            var $valueHolder = $('.image-value-holder[data-original-key="' + originalKey + '"]');
+            var ids = ($valueHolder.val() || '').split(',').map(function (id) { return id.trim(); }).filter(function (id) {
+                return id && id !== imageId;
+            });
+            $valueHolder.val(ids.join(','));
+            $(this).closest('.image-item').remove();
+        });
+    }
+
+    // 保存选项卡数据
+    function saveTabData(tabId) {
+        saveTabDataInternal(tabId, true);
+    }
+
+    // 同步保存选项卡数据
+    function saveTabDataSync(tabId) {
+        saveTabDataInternal(tabId, false);
+    }
+
+    // 内部保存方法
+    function saveTabDataInternal(tabId, showLoading) {
+        if (tabId === 'tab_line_groups') {
+            var groupError = syncBridgeGroupsToForm();
+            if (groupError) {
+                if (showLoading) {
+                    $.modal.alertError(groupError);
+                }
+                return;
+            }
+        }
+        var savingGroupId = currentGroupId;
+        if (!isLineLevelTab(tabId) && !savingGroupId) {
+            if (showLoading) {
+                $.modal.alertError("请先选择大桥");
+            }
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append("reportId", reportId);
+        if (!isLineLevelTab(tabId)) {
+            formData.append("groupId", savingGroupId);
+        }
+
+        var tabPane = $('#' + tabId);
+
+        // 只有一项时 Spring 会按逗号拆 dataValues，JSON 会被截断。先补一个空项当成数组。
+        formData.append("dataKeys", "");
+        formData.append("dataValues", "");
+        formData.append("dataTypes", "0");
+
+        // 添加文本字段
+        tabPane.find('textarea').each(function () {
+            if ($(this).attr('data-word-imported')) return;
+            var key = $(this).data('original-key');
+            var value = $(this).val();
+
+            if (key) {
+                formData.append("dataKeys", key);
+                formData.append("dataValues", value);
+                formData.append("dataTypes", "0");
+                if (key === 'line-bridge-groups') {
+                    formData.append("bridgeGroupsJson", value || "");
+                }
+            }
+        });
+
+        syncAppendixCardSelection();
+        tabPane.find('input[type="hidden"][data-original-key]').each(function () {
+            if ($(this).hasClass('image-value-holder')) {
+                return;
+            }
+            var key = $(this).data('original-key');
+            if (!key) {
+                return;
+            }
+            formData.append("dataKeys", key);
+            formData.append("dataValues", $(this).val() || "");
+            formData.append("dataTypes", "0");
+        });
+
+        // 打印所有formData内容
+        console.log("FormData内容 (tabId: " + tabId + "):");
+        for (var pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+
+        // 添加图片字段
+        tabPane.find('.image-preview').each(function () {
+            var originalKey = $(this).data('original-key');
+            if (originalKey) {
+                var $valueHolder = $('.image-value-holder[data-original-key="' + originalKey + '"]');
+
+                formData.append("dataKeys", originalKey);
+                formData.append("dataTypes", "1");
+
+                if ($valueHolder.length > 0) {
+                    var value = $valueHolder.val() || '';
+                    formData.append("dataValues", value);
+                } else {
+                    formData.append("dataValues", "");
+                }
+
+                // 添加新选择的文件
+                var fileInput = $(this).closest('.form-group').find('input[type="file"]');
+                var files = fileInput[0].files;
+                if (files && files.length > 0) {
+                    for (var i = 0; i < files.length; i++) {
+                        var originalName = files[i].name;
+                        var extension = originalName.substring(originalName.lastIndexOf('.'));
+                        var newFileName = originalKey + '_' + i + extension;
+                        var renamedFile = new File([files[i]], newFileName, {type: files[i].type});
+                        formData.append("files", renamedFile);
+                    }
+                }
+            }
+        });
+
+        // 发送AJAX请求
+        $.ajax({
+            url: prefix + "/save",
+            type: "post",
+            data: formData,
+            processData: false,
+            contentType: false,
+            async: showLoading,
+            beforeSend: function () {
+                if (showLoading) {
+                    $.modal.loading("正在保存数据，请稍候...");
+                }
+            },
+            success: function (result) {
+                if (showLoading) {
+                    $.modal.closeLoading();
+                }
+
+                if (result.code == 0) {
+                    if (tabId === 'tab_line_groups') {
+                        savedBridgeGroups = bridgeGroups.slice();
+                    }
+                    if (showLoading) {
+                        $.modal.alertSuccess("保存成功");
+                        tabPane.find('input[type="file"]').fileinput('clear');
+                        loadReportData();
+                    }
+                } else {
+                    if (showLoading) {
+                        $.modal.alertError(result.msg);
+                    }
+                }
+            },
+            error: function () {
+                if (showLoading) {
+                    $.modal.closeLoading();
+                    $.modal.alertError("保存失败");
+                }
+            }
+        });
+    }
+
+    function hasDiseaseComponentData() {
+        return diseaseComponentData && typeof diseaseComponentData === 'object'
+            && !Array.isArray(diseaseComponentData)
+            && Object.keys(diseaseComponentData).length > 0;
+    }
+
+    function taskDisplayName(taskId) {
+        var data = diseaseComponentData[taskId] || diseaseComponentData[String(taskId)];
+        if (data && data.buildingName) {
+            return data.buildingName;
+        }
+        for (var i = 0; i < reportTasks.length; i++) {
+            if (String(reportTasks[i].id) === String(taskId)) {
+                return reportTasks[i].name || ('任务 ' + taskId);
+            }
+        }
+        return '子桥';
+    }
+
+    function parseSelectedDiseaseData(raw) {
+        if (!raw || raw.trim() === '' || raw === '[]' || raw === '{}') {
+            return {};
+        }
+        try {
+            return JSON.parse(raw);
+        } catch (e) {
+            console.error('解析已选择病害失败:', e);
+            return {};
+        }
+    }
+
+    // 兼容旧的“构件 + 病害类型”选择；新数据只保存具体病害 ID。
+    function selectedDiseaseIdsForTask(selectedData, taskId, diseases) {
+        var selected = {};
+        if (selectedData && selectedData.version === 2) {
+            var ids = (selectedData.tasks || {})[String(taskId)] || [];
+            ids.forEach(function (id) { selected[String(id)] = true; });
+            return selected;
+        }
+        var legacy = Array.isArray(selectedData) ? selectedData : (selectedData[String(taskId)] || []);
+        var combinations = {};
+        legacy.forEach(function (item) {
+            Object.keys(item).forEach(function (componentId) {
+                if (!Array.isArray(item[componentId])) return;
+                item[componentId].forEach(function (typeId) {
+                    combinations[String(componentId) + '_' + String(typeId)] = true;
+                });
+            });
+        });
+        diseases.forEach(function (disease) {
+            if (combinations[String(disease.componentId) + '_' + String(disease.diseaseTypeId)]) {
+                selected[String(disease.diseaseId)] = true;
+            }
+        });
+        return selected;
+    }
+
+    function countDiseaseItems(taskSelections) {
+        if (!Array.isArray(taskSelections)) return 0;
+        return taskSelections.reduce(function (total, item) {
+            return total + Object.keys(item).reduce(function (count, key) {
+                return count + (Array.isArray(item[key]) ? item[key].length : 0);
+            }, 0);
+        }, 0);
+    }
+
+    function diseaseHtml(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch];
+        });
+    }
+
+    function matchesDiseaseFilters(disease, keyword, levels) {
+        var text = [disease.componentName, disease.componentCode, disease.diseaseId,
+            disease.diseaseTypeName, disease.position, disease.description, disease.developmentTrend]
+            .map(function (value) { return value == null ? '' : String(value); }).join(' ').toLowerCase();
+        var words = String(keyword || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+        return words.every(function (word) { return text.indexOf(word) !== -1; })
+            && (!levels.length || levels.indexOf(String(disease.level || 0)) !== -1);
+    }
+
+    function showDiseaseSelector(selectorType) {
+        currentSelectorType = selectorType;
+        $('#diseaseSelectModalLabel').text('选择重点关注病害');
+        $('#confirmDiseaseSelection').prop('disabled', true);
+        if (hasDiseaseComponentData()) {
+            renderDiseaseSelectionTabs();
+        } else {
+            $('#diseaseTaskTabs').empty();
+            $('#diseaseTaskTabContent').html('<div class="text-center" style="padding: 50px;"><i class="fa fa-spinner fa-spin"></i> 正在加载数据...</div>');
+            loadDiseaseComponentDataWithCallback(renderDiseaseSelectionTabs);
+        }
+        $('#diseaseSelectModal').modal('show');
+    }
+
+    function loadDiseaseComponentDataWithCallback(successCallback) {
+        var requestedGroupId = currentGroupId;
+        var requestData = {reportId: reportId};
+        if (requestedGroupId) requestData.groupId = requestedGroupId;
+        $.ajax({
+            url: prefix + '/diseaseComponentData', type: 'post', data: requestData, dataType: 'json',
+            success: function (result) {
+                if (currentGroupId !== requestedGroupId) return;
+                if (result.code == 0 && result.data) {
+                    diseaseComponentData = result.data;
+                    if (successCallback) successCallback();
+                } else {
+                    $('#diseaseTaskTabContent').html('<div class="text-center text-danger">加载数据失败，请关闭后重新打开。</div>');
+                }
+            },
+            error: function () {
+                if (currentGroupId !== requestedGroupId) return;
+                $('#diseaseTaskTabContent').html('<div class="text-center text-danger">加载数据失败，请关闭后重新打开。</div>');
+            }
+        });
+    }
+
+    function renderDiseaseSelectionTabs() {
+        if (!hasDiseaseComponentData()) {
+            $('#diseaseTaskTabs').empty();
+            $('#diseaseTaskTabContent').html('<div class="text-center text-muted" style="padding: 50px;">暂无数据</div>');
+            return;
+        }
+        var selectedData = parseSelectedDiseaseData($('#' + currentSelectorType + '-value').val());
+        var tabsHtml = '';
+        var contentHtml = selectedData.version === 2 || !Object.keys(selectedData).length ? ''
+            : '<p class="text-info">原选择按构件和病害类型保存，已勾选对应的全部病害记录；请核对后保留需要的具体病害。</p>';
+        Object.keys(diseaseComponentData).forEach(function (taskId, index) {
+            var data = diseaseComponentData[taskId];
+            var name = data.buildingName || taskDisplayName(taskId);
+            var active = index === 0 ? 'active' : '';
+            tabsHtml += '<li role="presentation" class="' + active + '"><a href="#task-' + diseaseHtml(taskId)
+                + '" data-toggle="tab">' + diseaseHtml(name) + '</a></li>';
+            contentHtml += '<div role="tabpanel" class="tab-pane ' + active + '" id="task-' + diseaseHtml(taskId) + '">'
+                + renderDiseaseListForTask(taskId, name, data.diseases || [], selectedData) + '</div>';
+        });
+        $('#diseaseTaskTabs').html(tabsHtml);
+        $('#diseaseTaskTabContent').html(contentHtml);
+        bindDiseaseSelectionEvents();
+        Object.keys(diseaseComponentData).forEach(filterDiseaseList);
+        $('#confirmDiseaseSelection').prop('disabled', false);
+    }
+
+    function renderDiseaseListForTask(taskId, buildingName, diseases, selectedData) {
+        var taskAttr = diseaseHtml(taskId);
+        var selected = selectedDiseaseIdsForTask(selectedData, taskId, diseases);
+        var html = '<div class="form-group" style="margin-top:15px"><label for="disease-search-' + taskAttr + '">搜索病害</label>'
+            + '<input id="disease-search-' + taskAttr + '" class="form-control disease-search-input" data-task-id="' + taskAttr
+            + '" placeholder="搜索构件名称、编号、病害位置、类型或描述；多个关键词用空格分隔"></div>';
+        html += '<div class="form-group disease-scale-filters" data-task-id="' + taskAttr + '"><strong>病害标度：</strong>';
+        [1, 2, 3, 4, 5, 0].forEach(function (level) {
+            html += '<label class="checkbox-inline"><input type="checkbox" class="disease-scale-filter" data-task-id="'
+                + taskAttr + '" value="' + level + '">' + (level ? level + '类' : '未标度') + '</label>';
+        });
+        html += '<span class="help-block">可多选；不勾选时显示全部标度。</span></div>';
+        html += '<div class="clearfix" style="margin-bottom:10px"><label class="pull-left"><input type="checkbox" class="select-all-diseases" data-task-id="'
+            + taskAttr + '"> 全选当前筛选结果</label><span class="pull-right text-muted disease-selection-count" data-task-id="' + taskAttr + '" aria-live="polite"></span></div>';
+        html += '<div class="disease-selection-list" data-task-id="' + taskAttr + '" style="max-height:450px;overflow-y:auto">';
+        var groups = {};
+        diseases.forEach(function (disease) {
+            var key = disease.componentId == null ? 'name:' + disease.componentName : 'id:' + disease.componentId;
+            if (!groups[key]) groups[key] = {name: disease.componentName || '未分类构件', diseases: []};
+            groups[key].diseases.push(disease);
+        });
+        Object.keys(groups).forEach(function (key) {
+            var group = groups[key];
+            html += '<div class="component-group"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px">'
+                + diseaseHtml(group.name) + ' <small>（' + group.diseases.length + '条）</small></h5><div class="table-responsive">'
+                + '<table class="table table-bordered table-hover"><thead><tr><th>选择</th><th>构件编号 / 病害位置</th><th>病害类型</th><th>病害描述</th><th>标度</th></tr></thead><tbody>';
+            group.diseases.forEach(function (disease) {
+                html += '<tr class="disease-record" data-disease-id="' + diseaseHtml(disease.diseaseId) + '" data-matched="true">'
+                    + '<td><input type="checkbox" class="disease-checkbox" data-disease-id="' + diseaseHtml(disease.diseaseId)
+                    + '" aria-label="选择病害 ' + diseaseHtml(disease.diseaseId) + '"' + (selected[String(disease.diseaseId)] ? ' checked' : '') + '></td>'
+                    + '<td>' + diseaseHtml(disease.componentCode || '—') + '<br>' + diseaseHtml(disease.position || '未填写位置')
+                    + '<br><small class="text-muted">病害编号：' + diseaseHtml(disease.diseaseId) + '</small></td>'
+                    + '<td>' + diseaseHtml(disease.diseaseTypeName || '未填写类型') + '</td>'
+                    + '<td style="min-width:200px;white-space:pre-wrap;overflow-wrap:anywhere">' + diseaseHtml(disease.description || '未填写描述') + '</td>'
+                    + '<td style="white-space:nowrap">' + (disease.level ? diseaseHtml(disease.level) + '类' : '未标度') + '</td></tr>';
+            });
+            html += '</tbody></table></div></div>';
+        });
+        html += '<p class="text-center text-muted disease-no-matches" style="padding:30px;display:none">'
+            + (diseases.length ? '没有符合搜索和标度条件的病害' : '该子桥暂无病害数据') + '</p></div>';
+        return html;
+    }
+
+    function filterDiseaseList(taskId) {
+        taskId = String(taskId);
+        var $pane = $('#task-' + taskId);
+        var keyword = $pane.find('.disease-search-input').val() || '';
+        var levels = $pane.find('.disease-scale-filter:checked').map(function () { return this.value; }).get();
+        var recordById = {};
+        (diseaseComponentData[taskId].diseases || []).forEach(function (record) { recordById[String(record.diseaseId)] = record; });
+        $pane.find('.disease-record').each(function () {
+            var matched = matchesDiseaseFilters(recordById[$(this).attr('data-disease-id')], keyword, levels);
+            $(this).attr('data-matched', String(matched)).toggle(matched);
+        });
+        $pane.find('.component-group').each(function () {
+            $(this).toggle($(this).find('.disease-record[data-matched="true"]').length > 0);
+        });
+        var $matched = $pane.find('.disease-record[data-matched="true"]');
+        $pane.find('.disease-no-matches').toggle($matched.length === 0);
+        updateDiseaseSelectionCount(taskId);
+    }
+
+    function updateDiseaseSelectionCount(taskId) {
+        var $pane = $('#task-' + taskId);
+        var $matched = $pane.find('.disease-record[data-matched="true"] .disease-checkbox');
+        var selected = $pane.find('.disease-checkbox:checked').length;
+        var checked = $matched.filter(':checked').length;
+        $pane.find('.select-all-diseases').prop('checked', $matched.length > 0 && checked === $matched.length)
+            .prop('indeterminate', checked > 0 && checked < $matched.length).prop('disabled', !$matched.length);
+        $pane.find('.disease-selection-count').text('共 ' + $pane.find('.disease-record').length + ' 条 · 匹配 ' + $matched.length + ' 条 · 已选 ' + selected + ' 条');
+    }
+
+    function bindDiseaseSelectionEvents() {
+        $('.disease-search-input').off('input').on('input', function () { filterDiseaseList($(this).attr('data-task-id')); });
+        $('.disease-scale-filter').off('change').on('change', function () { filterDiseaseList($(this).attr('data-task-id')); });
+        $('.select-all-diseases').off('change').on('change', function () {
+            var taskId = $(this).attr('data-task-id');
+            $('#task-' + taskId).find('.disease-record[data-matched="true"] .disease-checkbox').prop('checked', this.checked);
+            updateDiseaseSelectionCount(taskId);
+        });
+        $('.disease-checkbox').off('change').on('change', function () {
+            updateDiseaseSelectionCount($(this).closest('.disease-selection-list').attr('data-task-id'));
+        });
+        $('#confirmDiseaseSelection').off('click').on('click', confirmDiseaseSelection);
+    }
+
+    function confirmDiseaseSelection() {
+        var selections = {version: 2, tasks: {}};
+        $('.disease-selection-list').each(function () {
+            var taskId = $(this).attr('data-task-id');
+            var ids = $(this).find('.disease-checkbox:checked').map(function () { return $(this).attr('data-disease-id'); }).get();
+            if (ids.length) selections.tasks[taskId] = ids;
+        });
+        $('#' + currentSelectorType + '-value').val(JSON.stringify(selections));
+        updateDiseaseDisplay(currentSelectorType);
+        $('#diseaseSelectModal').modal('hide');
+    }
+
+    function updateDiseaseDisplay(selectorType) {
+        var data = parseSelectedDiseaseData($('#' + selectorType + '-value').val());
+        var parts = [];
+        if (data.version === 2) {
+            Object.keys(data.tasks || {}).forEach(function (taskId) {
+                var count = data.tasks[taskId].length;
+                if (count) parts.push(taskDisplayName(taskId) + ' ' + count + '条');
+            });
+        } else if (Array.isArray(data)) {
+            var count = countDiseaseItems(data);
+            if (count) parts.push(count + '项（待核对具体病害）');
+        } else {
+            Object.keys(data).forEach(function (taskId) {
+                var count = countDiseaseItems(data[taskId]);
+                if (count) parts.push(taskDisplayName(taskId) + ' ' + count + '项（待核对具体病害）');
+            });
+        }
+        $('#' + selectorType + '-display').val(parts.length ? '已选择：' + parts.join('、') : '请选择重点关注病害');
+    }
+</script>
+</body>
+</html>

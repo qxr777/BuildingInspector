@@ -5,6 +5,7 @@ import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.service.ISysDictDataService;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
 import io.minio.GetObjectArgs;
@@ -25,8 +26,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -73,6 +78,8 @@ class ReadFileServiceImplTest {
     private ISysDictDataService sysDictDataService;
     @Mock
     private IBuildingService buildingService;
+    @Mock
+    private IPropertyService propertyService;
 
     @Test
     void testSplitPhotoName_Success() {
@@ -342,6 +349,77 @@ class ReadFileServiceImplTest {
         }
     }
 
+    @Test
+    void batchImportBridgeCardsExtractsBridgeNameAndImportsMatchingWord() throws Exception {
+        Building building = new Building();
+        building.setId(99L);
+        building.setName("吊羊岩桥");
+        when(buildingMapper.selectBuildingExactList(any(Building.class))).thenReturn(Collections.singletonList(building));
+        when(propertyService.readWordFile(any(MultipartFile.class), any(Property.class), eq(99L))).thenReturn(true);
+
+        MockMultipartFile zip = zipFile("cards/桥梁基本状况卡片2021-吊羊岩桥.docx", "word-content");
+
+        BatchBridgeCardImportResult result = readFileService.batchImportBridgeCards(zip, null);
+
+        assertEquals(1, result.getSuccessCount());
+        assertTrue(result.getFailures().isEmpty());
+
+        ArgumentCaptor<MultipartFile> fileCaptor = ArgumentCaptor.forClass(MultipartFile.class);
+        verify(propertyService).readWordFile(fileCaptor.capture(), any(Property.class), eq(99L));
+        assertEquals("桥梁基本状况卡片2021-吊羊岩桥.docx", fileCaptor.getValue().getOriginalFilename());
+    }
+
+    @Test
+    void batchImportBridgeCardsRecordsFailureWhenBridgeNameDoesNotMatch() throws Exception {
+        when(buildingMapper.selectBuildingExactList(any(Building.class))).thenReturn(Collections.emptyList());
+
+        MockMultipartFile zip = zipFile("桥梁基本状况卡片2021-不存在桥.docx", "word-content");
+
+        BatchBridgeCardImportResult result = readFileService.batchImportBridgeCards(zip, null);
+
+        assertEquals(0, result.getSuccessCount());
+        assertEquals(1, result.getFailures().size());
+        assertEquals("桥梁基本状况卡片2021-不存在桥.docx", result.getFailures().get(0).getFileName());
+        assertTrue(result.getFailures().get(0).getReason().contains("未找到桥梁"));
+        verify(propertyService, never()).readWordFile(any(MultipartFile.class), any(Property.class), any());
+    }
+
+    @Test
+    void batchImportBridgeCardsSupportsGbkEncodedZipEntryNames() throws Exception {
+        Building building = new Building();
+        building.setId(100L);
+        building.setName("吊羊岩桥");
+        when(buildingMapper.selectBuildingExactList(any(Building.class))).thenReturn(Collections.singletonList(building));
+        when(propertyService.readWordFile(any(MultipartFile.class), any(Property.class), eq(100L))).thenReturn(true);
+
+        MockMultipartFile zip = zipFile("子目录/桥梁基本状况卡片2021-吊羊岩桥.docx", "word-content", Charset.forName("GBK"));
+
+        BatchBridgeCardImportResult result = readFileService.batchImportBridgeCards(zip, null);
+
+        assertEquals(1, result.getSuccessCount());
+        assertTrue(result.getFailures().isEmpty());
+    }
+
+    @Test
+    void batchImportBridgeCardsSkipsBridgeThatAlreadyHasCard() throws Exception {
+        Building building = new Building();
+        building.setId(101L);
+        building.setName("吊羊岩桥");
+        building.setRootPropertyId(2001L);
+        when(buildingMapper.selectBuildingExactList(any(Building.class))).thenReturn(Collections.singletonList(building));
+
+        MockMultipartFile zip = zipFile("桥梁基本状况卡片2021-吊羊岩桥.docx", "word-content");
+
+        BatchBridgeCardImportResult result = readFileService.batchImportBridgeCards(zip, null);
+
+        assertEquals(0, result.getSuccessCount());
+        assertEquals(1, result.getSkippedCount());
+        assertEquals("桥梁基本状况卡片2021-吊羊岩桥.docx", result.getSkipped().get(0).getFileName());
+        assertEquals("吊羊岩桥", result.getSkipped().get(0).getBridgeName());
+        assertTrue(result.getSkipped().get(0).getReason().contains("已存在桥梁卡片"));
+        verify(propertyService, never()).readWordFile(any(MultipartFile.class), any(Property.class), any());
+    }
+
     private MockMultipartFile createBuildingExcel(String name, String type, String father, String area, String line, String template) throws Exception {
         XSSFWorkbook workbook = new XSSFWorkbook();
         for (int i = 0; i < 7; i++) {
@@ -369,5 +447,22 @@ class ReadFileServiceImplTest {
         workbook.write(out);
         workbook.close();
         return new MockMultipartFile("file", "disease.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+    }
+
+    private MockMultipartFile zipFile(String entryName, String content) throws IOException {
+        return zipFile(entryName, content, null);
+    }
+
+    private MockMultipartFile zipFile(String entryName, String content, Charset charset) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ZipOutputStream zipOut = charset == null
+                ? new ZipOutputStream(outputStream)
+                : new ZipOutputStream(outputStream, charset);
+        try (zipOut) {
+            zipOut.putNextEntry(new ZipEntry(entryName));
+            zipOut.write(content.getBytes());
+            zipOut.closeEntry();
+        }
+        return new MockMultipartFile("file", "bridge-cards.zip", "application/zip", outputStream.toByteArray());
     }
 }

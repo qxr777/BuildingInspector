@@ -2,11 +2,13 @@ package edu.whut.cs.bi.biz.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
@@ -14,6 +16,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysDictDataService;
 import edu.whut.cs.bi.biz.controller.DiseaseController;
 import edu.whut.cs.bi.biz.controller.FileMapController;
+import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.temp.DiseaseReport;
@@ -72,6 +75,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
     @Resource
     private IFileMapService fileMapService;
+
+    @Resource
+    private MinioConfig minioConfig;
 
     @Resource
     private AttachmentService attachmentService;
@@ -143,7 +149,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
         disease.setBiObject(biObject);
         BiObject biObjectParent = biObjectMapper.selectBiObjectById(biObject.getParentId());
         disease.setBindBiObjectName(biObjectParent.getName() + "——" + biObject.getName());
-        disease.setBiObjectName(component.getName().split("#")[1]);
+        disease.setBiObjectName(extractComponentObjectName(component.getName()));
         DiseaseDetail diseaseDetail = new DiseaseDetail();
         diseaseDetail.setDiseaseId(id);
         List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
@@ -173,7 +179,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
             biObjectIds.addAll(biObjects.stream().map(BiObject::getId).collect(Collectors.toList()));
             PageUtils.startPage();
-            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds, disease.getProjectId());
+            diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds, disease);
         } else {
             PageUtils.startPage();
             diseases = diseaseMapper.selectDiseaseList(disease);
@@ -290,6 +296,86 @@ public class DiseaseServiceImpl implements IDiseaseService {
                 ds.setADImgs(ADImgs);
             }
         });
+        return diseases;
+    }
+
+    /**
+     * 批量加载纯Excel导出需要的数据。
+     * 不查询Excel未使用的病害详情、构件父级信息，也不逐条查询附件和文件映射。
+     */
+    @Override
+    public List<Disease> selectDiseaseListForExcel(List<Long> taskIds) {
+        if (CollUtil.isEmpty(taskIds)) {
+            return new ArrayList<>();
+        }
+
+        List<Disease> diseases = diseaseMapper.selectDiseaseListByTaskIds(taskIds);
+        if (CollUtil.isEmpty(diseases)) {
+            return diseases;
+        }
+
+        List<Long> diseaseIds = diseases.stream()
+                .map(Disease::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        List<Long> componentIds = diseases.stream()
+                .map(Disease::getComponentId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, Component> componentMap = new HashMap<>();
+        if (!componentIds.isEmpty()) {
+            componentService.selectComponentsByIds(componentIds).stream()
+                    .filter(component -> "0".equals(component.getDelFlag()))
+                    .forEach(component -> componentMap.put(component.getId(), component));
+        }
+
+        Map<Long, List<Attachment>> attachmentMap = new HashMap<>();
+        List<Attachment> attachments = diseaseIds.isEmpty()
+                ? Collections.emptyList()
+                : attachmentService.getAttachmentBySubjectIds(diseaseIds);
+        for (Attachment attachment : attachments) {
+            if (attachment.getSubjectId() != null
+                    && attachment.getName() != null
+                    && attachment.getName().startsWith("disease")) {
+                attachmentMap.computeIfAbsent(attachment.getSubjectId(), key -> new ArrayList<>())
+                        .add(attachment);
+            }
+        }
+
+        List<Long> minioIds = attachments.stream()
+                .filter(attachment -> attachment.getName() != null
+                        && attachment.getName().startsWith("disease"))
+                .map(Attachment::getMinioId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, FileMap> fileMapById = fileMapService.selectFileMapByIds(minioIds).stream()
+                .collect(Collectors.toMap(fileMap -> fileMap.getId().longValue(), Function.identity(), (left, right) -> left));
+
+        for (Disease disease : diseases) {
+            disease.setComponent(componentMap.get(disease.getComponentId()));
+
+            List<String> imageUrls = new ArrayList<>();
+            for (Attachment attachment : attachmentMap.getOrDefault(disease.getId(), Collections.emptyList())) {
+                if (Integer.valueOf(7).equals(attachment.getType())) {
+                    continue;
+                }
+
+                FileMap fileMap = fileMapById.get(attachment.getMinioId());
+                if (fileMap == null || StringUtils.isEmpty(fileMap.getNewName())
+                        || fileMap.getNewName().length() < 2) {
+                    continue;
+                }
+
+                String newName = fileMap.getNewName();
+                imageUrls.add(minioConfig.getUrl() + "/" + minioConfig.getBucketName()
+                        + "/" + newName.substring(0, 2) + "/" + newName);
+            }
+            disease.setImages(imageUrls);
+        }
+
         return diseases;
     }
 
@@ -565,11 +651,17 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
 
         Integer result = diseaseMapper.insertDisease(disease);
+        if (disease.getLocalId() == null) {
+            disease.setLocalId(disease.getId());
+            diseaseMapper.updateDisease(disease);
+        }
 
         // 添加病害详情
         List<DiseaseDetail> diseaseDetails = disease.getDiseaseDetails();
-        diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
-        diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        if (CollUtil.isNotEmpty(diseaseDetails)) {
+            diseaseDetails.forEach(diseaseDetail -> diseaseDetail.setDiseaseId(disease.getId()));
+            diseaseDetailMapper.insertDiseaseDetails(diseaseDetails);
+        }
 
 
         return result;
@@ -594,29 +686,10 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         disease.setUpdateTime(DateUtils.getNowDate());
 
-        // 更新部件信息
-        Component component = componentService.selectComponentById(old.getComponentId());
         if (disease.getComponent() != null
                 && disease.getComponent().getCode() != null
-                && !component.getCode().equals(disease.getComponent().getCode())) {
-            String componentName = disease.getComponent().getCode() + "#" + old.getBiObjectName();
-
-            // 查询数据库，判断是不是已存在对应部件
-            Component select = new Component();
-            select.setName(componentName);
-            select.setBiObjectId(component.getBiObjectId());
-            Component selectedComponent = componentMapper.selectComponent(select);
-            if (selectedComponent == null) {
-                component.setName(componentName);
-
-                component.setCode(disease.getComponent().getCode());
-                component.setUpdateTime(DateUtils.getNowDate());
-                component.setUpdateBy(ShiroUtils.getLoginName());
-                componentService.updateComponent(component);
-            } else {
-                disease.setComponentId(selectedComponent.getId());
-            }
-
+                && !disease.getComponent().getCode().trim().isEmpty()) {
+            rebindDiseaseComponent(old, disease);
         }
 
         // 删除病害详情
@@ -653,37 +726,30 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Transactional
     public int newUpdateDisease(Disease disease) {
         Disease old = diseaseMapper.selectDiseaseById(disease.getId());
-        if (old.getDiseaseTypeId().equals(disease.getDiseaseTypeId())) {
-            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
-            if (!diseaseType.getName().equals("其他")) {
-                disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
+        if (old == null) {
+            throw new ServiceException("病害不存在，无法修改");
+        }
+        if (disease.getBiObjectName() == null || disease.getBiObjectName().trim().isEmpty()) {
+            throw new ServiceException("当前病害缺少构件名称，请填写后再保存");
+        }
+        disease.setBiObjectName(disease.getBiObjectName().trim());
+
+        DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(disease.getDiseaseTypeId());
+        if (diseaseType == null) {
+            throw new ServiceException("请选择有效的病害类型");
+        }
+        if (diseaseType.getName() != null && diseaseType.getName().startsWith("其他")) {
+            if (disease.getType() == null || disease.getType().trim().isEmpty()) {
+                throw new ServiceException("请输入自定义病害名称");
             }
+            disease.setType(disease.getType().trim());
+        } else {
+            disease.setType(diseaseType.getCode() + "#" + diseaseType.getName());
         }
 
         disease.setUpdateTime(DateUtils.getNowDate());
 
-        // 判断是否是换绑
-        Component oldComponent = componentService.selectComponentById(old.getComponentId());
-        if (!Objects.equals(old.getBiObjectId(), disease.getBiObjectId()) || !Objects.equals(oldComponent.getCode(), disease.getComponent().getCode())) {
-            // 换绑了
-            // 更新部件信息
-            // 查询数据库，判断是不是已存在对应部件
-            Component select = new Component();
-            select.setName(disease.getComponent().getCode() + "#" + disease.getBiObjectName());
-            select.setCode(disease.getComponent().getCode());
-            select.setBiObjectId(disease.getBiObjectId());
-            Component selectedComponent = componentMapper.selectComponent(select);
-            if (selectedComponent == null) {
-                oldComponent.setCode(disease.getComponent().getCode());
-                oldComponent.setName(disease.getComponent().getCode() + "#" + old.getBiObjectName());
-                oldComponent.setUpdateTime(DateUtils.getNowDate());
-                oldComponent.setUpdateBy(ShiroUtils.getLoginName());
-                oldComponent.setBiObjectId(disease.getBiObjectId());
-                componentService.updateComponent(oldComponent);
-            } else {
-                disease.setComponentId(selectedComponent.getId());
-            }
-        }
+        rebindDiseaseComponent(old, disease);
 
         // 删除病害详情
         diseaseDetailMapper.deleteDiseaseDetailByDiseaseId(disease.getId());
@@ -707,6 +773,120 @@ public class DiseaseServiceImpl implements IDiseaseService {
         }
 
         return diseaseMapper.updateDisease(disease);
+    }
+
+    @Override
+    public int updateDevelopmentTrend(Long id, String developmentTrend, String updateBy) {
+        if (id == null || developmentTrend == null || developmentTrend.trim().isEmpty()) {
+            throw new ServiceException("病害ID和发展趋势不能为空");
+        }
+
+        Disease update = new Disease();
+        update.setId(id);
+        update.setDevelopmentTrend(developmentTrend.trim());
+        update.setUpdateBy(updateBy);
+        update.setUpdateTime(DateUtils.getNowDate());
+        return diseaseMapper.updateDisease(update);
+    }
+
+    /**
+     * 只为当前病害换绑构件，不修改已有构件的编号或对象归属。
+     * 唯一例外是原构件名称缺失时，允许补全该构件的名称。
+     */
+    private void rebindDiseaseComponent(Disease old, Disease disease) {
+        if (disease.getBiObjectId() == null) {
+            throw new ServiceException("所属对象不能为空");
+        }
+        if (disease.getComponent() == null) {
+            throw new ServiceException("构件编号不能为空");
+        }
+
+        String newComponentCode = disease.getComponent().getCode() == null
+                ? null
+                : disease.getComponent().getCode().trim();
+        if (StringUtils.isEmpty(newComponentCode)) {
+            throw new ServiceException("构件编号不能为空");
+        }
+        disease.getComponent().setCode(newComponentCode);
+
+        Component oldComponent = componentService.selectComponentById(old.getComponentId());
+        if (oldComponent == null) {
+            throw new ServiceException("原构件不存在，无法修改病害");
+        }
+
+        if (Objects.equals(old.getBiObjectId(), disease.getBiObjectId())
+                && Objects.equals(oldComponent.getCode(), newComponentCode)) {
+            String componentObjectName = extractComponentObjectName(oldComponent.getName());
+            if (StringUtils.isEmpty(componentObjectName)) {
+                componentObjectName = disease.getBiObjectName();
+                oldComponent.setName(newComponentCode + "#" + componentObjectName);
+                oldComponent.setUpdateBy(disease.getUpdateBy());
+                oldComponent.setUpdateTime(DateUtils.getNowDate());
+                if (componentService.updateComponent(oldComponent) <= 0) {
+                    throw new ServiceException("构件名称补录失败，请稍后重试");
+                }
+            }
+            disease.setComponentId(oldComponent.getId());
+            disease.setBiObjectName(componentObjectName);
+            return;
+        }
+
+        Component query = new Component();
+        query.setBiObjectId(disease.getBiObjectId());
+        query.setCode(newComponentCode);
+        List<Component> targetComponents = componentMapper.selectComponentList(query);
+        Component targetComponent = CollUtil.isEmpty(targetComponents)
+                ? null
+                : targetComponents.stream()
+                .filter(component -> component.getId() != null)
+                .min(Comparator.comparing(Component::getId))
+                .orElse(null);
+
+        if (targetComponent == null) {
+            BiObject targetBiObject = biObjectMapper.selectBiObjectById(disease.getBiObjectId());
+            if (targetBiObject == null) {
+                throw new ServiceException("所属对象不存在，无法新建构件");
+            }
+
+            String componentObjectName = disease.getBiObjectName() == null
+                    ? null
+                    : disease.getBiObjectName().trim();
+            if (StringUtils.isEmpty(componentObjectName)) {
+                componentObjectName = targetBiObject.getName();
+                if (StringUtils.isEmpty(componentObjectName)) {
+                    throw new ServiceException("所属对象名称为空，无法新建构件");
+                }
+            }
+            disease.setBiObjectName(componentObjectName);
+
+            targetComponent = new Component();
+            targetComponent.setBiObjectId(disease.getBiObjectId());
+            targetComponent.setCode(newComponentCode);
+            targetComponent.setName(newComponentCode + "#" + componentObjectName);
+            targetComponent.setStatus("0");
+            targetComponent.setDelFlag("0");
+            targetComponent.setCreateBy(disease.getUpdateBy());
+            componentService.insertComponent(targetComponent);
+            if (targetComponent.getId() == null) {
+                throw new ServiceException("新建构件失败，未生成构件ID");
+            }
+        } else {
+            String targetComponentObjectName = extractComponentObjectName(targetComponent.getName());
+            if (StringUtils.isEmpty(targetComponentObjectName)) {
+                throw new ServiceException("目标构件缺少构件名称，请先完善构件信息");
+            }
+            disease.setBiObjectName(targetComponentObjectName);
+        }
+
+        disease.setComponentId(targetComponent.getId());
+    }
+
+    private String extractComponentObjectName(String componentName) {
+        if (componentName == null) {
+            return "";
+        }
+        String[] parts = componentName.split("#", 2);
+        return parts.length > 1 ? parts[1].trim() : "";
     }
 
     /**
@@ -733,6 +913,68 @@ public class DiseaseServiceImpl implements IDiseaseService {
         executor.shutdown();
 
         return diseaseMapper.deleteDiseaseByIds(strArray);
+    }
+
+    @Override
+    @Transactional
+    public int deleteDiseasesByProjectIdentity(String projectName, Integer year, String code) {
+        if (projectName == null || projectName.trim().isEmpty()) {
+            throw new ServiceException("项目名称不能为空");
+        }
+        if (year == null) {
+            throw new ServiceException("年份不能为空");
+        }
+        if (code == null || code.trim().isEmpty()) {
+            throw new ServiceException("项目编号不能为空");
+        }
+
+        String normalizedProjectName = projectName.trim();
+        String normalizedCode = code.trim();
+        Project query = new Project();
+        query.setName(normalizedProjectName);
+        query.setYear(year);
+        query.setCode(normalizedCode);
+
+        List<Project> projects = projectMapper.selectProjectList(query, null, null);
+        List<Project> matchedProjects = (projects == null ? Collections.<Project>emptyList() : projects).stream()
+                .filter(project -> normalizedProjectName.equals(project.getName()))
+                .filter(project -> Objects.equals(year, project.getYear()))
+                .filter(project -> normalizedCode.equals(project.getCode()))
+                .collect(Collectors.toList());
+
+        if (matchedProjects.isEmpty()) {
+            throw new ServiceException("未找到匹配的项目");
+        }
+        if (matchedProjects.size() > 1) {
+            throw new ServiceException("匹配到多个项目，请检查项目名称、年份、编号是否唯一");
+        }
+
+        List<Task> tasks = taskMapper.selectTaskListByProjectId(matchedProjects.get(0).getId());
+        if (CollUtil.isEmpty(tasks)) {
+            return 0;
+        }
+
+        List<String> diseaseIds = new ArrayList<>();
+        for (Task task : tasks) {
+            if (task.getId() == null) {
+                continue;
+            }
+            Disease diseaseQuery = new Disease();
+            diseaseQuery.setTaskId(task.getId());
+            List<Disease> diseases = diseaseMapper.selectDiseaseList(diseaseQuery);
+            if (CollUtil.isNotEmpty(diseases)) {
+                diseases.stream()
+                        .map(Disease::getId)
+                        .filter(Objects::nonNull)
+                        .map(String::valueOf)
+                        .forEach(diseaseIds::add);
+            }
+        }
+
+        if (diseaseIds.isEmpty()) {
+            return 0;
+        }
+        return deleteDiseaseByIds(String.join(",", diseaseIds));
     }
 
     private void deleteDiseaseImage(Disease disease) {
@@ -1789,6 +2031,15 @@ public class DiseaseServiceImpl implements IDiseaseService {
             if (disease.getCommitType() == 1) {
                 // 通过构件名称查找构件ID
                 Component component = disease.getComponent();
+                if (component == null) {
+                    log.warn("构件为null，跳过不完整病害，localId: {}", disease.getLocalId());
+                    continue;
+                }
+                if (component.getBiObject() == null) {
+                    log.warn("构件缺少biObject，跳过不完整病害，component: {}, localId: {}",
+                            JSON.toJSONString(component), disease.getLocalId());
+                    continue;
+                }
                 component.setCreateBy(ShiroUtils.getLoginName());
                 component.setUpdateBy(ShiroUtils.getLoginName());
                 Long root = component.getBiObject().getId();

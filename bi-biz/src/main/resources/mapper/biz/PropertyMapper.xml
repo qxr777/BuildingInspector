@@ -37,8 +37,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectChildrenObjectById" parameterType="Long" resultMap="PropertyResult">
-		select * from bi_property where find_in_set(#{objectId}, ancestors) order by order_num
-	</select>
+        WITH RECURSIVE id_tree AS (
+            SELECT id, parent_id
+            FROM bi_property
+            WHERE parent_id = #{objectId}
+
+            UNION ALL
+
+            SELECT c.id, c.parent_id
+            FROM bi_property c
+                     JOIN id_tree p ON c.parent_id = p.id
+        )
+        SELECT * FROM bi_property t JOIN id_tree ON t.id = id_tree.id ORDER BY t.order_num
+    </select>
 
     <select id="getOrderNum" resultType="java.lang.Integer">
         select COUNT(*) from bi_property where parent_id = #{id}
@@ -72,9 +83,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectAllChildrenById" resultType="edu.whut.cs.bi.biz.domain.Property">
-        select * from bi.bi_property
-        where
-            find_in_set(#{id}, ancestors)
+        WITH RECURSIVE id_tree AS (
+            SELECT id, parent_id
+            FROM bi_property
+            WHERE parent_id = #{id}
+
+            UNION ALL
+
+            SELECT c.id, c.parent_id
+            FROM bi_property c
+                     JOIN id_tree p ON c.parent_id = p.id
+        )
+        SELECT * FROM bi_property t JOIN id_tree ON t.id = id_tree.id
     </select>
 
     <select id="selectByRootIdAndName" resultType="edu.whut.cs.bi.biz.domain.Property">

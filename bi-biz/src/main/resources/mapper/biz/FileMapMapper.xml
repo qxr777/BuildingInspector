@@ -37,6 +37,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = #{id}
     </select>
 
+    <select id="selectFileMapByOldName" parameterType="String" resultMap="FileMapResult">
+        <include refid="selectFileMapVo"/>
+        where oldName = #{oldName}
+        order by createTime desc, id desc
+        limit 1
+    </select>
+
+    <select id="selectLatestCommonTemplatePackage" resultMap="FileMapResult">
+        <include refid="selectFileMapVo"/>
+        where oldName like 'template-%.zip'
+        order by createTime desc, id desc
+        limit 1
+    </select>
+
+    <select id="selectCommonTemplatePackageList" parameterType="FileMap" resultMap="FileMapResult">
+        <include refid="selectFileMapVo"/>
+        <where>
+            oldName like 'template-%.zip'
+            <if test="oldName != null and oldName != ''">
+                and oldName like concat('%', #{oldName}, '%')
+            </if>
+            <if test="createBy != null and createBy != ''">
+                and createBy like concat('%', #{createBy}, '%')
+            </if>
+        </where>
+        order by createTime desc, id desc
+    </select>
+
     <insert id="insertFileMap" parameterType="FileMap" useGeneratedKeys="true" keyProperty="id">
         insert into bi_file_map
         <trim prefix="(" suffix=")" suffixOverrides=",">

@@ -1,5 +1,7 @@
 package edu.whut.cs.bi.biz.service.impl;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -7,8 +9,11 @@ import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import com.alibaba.fastjson.JSONObject;
@@ -16,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.service.ISysUserService;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
@@ -25,11 +31,15 @@ import edu.whut.cs.bi.biz.domain.vo.DiseasesOfYearVo;
 import edu.whut.cs.bi.biz.domain.vo.ProjectsOfUserVo;
 import edu.whut.cs.bi.biz.domain.vo.PropertyTreeVo;
 import edu.whut.cs.bi.biz.domain.vo.TasksOfProjectVo;
+import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.service.*;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
+import io.minio.StatObjectArgs;
+import io.minio.StatObjectResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import edu.whut.cs.bi.biz.mapper.PackageMapper;
@@ -47,6 +57,9 @@ import javax.annotation.Resource;
 public class PackageServiceImpl implements IPackageService {
     @Autowired
     private PackageMapper packageMapper;
+
+    @Autowired
+    private FileMapMapper fileMapMapper;
 
     @Autowired
     private FileMapServiceImpl fileMapServiceImpl;
@@ -76,6 +89,9 @@ public class PackageServiceImpl implements IPackageService {
     private IDiseaseService diseaseService;
 
     @Resource
+    private IDiseaseTypeService diseaseTypeService;
+
+    @Resource
     private AttachmentService attachmentService;
 
     @Autowired
@@ -83,6 +99,15 @@ public class PackageServiceImpl implements IPackageService {
 
     @Autowired
     private IFileMapService fileMapService;
+
+    @Resource
+    private IBiTemplateObjectService biTemplateObjectService;
+
+    @Resource(name = "taskExecutor")
+    private Executor packageTaskExecutor;
+
+    /** 同一个用户在单个服务实例内只允许存在一个数据包生成任务。 */
+    private final Set<Long> refreshingUserIds = ConcurrentHashMap.newKeySet();
 
 
     /**
@@ -195,6 +220,81 @@ public class PackageServiceImpl implements IPackageService {
         }
     }
 
+    @Override
+    public AjaxResult requestCurrentUserPackageRefresh(Long userId) {
+        if (userId == null) {
+            return AjaxResult.error("未获取到当前用户信息");
+        }
+
+        SysUser user = userService.selectUserById(userId);
+        if (user == null) {
+            return AjaxResult.error("当前用户不存在");
+        }
+
+        if (packageMapper.selectPackageListByUserId(userId).isEmpty()) {
+            return AjaxResult.error("当前用户暂无数据包");
+        }
+
+        if (!refreshingUserIds.add(userId)) {
+            return AjaxResult.success("用户数据包正在更新")
+                    .put("status", "PROCESSING")
+                    .put("accepted", false);
+        }
+
+        try {
+            packageTaskExecutor.execute(() -> {
+                try {
+                    refreshSingleUserPackage(user);
+                } catch (Exception e) {
+                    log.error("更新当前用户数据包失败，userId={}: {}", userId, e.getMessage(), e);
+                } finally {
+                    refreshingUserIds.remove(userId);
+                }
+            });
+        } catch (Exception e) {
+            refreshingUserIds.remove(userId);
+            log.error("提交用户数据包更新任务失败，userId={}: {}", userId, e.getMessage(), e);
+            return AjaxResult.error("提交用户数据包更新任务失败");
+        }
+
+        return AjaxResult.success("已开始更新用户数据包")
+                .put("status", "PROCESSING")
+                .put("accepted", true);
+    }
+
+    /** 按网页端原有顺序刷新单个用户包：先删除旧文件，再生成新包并更新原记录。 */
+    private void refreshSingleUserPackage(SysUser user) {
+        Long userId = user.getUserId();
+        List<Package> packages = packageMapper.selectPackageListByUserId(userId);
+        if (packages.isEmpty()) {
+            throw new IllegalStateException("当前用户暂无数据包");
+        }
+
+        Package currentPackage = packages.get(0);
+        if (currentPackage.getMinioId() != null) {
+            fileMapService.deleteFileMapById(currentPackage.getMinioId());
+        }
+
+        AjaxResult generateResult = generateUserDataPackage(user);
+        if (!generateResult.isSuccess()
+                || generateResult.get("data") == null
+                || generateResult.get("size") == null) {
+            throw new IllegalStateException("生成用户数据包失败");
+        }
+
+        Long newMinioId = Long.valueOf(generateResult.get("data").toString());
+        String packageSize = generateResult.get("size").toString();
+        Date now = DateUtils.getNowDate();
+        currentPackage.setMinioId(newMinioId);
+        currentPackage.setPackageSize(packageSize);
+        currentPackage.setPackageTime(now);
+        currentPackage.setUpdateTime(now);
+        if (packageMapper.updatePackage(currentPackage) <= 0) {
+            throw new IllegalStateException("保存用户数据包记录失败");
+        }
+        log.info("成功为用户 {} 更新数据包", user.getLoginName());
+    }
+
 
     @Override
     public AjaxResult generateUserDataPackage(SysUser user) {
@@ -267,6 +367,260 @@ public class PackageServiceImpl implements IPackageService {
     /**
      * 创建项目相关数据
      */
+    @Override
+    public AjaxResult generateCommonTemplatePackage() {
+        File tempFile = null;
+        try {
+            String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+            String zipFileName = "template-" + timestamp + ".zip";
+            tempFile = File.createTempFile("template_", ".zip");
+
+            byte[] templateZipBytes = exportCommonTemplateFiles();
+            if (templateZipBytes == null || templateZipBytes.length == 0) {
+                return AjaxResult.error("未找到桥梁模板数据");
+            }
+
+            org.springframework.core.io.Resource diseaseScaleResource = resolveDiseaseScaleResource();
+            if (diseaseScaleResource == null) {
+                return AjaxResult.error("未找到resources/json/disease_scale.json文件");
+            }
+
+            int templateCount;
+            try (FileOutputStream fos = new FileOutputStream(tempFile);
+                 ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+                templateCount = copyTemplateJsonEntries(templateZipBytes, zipOut);
+                addResourceToZip(zipOut, "disease_scale.json", diseaseScaleResource);
+            }
+
+            if (templateCount == 0) {
+                return AjaxResult.error("桥梁模板JSON导出为空");
+            }
+            if (templateCount != 17) {
+                log.warn("公共模板包桥梁模板数量不是17个，当前数量={}", templateCount);
+            }
+
+            String packageSize = formatFileSize(tempFile.length());
+            FileMap fileMap = fileMapServiceImpl.handleFileUploadFromFile(tempFile, zipFileName, currentLoginNameOrSystem());
+
+            return AjaxResult.success()
+                    .put("packageSize", packageSize)
+                    .put("version", zipFileName)
+                    .put("url", buildMinioUrl(fileMap.getNewName()));
+        } catch (Exception e) {
+            log.error("生成公共模板包失败", e);
+            return AjaxResult.error("生成公共模板包失败：" + e.getMessage());
+        } finally {
+            if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+                log.warn("临时公共模板包删除失败: {}", tempFile.getAbsolutePath());
+            }
+        }
+    }
+
+    @Override
+    public AjaxResult getLatestCommonTemplatePackage() {
+        FileMap fileMap = fileMapMapper.selectLatestCommonTemplatePackage();
+        if (fileMap == null || fileMap.getNewName() == null || fileMap.getOldName() == null) {
+            return AjaxResult.error("暂无公共数据包，请先在后台生成");
+        }
+        Long packageSize = getMinioObjectSize(fileMap.getNewName());
+        if (packageSize == null) {
+            return AjaxResult.error("公共数据包文件不存在，请重新生成");
+        }
+        return AjaxResult.success()
+                .put("packageSize", formatFileSize(packageSize))
+                .put("version", fileMap.getOldName())
+                .put("url", buildMinioUrl(fileMap.getNewName()));
+    }
+
+    @Override
+    public List<FileMap> selectCommonTemplatePackageList(FileMap fileMap) {
+        List<FileMap> fileMaps = fileMapMapper.selectCommonTemplatePackageList(fileMap);
+        for (FileMap item : fileMaps) {
+            if (item.getNewName() == null || item.getNewName().length() < 2) {
+                item.setPackageSize("文件信息不完整");
+                continue;
+            }
+            Long packageSize = getMinioObjectSize(item.getNewName());
+            if (packageSize == null) {
+                item.setPackageSize("文件不存在");
+            } else {
+                item.setPackageSize(formatFileSize(packageSize));
+                item.setUrl(buildMinioUrl(item.getNewName()));
+            }
+        }
+        return fileMaps;
+    }
+
+    private byte[] exportCommonTemplateFiles() {
+        BiTemplateObject query = new BiTemplateObject();
+        query.setParentId(0L);
+        List<BiTemplateObject> rootList = biTemplateObjectService.selectBiTemplateObjectList(query);
+
+        if (rootList == null || rootList.isEmpty()) {
+            return new byte[0];
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+
+            for (BiTemplateObject root : rootList) {
+                if (root == null || root.getName() == null || "梁桥 - 整体式板".equals(root.getName())) {
+                    continue;
+                }
+
+                BiTemplateObject fullTree = buildCompleteCommonTemplateTree(root);
+                String updateTime = fullTree.getUpdateTime() == null
+                        ? sdf.format(new Date())
+                        : sdf.format(fullTree.getUpdateTime());
+                String fileName = fullTree.getId() + "_" + updateTime + ".json";
+                byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter()
+                        .writeValueAsBytes(fullTree);
+
+                zos.putNextEntry(new ZipEntry(fileName));
+                zos.write(jsonBytes);
+                zos.closeEntry();
+            }
+        } catch (IOException e) {
+            log.error("导出公共数据包桥梁模板失败", e);
+            return new byte[0];
+        }
+
+        return baos.toByteArray();
+    }
+
+    private BiTemplateObject buildCompleteCommonTemplateTree(BiTemplateObject root) {
+        List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(root.getId());
+        List<Long> nodeIds = new ArrayList<>();
+        nodeIds.add(root.getId());
+        children.forEach(child -> nodeIds.add(child.getId()));
+
+        Map<Long, List<DiseaseType>> diseaseTypesMap = diseaseTypeService.batchSelectDiseaseTypeListByTemplateObjectIds(nodeIds);
+        if (diseaseTypesMap.containsKey(root.getId())) {
+            root.setDiseaseTypes(diseaseTypesMap.get(root.getId()));
+        }
+
+        Map<Long, BiTemplateObject> nodeMap = new HashMap<>();
+        nodeMap.put(root.getId(), root);
+
+        for (BiTemplateObject child : children) {
+            if (diseaseTypesMap.containsKey(child.getId())) {
+                child.setDiseaseTypes(diseaseTypesMap.get(child.getId()));
+            }
+            nodeMap.put(child.getId(), child);
+        }
+
+        for (BiTemplateObject node : children) {
+            BiTemplateObject parent = nodeMap.get(node.getParentId());
+            if (parent != null) {
+                parent.getChildren().add(node);
+            }
+        }
+
+        return root;
+    }
+
+    private int copyTemplateJsonEntries(byte[] templateZipBytes, ZipOutputStream zipOut) throws IOException {
+        int count = 0;
+        Set<String> entryNames = new HashSet<>();
+        try (ZipInputStream zipIn = new ZipInputStream(new ByteArrayInputStream(templateZipBytes))) {
+            ZipEntry sourceEntry;
+            while ((sourceEntry = zipIn.getNextEntry()) != null) {
+                if (sourceEntry.isDirectory()) {
+                    continue;
+                }
+                String entryName = normalizeTemplateEntryName(sourceEntry.getName());
+                if (!entryName.endsWith(".json") || !entryNames.add(entryName)) {
+                    continue;
+                }
+                zipOut.putNextEntry(new ZipEntry(entryName));
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = zipIn.read(buffer)) != -1) {
+                    zipOut.write(buffer, 0, bytesRead);
+                }
+                zipOut.closeEntry();
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private String normalizeTemplateEntryName(String entryName) {
+        String fileName = entryName.replace('\\', '/');
+        int slashIndex = fileName.lastIndexOf('/');
+        if (slashIndex >= 0) {
+            fileName = fileName.substring(slashIndex + 1);
+        }
+        int underlineIndex = fileName.indexOf('_');
+        if (underlineIndex > 0) {
+            String idPart = fileName.substring(0, underlineIndex);
+            if (idPart.chars().allMatch(Character::isDigit)) {
+                return idPart + "_template.json";
+            }
+        }
+        return fileName;
+    }
+
+    private org.springframework.core.io.Resource resolveDiseaseScaleResource() {
+        List<org.springframework.core.io.Resource> candidates = Arrays.asList(
+                new ClassPathResource("json/disease_scale.json"),
+                new ClassPathResource("json/disease-scale.json")
+        );
+        for (org.springframework.core.io.Resource candidate : candidates) {
+            if (candidate.exists() && candidate.isReadable()) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void addResourceToZip(ZipOutputStream zipOut, String entryName, org.springframework.core.io.Resource resource) throws IOException {
+        zipOut.putNextEntry(new ZipEntry(entryName));
+        try (InputStream inputStream = resource.getInputStream()) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                zipOut.write(buffer, 0, bytesRead);
+            }
+        }
+        zipOut.closeEntry();
+    }
+
+    private Long getMinioObjectSize(String newName) {
+        try {
+            StatObjectResponse stat = minioClient.statObject(StatObjectArgs.builder()
+                    .bucket(minioConfig.getBucketName())
+                    .object(newName.substring(0, 2) + "/" + newName)
+                    .build());
+            return stat.size();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String buildMinioUrl(String newName) {
+        return minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + newName.substring(0, 2) + "/" + newName;
+    }
+
+    private String formatFileSize(long bytes) {
+        double sizeInMB = bytes / 1024.0 / 1024.0;
+        return new DecimalFormat("0.###").format(sizeInMB) + "MB";
+    }
+
+    private String currentLoginNameOrSystem() {
+        try {
+            String loginName = ShiroUtils.getLoginName();
+            return loginName == null || loginName.trim().isEmpty() ? "system" : loginName;
+        } catch (Exception e) {
+            return "system";
+        }
+    }
+
+    /**
+     * 创建项目相关数据
+     */
     public void createProjectData(ZipOutputStream zipOut, String rootDirName, Long userId) throws IOException {
         // 获取当前年份
         Calendar calendar = Calendar.getInstance();
@@ -327,9 +681,25 @@ public class PackageServiceImpl implements IPackageService {
             }
         }
 
+        // 打印总体进度信息
+        log.info("用户" + userId + " 开始处理建筑物数据，共需处理 " + buildingIds.size() + " 座建筑物");
+        
+        // 用于计数已处理的建筑物
+        int processedCount = 0;
+        int successCount = 0;
+        int skipCount = 0;
+
         // 处理每个建筑物的数据
         for (Long buildingId : buildingIds) {
+            processedCount++;
+            log.info("用户" + userId + " 正在处理第 " + processedCount + "/" + buildingIds.size() + " 座建筑物，buildingId=" + buildingId);
+            
             Building building = buildingService.selectBuildingById(buildingId);
+            if (building == null) {
+                log.warn(userId + " 建筑物不存在，跳过处理，buildingId=" + buildingId);
+                skipCount++;
+                continue;
+            }
             // 1. 获取建筑物对象树
             try {
                 if (building != null && building.getRootObjectId() != null) {
@@ -348,12 +718,15 @@ public class PackageServiceImpl implements IPackageService {
                 List<Attachment> attachments = attachmentService.getAttachmentBySubjectId(buildingId);
 
                 // 过滤出与桥梁照片相关的附件
+                /* 暂时不打包桥梁的正立面照
                 List<Attachment> bridgePhotoAttachments = attachments.stream()
                         .filter(e -> {
                             String name = e.getName();
                             return name != null && name.matches("^\\d+_(newfront|newside)_.*$");
                         })
                         .collect(Collectors.toList());
+                  end of 暂时不打包桥梁的正立面照*/
+                List<Attachment> bridgePhotoAttachments = new ArrayList<Attachment>();
 
                 List<Attachment> propertyPhotoAttachments = attachments.stream()
                         .filter(e -> {
@@ -371,15 +744,21 @@ public class PackageServiceImpl implements IPackageService {
                     log.info(userId + " 桥梁正立面照收集完成" + buildingId);
                 }
                 Map<String, List<String>> frontAndSide = getFrontAndSide(propertyPhotoAttachments, zipOut, buildingId, rootDirName);
-                Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
+                
+                // 检查rootPropertyId是否存在，避免空指针异常
+                if (building.getRootPropertyId() != null) {
+                    Property property = propertyService.selectPropertyTree(building.getRootPropertyId());
 
-                PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
-                propertyTreeVo.setProperty(property);
-                propertyTreeVo.setImages(frontAndSide);
+                    PropertyTreeVo propertyTreeVo = new PropertyTreeVo();
+                    propertyTreeVo.setProperty(property);
+                    propertyTreeVo.setImages(frontAndSide);
 
-                String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
-                addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
-                log.info(userId + " 桥梁属性卡片收集完成" + buildingId);
+                    String propertyJsonPath = rootDirName + "/building/" + buildingId + "/property.json";
+                    addJsonToZip(zipOut, propertyJsonPath, JSONObject.toJSONString(propertyTreeVo));
+                    log.debug(userId + " 桥梁属性卡片收集完成，buildingId=" + buildingId);
+                } else {
+                    log.warn(userId + " 建筑物没有关联属性树，跳过属性卡片生成，buildingId=" + buildingId);
+                }
             } catch (Exception e) {
                 // 记录错误但继续处理
                 log.error("获取建筑物照片数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
@@ -402,15 +781,15 @@ public class PackageServiceImpl implements IPackageService {
                     List<Disease> yearDiseases = diseaseService.selectDiseaseListForZip(disease);
                     if (yearDiseases != null && !yearDiseases.isEmpty()) {
                         diseases = yearDiseases;
-                        log.info(userId + "找到" + targetYear + "年的病害数据，共" + diseases.size() + "条");
+                        log.debug(userId + "找到" + targetYear + "年的病害数据，共" + diseases.size() + "条，buildingId=" + buildingId);
                         break;
                     }
                 }
 
                 if (diseases != null && !diseases.isEmpty()) {
-                    log.info(userId + "病害信息开始收集" + buildingId + "，年份：" + targetYear);
-                    log.info(userId + " 病害信息数据完成" + buildingId);
-                    log.info(userId + "图片信息开始收集" + buildingId);
+                    log.debug(userId + "病害信息开始收集" + buildingId + "，年份：" + targetYear);
+                    log.debug(userId + " 病害信息数据完成" + buildingId);
+//                    log.info(userId + "图片信息开始收集" + buildingId);
 
                     // 创建年份病害数据对象，此时Disease对象中的图片路径已更新为相对路径
                     DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
@@ -425,10 +804,13 @@ public class PackageServiceImpl implements IPackageService {
                     // 添加到zip文件
                     String diseaseJsonPath = rootDirName + "/building/" + buildingId + "/disease/" + targetYear + ".json";
                     addJsonToZip(zipOut, diseaseJsonPath, jsonString);
+                    log.debug(userId + " 病害数据处理完成，buildingId=" + buildingId + "，年份=" + targetYear);
                 } else {
-                    log.info(userId + "近三年内未找到病害数据，buildingId=" + buildingId);
+                    log.debug(userId + "近三年内未找到病害数据，buildingId=" + buildingId);
                 }
                 // 收集所有需要处理的路径和对应的文件名
+                /* 暂时不打包历史病害的照片
+                log.info(userId + "图片信息开始收集" + buildingId);
                 List<String> allFileNames = new ArrayList<>();
                 List<Long> ids = new ArrayList<>();
                 if (diseases != null && !diseases.isEmpty()) {
@@ -462,11 +844,18 @@ public class PackageServiceImpl implements IPackageService {
                     addDiseaseImages(zipOut, rootDirName, buildingId, allFileNames, ids);
                 }
                 log.info(userId + "图片信息收集完成" + buildingId);
+                 end of 暂时不打包历史病害的照片 */
+                // 成功处理完一个建筑物
+                successCount++;
             } catch (Exception e) {
                 // 记录错误但继续处理
                 log.error("获取建筑物病害数据失败：buildingId={}, 错误={}", buildingId, e.getMessage(), e);
+                skipCount++;
             }
         }
+        
+        // 打印总体处理结果
+        log.info("用户" + userId + " 建筑物数据处理完成！总计: " + buildingIds.size() + " 座，成功: " + successCount + " 座，跳过: " + skipCount + " 座");
     }
 
 

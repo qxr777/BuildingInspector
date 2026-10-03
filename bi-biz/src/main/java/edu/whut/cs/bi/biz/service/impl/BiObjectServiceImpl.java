@@ -361,6 +361,73 @@ public class BiObjectServiceImpl implements IBiObjectService {
     }
 
     /**
+     * 修复构件数量：从传入根节点开始，第4级作为业务构件数量叶子保留自身count，
+     * 第1至第3级按下级合计回算，保证节点count数量正常。
+     *
+     * @param rootObjectId 桥梁根节点ID
+     * @return 更新的节点数量
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int repairCountsFromSubtree(Long rootObjectId) {
+        if (rootObjectId == null) {
+            throw new ServiceException("根对象ID不能为空");
+        }
+
+        List<BiObject> allObjects = selectBiObjectAndChildren(rootObjectId);
+        if (allObjects == null || allObjects.isEmpty()) {
+            return 0;
+        }
+
+        Map<Long, BiObject> objectMap = allObjects.stream()
+                .filter(Objects::nonNull)
+                .filter(object -> object.getId() != null)
+                .collect(Collectors.toMap(BiObject::getId, object -> object, (left, right) -> left));
+        BiObject rootObject = objectMap.get(rootObjectId);
+        if (rootObject == null) {
+            return 0;
+        }
+
+        Map<Long, List<BiObject>> childrenMap = objectMap.values().stream()
+                .filter(object -> object.getParentId() != null)
+                .collect(Collectors.groupingBy(BiObject::getParentId));
+
+        List<BiObject> objectsToUpdate = new ArrayList<>();
+        calculateSubtreeCount(rootObject, childrenMap, objectsToUpdate, 1);
+
+        int updatedCount = 0;
+        for (BiObject object : objectsToUpdate) {
+            BiObject updateObject = new BiObject();
+            updateObject.setId(object.getId());
+            updateObject.setCount(object.getCount());
+            updateObject.setUpdateTime(DateUtils.getNowDate());
+            updatedCount += biObjectMapper.updateBiObject(updateObject);
+        }
+        return updatedCount;
+    }
+
+    private int calculateSubtreeCount(BiObject object, Map<Long, List<BiObject>> childrenMap, List<BiObject> objectsToUpdate,
+                                      int level) {
+        List<BiObject> children = childrenMap.get(object.getId());
+        int currentCount = object.getCount() == null ? 0 : object.getCount();
+        // 业务上从桥梁根节点算第4级为构件数量叶子，不能再用更深层数据库子节点回算。
+        if (level >= 4 || children == null || children.isEmpty()) {
+            return currentCount;
+        }
+
+        int childTotalCount = 0;
+        for (BiObject child : children) {
+            childTotalCount += calculateSubtreeCount(child, childrenMap, objectsToUpdate, level + 1);
+        }
+
+        if (!Objects.equals(object.getCount(), childTotalCount)) {
+            object.setCount(childTotalCount);
+            objectsToUpdate.add(object);
+        }
+        return childTotalCount;
+    }
+
+    /**
      * 根据根节点ID逻辑删除对象及其所有子节点
      *
      * @param rootObjectId 根节点ID
