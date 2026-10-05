@@ -594,7 +594,7 @@ public class SqliteService {
     }
 
     private void insertBiObjects(Connection conn, List<BiObject> objects) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_object (id, parent_id, name, ancestors, status, del_flag, longitude, latitude, altitude, position, area, admin_dept, weight, standard_weight, video_feed, props, template_object_id, create_by, create_time, update_by, update_time, remark, offline_uuid, parent_uuid, building_uuid, is_offline_data, span_index, span_length, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_object (id, parent_id, name, ancestors, status, del_flag, longitude, latitude, altitude, position, area, admin_dept, weight, standard_weight, video_feed, props, template_object_id, create_by, create_time, update_by, update_time, remark, offline_uuid, parent_uuid, is_offline_data, node_type, bridge_type, gamma, omega, props_json, span_no, span_length, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (BiObject o : objects) {
                 ps.setLong(1, o.getId());
@@ -621,11 +621,15 @@ public class SqliteService {
                 ps.setString(22, o.getRemark());
                 ps.setString(23, o.getOfflineUuid());
                 ps.setString(24, o.getParentUuid());
-                ps.setString(25, o.getBuildingUuid());
-                ps.setInt(26, 0); 
-                setIntOrNull(ps, 27, o.getSpanIndex());
-                setDecimalOrNull(ps, 28, o.getSpanLength());
-                ps.setInt(29, 0);
+                ps.setInt(25, 0); 
+                ps.setString(26, o.getNodeType());
+                ps.setString(27, o.getBridgeType());
+                setDecimalOrNull(ps, 28, o.getGamma());
+                setIntOrNull(ps, 29, o.getOmega());
+                ps.setString(30, o.getPropsJson());
+                setIntOrNull(ps, 31, o.getSpanNo());
+                setDecimalOrNull(ps, 32, o.getSpanLength());
+                ps.setInt(33, 0);
                 ps.addBatch();
             }
             ps.executeBatch();

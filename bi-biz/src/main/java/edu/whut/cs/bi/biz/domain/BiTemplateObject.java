@@ -47,10 +47,16 @@ public class BiTemplateObject extends TreeEntity {
     private BigDecimal weight;
 
     /**
-     * 影响系数Ƴ
+     * 部件权重ω（附录B，0~100整数）
      */
-    @Excel(name = "影响系数Ƴ")
-    private BigDecimal impactFactor;
+    @Excel(name = "部件权重ω")
+    private Integer omega;
+
+    /**
+     * 结构层影响系数γ（附录B按桥型）
+     */
+    @Excel(name = "结构层影响系数γ")
+    private BigDecimal gamma;
 
     /**
      * 类别（i）
@@ -173,12 +179,30 @@ public class BiTemplateObject extends TreeEntity {
         this.weight = weight;
     }
 
-    public BigDecimal getImpactFactor() {
-        return impactFactor;
+    /**
+     * 获取部件权重ω。
+     *
+     * @return 部件权重ω
+     */
+    public Integer getOmega() {
+        return omega;
     }
 
-    public void setImpactFactor(BigDecimal impactFactor) {
-        this.impactFactor = impactFactor;
+    /**
+     * 设置部件权重ω。
+     *
+     * @param omega 部件权重ω
+     */
+    public void setOmega(Integer omega) {
+        this.omega = omega;
+    }
+
+    public BigDecimal getGamma() {
+        return gamma;
+    }
+
+    public void setGamma(BigDecimal gamma) {
+        this.gamma = gamma;
     }
 
     public String getCategoryI() {
@@ -199,8 +223,9 @@ public class BiTemplateObject extends TreeEntity {
                 .append("orderNum", getOrderNum())
                 .append("status", getStatus())
                 .append("delFlag", getDelFlag())
-                .append("weight", getWeight()) // 添加 weight 属性
-                .append("impactFactor", getImpactFactor())
+                .append("weight", getWeight()) // 标准权重（旧模板，standard_weight join 来源）
+                .append("omega", getOmega()) // 部件权重ω
+                .append("gamma", getGamma())
                 .append("categoryI", getCategoryI())
                 .append("remark", getRemark())
                 .append("createBy", getCreateBy())

@@ -293,8 +293,8 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
 
                 try {
                     item.setParentId(parentId);
-                    if (item.getBuildingUuid() != null)
-                        item.setBuildingId(uuidMap.get(item.getBuildingUuid()));
+                    // v1.6 拍板：bi_object 不加 building_id/building_uuid，object→building 归属
+                    // 靠 bi_building.root_object_id 单向定位，采集节点随父链挂到 UNIT 根节点下即可
                     BiObject existing = biObjectMapper.selectByOfflineUuid(item.getOfflineUuid());
                     if (existing != null) {
                         uuidMap.put(item.getOfflineUuid(), existing.getId());

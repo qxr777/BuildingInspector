@@ -138,20 +138,29 @@ public class BiObject extends TreeEntity {
     /** 父节点离线UUID */
     private String parentUuid;
 
-    /** 所属桥梁ID */
-    private Long buildingId;
-
-    /** 所属桥梁离线UUID */
-    private String buildingUuid;
-
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;
 
     /** 是否被App离线删除标记 (0:否, 1:是) */
     private Integer offlineDeleted;
 
-    /** 跨号 (1, 2, 3...) */
-    private Integer spanIndex;
+    /** 节点类型: ROOT/UNIT/SPAN/LAYER/PART/LEAF/LEGACY */
+    private String nodeType;
+
+    /** 桥型代码(附录B B01~B21), UNIT级绑定, SPAN继承 */
+    private String bridgeType;
+
+    /** 结构层影响系数γ(附录B按桥型) */
+    private BigDecimal gamma;
+
+    /** 部件权重ω(附录B, 0~100整数) */
+    private Integer omega;
+
+    /** 扩展属性JSON(共用墩/全桥性构件/待确认等标记); 独立于旧props(附件属性)列 */
+    private String propsJson;
+
+    /** 跨号(1, 2, 3...) */
+    private Integer spanNo;
 
     /** 跨径长度(米) */
     private BigDecimal spanLength;
@@ -182,9 +191,13 @@ public class BiObject extends TreeEntity {
                 .append("templateObjectId", getTemplateObjectId())
                 .append("offlineUuid", getOfflineUuid())
                 .append("parentUuid", getParentUuid())
-                .append("buildingUuid", getBuildingUuid())
                 .append("isOfflineData", getIsOfflineData())
-                .append("spanIndex", getSpanIndex())
+                .append("nodeType", getNodeType())
+                .append("bridgeType", getBridgeType())
+                .append("gamma", getGamma())
+                .append("omega", getOmega())
+                .append("propsJson", getPropsJson())
+                .append("spanNo", getSpanNo())
                 .append("spanLength", getSpanLength())
                 .toString();
     }

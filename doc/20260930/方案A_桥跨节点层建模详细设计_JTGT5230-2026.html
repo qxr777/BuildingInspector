@@ -104,16 +104,11 @@ ALTER TABLE `bi_object` ADD INDEX idx_object_span (parent_id, node_type, span_no
 <b>为什么 props 已存在还要加 props_json？</b> 现有 <code>props</code> 是 <code>varchar</code> 且已被"附加属性"占用语义，改成结构化 JSON 列更稳妥；若确认 <code>props</code> 当前无强约束，也可直接复用 <code>props</code> 存 JSON，省一列。这里给出双选项，落地时按 <code>props</code> 实际使用情况二选一。
 </div>
 
-<h3>2.2 <code>Component</code> 表补跨号外键</h3>
+<h3>2.2 <code>Component</code> 表：<strong>不加跨号列</strong>（构件挂跨走关系表）</h3>
 
-<pre>ALTER TABLE `bi_component`
-  ADD COLUMN `span_id`  bigint DEFAULT NULL COMMENT '所属桥跨节点ID（重挂后回填）',
-  ADD COLUMN `span_no`  int    DEFAULT NULL COMMENT '跨号（从历史编码解析回填，冗余便于查询）';
+<p><s>早期方案曾在 <code>bi_component</code> 上加 <code>span_id</code>/<code>span_no</code> 两列。</s> <strong>该设计已废弃</strong>：构件可能属于多个跨（共用构件），单值 <code>span_id</code> 表达不了多跨，且会在 <code>bi_component</code> 与关系表之间制造「跨归属」的第二事实来源，违反单一事实来源原则。</p>
 
--- 现有 code 字段格式：R-&lt;幅&gt;-&lt;跨号&gt;-&lt;序&gt;#名称，跨号即可从 code 解析
-</pre>
-
-<p class="note">说明：<code>span_id</code> 是主外键（决定构件挂到哪个跨），<code>span_no</code> 是冗余列（迁移期与排查期用）。两者都要，否则迁移时无法区分"已重挂"与"未重挂"。</p>
+<p>构件挂跨的唯一载体是关系表 <code>bi_span_component_part(component_id, span_id, part_id, is_shared)</code>（完整 DDL 见实施手册 §3.3b，落地规则见本文 §5「三大建模难点」），<code>bi_component</code> 只保留现有 <code>bi_object_id</code>（构件→部件，一对一）不动。跨号通过关系表 <code>span_id → bi_object.span_no</code> 取得，无需在构件表冗余。</p>
 
 <h3>2.3 新增跨评定实体 <code>BiSpanEvaluation</code></h3>
 
@@ -177,19 +172,26 @@ public class BiSpanEvaluation extends BaseEntity {
 
 <h3>3.1 节点类型枚举（node_type）</h3>
 
+<p><b>重要前提：<code>node_type</code> 只描述 <code>bi_object</code> 结构树节点自身的角色，与「构件」无关。</b>构件由独立的 <code>bi_component</code> 表承载，通过 <code>bi_component.bi_object_id</code> 外键挂到树上（通常挂在 <code>PART</code> 或 <code>LEAF</code> 节点），构件自身<strong>不带 <code>node_type</code></strong>。已核实：<code>bi_object</code> 树的末端是「面定位」节点（左侧面/右侧面/顶面/底面/倒角等，如「桥墩→盖梁→左侧面」），这些节点是结构对象叶子，<strong>不是构件</strong>，也不被 <code>bi_component</code> 引用。</p>
+
 <table>
   <tr><th>node_type</th><th>含义</th><th>对应新标准概念</th><th>是否绑定 γ/ω</th></tr>
   <tr><td><code>ROOT</code></td><td>桥梁根节点</td><td>全桥</td><td>—</td></tr>
-  <tr><td><code>UNIT</code></td><td>评定单元（主桥/左幅引桥）</td><td>3.1.2 评定单元</td><td>—</td></tr>
-  <tr><td class="new"><code>SPAN</code></td><td><b>桥跨节点（新增）</b></td><td>桥跨</td><td>绑定 bridgeType，γ 挂子层</td></tr>
+  <tr><td><code>UNIT</code></td><td>评定单元（主桥/左幅引桥）</td><td>3.1.2 评定单元</td><td>绑定 bridgeType（桥型是 UNIT 级属性）</td></tr>
+  <tr><td class="new"><code>SPAN</code></td><td><b>桥跨节点（新增）</b></td><td>桥跨</td><td>继承 bridgeType，γ 挂子层</td></tr>
   <tr><td><code>LAYER</code></td><td>结构层（桥面系/上部/下部/附属）</td><td>附录B 结构部位</td><td><b>γ 系数</b></td></tr>
-  <tr><td><code>PART</code></td><td>部件（同类构件集合）</td><td>2.1.5 部件</td><td><b>ω 权重</b></td></tr>
-  <tr><td><code>LEAF</code></td><td>构件（或具体对象）</td><td>2.1.4 构件</td><td>—</td></tr>
+  <tr><td><code>PART</code></td><td>部件（同类构件集合，如桥墩/桥台/支座）</td><td>2.1.5 部件</td><td><b>ω 权重</b></td></tr>
+  <tr><td><code>LEAF</code></td><td><b>结构对象末端节点</b>（面定位，如左侧面/顶面/倒角）</td><td>—（树的最底层，非构件）</td><td>—</td></tr>
+  <tr><td><code>LEGACY</code></td><td>迁移前旧数据占位（ADD COLUMN 默认值）</td><td>—</td><td>—</td></tr>
 </table>
+
+<div class="box warn">
+<b>构件与树的边界（关键）</b>：评定引擎取「部件最差构件标度 CI(j)=max{ECI}」时，构件的遍历范围来自 <code>bi_component.bi_object_id</code> 挂到某 <code>PART</code> 节点的集合，<strong>与 <code>bi_object</code> 树里 <code>PART</code> 之下是否还有 <code>LEAF</code>（面定位）层无关</strong>。因此评定计算只需 <code>ROOT/UNIT/SPAN/LAYER/PART</code> 五类即可闭环；<code>LEAF</code> 仅用于给 300 万条面定位叶子「贴标签」，避免 <code>node_type</code> 回填时大量节点无法归类，<code>LEGACY</code> 是迁移完成前的临时态（完成后不应有节点停留在此值）。
+</div>
 
 <div class="box err">
 <b>最大的坑：现有代码靠 <code>ancestors</code> 长度硬编码层级，加一层会全部失效。</b>
-已核实 <code>correctAllWeights()</code>、<code>reassignComponentsFromOthers()</code>、<code>repairCountsFromSubtree()</code> 里都有 <span class="kbd">ancestors.length - rootIndex == 2 / 3 / 4</span> 这类判断，以及"从根算第4级为构件叶子"的隐含假设。<b>插入 SPAN 层后所有层级都 +1，这些硬编码必须同步改为按 <code>node_type</code> 判断</b>——这是方案A落地时工作量最容易被低估、也最易出回归的部分。
+已核实 <code>correctAllWeights()</code>、<code>reassignComponentsFromOthers()</code>、<code>repairCountsFromSubtree()</code> 里都有 <span class="kbd">ancestors.length - rootIndex == 2 / 3 / 4</span> 这类判断，以及"从根算第4级为构件叶子"的隐含假设。<b>插入 SPAN 层后所有层级都 +1，这些硬编码必须同步改为按 <code>node_type</code> 判断</b>——这是方案A落地时工作量最容易被低估、也最易出回归的部分。注意：现有「第4级为构件叶子」的假设本身就不准确（构件在 <code>bi_component</code> 表，树里第4级实为面定位节点），改造时应一并纠正为按 <code>node_type</code> 判定。
 </div>
 
 <h2 id="s4">四、代码改造点（逐文件落地清单）</h2>
@@ -237,7 +239,7 @@ biEvaluation.setBcI(calcFullBridge(spanResults));
   <tr>
     <td><b>① 共用墩归属</b></td>
     <td><b>正式稿 3.3.1 条文说明：相邻两跨共用的桥墩、支座、伸缩装置等在两跨均要计算</b>（原依据 6.1.2"归靠墩侧"仅适用于跨内节段连接处，已修正）</td>
-    <td>共用构件<b>两跨均计入</b>：新增关系表 <code>bi_component_span(component_id, span_id, is_shared)</code> 支持构件多跨挂接（推荐，不产生重复构件记录、报告不重复计数）；备选：受控复制（两条记录共享 source_id）。<code>props_json</code> 记 <code>{"shared_pier":true}</code>，前端支持人工复核。</td>
+    <td>共用构件<b>两跨均计入</b>：新增关系表 <code>bi_span_component_part(component_id, span_id, part_id, is_shared)</code> 支持构件多跨挂接（推荐，不产生重复构件记录、报告不重复计数）；<code>part_id</code> 显式锚定「该构件在此跨内所属部件节点」，服务 BSCI 求和的 <code>CI(ij)·ω(j)</code>；<code>is_shared=1</code> 标记共用构件。备选：受控复制（两条记录共享 source_id）。<code>props_json</code> 记 <code>{"shared_pier":true}</code>，前端支持人工复核。</td>
   </tr>
   <tr>
     <td><b>② 全桥性构件</b></td>
@@ -247,7 +249,7 @@ biEvaluation.setBcI(calcFullBridge(spanResults));
   <tr>
     <td><b>③ 桥面系纵向分段</b></td>
     <td>附录B 桥面系为独立结构层，每跨一套</td>
-    <td>桥面铺装等纵向连续构件按跨切分；<b>伸缩缝/伸缩装置属相邻两跨共用构件，按 3.3.1 条文说明在两跨均要计算</b>，用 <code>bi_component_span</code> 关系表多跨挂接（不采用"归跨号较小一侧"）。切分边界记录在构件 <code>props</code> 或 <code>span_no</code>；无法确定归属的标记 <code>{"pending_confirm":true}</code> 供人工复核。</td>
+    <td>桥面铺装等纵向连续构件按跨切分；<b>伸缩缝/伸缩装置属相邻两跨共用构件，按 3.3.1 条文说明在两跨均要计算</b>，用 <code>bi_span_component_part</code> 关系表多跨挂接（不采用"归跨号较小一侧"）。切分边界记录在构件 <code>props</code>；无法确定归属的标记 <code>{"pending_confirm":true}</code> 供人工复核。</td>
   </tr>
 </table>
 
@@ -268,19 +270,19 @@ biEvaluation.setBcI(calcFullBridge(spanResults));
     <td>已核实 <code>R-&lt;幅&gt;-&lt;跨&gt;-&lt;序&gt;#名称</code>，跨号 1~9</td>
   </tr>
   <tr>
-    <td><b>2. 解析回填 span_no</b></td>
-    <td>脚本解析每条构件的 code，回填 <code>component.span_no</code></td>
+    <td><b>2. 解析构件编码，确定跨号</b></td>
+    <td>脚本解析每条构件的 code，确定其跨号（跨号写 <code>bi_object.span_no</code>，<b>不写构件表</b>）</td>
     <td>产出《构件→跨号映射清单》供核对</td>
   </tr>
   <tr>
-    <td><b>3. 生成 SPAN 节点并重挂</b></td>
-    <td>按"评定单元 × 跨数"批量生成 SPAN 节点；跨下按附录B 生成 LAYER 子层并绑定 γ；构件按 span_no 重挂到对应跨</td>
+    <td><b>3. 生成 SPAN 节点并挂接构件</b></td>
+    <td>按"评定单元 × 跨数"批量生成 SPAN 节点；跨下按附录B 生成 LAYER 子层并绑定 γ；构件按跨号写入关系表 <code>bi_span_component_part</code> 完成挂跨</td>
     <td>共用墩/全桥性构件按第五节规则分配，标记待人工确认项</td>
   </tr>
   <tr>
-    <td><b>4. 回填 component.span_id</b></td>
-    <td>重挂后写回 <code>component.span_id</code>，作为"已迁移"标记</td>
-    <td>span_id 为空的构件 = 迁移遗漏，全量检查</td>
+    <td><b>4. 校验挂跨完整性</b></td>
+    <td>校验关系表中每个构件都已挂跨（全桥性构件除外），作为"迁移完成"标记</td>
+    <td>关系表无记录的构件 = 迁移遗漏，全量检查</td>
   </tr>
   <tr>
     <td><b>5. 评定实体改造</b></td>
@@ -309,7 +311,7 @@ biEvaluation.setBcI(calcFullBridge(spanResults));
 <ul>
   <li><b>结构正确性</b>：迁移后每跨下 LAYER 数=4（或全桥性构件单列），γ 合计=1.0，部件 ω 合计=100（整数）；</li>
   <li><b>计算正确性</b>：用宜都长江大桥构造一个已知答案的手算用例，比对 BSCI/BCI 与跨等级；</li>
-  <li><b>无遗漏</b>：<code>span_id IS NULL</code> 的构件数 = 0（迁移完成后）；</li>
+  <li><b>无遗漏</b>：关系表 <code>bi_span_component_part</code> 中无记录的构件数 = 0（迁移完成后，全桥性构件除外）；</li>
   <li><b>回归</b>：correctAllWeights / reassign / repairCounts 三个层级敏感方法在加层后全量回归。</li>
 </ul>
 
@@ -318,7 +320,7 @@ biEvaluation.setBcI(calcFullBridge(spanResults));
   <tr><th>风险</th><th>等级</th><th>对策</th></tr>
   <tr><td>硬编码层级判断改漏导致权重/构件数错乱</td><td><span class="tag p0">高</span></td><td>全仓 grep <code>ancestors.length</code> 与 <code>== 2/3/4</code>，逐处改为 node_type 判断；加单元测试覆盖</td></tr>
   <tr><td>共用墩/全桥性构件归属错误</td><td><span class="tag p1">中</span></td><td>规则自动归 + props 标记 + 人工复核入口；迁移清单逐项确认</td></tr>
-  <tr><td>多跨长桥 SPAN 节点数量爆炸（如 30 跨）</td><td><span class="tag p1">中</span></td><td>SPAN 节点本身轻量（只存跨号+桥型+γ），爆炸的是其下 LAYER/PART 复制——用模板引用（templateObjectId）而非物理复制，部件/构件数据按 span_no 过滤共享</td></tr>
+  <tr><td>多跨长桥 SPAN 节点数量爆炸（如 30 跨）</td><td><span class="tag p1">中</span></td><td>SPAN 节点本身轻量（只存跨号+桥型+γ），爆炸的是其下 LAYER/PART 复制——用模板引用（templateObjectId）而非物理复制，部件/构件数据按 <code>span_id</code>（关系表）过滤共享</td></tr>
   <tr><td>与评分引擎重写（并行 P0）的耦合</td><td><span class="tag p1">中</span></td><td>跨层改造与引擎重写同批立项，但接口先定：SpanEvaluationService 只依赖 span 节点 + 部件标度，不依赖旧扣分逻辑</td></tr>
 </table>
 

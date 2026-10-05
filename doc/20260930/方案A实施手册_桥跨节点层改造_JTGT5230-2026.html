@@ -103,9 +103,21 @@
   <li><strong>硬编码层级判断</strong>（<span class="hl">加层后必改的最大坑</span>）：<code>correctAllWeights()</code> 用 <code>ancestors.length - rootIndex == 2</code> 判「第3层」；<code>reassignComponentsFromOthers()</code> 用 <code>== 3 / == 4</code> 判第三/四层；<code>repairCountsFromSubtree()</code> 用 <code>level >= 4</code> 判构件叶子；Mapper 里 <code>selectChildrenByIdRemoveLeafNew</code> 等用 <code>p.level &lt; 4</code>。</li>
 </ul>
 
+<div class="callout danger">
+  <div class="t">⚠️ 真实库核对偏差（2026-10-04 已连库实测，落地脚本必须据此修正）</div>
+  已连通后台 MySQL（<code>60.205.13.156:3306 / bi</code>，MySQL 8.0.42）逐项核实，以下 5 处与本文档早期假设不符，迁移脚本必须按真实数据编写：
+  <ul>
+    <li><strong>① <code>bi_object</code> 达 391 万行</strong>，远超「几百条结构节点」假设——绝大部分（深度 4~6 层约 300 万行）是病害构件的「多面定位」叶子（左侧面/右侧面/腹板/顶面/底面等），结构节点仅约几千。迁移脚本<strong>严禁全表遍历</strong>，必须按 <code>name</code>/<code>node_type</code> 精确筛出结构节点再操作。</li>
+    <li><strong>② 结构层名称为「附属设施」</strong>，非本文档早前写的「附属构造」。M1 回填 <code>node_type=LAYER</code> 的 name 匹配应为 <code>('上部结构','下部结构','桥面系','附属设施')</code>。</li>
+    <li><strong>③ 桥型信息已存在评定单元 name 里</strong>（如「长江二桥-主桥（测试）(钢-混凝土组合拱桥)」「(梁式桥)」），M4 绑定 <code>bridge_type</code> 可从 name 解析，但需清洗「（测试）」等杂质。</li>
+    <li><strong>④ 构件跨号段实际到 28</strong>（非仅 1~9）；编码格式本身 100% 合规（<code>R-&lt;幅&gt;-&lt;跨&gt;-&lt;序&gt;#名</code>，抽查不符=0），解析逻辑无需改，但<strong>勿写死跨数上限</strong>。</li>
+    <li><strong>⑤ 根节点 7498 个</strong>（含大量「XX（测试）」桥）、评定单元约 5980 个——灰度试点桥与「权威跨数清单」须按此量级规划。</li>
+  </ul>
+</div>
+
 <div class="callout warn">
   <div class="t">核心设计取舍（沿用方案A定稿）</div>
-  <strong>复用 <code>bi_object</code> 树表</strong>，新增 4 列 + 1 个新评定实体表 + 构件 2 列，不新建树表、不改 <code>parent_id/ancestors</code> 语义，从而把改造范围压到最小，且天然向下兼容。
+  <strong>复用 <code>bi_object</code> 树表</strong>，新增 <code>bi_object</code> 6 列 + 2 个新表（<code>bi_span_evaluation</code> 跨评定实体、<code>bi_span_component_part</code> 构件-桥跨-部件映射），<strong>不改 <code>bi_component</code> 表结构</strong>，不新建树表、不改 <code>parent_id/ancestors</code> 语义，从而把改造范围压到最小，且天然向下兼容。
 </div>
 
 <!-- ================= 2 ================= -->
@@ -155,9 +167,10 @@ git tag -a pre-span-2026 -m "桥跨层改造前基线" && git push --tags</code>
 
 <h3>3.1 <code>bi_object</code> 新增列</h3>
 <pre><code>-- 1) 节点类型：旧数据一律回填默认值，不改变既有层级语义
+--    描述 bi_object 结构树节点角色，与「构件」无关（构件在 bi_component 表，不带 node_type）
 ALTER TABLE bi_object
   ADD COLUMN node_type VARCHAR(16) NOT NULL DEFAULT 'LEGACY'
-    COMMENT '节点类型:ROOT/UNIT/SPAN/LAYER/PART/LEAF/LEGACY(旧数据占位)';
+    COMMENT '节点类型:ROOT/UNIT/SPAN/LAYER/PART/LEAF(结构对象末端/面定位)/LEGACY(旧数据占位)';
 
 -- 2) 跨号：仅 SPAN 及跨下节点回填，其余 NULL
 ALTER TABLE bi_object
@@ -182,17 +195,18 @@ ALTER TABLE bi_object
   旧 <code>weight</code> 语义是「部件权重」（旧规范 0.4/0.4/0.2 校验依赖它），新标准「结构层 γ」与「部件 ω」是<strong>两个不同量</strong>，混用会污染旧数据。故 γ 独立成列，ω 未来另加 <code>omega</code> 列（本阶段可暂用 <code>weight</code> 承载部件 ω 的迁移映射，见 §4.4）。
 </div>
 
-<h3>3.2 <code>bi_component</code> 新增列</h3>
-<pre><code>-- 6) 归属桥跨（主外键，冗余span_no便于查询与展示）
-ALTER TABLE bi_component
-  ADD COLUMN span_id BIGINT NULL COMMENT '归属桥跨节点ID(bi_object.id, node_type=SPAN)';
+<h3>3.2 <code>bi_component</code> 表：<strong>不加列</strong></h3>
 
-ALTER TABLE bi_component
-  ADD COLUMN span_no INT NULL COMMENT '归属跨号(冗余列，便于筛选与排序)';
-
--- 索引（迁移完成后建立，避免迁移时反复维护索引）
-ALTER TABLE bi_component ADD INDEX idx_span_id (span_id);
-</code></pre>
+<div class="callout danger">
+  <div class="t">构件挂跨不落在 <code>bi_component</code> 上（重要修正）</div>
+  早期方案曾在 <code>bi_component</code> 上加 <code>span_id</code>/<code>span_no</code> 两列，<strong>该设计有缺陷，已废弃</strong>。原因：
+  <ul>
+    <li><strong>单值外键表达不了多跨</strong>：共用构件（墩/支座/伸缩缝）在两跨均要计算，<code>bi_component.span_id</code> 只能存一个值，会退回「一个构件只能挂一个跨」的老路，与关系表的多对多语义直接冲突。</li>
+    <li><strong>制造数据不一致源头</strong>：若 <code>bi_component.span_id</code> 与关系表映射不一致，以谁为准无法界定，违反「单一事实来源」原则。</li>
+    <li><strong><code>span_no</code> 是冗余</strong>：跨号由关系表 <code>span_id → bi_object.span_no</code> 即可取得，无需在构件表重复存。</li>
+  </ul>
+  结论：<strong>「构件→桥跨」的归属关系，唯一权威来源是关系表 <code>bi_span_component_part</code>（见 §3.3b），<code>bi_component</code> 保持「构件实体」的纯粹性</strong>，只保留现有 <code>bi_object_id</code>（构件→部件，一对一）不动。
+</div>
 
 <h3>3.3 新表 <code>bi_span_evaluation</code>（桥跨评定实体）</h3>
 <pre><code>CREATE TABLE bi_span_evaluation (
@@ -221,13 +235,53 @@ ALTER TABLE bi_component ADD INDEX idx_span_id (span_id);
   新表与旧 <code>bi_evaluation</code>（桥幅级，保留旧 100 分制结果）<strong>并存不冲突</strong>。旧接口/旧报表继续读 <code>bi_evaluation</code>；新报表读 <code>bi_span_evaluation</code>。两套结果用 <code>std_version</code> 区分，历史数据版本化封存。
 </div>
 
+<h3>3.3b 新表 <code>bi_span_component_part</code>（构件-桥跨-部件映射）</h3>
+
+<div class="callout danger">
+  <div class="t">为什么需要这张表（评定计算的硬需求，非归属冗余）</div>
+  桥跨评定公式 <code>BSCI(ij) = 100 − Σ CI(ij)·ω(j)·γ(j) / 5</code> 要求引擎对跨内<b>每个部件 j</b> 求和，其中 <code>CI(ij)</code> 是「该部件下最差构件标度」、<code>ω(j)</code> 是「该部件的权重」。因此引擎必须能回答：<strong>这个构件，在本跨里，属于哪个部件（PART）节点、该部件的 ω 是多少</strong>。
+  <ul>
+    <li>普通构件：构件只属于一个跨、一个部件，<code>bi_component.bi_object_id</code>（一对一）即可表达；此表只有一行。</li>
+    <li><strong>共用构件</strong>（桥墩/支座/伸缩缝，正式稿 3.3.1 条文说明「在两跨均要计算」）：同一物理构件同时属于两个跨，且<strong>在两个跨里对应的是两个不同的部件（PART）节点</strong>——单靠 <code>bi_component.bi_object_id</code> 一个外键存不下第二个跨的部件身份，必须用本表显式锚定 <code>part_id</code>。</li>
+  </ul>
+  一句话：<code>bi_object_id</code> 表达「构件→部件」的<strong>归属</strong>，<code>part_id</code> 表达「构件在<strong>该跨</strong>内以哪个部件参与评定」的<strong>计算映射</strong>，两者职责不同，缺一不可。
+</div>
+
+<pre><code>-- 构件-桥跨-部件映射：共用构件跨级部件锚定，服务于 BSCI 评定计算
+CREATE TABLE bi_span_component_part (
+  id            BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  component_id  BIGINT NOT NULL COMMENT '构件ID(bi_component.id)',
+  span_id       BIGINT NOT NULL COMMENT '桥跨节点ID(bi_object.id, node_type=SPAN)',
+  part_id       BIGINT NOT NULL COMMENT '该构件在此跨内所属部件节点ID(bi_object.id, node_type=PART)',
+  is_shared     TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否共用构件(相邻跨均计入,1=共用)',
+  create_by     VARCHAR(64) DEFAULT '',
+  create_time   DATETIME NULL,
+  update_by     VARCHAR(64) DEFAULT '',
+  update_time   DATETIME NULL,
+  remark        VARCHAR(500) DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_component_span_part (component_id, span_id, part_id),
+  KEY idx_span (span_id),
+  KEY idx_component (component_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='构件-桥跨-部件映射(共用构件跨级部件锚定,服务于BSCI评定)';
+</code></pre>
+
+<div class="callout ok">
+  <div class="t">命名与字段约定（已定稿）</div>
+  <ul>
+    <li><strong>表名 <code>bi_span_component_part</code></strong>：以「桥跨（span）为评定主轴」领起，表达「构件在某跨内的部件身份」这一三元关系。</li>
+    <li><strong>字段 <code>part_id</code>（非 object_id）</strong>：对齐方案A 节点类型体系里部件层的 <code>node_type=PART</code> 术语，精确指向「部件节点」，避免与 <code>bi_object</code>「泛指任意节点」混淆。</li>
+    <li><strong>保留 <code>is_shared</code></strong>：虽可由「同一 component_id 跨多个 span_id」推导，但显式标记利于报告去重、共用构件人工复核清单，以及未来「共用但仅单边计分」等特殊处理；<strong>仅当 PART 层逐跨物理生成（§4.4 已钉死）时，<code>part_id</code> 在两跨必然不同</strong>，唯一键 <code>(component_id, span_id, part_id)</code> 天然保证一个构件在某跨只有一个部件身份。</li>
+  </ul>
+</div>
+
 <h3>3.4 DDL 回滚脚本（预置）</h3>
 <pre><code>-- 如需整体回退（不删除数据，仅卸载新结构）
-ALTER TABLE bi_component DROP INDEX idx_span_id;
-ALTER TABLE bi_component DROP COLUMN span_no, DROP COLUMN span_id;
-ALTER TABLE bi_object  DROP COLUMN props_json, DROP COLUMN gamma,
+-- 注：bi_component 未加列，无需回退操作
+ALTER TABLE bi_object  DROP COLUMN omega, DROP COLUMN props_json, DROP COLUMN gamma,
   DROP COLUMN bridge_type, DROP COLUMN span_no, DROP COLUMN node_type;
 DROP TABLE IF EXISTS bi_span_evaluation;  -- 该表为新增，可直接删，不影响旧数据
+DROP TABLE IF EXISTS bi_span_component_part;  -- 该表为新增，可直接删，不影响旧数据
 </code></pre>
 <p class="muted">注意：回滚脚本仅作「结构卸载」，已写入新列的数据在 DROP 时会随列删除，故回滚前需确认新引擎已切回旧引擎且无新检查在途（见 §8）。</p>
 
@@ -243,8 +297,8 @@ DROP TABLE IF EXISTS bi_span_evaluation;  -- 该表为新增，可直接删，�
 <table>
   <tr><th>阶段</th><th>动作</th><th>产出</th><th>可重跑</th></tr>
   <tr><td>M1 回填 <code>node_type</code></td><td>按现有 <code>ancestors</code> 深度 + 名称推断节点类型（详见下）</td><td>每节点打上类型</td><td>✅ 幂等</td></tr>
-  <tr><td>M2 回填 <code>span_no</code></td><td>解析 <code>bi_component.code</code> 提取跨号 → 回写构件 + 生成 SPAN 节点</td><td>SPAN 节点 + 构件跨号</td><td>✅ 幂等</td></tr>
-  <tr><td>M3 回填 <code>span_id</code></td><td>按跨号 + 归属评定单元关联构件→SPAN</td><td>构件挂跨</td><td>✅ 幂等</td></tr>
+  <tr><td>M2 生成 SPAN 节点</td><td>按权威跨数清单生成 SPAN 节点，回填 <code>bi_object.span_no</code></td><td>SPAN 节点 + 跨号</td><td>✅ 幂等</td></tr>
+  <tr><td>M3 构件挂跨（写关系表）</td><td>解析 <code>bi_component.code</code> 提取跨号 → 写入 <code>bi_span_component_part</code> 关系表（component_id+span_id+part_id）</td><td>构件×跨×部件映射</td><td>✅ 幂等</td></tr>
   <tr><td>M4 绑定 <code>bridge_type/gamma</code></td><td>按桥型人工/规则映射附录B参数到 SPAN</td><td>γ/ω 参数就位</td><td>✅ 幂等</td></tr>
   <tr><td>M5 校验</td><td>全量核对：无孤儿、无重复跨号、层级一致性</td><td>校验报告</td><td>✅ 只读</td></tr>
 </table>
@@ -258,16 +312,18 @@ UPDATE bi_object o
   JOIN bi_object p ON o.parent_id=p.id AND p.parent_id=0
   SET o.node_type='UNIT' WHERE o.node_type='LEGACY';
 
--- 其余：暂按现有三分层识别（上部结构/下部结构/桥面系/附属构造 → LAYER）
+-- 其余：暂按现有结构层识别（上部结构/下部结构/桥面系/附属设施 → LAYER；注意真实库名称是「附属设施」而非「附属构造」）
 UPDATE bi_object SET node_type='LAYER'
   WHERE node_type='LEGACY'
-    AND name IN ('上部结构','下部结构','桥面系','附属构造');
+    AND name IN ('上部结构','下部结构','桥面系','附属设施');
 
 -- 部件层：父节点是 LAYER 的
 UPDATE bi_object o JOIN bi_object p ON o.parent_id=p.id AND p.node_type='LAYER'
   SET o.node_type='PART' WHERE o.node_type='LEGACY';
 
--- 构件叶子：无子节点的（或用「部件下」判断）
+-- 结构对象末端（面定位叶子）：无子节点的节点 → LEAF
+-- 注意：这些是 bi_object 树的叶子（左侧面/右侧面/顶面/底面/倒角等），
+--       不是构件；构件在 bi_component 表，通过 bi_object_id 挂载，不带 node_type
 UPDATE bi_object o
   SET o.node_type='LEAF'
   WHERE o.node_type='LEGACY'
@@ -278,18 +334,20 @@ UPDATE bi_object o
   <code>node_type</code> 回填<strong>不改变任何层级</strong>，只是给现有节点「贴标签」，供后续加 SPAN 层时定位。旧代码若仍按 <code>ancestors</code> 长度判断层级，<strong>不会受影响</strong>——这正是「先贴标签、后加层」的兼容策略。
 </div>
 
-<h3>4.3 M2/M3：解析构件编码 → 生成 SPAN + 回填 span_no</h3>
+<h3>4.3 M2/M3：生成 SPAN + 构件挂跨（写入关系表）</h3>
 <p>推荐用<strong>应用侧 Java Migration</strong>（可复用已核实的 <code>R-&lt;幅&gt;-&lt;跨&gt;-&lt;序&gt;#名称</code> 规则），SQL 仅做辅助查询。核心逻辑伪代码：</p>
 
 <pre><code>// 解析构件编码：R-1-1#桥面铺装 → 幅=1, 跨=1, 序=1, 名=桥面铺装
 Pattern P = Pattern.compile("^([A-Z])\\-(\\d+)\\-(\\d+)\\#(.+)$");
 
-// 1. 遍历每个评定单元(UNIT)，收集其下所有构件
-// 2. 对每个构件解析出 spanNo（若编码不规范，标记 pending_confirm 待人工复核，不强行归跨）
-// 3. 为该 UNIT 按 spanNo 去重，生成 SPAN 节点：
+// 1. 用权威跨数清单确定每个评定单元(UNIT)的跨数 N，按 1..N 生成 SPAN 节点：
 //    parentId = UNIT.id, name = "第"+spanNo+"跨", node_type='SPAN', span_no=spanNo
 //    用 templateObjectId 引用模板（多跨不物理复制，见方案A）
-// 4. 回填 bi_component.span_no = spanNo; span_id = 对应 SPAN.id
+// 2. 对每个构件解析出 spanNo（若编码不规范，标记 pending_confirm 待人工复核，不强行归跨）
+// 3. 解析该构件在此跨内所属的部件(part_id)：普通构件取 bi_component.bi_object_id 对应 PART；
+//    共用构件（墩/支座/伸缩缝）在两跨各对应不同 PART 节点
+// 4. 写入关系表 bi_span_component_part(component_id, span_id, part_id, is_shared)
+//    —— 不写 bi_component 表（构件表不加列）
 // 5. 将 SPAN 的祖先链设为 UNIT 的 ancestors + UNIT.id
 </code></pre>
 
@@ -308,9 +366,9 @@ WHERE del_flag='0'
 <div class="callout danger">
   <div class="t">共用构件 / 全桥性构件 / 无法解析构件的处置 <span class="badge">（依据正式稿 3.3.1 条文说明、B.1.3 条文说明）</span></div>
   <ul>
-    <li><strong>共用构件两跨均计入（重要修正）</strong>：正式稿 3.3.1 条文说明明确「相邻两跨共用的桥墩、支座、伸缩装置等<strong>在两跨均要计算</strong>；拼宽结构中共用的拼接缝、横隔板等在各评定单元均要计算」。<strong>不再采用此前「归跨号较小一侧」的方案</strong>。数据模型上单一 <code>span_id</code> 外键不够：共用构件（墩/支座/伸缩缝）需支持多跨挂接——新增关系表 <code>bi_component_span(component_id, span_id, is_shared)</code>，或对共用构件做受控复制（两条记录共享同一 source_id，<code>props_json</code> 记 <code>{"shared_pier": true}</code>）。推荐关系表方案（不产生重复构件记录，报告不重复计数）。</li>
-    <li><strong>全桥性构件</strong>（悬索桥主缆/索塔/锚碇）：单跨悬索桥整桥即 1 跨无歧义；多跨走 3.1.8 专用标准出口，构件<strong>不挂任何 SPAN</strong>，span_id 留空。</li>
-    <li><strong>无法解析编码</strong>：span_no 留空 + <code>props_json={"pending_confirm":true}</code>，<strong>绝不猜测</strong>，进人工复核队列。</li>
+    <li><strong>共用构件两跨均计入（重要修正）</strong>：正式稿 3.3.1 条文说明明确「相邻两跨共用的桥墩、支座、伸缩装置等<strong>在两跨均要计算</strong>；拼宽结构中共用的拼接缝、横隔板等在各评定单元均要计算」。<strong>不再采用此前「归跨号较小一侧」的方案</strong>。构件挂跨的唯一载体是关系表 <code>bi_span_component_part(component_id, span_id, part_id, is_shared)</code>（DDL 见 §3.3b）：共用构件（墩/支座/伸缩缝）在表中有<strong>两行</strong>（两跨各一行），<code>part_id</code> 显式锚定「该构件在此跨内所属部件节点」，服务 BSCI 求和的 <code>CI(ij)·ω(j)</code>；<code>is_shared=1</code> 标记共用，服务报告去重与人工复核。</li>
+    <li><strong>全桥性构件</strong>（悬索桥主缆/索塔/锚碇）：单跨悬索桥整桥即 1 跨无歧义；多跨走 3.1.8 专用标准出口，构件<strong>不挂任何 SPAN</strong>，关系表中不出现该构件的任何行。</li>
+    <li><strong>无法解析编码</strong>：不写入关系表 + 构件 <code>props_json={"pending_confirm":true}</code>，<strong>绝不猜测</strong>，进人工复核队列。</li>
   </ul>
 </div>
 
@@ -323,7 +381,7 @@ WHERE del_flag='0'
     <li><strong>SPAN</strong>：<b>物理节点，每跨一条</b>（评定链实体载体，承载 spanNo + 跨级部件清单）。</li>
     <li><strong>LAYER</strong>：γ 按桥型固定、跨间无差异 → 用 <code>template_object_id</code> 模板引用共享，<b>不逐跨物理复制</b>。</li>
     <li><strong>PART</strong>：ω 固定可共享，但「该跨是否设此部件」是<b>跨级差异</b>（B.1.3 未设部件取 0）→ 部件 ω 值查模板，<b>「部件设置清单」必须逐跨独立记录</b>。实现上 PART 可物理生成（每个 SPAN 下只建该跨实际设置的部件），或 PART 共享模板 + 用 <code>props_json</code> 记录跨级部件清单。<b>推荐前者（物理生成实际部件）</b>，与 §4.4 下方「只生成实际部件」一致，引擎遍历最直观。</li>
-    <li><strong>LEAF（构件）</strong>：<b>物理，每跨独立</b>，<code>component.span_id</code> 挂跨（构件实例不同，不可共享）。</li>
+    <li><strong>LEAF（构件）</strong>：<b>物理，每跨独立</b>，构件通过关系表 <code>bi_span_component_part</code> 挂跨（构件实例不同，不可共享）。</li>
   </ul>
   一句话：<b>「跨」与「构件」物理，中间 LAYER 可模板复用，PART 以「逐跨实际部件」为准</b>——既能控节点规模，又满足 B.1.3 的跨级部件差异。
 </div>
@@ -345,18 +403,20 @@ WHERE del_flag='0'
 <pre><code>-- 校验1：构件总数不变（与备份基准比对）
 SELECT COUNT(*) FROM bi_component WHERE del_flag='0';
 
--- 校验2：无孤儿SPAN（SPAN 无任何构件却存在 → 异常）
+-- 校验2：无孤儿SPAN（SPAN 在关系表中无任何构件挂接 → 异常）
 SELECT s.id, s.name FROM bi_object s
 WHERE s.node_type='SPAN' AND s.del_flag='0'
-  AND NOT EXISTS (SELECT 1 FROM bi_component c WHERE c.span_id=s.id AND c.del_flag='0');
+  AND NOT EXISTS (SELECT 1 FROM bi_span_component_part p WHERE p.span_id=s.id);
 
 -- 校验3：同一评定单元内跨号不重复
 SELECT parent_id, span_no, COUNT(*) c FROM bi_object
 WHERE node_type='SPAN' AND del_flag='0'
 GROUP BY parent_id, span_no HAVING c > 1;
 
--- 校验4：未挂跨的构件数（应为0或仅全桥性构件/待确认项）
-SELECT COUNT(*) FROM bi_component WHERE del_flag='0' AND span_id IS NULL;
+-- 校验4：未挂跨的构件数（关系表中无记录的构件，应为0或仅全桥性构件/待确认项）
+SELECT COUNT(*) FROM bi_component c
+WHERE c.del_flag='0'
+  AND NOT EXISTS (SELECT 1 FROM bi_span_component_part p WHERE p.component_id=c.id);
 
 -- 校验5：同一评定单元下所有 SPAN 的 bridge_type 必须一致（桥型是 UNIT 级属性，SPAN 为继承冗余）
 SELECT parent_id, COUNT(DISTINCT bridge_type) c FROM bi_object
@@ -382,7 +442,7 @@ HAVING span_count <> (max_no - min_no + 1);
 <table>
   <tr><th>文件</th><th>改造点</th><th>级别</th></tr>
   <tr><td><code>domain/BiObject.java</code></td><td>新增 <code>nodeType</code>、<code>spanNo</code>、<code>bridgeType</code>、<code>gamma</code>、<code>propsJson</code>、<code>omega</code> 字段 + getter/setter（Lombok 自动）</td><td><span class="tag p0">P0</span></td></tr>
-  <tr><td><code>domain/Component.java</code></td><td>新增 <code>spanId</code>、<code>spanNo</code> 字段</td><td><span class="tag p0">P0</span></td></tr>
+  <tr><td><code>domain/BiSpanComponentPart.java</code>（新增）</td><td>构件-桥跨-部件映射实体，字段对齐 3.3b 关系表（componentId/spanId/partId/isShared）</td><td><span class="tag p0">P0</span></td></tr>
   <tr><td><code>domain/BiSpanEvaluation.java</code>（新增）</td><td>桥跨评定实体，字段对齐 3.3 新表</td><td><span class="tag p0">P0</span></td></tr>
   <tr><td><code>domain/BiEvaluation.java</code></td><td><strong>不动</strong>（保留旧桥幅级评定）；注释标注「旧标准结果，已版本化封存」</td><td><span class="tag p2">P2</span></td></tr>
 </table>
@@ -391,7 +451,7 @@ HAVING span_count <> (max_no - min_no + 1);
 <table>
   <tr><th>文件</th><th>改造点</th><th>级别</th></tr>
   <tr><td><code>mapper/biz/BiObjectMapper.xml</code></td><td><code>resultMap</code> 增加新列映射；<code>insertBiObject</code>/<code>updateBiObject</code>/<code>batchInsertBiObjects</code> 增加新列（<code>&lt;if&gt;</code> 判断，旧调用不受影响）</td><td><span class="tag p0">P0</span></td></tr>
-  <tr><td><code>mapper/biz/ComponentMapper.xml</code></td><td><code>resultMap</code>/insert/update 增加 <code>span_id</code>/<code>span_no</code></td><td><span class="tag p0">P0</span></td></tr>
+  <tr><td><code>mapper/biz/BiSpanComponentPartMapper.xml</code>（新增）</td><td>构件-桥跨-部件映射的 CRUD（插入/按 span 查构件/按 component 查跨）</td><td><span class="tag p0">P0</span></td></tr>
   <tr><td><code>mapper/biz/BiSpanEvaluationMapper.xml</code>（新增）</td><td>桥跨评定的 CRUD</td><td><span class="tag p0">P0</span></td></tr>
 </table>
 
@@ -478,7 +538,7 @@ bi:
 <table>
   <tr><th>用例</th><th>验证点</th></tr>
   <tr><td>SPAN 节点生成</td><td>迁移后每个评定单元下按跨号生成 SPAN，跨号无重复、无孤儿</td></tr>
-  <tr><td>构件挂跨</td><td><code>span_id/span_no</code> 回填正确；共用墩/全桥性构件/待确认项按规则处置</td></tr>
+  <tr><td>构件挂跨</td><td>关系表 <code>bi_span_component_part</code> 映射正确；共用墩/全桥性构件/待确认项按规则处置</td></tr>
   <tr><td>BSCI 计算</td><td>构造已知构件标度，手算 BSCI=100−ΣCI·ω·γ/5 与引擎输出一致</td></tr>
   <tr><td>跨等级判定</td><td>边界值 90.0/75.0/60.0/40.0 逐一验证 (90,100] 等开闭区间方向</td></tr>
   <tr><td>全桥汇总</td><td>多跨一致取算术平均、不一致取最差跨+插值；多评定单元取最差</td></tr>
@@ -487,7 +547,7 @@ bi:
 
 <h3>7.3 迁移数据验收</h3>
 <pre><code>-- 运行 §4.5 全部校验 SQL，全部通过（0 异常）方可进入下一阶段
--- 抽查：随机取 3 座桥，导出迁移前后 bi_component 的 span_no/span_id，人工核对跨号归类
+-- 抽查：随机取 3 座桥，导出迁移前后 bi_span_component_part 的映射关系，人工核对跨号归类
 </code></pre>
 
 <!-- ================= 8 ================= -->
@@ -501,7 +561,7 @@ bi:
 <table>
   <tr><th>故障场景</th><th>回滚动作</th><th>影响面</th></tr>
   <tr><td>新引擎算错/异常</td><td>切 <code>engine=legacy</code>（配置热生效）</td><td>无数据损失，秒级恢复</td></tr>
-  <tr><td>SPAN 节点生成错误</td><td>删除 <code>node_type='SPAN'</code> 节点 + 清空构件 <code>span_id/span_no</code>，重跑 M2/M3</td><td>仅新增结构，旧数据无损</td></tr>
+  <tr><td>SPAN 节点生成错误</td><td>删除 <code>node_type='SPAN'</code> 节点 + 清空 <code>bi_span_component_part</code> 对应映射，重跑 M2/M3</td><td>仅新增结构，旧数据无损</td></tr>
   <tr><td>γ/ω 回填错误</td><td>清空 <code>gamma/omega</code> 列，重跑 M4</td><td>旧 <code>weight</code> 不动</td></tr>
   <tr><td>需整体回退结构</td><td>执行 §3.4 回滚脚本 + 恢复备份库</td><td>回到改造前基线</td></tr>
   <tr><td>新检查数据需回退</td><td>删 <code>bi_span_evaluation</code> 中切灰后的记录（保留 <code>std_version</code> 标识便于筛选）</td><td>旧 <code>bi_evaluation</code> 不受影响</td></tr>
@@ -519,7 +579,7 @@ bi:
   <tr><th>#</th><th>风险</th><th>等级</th><th>缓解措施</th><th>建议责任人</th></tr>
   <tr><td>R1</td><td>硬编码层级判断遗漏，加层后权重/构件/计数错位</td><td><span class="tag p0">高</span></td><td>全量 grep 排查 + 统一抽 <code>node_type</code> 工具方法 + 回归测试全覆盖</td><td>后端开发</td></tr>
   <tr><td>R2</td><td>构件编码不规范，跨号解析失败</td><td><span class="tag p1">中</span></td><td>解析失败进人工复核队列，<strong>不猜测</strong>；兜底 SQL 识别全部异常编码</td><td>数据负责人</td></tr>
-  <tr><td>R3</td><td>共用构件（墩/支座/伸缩缝）跨间挂接错误</td><td><span class="tag p1">中</span></td><td>按 3.3.1 条文说明「两跨均要计算」，用 <code>bi_component_span</code> 关系表多跨挂接 + <code>props_json</code> 标记 + 人工复核入口；全桥性构件走 3.1.8 出口</td><td>业务专家 + 开发</td></tr>
+  <tr><td>R3</td><td>共用构件（墩/支座/伸缩缝）跨间挂接错误</td><td><span class="tag p1">中</span></td><td>按 3.3.1 条文说明「两跨均要计算」，用 <code>bi_span_component_part</code> 关系表多跨挂接（<code>part_id</code> 锚定各跨部件 + <code>is_shared</code> 标记）+ 人工复核入口；全桥性构件走 3.1.8 出口</td><td>业务专家 + 开发</td></tr>
   <tr><td>R4</td><td>γ/ω 参数回填出错（非整 γ、缺省部件权重规则）</td><td><span class="tag p0">高</span></td><td>附录B 参数表做成字典常量 + 单元测试逐桥型断言 + 影子运行比对</td><td>后端开发</td></tr>
   <tr><td>R5</td><td>ω 与旧 weight 语义混用</td><td><span class="tag p0">高</span></td><td>新增独立 <code>omega</code> 列，<code>weight</code> 保持旧语义不动</td><td>后端开发</td></tr>
   <tr><td>R6</td><td>等级界限开闭区间方向搞反（(90,100] vs [90,100)）</td><td><span class="tag p0">高</span></td><td>边界值 90.0/75.0/60.0/40.0 单测断言，参考 §7.2</td><td>后端开发</td></tr>

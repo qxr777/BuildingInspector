@@ -190,11 +190,16 @@ public class BuildingServiceImpl implements IBuildingService {
                 // 获取模版树结构和所有子节点（一次性查询，避免多次数据库访问）
                 BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
                 if (template != null) {
-                    List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
-                    
-                    // 生成维护树并挂载到父节点下（可能是父桥根节点或根目录）
-                    Long rootObjectId = generateMaintenanceTree(building.getName(), template, children, parentRootObjectId);
-                    
+                    Long rootObjectId;
+                    if (isNewStandardTemplate(template)) {
+                        // 新标准（JTG/T 5230-2026）：后端只生成一条 UNIT 根节点并设置 offline_uuid，
+                        // 完整建桥（SPAN/LAYER/PART 节点生成）在 App 端进行
+                        rootObjectId = generateSpanRootNode(building.getName(), template, parentRootObjectId);
+                    } else {
+                        // 旧标准：维持现状，物理复制整棵模板树
+                        List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
+                        rootObjectId = generateMaintenanceTree(building.getName(), template, children, parentRootObjectId);
+                    }
                     // 设置Building的rootObjectId，避免后续更新
                     building.setRootObjectId(rootObjectId);
                 } else {
@@ -613,6 +618,84 @@ public class BuildingServiceImpl implements IBuildingService {
         }
     }
     
+    /**
+     * 判断模板是否为新标准（JTG/T 5230-2026）桥型模板
+     * <p>
+     * 判定依据：模板 props 字段含 {"stdVersion":"5230-2026", "bridgeType":"Bxx"} 标记。
+     * 新 21 类桥型模板使用高位 id 段（900001 起），props 显式标记新标准版本。
+     *
+     * @param template 模板节点
+     * @return true=新标准模板，false=旧标准模板
+     */
+    private boolean isNewStandardTemplate(BiTemplateObject template) {
+        if (template == null || StringUtils.isEmpty(template.getProps())) {
+            return false;
+        }
+        try {
+            JSONObject propsJson = JSONObject.parseObject(template.getProps());
+            return "5230-2026".equals(propsJson.getString("stdVersion"));
+        } catch (Exception e) {
+            // props 非 JSON 格式（旧模板的 ref1/ref2 附件属性），按旧标准处理
+            return false;
+        }
+    }
+
+    /**
+     * 新标准桥型：后端只生成一条 UNIT 根节点（评定单元节点），并设置 offline_uuid 与 bridge_type。
+     * <p>
+     * 完整建桥（SPAN/LAYER/PART 节点的生成）在 App 端进行，后端不复制模板子树。
+     * 与旧标准 generateMaintenanceTree（物理复制整棵树）形成分叉。
+     *
+     * @param buildingName       评定单元名称
+     * @param template           新标准桥型模板（props 含 bridgeType）
+     * @param parentRootObjectId 父桥根节点ID（无父桥则为 0L）
+     * @return 创建的 UNIT 根节点ID
+     */
+    private Long generateSpanRootNode(String buildingName, BiTemplateObject template, Long parentRootObjectId) {
+        BiObject rootObject = new BiObject();
+        rootObject.setName(buildingName + "(" + template.getName() + ")");
+        rootObject.setParentId(parentRootObjectId);
+        rootObject.setNodeType("UNIT");
+        // 从模板 props 解析 bridgeType（如 B03），一次到位，App 端无需回头查模板
+        rootObject.setBridgeType(parseBridgeType(template));
+        rootObject.setOfflineUuid(UUID.randomUUID().toString().replace("-", ""));
+        rootObject.setIsOfflineData(0); // 下发只读的 UNIT 根节点，非采集生成
+        rootObject.setProps(template.getProps());
+        rootObject.setOrderNum(0);
+        rootObject.setStatus("0");
+        rootObject.setCreateBy(ShiroUtils.getLoginName());
+        rootObject.setTemplateObjectId(template.getId());
+
+        // 获取父节点的 ancestors
+        String ancestors = "0";
+        BiObject parentObject = biObjectService.selectBiObjectById(parentRootObjectId);
+        if (parentObject != null) {
+            ancestors = parentObject.getAncestors() + "," + parentRootObjectId;
+        }
+        rootObject.setAncestors(ancestors);
+
+        biObjectService.insertBiObject(rootObject);
+        return rootObject.getId();
+    }
+
+    /**
+     * 从新标准模板的 props 中解析 bridgeType（桥型代码，如 B03）。
+     *
+     * @param template 新标准桥型模板
+     * @return bridgeType，解析失败返回 null
+     */
+    private String parseBridgeType(BiTemplateObject template) {
+        if (template == null || StringUtils.isEmpty(template.getProps())) {
+            return null;
+        }
+        try {
+            JSONObject propsJson = JSONObject.parseObject(template.getProps());
+            return propsJson.getString("bridgeType");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /**
      * 根据模版生成维护树，并挂载到父桥根节点下
      *
