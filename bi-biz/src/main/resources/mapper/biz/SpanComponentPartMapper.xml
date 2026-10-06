@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.SpanComponentPartMapper">
+
+    <resultMap type="SpanComponentPart" id="SpanComponentPartResult">
+        <result property="id"            column="id"            />
+        <result property="componentId"   column="component_id"  />
+        <result property="spanId"        column="span_id"       />
+        <result property="partId"        column="part_id"       />
+        <result property="componentUuid" column="component_uuid" />
+        <result property="spanUuid"      column="span_uuid"      />
+        <result property="partUuid"      column="part_uuid"      />
+        <result property="isShared"      column="is_shared"     />
+        <result property="offlineUuid"   column="offline_uuid"  />
+        <result property="isOfflineData" column="is_offline_data" />
+        <result property="offlineDeleted" column="offline_deleted" />
+        <result property="createBy"      column="create_by"     />
+        <result property="createTime"    column="create_time"   />
+        <result property="updateBy"      column="update_by"     />
+        <result property="updateTime"    column="update_time"   />
+        <result property="remark"        column="remark"        />
+    </resultMap>
+
+    <sql id="selectSpanComponentPartVo">
+        select id, component_id, span_id, part_id, component_uuid, span_uuid, part_uuid, is_shared, offline_uuid, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark from bi_span_component_part
+    </sql>
+
+    <select id="selectSpanComponentPartList" parameterType="SpanComponentPart" resultMap="SpanComponentPartResult">
+        <include refid="selectSpanComponentPartVo"/>
+        <where>
+            <if test="componentId != null"> and component_id = #{componentId}</if>
+            <if test="spanId != null"> and span_id = #{spanId}</if>
+            <if test="partId != null"> and part_id = #{partId}</if>
+            <if test="isShared != null"> and is_shared = #{isShared}</if>
+            <if test="offlineUuid != null and offlineUuid != ''"> and offline_uuid = #{offlineUuid}</if>
+        </where>
+    </select>
+
+    <select id="selectSpanComponentPartById" parameterType="Long" resultMap="SpanComponentPartResult">
+        <include refid="selectSpanComponentPartVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="SpanComponentPartResult">
+        <include refid="selectSpanComponentPartVo"/>
+        where offline_uuid = #{offlineUuid} limit 1
+    </select>
+
+    <insert id="insertSpanComponentPart" parameterType="SpanComponentPart" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_span_component_part
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="componentId != null">component_id,</if>
+            <if test="spanId != null">span_id,</if>
+            <if test="partId != null">part_id,</if>
+            <if test="componentUuid != null">component_uuid,</if>
+            <if test="spanUuid != null">span_uuid,</if>
+            <if test="partUuid != null">part_uuid,</if>
+            <if test="isShared != null">is_shared,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
+            <if test="offlineDeleted != null">offline_deleted,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="componentId != null">#{componentId},</if>
+            <if test="spanId != null">#{spanId},</if>
+            <if test="partId != null">#{partId},</if>
+            <if test="componentUuid != null">#{componentUuid},</if>
+            <if test="spanUuid != null">#{spanUuid},</if>
+            <if test="partUuid != null">#{partUuid},</if>
+            <if test="isShared != null">#{isShared},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
+            <if test="offlineDeleted != null">#{offlineDeleted},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateSpanComponentPart" parameterType="SpanComponentPart">
+        update bi_span_component_part
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="componentId != null">component_id = #{componentId},</if>
+            <if test="spanId != null">span_id = #{spanId},</if>
+            <if test="partId != null">part_id = #{partId},</if>
+            <if test="componentUuid != null">component_uuid = #{componentUuid},</if>
+            <if test="spanUuid != null">span_uuid = #{spanUuid},</if>
+            <if test="partUuid != null">part_uuid = #{partUuid},</if>
+            <if test="isShared != null">is_shared = #{isShared},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
+            <if test="offlineDeleted != null">offline_deleted = #{offlineDeleted},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteSpanComponentPartById" parameterType="Long">
+        delete from bi_span_component_part where id = #{id}
+    </delete>
+
+    <delete id="deleteSpanComponentPartByIds" parameterType="String">
+        delete from bi_span_component_part where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

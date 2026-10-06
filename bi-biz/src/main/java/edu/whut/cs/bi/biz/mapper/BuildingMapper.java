@@ -62,7 +62,7 @@ public interface BuildingMapper {
      * @param building 建筑
      * @return 建筑集合
      */
-    public List<ProjectBuildingVO> selectProjectBuildingVOList(@Param("building") ProjectBuildingVO building, @Param("projectId") Long projectId);
+    public List<ProjectBuildingVO> selectProjectBuildingVOList(@Param("building") ProjectBuildingVO building, @Param("projectId") Long projectId, @Param("onlyNewStandard") Boolean onlyNewStandard);
 
     /**
      * 新增建筑
@@ -93,6 +93,16 @@ public interface BuildingMapper {
     public int batchUpdateLine(@Param("originalLine") String originalLine, @Param("targetLine") String targetLine, @Param("updateBy") String updateBy);
 
     public int updateBuildingRootObjectId(@Param("id") Long id, @Param("rootObjectId") Long rootObjectId, @Param("updateBy") String updateBy);
+
+    /**
+     * 更新建筑的新规范 object 树根节点ID（new_root_object_id）
+     *
+     * @param id             建筑ID
+     * @param newRootObjectId 新规范树根节点ID
+     * @param updateBy       更新人
+     * @return 结果
+     */
+    public int updateBuildingNewRootObjectId(@Param("id") Long id, @Param("newRootObjectId") Long newRootObjectId, @Param("updateBy") String updateBy);
 
     /**
      * 清理引用指定属性根节点的建筑记录，避免属性删除后留下失效的根属性ID

@@ -189,6 +189,9 @@ public class Building extends BaseEntity {
     /** 是否被App离线删除标记 (0:否, 1:是) */
     private Integer offlineDeleted;
 
+    /** 新规范 object 树根节点 ID（桥跨评定单元 node_type=UNIT）；root_object_id 指向旧规范树 */
+    private Long newRootObjectId;
+
 
     @Override
     public String toString() {

@@ -22,6 +22,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
         <result property="sqliteMinioId"    column="sqlite_minio_id"    />
+        <result property="stdVersion"    column="std_version"    />
     </resultMap>
 
     <sql id="selectProjectVo">
@@ -41,7 +42,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                create_time,
                update_by,
                update_time,
-               sqlite_minio_id
+               sqlite_minio_id,
+               std_version
         from bi_project
     </sql>
 
@@ -118,6 +120,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="startDate != null">start_date,</if>
             <if test="endDate != null">end_date,</if>
             <if test="contractAmount != null">contract_amount,</if>
+            <if test="stdVersion != null">std_version,</if>
             <if test="remark != null">remark,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
             <if test="createTime != null">create_time,</if>
@@ -134,6 +137,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="startDate != null">#{startDate},</if>
             <if test="endDate != null">#{endDate},</if>
             <if test="contractAmount != null">#{contractAmount},</if>
+            <if test="stdVersion != null">#{stdVersion},</if>
             <if test="remark != null">#{remark},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
@@ -154,6 +158,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="startDate != null">start_date = #{startDate},</if>
             <if test="endDate != null">end_date = #{endDate},</if>
             <if test="contractAmount != null">contract_amount = #{contractAmount},</if>
+            <if test="stdVersion != null">std_version = #{stdVersion},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>

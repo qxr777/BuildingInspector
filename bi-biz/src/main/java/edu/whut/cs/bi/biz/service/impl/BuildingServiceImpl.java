@@ -12,12 +12,14 @@ import com.ruoyi.system.mapper.SysDictDataMapper;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import edu.whut.cs.bi.biz.domain.Building;
+import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
 import edu.whut.cs.bi.biz.service.IBuildingService;
+import edu.whut.cs.bi.biz.service.IProjectService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -74,7 +76,9 @@ public class BuildingServiceImpl implements IBuildingService {
     private ITaskService taskService;
     @Autowired
     private SysDictDataMapper sysDictDataMapper;
-    
+
+    @Autowired
+    private IProjectService projectService;    
     @Autowired
     private IDiseaseService diseaseService;
 
@@ -195,13 +199,14 @@ public class BuildingServiceImpl implements IBuildingService {
                         // 新标准（JTG/T 5230-2026）：后端只生成一条 UNIT 根节点并设置 offline_uuid，
                         // 完整建桥（SPAN/LAYER/PART 节点生成）在 App 端进行
                         rootObjectId = generateSpanRootNode(building.getName(), template, parentRootObjectId);
+                        // 双树设计：新规范 object 树挂 new_root_object_id；root_object_id 保留给旧规范树（留空）
+                        building.setNewRootObjectId(rootObjectId);
                     } else {
-                        // 旧标准：维持现状，物理复制整棵模板树
+                        // 旧标准（JTG/T H21-2011）：维持现状，物理复制整棵模板树，挂 root_object_id
                         List<BiTemplateObject> children = biTemplateObjectService.selectChildrenById(building.getTemplateId());
                         rootObjectId = generateMaintenanceTree(building.getName(), template, children, parentRootObjectId);
+                        building.setRootObjectId(rootObjectId);
                     }
-                    // 设置Building的rootObjectId，避免后续更新
-                    building.setRootObjectId(rootObjectId);
                 } else {
                     log.error("未找到指定模版!");
                     throw new RuntimeException("未找到指定模版!");
@@ -501,7 +506,15 @@ public class BuildingServiceImpl implements IBuildingService {
      */
     @Override
     public List<ProjectBuildingVO> selectBuildingVOList(ProjectBuildingVO building, Long projectId) {
-        return buildingMapper.selectProjectBuildingVOList(building, projectId);
+        // 新规范项目：仅 new_root_object_id 不为空的 building 才能成为检测候选
+        boolean onlyNewStandard = false;
+        if (projectId != null) {
+            Project project = projectService.selectProjectById(projectId);
+            if (project != null && "5230-2026".equals(project.getStdVersion())) {
+                onlyNewStandard = true;
+            }
+        }
+        return buildingMapper.selectProjectBuildingVOList(building, projectId, onlyNewStandard);
     }
     
     /**
@@ -974,6 +987,59 @@ public class BuildingServiceImpl implements IBuildingService {
         int rows = buildingMapper.updateBuilding(update);
         if (rows <= 0) {
             throw new RuntimeException("回写组合桥构件树失败：" + existing.getName());
+        }
+        return rows;
+    }
+
+    /**
+     * 为现有 building 补充指定新规范桥型，生成 UNIT 根节点并回写 new_root_object_id。
+     *
+     * <p>适用场景：旧规范 building（root_object_id 指向旧规范 object 树）需要额外挂载
+     * 新规范 object 树（JTG/T 5230-2026 桥跨评定单元）。生成后该 building 的
+     * new_root_object_id 非空，即可作为新规范项目的检测候选。</p>
+     *
+     * @param building 建筑信息，需包含 id、templateId（新规范桥型模板），可选 parentId
+     * @return 更新结果
+     */
+    @Override
+    @Transactional
+    public int repairBuildingNewStandardTree(Building building) {
+        if (building == null || building.getId() == null) {
+            throw new RuntimeException("建筑ID不能为空");
+        }
+        if (building.getTemplateId() == null) {
+            throw new RuntimeException("新规范桥型模板ID不能为空");
+        }
+
+        Building existing = buildingMapper.selectBuildingById(building.getId());
+        if (existing == null) {
+            throw new RuntimeException("未找到需要补充新规范树的建筑：" + building.getName());
+        }
+        if (existing.getNewRootObjectId() != null) {
+            throw new RuntimeException("该建筑已存在新规范 object 树，无需重复补充：" + existing.getName());
+        }
+
+        BiTemplateObject template = biTemplateObjectService.selectBiTemplateObjectById(building.getTemplateId());
+        if (template == null) {
+            throw new RuntimeException("未找到指定模板：" + building.getTemplateId());
+        }
+        if (!isNewStandardTemplate(template)) {
+            throw new RuntimeException("指定模板不是新规范（JTG/T 5230-2026）桥型模板：" + template.getName());
+        }
+
+        Long parentRootObjectId = 0L;
+        if (building.getParentId() != null) {
+            Building parentBridge = buildingMapper.selectBuildingById(building.getParentId());
+            if (parentBridge == null || parentBridge.getRootObjectId() == null) {
+                throw new RuntimeException("父桥不存在或未生成旧规范构件树：" + existing.getName());
+            }
+            parentRootObjectId = parentBridge.getRootObjectId();
+        }
+
+        Long newRootObjectId = generateSpanRootNode(existing.getName(), template, parentRootObjectId);
+        int rows = buildingMapper.updateBuildingNewRootObjectId(existing.getId(), newRootObjectId, ShiroUtils.getLoginName());
+        if (rows <= 0) {
+            throw new RuntimeException("回写新规范 object 树根节点失败：" + existing.getName());
         }
         return rows;
     }

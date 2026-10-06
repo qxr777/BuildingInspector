@@ -30,6 +30,7 @@
         <result property="offlineUuid"  column="offline_uuid"  />
         <result property="rootObjectUuid" column="root_object_uuid" />
         <result property="isOfflineData" column="is_offline_data" />
+        <result property="newRootObjectId" column="new_root_object_id" />
     </resultMap>
 
     <resultMap type="ProjectBuildingVO" id="ProjectBuildingResult" extends="BuildingResult">
@@ -45,7 +46,7 @@
     <sql id="selectBuildingVo">
         select b.id, b.name,
                b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude, b.address, b.area,
-               b.line, b.admin_dept, b.weight, b.video_feed, b.root_object_id, b.root_property_id,
+               b.line, b.admin_dept, b.weight, b.video_feed, b.root_object_id, b.new_root_object_id, b.root_property_id,
                b.remark, b.create_by, b.create_time, b.update_by, b.update_time,
                t.name as template_name
         from bi_building b
@@ -195,6 +196,11 @@
             <if test="building.isSelected != null">
                 AND (bt.project_id IS NOT NULL) = #{building.isSelected}
             </if>
+
+            <!-- 新规范项目：仅 new_root_object_id 不为空的建筑才能成为候选 -->
+            <if test="onlyNewStandard != null and onlyNewStandard == true">
+                AND b.new_root_object_id IS NOT NULL
+            </if>
         </where>
     </select>
 
@@ -220,6 +226,7 @@
             <if test="weight != null">weight,</if>
             <if test="videoFeed != null">video_feed,</if>
             <if test="rootObjectId != null">root_object_id,</if>
+            <if test="newRootObjectId != null">new_root_object_id,</if>
             <if test="rootPropertyId != null">root_property_id,</if>
             <if test="remark != null">remark,</if>
             <if test="createBy != null">create_by,</if>
@@ -246,6 +253,7 @@
             <if test="weight != null">#{weight},</if>
             <if test="videoFeed != null">#{videoFeed},</if>
             <if test="rootObjectId != null">#{rootObjectId},</if>
+            <if test="newRootObjectId != null">#{newRootObjectId},</if>
             <if test="rootPropertyId != null">#{rootPropertyId},</if>
             <if test="remark != null">#{remark},</if>
             <if test="createBy != null">#{createBy},</if>
@@ -275,6 +283,7 @@
             <if test="weight != null">weight = #{weight},</if>
             <if test="videoFeed != null">video_feed = #{videoFeed},</if>
             <if test="rootObjectId != null">root_object_id = #{rootObjectId},</if>
+            <if test="newRootObjectId != null">new_root_object_id = #{newRootObjectId},</if>
             <if test="rootPropertyId != null">root_property_id = #{rootPropertyId},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
@@ -300,6 +309,15 @@
     <update id="updateBuildingRootObjectId">
         update bi_building
         set root_object_id = #{rootObjectId},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where id = #{id}
+          and del_flag = '0'
+    </update>
+
+    <update id="updateBuildingNewRootObjectId">
+        update bi_building
+        set new_root_object_id = #{newRootObjectId},
             update_by = #{updateBy},
             update_time = sysdate()
         where id = #{id}
@@ -396,7 +414,7 @@
     <select id="selectBuildingsByIds" resultMap="BuildingResult">
         select b.id, b.name, b.is_leaf, b.status, b.del_flag, b.longitude, b.latitude, b.altitude,
                b.address, b.area, b.line, b.admin_dept, b.weight, b.video_feed,
-               b.root_object_id, b.root_property_id, b.remark,
+               b.root_object_id, b.new_root_object_id, b.root_property_id, b.remark,
                b.create_by, b.create_time, b.update_by, b.update_time,
                b.offline_uuid, b.root_object_uuid, b.is_offline_data
         from bi_building b

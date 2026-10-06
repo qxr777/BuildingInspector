@@ -47,4 +47,7 @@ public class Task extends BaseEntity {
 
     private Date updateStartDate;
     private Date updateEndDate;
+
+    /** 规范版本：5230-2026(新规范) / H21-2011(旧规范)，NULL 视同旧规范 */
+    private String stdVersion;
 }

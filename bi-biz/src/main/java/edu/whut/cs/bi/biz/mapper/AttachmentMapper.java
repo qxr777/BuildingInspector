@@ -43,4 +43,12 @@ public interface AttachmentMapper {
     List<Attachment> selectBySubjectIds(@Param("subjectIds") List<Long> subjectIds);
 
     List<Attachment> selectAttachmentByMinio(@Param("minios") List<Long> minios);
+
+    /**
+     * 按离线 UUID 查询附件（用于病害照片 ZIP 批量上传的幂等去重）。
+     *
+     * @param offlineUuid 附件自身的离线 UUID
+     * @return 附件
+     */
+    Attachment selectByOfflineUuid(@Param("offlineUuid") String offlineUuid);
 }

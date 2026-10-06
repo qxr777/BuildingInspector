@@ -72,6 +72,8 @@ public class SqliteService {
     @Resource
     private BiObjectComponentMapper biObjectComponentMapper;
     @Resource
+    private SpanComponentPartMapper spanComponentPartMapper;
+    @Resource
     private PropertyMapper propertyMapper;
 
     @Autowired
@@ -244,7 +246,7 @@ public class SqliteService {
         try (Connection conn = connect(tempFile)) {
             // 合并创建用户级与桥梁检查级相关的所有表
             createTables(conn, "bi_project", "bi_building", "bi_task", "bi_object", "bi_component", "bi_disease",
-                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_object_component", "bi_property");
+                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_object_component", "bi_span_component_part", "bi_property");
 
             insertProjects(conn, projects);
             insertBuildings(conn, buildings);
@@ -286,7 +288,7 @@ public class SqliteService {
         File tempFile = File.createTempFile("building_" + buildingId + "_", ".db");
         try (Connection conn = connect(tempFile)) {
             createTables(conn, "bi_object", "bi_component", "bi_attachment", "bi_disease", "bi_disease_detail",
-                    "bi_file_map", "bi_object_component");
+                    "bi_file_map", "bi_object_component", "bi_span_component_part");
             exportInspectionData(conn, Collections.singletonList(buildingId));
             conn.commit();
         }
@@ -320,8 +322,14 @@ public class SqliteService {
 
     private void exportInspectionData(Connection conn, List<Long> buildingIds) throws Exception {
         List<Building> buildings = buildingMapper.selectBuildingsByIds(buildingIds);
-        List<Long> rootObjectIds = buildings.stream().map(Building::getRootObjectId).filter(Objects::nonNull).distinct()
-                .collect(Collectors.toList());
+        // 双树下发：同时收集旧规范树根(rootObjectId) + 新规范树根(newRootObjectId)，
+        // 支撑新规范病害发展趋势对多期历史检测数据的比对。
+        List<Long> rootObjectIds = new ArrayList<>();
+        for (Building b : buildings) {
+            if (b.getRootObjectId() != null) rootObjectIds.add(b.getRootObjectId());
+            if (b.getNewRootObjectId() != null) rootObjectIds.add(b.getNewRootObjectId());
+        }
+        rootObjectIds = rootObjectIds.stream().distinct().collect(Collectors.toList());
 
         List<BiObject> allObjects = new ArrayList<>();
         for (Long rootId : rootObjectIds) {
@@ -354,6 +362,19 @@ public class SqliteService {
             }
             if (!rels.isEmpty()) {
                 insertBiObjectComponents(conn, rels);
+            }
+        }
+
+        // 导出构件-桥跨-部件映射 (2026新标, App端锚定)
+        if (!oIds.isEmpty()) {
+            List<SpanComponentPart> spanRels = new ArrayList<>();
+            for (Long oId : oIds) {
+                SpanComponentPart sq = new SpanComponentPart();
+                sq.setSpanId(oId);
+                spanRels.addAll(spanComponentPartMapper.selectSpanComponentPartList(sq));
+            }
+            if (!spanRels.isEmpty()) {
+                insertSpanComponentParts(conn, spanRels);
             }
         }
 
@@ -458,7 +479,7 @@ public class SqliteService {
 
     private void createAllTables(Connection conn) throws SQLException {
         createTables(conn, "bi_project", "bi_building", "bi_task", "bi_object", "bi_component", "bi_disease",
-                "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_object_component");
+                "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_object_component", "bi_span_component_part");
     }
 
     private void createTables(Connection conn, String... tableNames) throws SQLException {
@@ -466,31 +487,31 @@ public class SqliteService {
         try (Statement s = conn.createStatement()) {
             if (set.contains("bi_project"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_project (id INTEGER PRIMARY KEY, name TEXT, year INTEGER, status TEXT, code TEXT, start_date TEXT, end_date TEXT)");
+                        "CREATE TABLE IF NOT EXISTS bi_project (id INTEGER PRIMARY KEY, name TEXT, year INTEGER, status TEXT, code TEXT, start_date TEXT, end_date TEXT, std_version TEXT)");
             if (set.contains("bi_task"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_task (id INTEGER PRIMARY KEY, building_id INTEGER, project_id INTEGER, status TEXT, evaluation_result INTEGER, type INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+                        "CREATE TABLE IF NOT EXISTS bi_task (id INTEGER PRIMARY KEY, building_id INTEGER, project_id INTEGER, status TEXT, evaluation_result INTEGER, type INTEGER, std_version TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
             if (set.contains("bi_building"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_building (id INTEGER PRIMARY KEY, name TEXT, is_leaf TEXT, status TEXT, del_flag TEXT, longitude REAL, latitude REAL, altitude REAL, address TEXT, area TEXT, line TEXT, admin_dept TEXT, weight REAL, video_feed TEXT, root_object_id INTEGER, root_property_id INTEGER, remark TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, offline_uuid TEXT, root_object_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
+                        "CREATE TABLE IF NOT EXISTS bi_building (id INTEGER PRIMARY KEY, name TEXT, is_leaf TEXT, status TEXT, del_flag TEXT, longitude REAL, latitude REAL, altitude REAL, address TEXT, area TEXT, line TEXT, admin_dept TEXT, weight REAL, video_feed TEXT, root_object_id INTEGER, new_root_object_id INTEGER, root_property_id INTEGER, remark TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, offline_uuid TEXT, root_object_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
             if (set.contains("bi_object"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_object (id INTEGER PRIMARY KEY, parent_id INTEGER, name TEXT, ancestors TEXT, status TEXT, del_flag TEXT, longitude REAL, latitude REAL, altitude REAL, position TEXT, area TEXT, admin_dept TEXT, weight REAL, standard_weight REAL, video_feed TEXT, props TEXT, template_object_id INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT, offline_uuid TEXT, parent_uuid TEXT, building_uuid TEXT, is_offline_data INTEGER DEFAULT 0, span_index INTEGER, span_length REAL, offline_deleted INTEGER DEFAULT 0)");
+                        "CREATE TABLE IF NOT EXISTS bi_object (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, parent_id INTEGER, name TEXT, ancestors TEXT, status TEXT, del_flag TEXT, longitude REAL, latitude REAL, altitude REAL, position TEXT, area TEXT, admin_dept TEXT, weight REAL, standard_weight REAL, video_feed TEXT, props TEXT, template_object_id INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT, parent_uuid TEXT, is_offline_data INTEGER DEFAULT 0, node_type TEXT, bridge_type TEXT, gamma REAL, omega INTEGER, props_json TEXT, span_no INTEGER, span_length REAL, offline_deleted INTEGER DEFAULT 0)");
             if (set.contains("bi_component"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_component (id INTEGER PRIMARY KEY, bi_object_id INTEGER, name TEXT, code TEXT, status TEXT, del_flag TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT, offline_uuid TEXT, object_uuid TEXT, is_offline_data INTEGER DEFAULT 0, edi INTEGER, efi INTEGER, eai INTEGER, offline_deleted INTEGER DEFAULT 0)");
+                        "CREATE TABLE IF NOT EXISTS bi_component (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, bi_object_id INTEGER, name TEXT, code TEXT, status TEXT, del_flag TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT, object_uuid TEXT, is_offline_data INTEGER DEFAULT 0, edi INTEGER, efi INTEGER, eai INTEGER, offline_deleted INTEGER DEFAULT 0)");
             if (set.contains("bi_disease"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_disease (id INTEGER PRIMARY KEY, position TEXT, position_number TEXT, type TEXT, disease_type_id INTEGER, description TEXT, level TEXT, quantity TEXT, units TEXT, nature TEXT, participate_assess TEXT, deduct_points INTEGER, img_no_exp TEXT, project_id INTEGER, bi_object_id INTEGER, bi_object_name TEXT, building_id INTEGER, component_id INTEGER, commit_type TEXT, local_id TEXT, remark TEXT, cause TEXT, repair_recommendation TEXT, crack_type TEXT, development_trend TEXT, detection_method TEXT, attachment_count INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, task_id INTEGER, offline_uuid TEXT, building_uuid TEXT, object_uuid TEXT, component_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
+                        "CREATE TABLE IF NOT EXISTS bi_disease (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, position TEXT, position_number TEXT, type TEXT, disease_type_id INTEGER, description TEXT, level TEXT, quantity TEXT, units TEXT, nature TEXT, participate_assess TEXT, deduct_points INTEGER, img_no_exp TEXT, project_id INTEGER, bi_object_id INTEGER, bi_object_name TEXT, building_id INTEGER, component_id INTEGER, commit_type TEXT, local_id TEXT, remark TEXT, cause TEXT, repair_recommendation TEXT, crack_type TEXT, development_trend TEXT, detection_method TEXT, attachment_count INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, task_id INTEGER, building_uuid TEXT, object_uuid TEXT, component_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
             if (set.contains("bi_file_map"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_file_map (id INTEGER PRIMARY KEY, old_name TEXT, new_name TEXT, create_time TEXT, update_time TEXT, create_by TEXT, file_type TEXT)");
             if (set.contains("bi_attachment"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_attachment (id INTEGER PRIMARY KEY, name TEXT, subject_id INTEGER, type INTEGER, del_flag TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, weight REAL, minio_id INTEGER, thumb_minio_id INTEGER, offline_uuid TEXT, offline_subject_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
+                        "CREATE TABLE IF NOT EXISTS bi_attachment (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, name TEXT, subject_id INTEGER, type INTEGER, del_flag TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, weight REAL, minio_id INTEGER, thumb_minio_id INTEGER, offline_subject_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
             if (set.contains("bi_disease_detail"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_disease_detail (id INTEGER PRIMARY KEY, disease_id INTEGER, reference1_location TEXT, reference1_location_start REAL, reference1_location_end REAL, reference2_location TEXT, reference2_location_start REAL, reference2_location_end REAL, length1 REAL, length2 REAL, length3 REAL, width REAL, height_depth REAL, crack_width REAL, area_length REAL, area_width REAL, area_identifier INTEGER, deformation REAL, angle INTEGER, numerator_ratio INTEGER, denominator_ratio INTEGER, length_range_start REAL, length_range_end REAL, width_range_start REAL, width_range_end REAL, height_depth_range_start REAL, height_depth_range_end REAL, crack_width_range_start REAL, crack_width_range_end REAL, area_range_start REAL, area_range_end REAL, deformation_range_start REAL, deformation_range_end REAL, angle_range_start REAL, angle_range_end REAL, other TEXT, offline_uuid TEXT, disease_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
+                        "CREATE TABLE IF NOT EXISTS bi_disease_detail (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, disease_id INTEGER, reference1_location TEXT, reference1_location_start REAL, reference1_location_end REAL, reference2_location TEXT, reference2_location_start REAL, reference2_location_end REAL, length1 REAL, length2 REAL, length3 REAL, width REAL, height_depth REAL, crack_width REAL, area_length REAL, area_width REAL, area_identifier INTEGER, deformation REAL, angle INTEGER, numerator_ratio INTEGER, denominator_ratio INTEGER, length_range_start REAL, length_range_end REAL, width_range_start REAL, width_range_end REAL, height_depth_range_start REAL, height_depth_range_end REAL, crack_width_range_start REAL, crack_width_range_end REAL, area_range_start REAL, area_range_end REAL, deformation_range_start REAL, deformation_range_end REAL, angle_range_start REAL, angle_range_end REAL, other TEXT, disease_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0)");
 
             // 基础模板表
             if (set.contains("bi_template_object"))
@@ -513,7 +534,10 @@ public class SqliteService {
                         "CREATE TABLE IF NOT EXISTS bi_template_object_disease_position (template_object_id INTEGER, disease_position_id INTEGER, PRIMARY KEY(template_object_id, disease_position_id))");
             if (set.contains("bi_object_component"))
                 s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_object_component (id INTEGER PRIMARY KEY, component_id INTEGER, bi_object_id INTEGER, component_uuid TEXT, object_uuid TEXT, weight REAL, offline_uuid TEXT, is_offline_data INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, offline_deleted INTEGER DEFAULT 0)");
+                        "CREATE TABLE IF NOT EXISTS bi_object_component (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, component_id INTEGER, bi_object_id INTEGER, component_uuid TEXT, object_uuid TEXT, weight REAL, is_offline_data INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, offline_deleted INTEGER DEFAULT 0)");
+            if (set.contains("bi_span_component_part"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_span_component_part (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, component_id INTEGER, span_id INTEGER, part_id INTEGER, component_uuid TEXT, span_uuid TEXT, part_uuid TEXT, is_shared INTEGER DEFAULT 0, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
             if (set.contains("bi_property"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_property (id INTEGER PRIMARY KEY, name TEXT, value TEXT, parent_id INTEGER, ancestors TEXT, order_num INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
@@ -521,7 +545,7 @@ public class SqliteService {
     }
 
     private void insertProjects(Connection conn, List<Project> projects) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_project (id, name, year, status, code, start_date, end_date) VALUES (?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_project (id, name, year, status, code, start_date, end_date, std_version) VALUES (?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Project p : projects) {
                 ps.setLong(1, p.getId());
@@ -531,6 +555,7 @@ public class SqliteService {
                 ps.setString(5, p.getCode());
                 ps.setString(6, dateToStr(p.getStartDate()));
                 ps.setString(7, dateToStr(p.getEndDate()));
+                ps.setString(8, p.getStdVersion());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -538,7 +563,7 @@ public class SqliteService {
     }
 
     private void insertTasks(Connection conn, List<Task> tasks) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_task (id, building_id, project_id, status, evaluation_result, type, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_task (id, building_id, project_id, status, evaluation_result, type, std_version, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Task t : tasks) {
                 ps.setLong(1, t.getId());
@@ -547,11 +572,12 @@ public class SqliteService {
                 ps.setString(4, t.getStatus());
                 setIntOrNull(ps, 5, t.getEvaluationResult());
                 setIntOrNull(ps, 6, t.getType());
-                ps.setString(7, t.getCreateBy());
-                ps.setString(8, dateToStr(t.getCreateTime()));
-                ps.setString(9, t.getUpdateBy());
-                ps.setString(10, dateToStr(t.getUpdateTime()));
-                ps.setString(11, t.getRemark());
+                ps.setString(7, t.getStdVersion());
+                ps.setString(8, t.getCreateBy());
+                ps.setString(9, dateToStr(t.getCreateTime()));
+                ps.setString(10, t.getUpdateBy());
+                ps.setString(11, dateToStr(t.getUpdateTime()));
+                ps.setString(12, t.getRemark());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -559,7 +585,7 @@ public class SqliteService {
     }
 
     private void insertBuildings(Connection conn, List<Building> buildings) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_building (id, name, is_leaf, status, del_flag, longitude, latitude, altitude, address, area, line, admin_dept, weight, video_feed, root_object_id, root_property_id, remark, create_by, create_time, update_by, update_time, offline_uuid, root_object_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_building (id, name, is_leaf, status, del_flag, longitude, latitude, altitude, address, area, line, admin_dept, weight, video_feed, root_object_id, new_root_object_id, root_property_id, remark, create_by, create_time, update_by, update_time, offline_uuid, root_object_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Building b : buildings) {
                 ps.setLong(1, b.getId());
@@ -577,16 +603,17 @@ public class SqliteService {
                 setDecimalOrNull(ps, 13, b.getWeight());
                 ps.setString(14, b.getVideoFeed());
                 setLongOrNull(ps, 15, b.getRootObjectId());
-                setLongOrNull(ps, 16, b.getRootPropertyId());
-                ps.setString(17, b.getRemark());
-                ps.setString(18, b.getCreateBy());
-                ps.setString(19, dateToStr(b.getCreateTime()));
-                ps.setString(20, b.getUpdateBy());
-                ps.setString(21, dateToStr(b.getUpdateTime()));
-                ps.setString(22, b.getOfflineUuid());
-                ps.setString(23, b.getRootObjectUuid());
-                ps.setInt(24, 0); // 云端下发的数据，状态标记为已完成同步 (0)
-                ps.setInt(25, 0); // 默认未被删除
+                setLongOrNull(ps, 16, b.getNewRootObjectId());
+                setLongOrNull(ps, 17, b.getRootPropertyId());
+                ps.setString(18, b.getRemark());
+                ps.setString(19, b.getCreateBy());
+                ps.setString(20, dateToStr(b.getCreateTime()));
+                ps.setString(21, b.getUpdateBy());
+                ps.setString(22, dateToStr(b.getUpdateTime()));
+                ps.setString(23, b.getOfflineUuid());
+                ps.setString(24, b.getRootObjectUuid());
+                ps.setInt(25, 0); // 云端下发的数据，状态标记为已完成同步 (0)
+                ps.setInt(26, 0); // 默认未被删除
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -594,7 +621,7 @@ public class SqliteService {
     }
 
     private void insertBiObjects(Connection conn, List<BiObject> objects) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_object (id, parent_id, name, ancestors, status, del_flag, longitude, latitude, altitude, position, area, admin_dept, weight, standard_weight, video_feed, props, template_object_id, create_by, create_time, update_by, update_time, remark, offline_uuid, parent_uuid, is_offline_data, node_type, bridge_type, gamma, omega, props_json, span_no, span_length, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_object (server_id, parent_id, name, ancestors, status, del_flag, longitude, latitude, altitude, position, area, admin_dept, weight, standard_weight, video_feed, props, template_object_id, create_by, create_time, update_by, update_time, remark, offline_uuid, parent_uuid, is_offline_data, node_type, bridge_type, gamma, omega, props_json, span_no, span_length, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (BiObject o : objects) {
                 ps.setLong(1, o.getId());
@@ -619,7 +646,7 @@ public class SqliteService {
                 ps.setString(20, o.getUpdateBy());
                 ps.setString(21, dateToStr(o.getUpdateTime()));
                 ps.setString(22, o.getRemark());
-                ps.setString(23, o.getOfflineUuid());
+                ps.setString(23, offlineUuidOrNew(o.getOfflineUuid()));
                 ps.setString(24, o.getParentUuid());
                 ps.setInt(25, 0); 
                 ps.setString(26, o.getNodeType());
@@ -637,7 +664,7 @@ public class SqliteService {
     }
 
     private void insertBiObjectComponents(Connection conn, List<BiObjectComponent> rels) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_object_component (id, component_id, bi_object_id, component_uuid, object_uuid, weight, offline_uuid, is_offline_data, create_by, create_time, update_by, update_time, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_object_component (server_id, component_id, bi_object_id, component_uuid, object_uuid, weight, offline_uuid, is_offline_data, create_by, create_time, update_by, update_time, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (BiObjectComponent r : rels) {
                 ps.setLong(1, r.getId());
@@ -646,7 +673,7 @@ public class SqliteService {
                 ps.setString(4, r.getComponentUuid());
                 ps.setString(5, r.getObjectUuid());
                 setDecimalOrNull(ps, 6, r.getWeight());
-                ps.setString(7, r.getOfflineUuid());
+                ps.setString(7, offlineUuidOrNew(r.getOfflineUuid()));
                 ps.setInt(8, 0); 
                 ps.setString(9, r.getCreateBy());
                 ps.setString(10, dateToStr(r.getCreateTime()));
@@ -659,8 +686,34 @@ public class SqliteService {
         }
     }
 
+    private void insertSpanComponentParts(Connection conn, List<SpanComponentPart> rels) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_span_component_part (server_id, component_id, span_id, part_id, component_uuid, span_uuid, part_uuid, is_shared, offline_uuid, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (SpanComponentPart r : rels) {
+                ps.setLong(1, r.getId());
+                setLongOrNull(ps, 2, r.getComponentId());
+                setLongOrNull(ps, 3, r.getSpanId());
+                setLongOrNull(ps, 4, r.getPartId());
+                ps.setString(5, r.getComponentUuid());
+                ps.setString(6, r.getSpanUuid());
+                ps.setString(7, r.getPartUuid());
+                setIntOrNull(ps, 8, r.getIsShared());
+                ps.setString(9, offlineUuidOrNew(r.getOfflineUuid()));
+                ps.setInt(10, 0);
+                ps.setInt(11, 0);
+                ps.setString(12, r.getCreateBy());
+                ps.setString(13, dateToStr(r.getCreateTime()));
+                ps.setString(14, r.getUpdateBy());
+                ps.setString(15, dateToStr(r.getUpdateTime()));
+                ps.setString(16, r.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
     private void insertComponents(Connection conn, List<Component> components) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_component (id, bi_object_id, name, code, status, del_flag, create_by, create_time, update_by, update_time, remark, offline_uuid, object_uuid, is_offline_data, edi, efi, eai, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_component (server_id, bi_object_id, name, code, status, del_flag, create_by, create_time, update_by, update_time, remark, offline_uuid, object_uuid, is_offline_data, edi, efi, eai, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Component c : components) {
                 ps.setLong(1, c.getId());
@@ -674,7 +727,7 @@ public class SqliteService {
                 ps.setString(9, c.getUpdateBy());
                 ps.setString(10, dateToStr(c.getUpdateTime()));
                 ps.setString(11, c.getRemark());
-                ps.setString(12, c.getOfflineUuid());
+                ps.setString(12, offlineUuidOrNew(c.getOfflineUuid()));
                 ps.setString(13, c.getObjectUuid());
                 ps.setInt(14, 0); // 云端下发的数据，状态标记为已完成同步 (0)
                 setIntOrNull(ps, 15, c.getEdi());
@@ -688,7 +741,7 @@ public class SqliteService {
     }
 
     private void insertDiseases(Connection conn, List<Disease> diseases) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_disease (id, position, position_number, type, disease_type_id, description, level, quantity, units, nature, participate_assess, deduct_points, img_no_exp, project_id, bi_object_id, bi_object_name, building_id, component_id, commit_type, local_id, remark, cause, repair_recommendation, crack_type, development_trend, detection_method, attachment_count, create_by, create_time, update_by, update_time, task_id, offline_uuid, building_uuid, object_uuid, component_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_disease (server_id, position, position_number, type, disease_type_id, description, level, quantity, units, nature, participate_assess, deduct_points, img_no_exp, project_id, bi_object_id, bi_object_name, building_id, component_id, commit_type, local_id, remark, cause, repair_recommendation, crack_type, development_trend, detection_method, attachment_count, create_by, create_time, update_by, update_time, task_id, offline_uuid, building_uuid, object_uuid, component_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Disease d : diseases) {
                 ps.setLong(1, d.getId());
@@ -723,7 +776,7 @@ public class SqliteService {
                 ps.setString(30, d.getUpdateBy());
                 ps.setString(31, dateToStr(d.getUpdateTime()));
                 setLongOrNull(ps, 32, d.getTaskId());
-                ps.setString(33, d.getOfflineUuid());
+                ps.setString(33, offlineUuidOrNew(d.getOfflineUuid()));
                 ps.setString(34, d.getBuildingUuid());
                 ps.setString(35, d.getObjectUuid());
                 ps.setString(36, d.getComponentUuid());
@@ -736,7 +789,7 @@ public class SqliteService {
     }
 
     private void insertDiseaseDetails(Connection conn, List<DiseaseDetail> details) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_disease_detail (id, disease_id, reference1_location, reference1_location_start, reference1_location_end, reference2_location, reference2_location_start, reference2_location_end, length1, length2, length3, width, height_depth, crack_width, area_length, area_width, area_identifier, deformation, angle, numerator_ratio, denominator_ratio, length_range_start, length_range_end, width_range_start, width_range_end, height_depth_range_start, height_depth_range_end, crack_width_range_start, crack_width_range_end, area_range_start, area_range_end, deformation_range_start, deformation_range_end, angle_range_start, angle_range_end, other, offline_uuid, disease_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_disease_detail (server_id, disease_id, reference1_location, reference1_location_start, reference1_location_end, reference2_location, reference2_location_start, reference2_location_end, length1, length2, length3, width, height_depth, crack_width, area_length, area_width, area_identifier, deformation, angle, numerator_ratio, denominator_ratio, length_range_start, length_range_end, width_range_start, width_range_end, height_depth_range_start, height_depth_range_end, crack_width_range_start, crack_width_range_end, area_range_start, area_range_end, deformation_range_start, deformation_range_end, angle_range_start, angle_range_end, other, offline_uuid, disease_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (DiseaseDetail dd : details) {
                 ps.setLong(1, dd.getId());
@@ -775,7 +828,7 @@ public class SqliteService {
                 setDecimalOrNull(ps, 34, dd.getAngleRangeStart());
                 setDecimalOrNull(ps, 35, dd.getAngleRangeEnd());
                 ps.setString(36, dd.getOther());
-                ps.setString(37, dd.getOfflineUuid());
+                ps.setString(37, offlineUuidOrNew(dd.getOfflineUuid()));
                 ps.setString(38, dd.getDiseaseUuid());
                 ps.setInt(39, 0); // 已同步标志
                 ps.setInt(40, 0);
@@ -786,7 +839,7 @@ public class SqliteService {
     }
 
     private void insertAttachments(Connection conn, List<Attachment> attachments) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_attachment (id, name, subject_id, type, minio_id, thumb_minio_id, offline_uuid, offline_subject_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT OR REPLACE INTO bi_attachment (server_id, name, subject_id, type, minio_id, thumb_minio_id, offline_uuid, offline_subject_uuid, is_offline_data, offline_deleted) VALUES (?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Attachment a : attachments) {
                 ps.setLong(1, a.getId());
@@ -795,7 +848,7 @@ public class SqliteService {
                 setIntOrNull(ps, 4, a.getType());
                 setLongOrNull(ps, 5, a.getMinioId());
                 setLongOrNull(ps, 6, a.getThumbMinioId());
-                ps.setString(7, a.getOfflineUuid());
+                ps.setString(7, offlineUuidOrNew(a.getOfflineUuid()));
                 ps.setString(8, a.getOfflineSubjectUuid());
                 ps.setInt(9, 0); // 已同步标志
                 ps.setInt(10, 0);
@@ -985,6 +1038,16 @@ public class SqliteService {
             ps.setDouble(index, value.doubleValue());
         else
             ps.setNull(index, Types.REAL);
+    }
+
+    /**
+     * offline_uuid 主键兜底：云端存量数据可能尚未回填 offline_uuid（P2 才回填），
+     * 为 null 时自动生成一个 UUID，保证 SQLite 主键非空唯一，避免下发失败或数据覆盖。
+     */
+    private String offlineUuidOrNew(String offlineUuid) {
+        return (offlineUuid == null || offlineUuid.trim().isEmpty())
+                ? UUID.randomUUID().toString().replace("-", "")
+                : offlineUuid;
     }
 
     private String dateToStr(Date date) {

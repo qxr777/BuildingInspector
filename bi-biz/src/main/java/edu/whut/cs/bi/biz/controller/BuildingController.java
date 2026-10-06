@@ -285,6 +285,18 @@ public class BuildingController extends BaseController {
     }
 
     /**
+     * 为现有建筑补充指定新规范桥型（生成 UNIT 根节点并回写 new_root_object_id）
+     */
+    @RequiresPermissions("biz:building:edit")
+    @Log(title = "建筑", businessType = BusinessType.UPDATE)
+    @PostMapping("/repairNewStandardTree")
+    @ResponseBody
+    public AjaxResult repairNewStandardTree(Building building) {
+        building.setUpdateBy(ShiroUtils.getLoginName());
+        return toAjax(buildingService.repairBuildingNewStandardTree(building));
+    }
+
+    /**
      * 获取当前部件的图片
      */
     @RequiresPermissions("biz:building:view")

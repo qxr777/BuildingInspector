@@ -5,12 +5,15 @@ import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
 import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.impl.SqliteService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
+import edu.whut.cs.bi.api.util.OssBridgeUploadUtil;
 import org.springframework.web.multipart.MultipartFile;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 import edu.whut.cs.bi.biz.service.ISyncUploadService;
 import java.util.Map;
@@ -38,6 +41,9 @@ public class ApiControllerV2 {
 
     @Resource
     private IFileMapService fileMapService;
+
+    @Autowired
+    private OssBridgeUploadUtil ossBridgeUploadUtil;
 
     /**
      * 获取项目关联的离线 SQLite 数据库文件下载地址 (全量)
@@ -194,6 +200,46 @@ public class ApiControllerV2 {
         } catch (Exception e) {
             log.error("同步附件上传失败", e);
             return AjaxResult.error("附件上传异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 病害照片批量上传（App 端打包 ZIP 直传 OSS 后调用）。
+     *
+     * <p>App 端将若干病害照片打包为 ZIP 上传至阿里云 OSS，本接口接收 OSS 对象名，
+     * 服务端从 OSS 流式拉取 ZIP 并解压处理（原图存 MinIO + 缩略图 + 写 bi_attachment）。
+     * 处理成功后于事务提交时删除 OSS 临时对象。</p>
+     *
+     * <p>ZIP 内为纯图片，文件名约定 {@code {diseaseOfflineUuid}_{序号}.{ext}}。</p>
+     */
+    @PostMapping("/sync/attachment/oss")
+    @ResponseBody
+    @ApiOperation("病害照片批量上传（OSS ZIP）")
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult uploadDiseasePhotosFromOss(@RequestBody Map<String, String> request) {
+        if (request == null) {
+            return AjaxResult.error("请求体不能为空");
+        }
+        try {
+            String objectName = ossBridgeUploadUtil.validateObjectName(request.get("objectName"));
+            MultipartFile ossZipFile = ossBridgeUploadUtil.createMultipartFile(objectName);
+            Map<String, Object> result = fileMapService.handleDiseasePhotosZip(ossZipFile);
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, String>> failures = (List<Map<String, String>>) result.get("failures");
+            // 全部图片均未成功处理时回滚，OSS 临时 ZIP 保留以便排查或重试
+            if (result.get("successCount") != null
+                    && (Integer) result.get("successCount") == 0
+                    && failures != null && !failures.isEmpty()) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                return AjaxResult.error("无图片处理成功", result);
+            }
+            ossBridgeUploadUtil.deleteObjectAfterTransactionCommit(objectName);
+            return AjaxResult.success("处理完成", result);
+        } catch (Exception e) {
+            log.error("从OSS处理病害照片失败", e);
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return AjaxResult.error("处理病害照片失败: " + e.getMessage());
         }
     }
 }

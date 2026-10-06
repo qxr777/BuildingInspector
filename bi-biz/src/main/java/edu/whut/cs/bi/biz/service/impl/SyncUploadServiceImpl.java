@@ -43,6 +43,8 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     @Autowired
     private BiObjectComponentMapper biObjectComponentMapper;
     @Autowired
+    private SpanComponentPartMapper spanComponentPartMapper;
+    @Autowired
     private edu.whut.cs.bi.biz.engine.BridgeEvaluationEngine bridgeEvaluationEngine;
     @Autowired
     private edu.whut.cs.bi.biz.mapper.BiEvalComponentDetailMapper biEvalComponentDetailMapper;
@@ -54,6 +56,7 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private static final String ENTITY_DISEASE_DETAIL = "DiseaseDetail";
     private static final String ENTITY_ATTACHMENT = "Attachment";
     private static final String ENTITY_OBJECT_COMPONENT = "BiObjectComponent";
+    private static final String ENTITY_SPAN_COMPONENT_PART = "SpanComponentPart";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -114,6 +117,9 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
 
             log.info("处理 Attachment...");
             processAttachments(dataMap.get("attachments"), syncUuid, uuidMap, result, loginName);
+
+            log.info("处理 SpanComponentPart...");
+            processSpanComponentParts(dataMap.get("spanComponentParts"), syncUuid, uuidMap, result, loginName);
 
             // 阶段 8: 触发 2026 新标评定
             try {
@@ -488,6 +494,58 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 update.setId(buildingId);
                 update.setRootObjectId(rootId);
                 buildingMapper.updateBuilding(update);
+            }
+        }
+    }
+
+    private void processSpanComponentParts(Object data, String syncUuid, Map<String, Long> uuidMap, SyncResultVo result,
+            String loginName) {
+        if (data == null)
+            return;
+        List<SpanComponentPart> list = parseList(data, SpanComponentPart.class);
+        for (SpanComponentPart item : list) {
+            try {
+                // 反查 serverId：component / span / part 三者都必须已落库
+                if (item.getComponentUuid() != null)
+                    item.setComponentId(uuidMap.get(item.getComponentUuid()));
+                if (item.getSpanUuid() != null)
+                    item.setSpanId(uuidMap.get(item.getSpanUuid()));
+                if (item.getPartUuid() != null)
+                    item.setPartId(uuidMap.get(item.getPartUuid()));
+
+                SpanComponentPart existing = item.getOfflineUuid() != null
+                        ? spanComponentPartMapper.selectByOfflineUuid(item.getOfflineUuid())
+                        : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        spanComponentPartMapper.deleteSpanComponentPartById(item.getId());
+                        continue;
+                    }
+                    spanComponentPartMapper.updateSpanComponentPart(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+
+                // 锚定三要素缺失则不落库（构件/桥跨/部件必须都已同步）
+                if (item.getComponentId() == null || item.getSpanId() == null || item.getPartId() == null) {
+                    result.addError(ENTITY_SPAN_COMPONENT_PART, item.getOfflineUuid(),
+                            "component/span/part 反查失败，存在未同步实体");
+                    continue;
+                }
+
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                spanComponentPartMapper.insertSpanComponentPart(item);
+                saveMapping(ENTITY_SPAN_COMPONENT_PART, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
+            } catch (Exception e) {
+                result.addError(ENTITY_SPAN_COMPONENT_PART, item.getOfflineUuid(), e.getMessage());
             }
         }
     }

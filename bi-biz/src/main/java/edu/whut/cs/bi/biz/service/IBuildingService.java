@@ -90,7 +90,6 @@ public interface IBuildingService {
      */
     List<ProjectBuildingVO> selectBuildingVOList(ProjectBuildingVO building, Long projectId);
 
-
     /**
      * 获取指定组合桥下的所有子桥ID（包括直接子桥和间接子桥）
      *
@@ -122,6 +121,18 @@ public interface IBuildingService {
      * @return 更新结果
      */
     public int repairCombinationBridgeRoot(Building building);
+
+    /**
+     * 为现有 building 补充指定新规范桥型，生成 UNIT 根节点并回写 new_root_object_id。
+     *
+     * <p>适用场景：旧规范 building（已有 root_object_id 指向旧树）需要额外挂载
+     * 新规范 object 树（JTG/T 5230-2026 桥跨评定单元）。生成后该 building 即可
+     * 作为新规范项目的检测候选。</p>
+     *
+     * @param building 建筑信息，需包含 id、templateId（新规范桥型模板），可选 parentId
+     * @return 更新结果
+     */
+    public int repairBuildingNewStandardTree(Building building);
 
     /**
      * excel导入建筑信息

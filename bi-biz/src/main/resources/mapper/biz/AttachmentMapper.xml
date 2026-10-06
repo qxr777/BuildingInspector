@@ -73,6 +73,12 @@
         </foreach>
     </select>
 
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="AttachmentResult">
+        select * from bi_attachment
+        where offline_uuid = #{offlineUuid}
+        limit 1
+    </select>
+
     <insert id="insert" parameterType="Attachment" useGeneratedKeys="true" keyProperty="id"> <!-- 添加: useGeneratedKeys 和 keyProperty -->
         insert into bi_attachment
         <trim prefix="(" suffix=")" suffixOverrides=",">

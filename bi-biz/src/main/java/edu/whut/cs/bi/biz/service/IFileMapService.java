@@ -159,4 +159,15 @@ public interface IFileMapService {
      * 直接从文件上传到MinIO，避免重复读取到内存
      */
     public FileMap handleFileUploadFromFile(File file, String originalFilename, String loginName) ;
+
+    /**
+     * 处理采集照片 ZIP 包（App 端批量打包后直传 OSS，后端拉取解压）。
+     * 包内为纯图片文件，文件名约定：{category}_{entityOfflineUuid}_{attachmentOfflineUuid}.{ext}。
+     * category ∈ disease(病害图)/component(构件现状照)/front(正立面照)/side(侧立面照)。
+     * 每张图片按类别反查服务端实体 id 后落 MinIO + 生成缩略图 + 写 bi_attachment（type 按类别）。
+     *
+     * @param zipFile 从 OSS 流式适配得到的 ZIP MultipartFile
+     * @return 处理结果（successCount、skippedCount、failures 清单）
+     */
+    Map<String, Object> handleDiseasePhotosZip(MultipartFile zipFile);
 }

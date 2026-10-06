@@ -4,8 +4,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import com.ruoyi.common.core.domain.entity.SysUser;
@@ -27,6 +30,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import edu.whut.cs.bi.biz.mapper.FileMapMapper;
+import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
+import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
+import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.config.MinioConfig;
@@ -62,6 +70,15 @@ public class FileMapServiceImpl implements IFileMapService {
 
     @Autowired
     private BiObjectMapper biObjectMapper;
+
+    @Autowired
+    private DiseaseMapper diseaseMapper;
+
+    @Autowired
+    private AttachmentMapper attachmentMapper;
+
+    @Autowired
+    private BuildingMapper buildingMapper;
 
     @Resource
     private IFileMapService fileMapService;
@@ -600,5 +617,254 @@ public class FileMapServiceImpl implements IFileMapService {
             return newName;
         }
         return newName.substring(0, 2) + "/" + newName;
+    }
+
+    /**
+     * 处理病害照片 ZIP 包（兼容入口，实际支持四类照片混合）。
+     *
+     * <p>App 端将采集照片打包为 ZIP 直传 OSS，后端凭 objectName 拉取后调用本方法解压处理。
+     * 包内为纯图片文件，文件名约定 {@code {category}_{entityOfflineUuid}_{attachmentOfflineUuid}.{ext}}：
+     * <ul>
+     *   <li>category：disease（病害图片）/ component（构件现状照）/ front（正立面照）/ side（侧立面照）</li>
+     *   <li>entityOfflineUuid：归属实体（病害/构件/建筑）的离线 UUID</li>
+     *   <li>attachmentOfflineUuid：该图片自身的离线 UUID，用于幂等去重</li>
+     * </ul></p>
+     *
+     * <p>每张图片：按 category 路由反查服务端实体 id → 原图存 MinIO → 生成缩略图存 MinIO → 写 bi_attachment
+     * （type/name 前缀按类别）。已按 attachmentOfflineUuid 去重，重复上传不产生脏数据；
+     * 反查不到实体的图片记入失败清单，不中断整体处理。</p>
+     *
+     * @param zipFile 从 OSS 流式适配得到的 ZIP（仅支持 getInputStream()）
+     * @return Map：successCount 成功张数；skippedCount 去重跳过张数；failures 失败清单 [{fileName, reason}]
+     */
+    @Override
+    public Map<String, Object> handleDiseasePhotosZip(MultipartFile zipFile) {
+        int successCount = 0;
+        int skippedCount = 0;
+        List<Map<String, String>> failures = new ArrayList<>();
+        String loginName = resolveLoginName();
+
+        try (ZipInputStream zipIn = new ZipInputStream(zipFile.getInputStream())) {
+            ZipEntry entry;
+            while ((entry = zipIn.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    continue;
+                }
+
+                String rawName = entry.getName().replace('\\', '/');
+                String fileName = rawName.contains("/")
+                        ? rawName.substring(rawName.lastIndexOf('/') + 1)
+                        : rawName;
+
+                if (!isImageFile(fileName)) {
+                    failures.add(Map.of("fileName", fileName, "reason", "非图片文件，跳过"));
+                    continue;
+                }
+
+                PhotoMeta meta = parsePhotoFileName(fileName);
+                if (meta == null) {
+                    failures.add(Map.of("fileName", fileName, "reason", "文件名无法解析，应为 category_实体UUID_图片UUID.ext"));
+                    continue;
+                }
+
+                // 按类别反查归属实体 id
+                Long subjectId = resolveSubjectId(meta.category, meta.entityUuid);
+                if (subjectId == null) {
+                    failures.add(Map.of("fileName", fileName, "reason", "未找到离线UUID对应的" + meta.categoryLabel()));
+                    continue;
+                }
+
+                // 幂等去重：同一张图（attachmentOfflineUuid）已处理过则跳过，避免重复写 bi_attachment
+                Attachment existing = attachmentMapper.selectByOfflineUuid(meta.attachmentUuid);
+                if (existing != null) {
+                    skippedCount++;
+                    continue;
+                }
+
+                File tmpFile = null;
+                File thumbFile = null;
+                try {
+                    tmpFile = File.createTempFile("photo_", extensionOf(fileName));
+                    Files.copy(zipIn, tmpFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+                    FileMap fileMap = handleFileUploadFromFile(tmpFile, fileName, loginName);
+                    if (fileMap == null || fileMap.getId() == null) {
+                        failures.add(Map.of("fileName", fileName, "reason", "原图上传失败"));
+                        continue;
+                    }
+
+                    Attachment attachment = new Attachment();
+                    attachment.setMinioId(Long.valueOf(fileMap.getId()));
+                    attachment.setName(meta.namePrefix() + fileName);
+                    attachment.setSubjectId(subjectId);
+                    attachment.setType(meta.type());
+                    attachment.setOfflineUuid(meta.attachmentUuid);
+
+                    try {
+                        thumbFile = createThumbnail(tmpFile, 1024, 768, 0.5f);
+                        FileMap thumbFileMap = handleFileUploadFromFile(thumbFile, fileName, loginName);
+                        if (thumbFileMap != null && thumbFileMap.getId() != null) {
+                            attachment.setThumbMinioId(Long.valueOf(thumbFileMap.getId()));
+                        }
+                    } catch (Exception ex) {
+                        log.warn("生成照片缩略图失败，沿用原图: {} -> {}", fileName, ex.toString());
+                    }
+
+                    attachment.setIsOfflineData(1);
+                    attachment.setCreateBy(loginName);
+                    attachment.setCreateTime(DateUtils.getNowDate());
+                    attachmentService.insertAttachment(attachment);
+                    successCount++;
+                } catch (Exception e) {
+                    log.error("处理照片失败: {}", fileName, e);
+                    failures.add(Map.of("fileName", fileName, "reason", "处理异常: " + e.getMessage()));
+                } finally {
+                    deleteQuietly(tmpFile);
+                    deleteQuietly(thumbFile);
+                }
+            }
+        } catch (Exception e) {
+            log.error("解压照片 ZIP 失败", e);
+            throw new RuntimeException("解压照片 ZIP 失败: " + e.getMessage(), e);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("successCount", successCount);
+        result.put("skippedCount", skippedCount);
+        result.put("failures", failures);
+        return result;
+    }
+
+    /** 按照片类别反查归属实体的服务端 id。 */
+    private Long resolveSubjectId(String category, String entityUuid) {
+        switch (category) {
+            case "disease": {
+                Disease disease = diseaseMapper.selectByOfflineUuid(entityUuid);
+                return disease != null ? disease.getId() : null;
+            }
+            case "component": {
+                BiObject biObject = biObjectMapper.selectByOfflineUuid(entityUuid);
+                return biObject != null ? biObject.getId() : null;
+            }
+            case "front":
+            case "side": {
+                Building building = buildingMapper.selectByOfflineUuid(entityUuid);
+                return building != null ? building.getId() : null;
+            }
+            default:
+                return null;
+        }
+    }
+
+    /** 照片元信息：category + 归属实体离线 UUID + 图片自身离线 UUID，以及对应的 type/name 前缀。 */
+    private static final class PhotoMeta {
+        final String category;
+        final String entityUuid;
+        final String attachmentUuid;
+
+        PhotoMeta(String category, String entityUuid, String attachmentUuid) {
+            this.category = category;
+            this.entityUuid = entityUuid;
+            this.attachmentUuid = attachmentUuid;
+        }
+
+        int type() {
+            switch (category) {
+                case "disease":
+                    return 1;
+                case "component":
+                    return 8;
+                case "front":
+                case "side":
+                    return 6;
+                default:
+                    return 1;
+            }
+        }
+
+        String namePrefix() {
+            switch (category) {
+                case "disease":
+                    return "disease_";
+                case "component":
+                    return "biObject_";
+                case "front":
+                    return "newfront_";
+                case "side":
+                    return "newside_";
+                default:
+                    return "disease_";
+            }
+        }
+
+        String categoryLabel() {
+            switch (category) {
+                case "disease":
+                    return "病害";
+                case "component":
+                    return "构件";
+                case "front":
+                    return "建筑(正立面)";
+                case "side":
+                    return "建筑(侧立面)";
+                default:
+                    return "实体";
+            }
+        }
+    }
+
+    /** 从文件名解析照片元信息：{category}_{entityOfflineUuid}_{attachmentOfflineUuid}.{ext}。 */
+    private PhotoMeta parsePhotoFileName(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        String[] parts = base.split("_");
+        if (parts.length < 3) {
+            return null;
+        }
+        String category = parts[0];
+        String entityUuid = normalizeUuid(parts[1]);
+        String attachmentUuid = normalizeUuid(parts[2]);
+        if (!isValidCategory(category) || entityUuid == null || attachmentUuid == null) {
+            return null;
+        }
+        return new PhotoMeta(category, entityUuid, attachmentUuid);
+    }
+
+    private boolean isValidCategory(String category) {
+        return "disease".equals(category) || "component".equals(category)
+                || "front".equals(category) || "side".equals(category);
+    }
+
+    private String normalizeUuid(String uuid) {
+        if (uuid == null) {
+            return null;
+        }
+        String normalized = uuid.replace("-", "");
+        return (normalized.length() == 32 && normalized.matches("[0-9a-fA-F]{32}")) ? normalized : null;
+    }
+
+    private String extensionOf(String fileName) {
+        String ext = FilenameUtils.getExtension(fileName);
+        return (ext == null || ext.isEmpty()) ? ".jpg" : "." + ext;
+    }
+
+    private String resolveLoginName() {
+        String loginName;
+        try {
+            loginName = ShiroUtils.getLoginName();
+        } catch (Exception ignored) {
+            loginName = null;
+        }
+        return (loginName == null || loginName.isEmpty()) ? "system" : loginName;
+    }
+
+    private void deleteQuietly(File file) {
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(file.toPath());
+        } catch (Exception ignored) {
+        }
     }
 }
