@@ -98,6 +98,7 @@ public class SyncUploadE2ETest {
         building.put("line", "二环线");
         building.put("status", "0");
         building.put("isLeaf", "1");
+        building.put("rootObjectUuid", oUuid);
         building.put("offlineDeleted", 0);
         buildings.add(building);
         payload.put("buildings", buildings);
@@ -164,7 +165,8 @@ public class SyncUploadE2ETest {
 
         BiObject savedObject = biObjectMapper.selectByOfflineUuid(oUuid);
         assertNotNull(savedObject);
-        assertEquals(bUuid, savedObject.getBuildingUuid());
+        // v1.6 设计：bi_object 不含 building_uuid，object→building 归属通过 bi_building.root_object_id 单向定位
+        assertEquals(savedObject.getId(), savedBuilding.getRootObjectId(), "object 应挂到 building 的 root_object_id");
 
         Component savedComp = componentMapper.selectByOfflineUuid(cUuid);
         assertNotNull(savedComp);
