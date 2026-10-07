@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.StdSchemaMapper">
+
+    <select id="selectCurrentSchema" resultType="java.lang.String">
+        select database()
+    </select>
+
+    <select id="selectTableColumns" resultType="java.lang.String">
+        select column_name
+        from information_schema.columns
+        where table_schema = #{schema}
+          and table_name = #{table}
+    </select>
+
+    <select id="selectIndexColumns" resultType="java.util.HashMap">
+        select index_name, column_name, non_unique, seq_in_index
+        from information_schema.statistics
+        where table_schema = #{schema}
+          and table_name = #{table}
+        order by index_name, seq_in_index
+    </select>
+
+    <update id="executeDdl">
+        ${ddl}
+    </update>
+</mapper>

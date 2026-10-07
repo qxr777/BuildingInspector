@@ -1,0 +1,24 @@
+# 可复用结构层定义：桥面系 / 下部结构 / 附属设施。
+# B01–B07 这三层的部件与 ω 完全一致（附录 B 各表），故只定义一次，由各桥型模板盖章。
+# γ 不在这里：γ 按桥型在 templates/Bxx.yml 中给出，盖到对应层节点上。
+layers:
+  - key: deck
+    name: 桥面系
+    parts:
+      - {key: paving, name: 桥面铺装, omega: 40}
+      - {key: expansionJoint, name: 伸缩装置, omega: 25}
+      - {key: railing, name: 护栏及人行道, omega: 20}
+      - {key: drainage, name: 排水系统, omega: 15}
+
+  - key: substructure
+    name: 下部结构
+    parts:
+      - {key: pierAbutment, name: 桥墩或桥台, omega: 60}
+      - {key: foundation, name: 墩台基础, omega: 40}
+
+  - key: ancillary
+    name: 附属设施
+    parts:
+      - {key: riverbed, name: 河床及调治构造物, omega: 35}
+      - {key: revetment, name: 翼墙、锥坡、护坡, omega: 35}
+      - {key: otherAncillary, name: 其他附属设施, omega: 30}

@@ -1,0 +1,438 @@
+# 第 6.2 节 主梁——钢筋混凝土实心板 / 空心板各形式（正式稿 JTG/T 5230—2026）
+# 均绑定部件键 slab（B01 整体式、B02 装配式板梁共用，形式覆盖）
+diseaseTypes:
+
+  # ===== 表 6.2.1 整体式钢筋混凝土实心板 =====
+  - code: SLB-I-01
+    name: 钢筋锈蚀
+    parts: [slab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SLB-I-02
+    name: 底板纵向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SLB-I-03
+    name: 底板斜向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.3mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SLB-I-04
+    name: 底板横向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: SLB-I-05
+    name: 梁端剪切裂缝
+    parts: [slab]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝
+  - code: SLB-I-06
+    name: 行车道中线处梁底开裂
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.5mm
+        metricKey: crack_width
+        valueUpper: 0.5
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm，渗漏水严重
+
+  # ===== 表 6.2.2 装配式钢筋混凝土实心板 =====
+  - code: SLB-A-01
+    name: 钢筋锈蚀
+    parts: [slab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SLB-A-02
+    name: 底板纵向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.3mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SLB-A-03
+    name: 底板横向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: SLB-A-04
+    name: 梁端剪切裂缝
+    parts: [slab]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝
+
+  # ===== 表 6.2.3 整体式钢筋混凝土空心板 =====
+  - code: SLB-IH-01
+    name: 钢筋锈蚀
+    parts: [slab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SLB-IH-02
+    name: 底板纵向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SLB-IH-03
+    name: 底板斜向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.3mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SLB-IH-04
+    name: 底板横向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: SLB-IH-05
+    name: 梁端剪切裂缝
+    parts: [slab]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝
+
+  # ===== 表 6.2.4 装配式钢筋混凝土空心板 =====
+  - code: SLB-AH-01
+    name: 钢筋锈蚀
+    parts: [slab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SLB-AH-02
+    name: 底板纵向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.3mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SLB-AH-03
+    name: 底板横向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: SLB-AH-04
+    name: 腹板竖（斜）向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm；从梁底向上延伸高度小于1/3截面高度
+      - scale: 2
+        quantitative: 宽度介于0.15~0.3mm；从梁底向上延伸高度介于1/3~1/2截面高度
+      - scale: 3
+        quantitative: 宽度大于0.3mm；从梁底向上延伸高度大于1/2截面高度
+  - code: SLB-AH-05
+    name: 梁端剪切裂缝
+    parts: [slab]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝
+
+  # ===== 表 6.2.5 装配式预应力混凝土空心板 =====
+  - code: SLB-AHP-01
+    name: 钢筋锈蚀
+    parts: [slab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SLB-AHP-02
+    name: 底板纵向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.3mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SLB-AHP-03
+    name: 底板横向裂缝
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 宽度不大于0.1mm，横向未贯通
+        quantitative: 宽度不大于0.1mm，横向未贯通
+      - scale: 2
+        qualitative: 宽度不大于0.1mm，横向贯通
+        quantitative: 宽度不大于0.1mm，横向贯通
+      - scale: 3
+        quantitative: 宽度大于0.1mm，横向贯通
+        metricKey: crack_width
+        valueLower: 0.1
+        unit: mm
+  - code: SLB-AHP-04
+    name: 腹板竖（斜）向裂缝
+    parts: [slab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 宽度不大于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.1mm
+        metricKey: crack_width
+        valueLower: 0.1
+        unit: mm
+  - code: SLB-AHP-05
+    name: 预应力损伤
+    parts: [slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 波纹管外露
+        quantitative: 波纹管外露
+      - scale: 2
+        qualitative: 预应力筋外露
+        quantitative: 预应力筋外露
+      - scale: 3
+        qualitative: 预应力筋严重锈蚀
+        quantitative: 预应力筋严重锈蚀
+  - code: SLB-AHP-06
+    name: 梁端剪切裂缝
+    parts: [slab]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝

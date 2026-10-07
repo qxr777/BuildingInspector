@@ -1,0 +1,9 @@
+# B06 悬臂浇筑箱梁桥（附录 B 表 B.2.6）
+code: B06
+gamma: {deck: 0.10, superstructure: 0.45, substructure: 0.40, ancillary: 0.05}
+superstructureParts:
+  - {key: boxGirder, name: 箱梁, omega: 70}
+  - {key: bearing, name: 支座, omega: 30}
+rules:
+  - 每个施工节段划分为 1 个构件
+  - 节段连接处缺损计入靠近桥墩一侧节段

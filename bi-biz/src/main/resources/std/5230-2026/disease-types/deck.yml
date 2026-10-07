@@ -1,0 +1,1089 @@
+# 第 5 章 桥面系构件结构性缺损评定（正式稿 JTG/T 5230—2026）
+# 部件键：paving 桥面铺装 / expansionJoint 伸缩装置 / railing 护栏及人行道 / drainage 排水系统
+diseaseTypes:
+
+  # ===== 表 5.2.1 沥青混凝土桥面铺装 =====
+  - code: PAV-A-01
+    name: 车辙
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 深度小于10mm
+        metricKey: depth
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 深度介于10~25mm
+        metricKey: depth
+        valueLower: 10
+        valueUpper: 25
+        unit: mm
+      - scale: 3
+        quantitative: 深度大于25mm
+        metricKey: depth
+        valueLower: 25
+        unit: mm
+  - code: PAV-A-02
+    name: 波浪拥包
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 高度小于10mm
+        metricKey: height
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 高度介于10~25mm
+        metricKey: height
+        valueLower: 10
+        valueUpper: 25
+        unit: mm
+      - scale: 3
+        quantitative: 高度大于25mm
+        metricKey: height
+        valueLower: 25
+        unit: mm
+  - code: PAV-A-03
+    name: 坑槽
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 深度不大于25mm，单处面积不大于0.1m²
+      - scale: 2
+        quantitative: 深度不大于25mm，单处面积大于0.1m²
+      - scale: 3
+        quantitative: 深度大于25mm
+        metricKey: depth
+        valueLower: 25
+        unit: mm
+  - code: PAV-A-04
+    name: 龟裂
+    parts: [paving]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        quantitative: 面积不大于0.04m²
+        metricKey: area
+        valueUpper: 0.04
+        unit: m²
+      - scale: 1
+        quantitative: 单处面积大于0.04m²；累计面积小于0.2m²
+      - scale: 2
+        quantitative: 累计面积介于0.2~1m²
+        metricKey: area
+        valueLower: 0.2
+        valueUpper: 1
+        unit: m²
+      - scale: 3
+        quantitative: 累计面积大于1m²
+        metricKey: area
+        valueLower: 1
+        unit: m²
+  - code: PAV-A-05
+    name: 纵向裂缝长度
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 长度小于桥跨长度的20%
+        metricKey: length_ratio
+        valueUpper: 20
+        unit: "%"
+      - scale: 2
+        quantitative: 长度介于桥跨长度的20%~60%
+        metricKey: length_ratio
+        valueLower: 20
+        valueUpper: 60
+        unit: "%"
+      - scale: 3
+        quantitative: 长度大于桥跨长度的60%
+        metricKey: length_ratio
+        valueLower: 60
+        unit: "%"
+  - code: PAV-A-06
+    name: 横向裂缝
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 裂缝宽度小于2mm
+        metricKey: crack_width
+        valueUpper: 2
+        unit: mm
+      - scale: 2
+        quantitative: 裂缝宽度介于2~5mm
+        metricKey: crack_width
+        valueLower: 2
+        valueUpper: 5
+        unit: mm
+      - scale: 3
+        quantitative: 裂缝宽度大于5mm
+        metricKey: crack_width
+        valueLower: 5
+        unit: mm
+
+  # ===== 表 5.2.2 水泥混凝土桥面铺装 =====
+  - code: PAV-C-01
+    name: 磨光或露骨
+    parts: [paving]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 单处面积不大于1m²；累计面积不大于桥跨面积的10%
+      - scale: 2
+        quantitative: 单处面积大于1m²；累计面积大于桥跨面积的10%
+  - code: PAV-C-02
+    name: 坑洞、露筋
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 坑洞深度小于10mm
+        metricKey: depth
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 坑洞深度介于10~30mm
+        metricKey: depth
+        valueLower: 10
+        valueUpper: 30
+        unit: mm
+      - scale: 3
+        quantitative: 坑洞深度大于30mm；有露筋
+  - code: PAV-C-03
+    name: 裂缝
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 裂缝宽度小于0.3mm；裂缝间距大于3m
+      - scale: 2
+        quantitative: 裂缝宽度介于0.3~0.5mm；裂缝间距小于1m
+      - scale: 3
+        quantitative: 裂缝宽度大于0.5mm；完全断裂
+  - code: PAV-C-04
+    name: 错台
+    parts: [paving]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 高差小于5mm
+        metricKey: height
+        valueUpper: 5
+        unit: mm
+      - scale: 2
+        quantitative: 高差介于5~10mm
+        metricKey: height
+        valueLower: 5
+        valueUpper: 10
+        unit: mm
+      - scale: 3
+        quantitative: 高差大于10mm
+        metricKey: height
+        valueLower: 10
+        unit: mm
+
+  # ===== 表 5.3.1 橡胶式伸缩装置 =====
+  - code: EXP-R-01
+    name: 橡胶板老化破损
+    parts: [expansionJoint]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 轻度老化
+        quantitative: 轻度老化
+      - scale: 1
+        quantitative: 破损范围小于10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 破损范围介于10%~30%
+        metricKey: count_ratio
+        valueLower: 10
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 破损范围大于30%
+        metricKey: count_ratio
+        valueLower: 30
+        unit: "%"
+  - code: EXP-R-02
+    name: 渗漏水
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 局部滴漏，范围小于10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 渗漏范围介于10%~50%
+        metricKey: count_ratio
+        valueLower: 10
+        valueUpper: 50
+        unit: "%"
+      - scale: 3
+        quantitative: 渗漏范围大于50%
+        metricKey: count_ratio
+        valueLower: 50
+        unit: "%"
+  - code: EXP-R-03
+    name: 锚固螺栓松动、脱落
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 数量小于10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 数量介于10%~30%
+        metricKey: count_ratio
+        valueLower: 10
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 数量大于30%
+        metricKey: count_ratio
+        valueLower: 30
+        unit: "%"
+
+  # ===== 表 5.3.2 模数式伸缩装置 =====
+  - code: EXP-M-01
+    name: 堵塞
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        qualitative: 少量堵塞
+        quantitative: 少量堵塞
+      - scale: 2
+        qualitative: 严重堵塞
+        quantitative: 严重堵塞
+  - code: EXP-M-02
+    name: 止水带老化破损
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 老化开裂；破损、脱落、渗漏水范围小于10%
+      - scale: 2
+        quantitative: 破损、脱落、渗漏水范围介于10%~30%
+      - scale: 3
+        quantitative: 破损、脱落、渗漏水范围大于30%
+  - code: EXP-M-03
+    name: 钢件损坏
+    parts: [expansionJoint]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 局部变形；组件异常
+        quantitative: 局部变形；组件异常
+      - scale: 3
+        qualitative: 翘曲；断裂
+        quantitative: 翘曲；断裂
+  - code: EXP-M-04
+    name: 锚固区损伤
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 纵向裂缝；混凝土破损范围小于10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 混凝土破损范围介于10%~30%
+        metricKey: count_ratio
+        valueLower: 10
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 混凝土破损范围大于30%
+        metricKey: count_ratio
+        valueLower: 30
+        unit: "%"
+  - code: EXP-M-05
+    name: 纵梁间高差
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 高差小于5mm
+        metricKey: height
+        valueUpper: 5
+        unit: mm
+      - scale: 2
+        quantitative: 高差介于5~10mm
+        metricKey: height
+        valueLower: 5
+        valueUpper: 10
+        unit: mm
+      - scale: 3
+        quantitative: 高差大于10mm
+        metricKey: height
+        valueLower: 10
+        unit: mm
+  - code: EXP-M-06
+    name: 支承元件损伤
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 少量缺损
+        quantitative: 少量缺损
+      - scale: 2
+        quantitative: 弹性支承元件严重剪切变形或刚性支承元件松动数量大于20%
+      - scale: 3
+        quantitative: 支承元件破损、脱空或脱落数量大于10%
+  - code: EXP-M-07
+    name: 横梁损伤
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 磨损
+        quantitative: 磨损
+      - scale: 2
+        quantitative: 变形不大于5mm
+        metricKey: deformation
+        valueUpper: 5
+        unit: mm
+      - scale: 3
+        quantitative: 变形大于5mm；断裂
+
+  # ===== 表 5.3.3 梳齿板式伸缩装置 =====
+  - code: EXP-C-01
+    name: 堵塞
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        qualitative: 少量堵塞
+        quantitative: 少量堵塞
+      - scale: 2
+        qualitative: 严重堵塞
+        quantitative: 严重堵塞
+  - code: EXP-C-02
+    name: 止水带/导水管老化破损
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 老化开裂；破损、脱落、渗漏水范围小于10%
+      - scale: 2
+        quantitative: 破损、脱落、渗漏水范围介于10%~30%
+      - scale: 3
+        quantitative: 破损、脱落、渗漏水范围大于30%
+  - code: EXP-C-03
+    name: 梳齿板缺损
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 相邻齿板高差小于2mm
+        metricKey: height
+        valueUpper: 2
+        unit: mm
+      - scale: 2
+        quantitative: 相邻齿板高差介于2~5mm；齿板缝隙不均匀
+      - scale: 3
+        quantitative: 相邻齿板高差大于5mm；卡齿、断裂或脱落
+  - code: EXP-C-04
+    name: 锚固区损伤
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 纵向裂缝；混凝土破损范围小于10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 混凝土破损范围介于10%~30%
+        metricKey: count_ratio
+        valueLower: 10
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 混凝土破损范围大于30%
+        metricKey: count_ratio
+        valueLower: 30
+        unit: "%"
+  - code: EXP-C-05
+    name: 对接齿板高差
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 高差小于5mm
+        metricKey: height
+        valueUpper: 5
+        unit: mm
+      - scale: 2
+        quantitative: 高差介于5~10mm
+        metricKey: height
+        valueLower: 5
+        valueUpper: 10
+        unit: mm
+      - scale: 3
+        quantitative: 高差大于10mm
+        metricKey: height
+        valueLower: 10
+        unit: mm
+  - code: EXP-C-06
+    name: 锚固螺栓缺损
+    parts: [expansionJoint]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 完好或轻度锈蚀
+        quantitative: 完好或轻度锈蚀
+      - scale: 1
+        qualitative: 锚固胶缺失
+        quantitative: 锚固胶缺失
+      - scale: 2
+        quantitative: 松动或脱落数量不大于30%
+        metricKey: count_ratio
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 松动或脱落数量大于30%
+        metricKey: count_ratio
+        valueLower: 30
+        unit: "%"
+  - code: EXP-C-07
+    name: 支承托架缺损
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 脱焊、局部松动数量小于10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 脱焊、局部松动数量介于10%~30%
+        metricKey: count_ratio
+        valueLower: 10
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 脱焊、局部松动数量大于30%；有明显变形
+
+  # ===== 表 5.3.4 无缝式伸缩装置 =====
+  - code: EXP-S-01
+    name: 渗漏水
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        qualitative: 局部渗漏
+        quantitative: 局部渗漏
+      - scale: 2
+        qualitative: 大面积渗漏
+        quantitative: 大面积渗漏
+  - code: EXP-S-02
+    name: 开裂
+    parts: [expansionJoint]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 局部开裂
+        quantitative: 局部开裂
+      - scale: 2
+        qualitative: 较大范围的开裂
+        quantitative: 较大范围的开裂
+      - scale: 3
+        qualitative: 完全开裂；弹性体暴露、损坏
+        quantitative: 完全开裂；弹性体暴露、损坏
+
+  # ===== 表 5.4.1 混凝土护栏 =====
+  - code: GR-C-01
+    name: 钢扶手缺损
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 锈蚀长度不大于10%；变形小于10mm
+      - scale: 2
+        quantitative: 锈蚀长度大于10%；变形介于10~30mm
+      - scale: 3
+        quantitative: 变形大于30mm
+        metricKey: height
+        valueLower: 30
+        unit: mm
+  - code: GR-C-02
+    name: 钢筋锈蚀
+    parts: [railing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: GR-C-03
+    name: 竖向裂缝
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: GR-C-04
+    name: 混凝土破损
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 局部破损
+        quantitative: 局部破损
+      - scale: 2
+        qualitative: 大面积破损，钢筋外露
+        quantitative: 大面积破损，钢筋外露
+      - scale: 3
+        qualitative: 局部倾斜或倒塌
+        quantitative: 局部倾斜或倒塌
+
+  # ===== 表 5.4.2 金属梁柱式护栏 =====
+  - code: GR-M-01
+    name: 锈蚀
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 氧化皮覆盖，几乎没有铁锈
+        quantitative: 氧化皮覆盖，几乎没有铁锈
+      - scale: 2
+        qualitative: 发生锈蚀且氧化皮已开始剥落
+        quantitative: 发生锈蚀且氧化皮已开始剥落
+      - scale: 3
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: GR-M-02
+    name: 局部变形
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 变形小于10mm
+        metricKey: height
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 变形介于10~20mm
+        metricKey: height
+        valueLower: 10
+        valueUpper: 20
+        unit: mm
+      - scale: 3
+        quantitative: 变形大于20mm
+        metricKey: height
+        valueLower: 20
+        unit: mm
+  - code: GR-M-03
+    name: 杆件、连接缺失
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别螺栓松动
+        quantitative: 个别螺栓松动
+      - scale: 2
+        qualitative: 少量螺栓松动、脱落；横向杆件缺失
+        quantitative: 少量螺栓松动、脱落；横向杆件缺失
+      - scale: 3
+        qualitative: 大量螺栓松动、脱落；立柱缺失
+        quantitative: 大量螺栓松动、脱落；立柱缺失
+  - code: GR-M-04
+    name: 立柱锚固缺损
+    parts: [railing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 螺栓松动、脱落
+        quantitative: 螺栓松动、脱落
+      - scale: 3
+        qualitative: 大量螺栓松动、脱落；底座局部松动
+        quantitative: 大量螺栓松动、脱落；底座局部松动
+
+  # ===== 表 5.4.3 组合式护栏 =====
+  - code: GR-X-01
+    name: 钢件锈蚀
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 氧化皮覆盖，几乎没有铁锈
+        quantitative: 氧化皮覆盖，几乎没有铁锈
+      - scale: 2
+        qualitative: 发生锈蚀且氧化皮已开始剥落
+        quantitative: 发生锈蚀且氧化皮已开始剥落
+      - scale: 3
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: GR-X-02
+    name: 钢件缺损
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别杆件变形
+        quantitative: 个别杆件变形
+      - scale: 2
+        qualitative: 多处杆件变形
+        quantitative: 多处杆件变形
+      - scale: 3
+        qualitative: 杆件缺失
+        quantitative: 杆件缺失
+  - code: GR-X-03
+    name: 锚固缺损
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别螺栓松动
+        quantitative: 个别螺栓松动
+      - scale: 2
+        qualitative: 少量螺栓松动或脱落
+        quantitative: 少量螺栓松动或脱落
+      - scale: 3
+        qualitative: 大量螺栓松动或脱落
+        quantitative: 大量螺栓松动或脱落
+  - code: GR-X-04
+    name: 混凝土竖向裂缝
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: GR-X-05
+    name: 混凝土破损、变形
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 局部破损
+        quantitative: 局部破损
+      - scale: 2
+        qualitative: 大面积破损，钢筋外露
+        quantitative: 大面积破损，钢筋外露
+      - scale: 3
+        qualitative: 局部倾斜或倒塌
+        quantitative: 局部倾斜或倒塌
+
+  # ===== 表 5.4.4 波形梁钢护栏 =====
+  - code: GR-W-01
+    name: 锈蚀
+    parts: [railing]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 面积不大于所在面面积的10%
+        metricKey: area_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 面积大于所在面面积的10%
+        metricKey: area_ratio
+        valueLower: 10
+        unit: "%"
+  - code: GR-W-02
+    name: 波形钢板局部变形
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 变形小于20mm
+        metricKey: height
+        valueUpper: 20
+        unit: mm
+      - scale: 2
+        quantitative: 变形介于20~50mm
+        metricKey: height
+        valueLower: 20
+        valueUpper: 50
+        unit: mm
+      - scale: 3
+        quantitative: 变形大于50mm
+        metricKey: height
+        valueLower: 50
+        unit: mm
+  - code: GR-W-03
+    name: 波形钢板整体变形
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 变形小于50mm
+        metricKey: height
+        valueUpper: 50
+        unit: mm
+      - scale: 2
+        quantitative: 变形介于50~100mm
+        metricKey: height
+        valueLower: 50
+        valueUpper: 100
+        unit: mm
+      - scale: 3
+        quantitative: 变形大于100mm
+        metricKey: height
+        valueLower: 100
+        unit: mm
+  - code: GR-W-04
+    name: 立柱变位
+    parts: [railing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 变位不大于50mm
+        metricKey: height
+        valueUpper: 50
+        unit: mm
+      - scale: 3
+        quantitative: 变位大于50mm
+        metricKey: height
+        valueLower: 50
+        unit: mm
+  - code: GR-W-05
+    name: 防阻块损伤
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 变形小于构件尺寸的5%
+        metricKey: length_ratio
+        valueUpper: 5
+        unit: "%"
+      - scale: 2
+        quantitative: 变形介于构件尺寸的5%~10%
+        metricKey: length_ratio
+        valueLower: 5
+        valueUpper: 10
+        unit: "%"
+      - scale: 3
+        quantitative: 变形大于构件尺寸的10%；脱落
+  - code: GR-W-06
+    name: 螺栓缺失
+    parts: [railing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 缺失数量不大于5%
+        metricKey: count_ratio
+        valueUpper: 5
+        unit: "%"
+      - scale: 3
+        quantitative: 缺失数量大于5%
+        metricKey: count_ratio
+        valueLower: 5
+        unit: "%"
+
+  # ===== 表 5.4.5 缆索护栏 =====
+  - code: GR-CABLE-01
+    name: 钢丝绳
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 表面轻度锈蚀
+        quantitative: 表面轻度锈蚀
+      - scale: 2
+        qualitative: 表面大量锈蚀或单根钢丝绳松弛
+        quantitative: 表面大量锈蚀或单根钢丝绳松弛
+      - scale: 3
+        qualitative: 两根以上钢丝绳松弛或有钢丝绳缺失
+        quantitative: 两根以上钢丝绳松弛或有钢丝绳缺失
+  - code: GR-CABLE-02
+    name: 立柱锈蚀
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 表面轻度锈蚀
+        quantitative: 表面轻度锈蚀
+      - scale: 2
+        quantitative: 锈蚀膨胀面积不大于构件面积的5%
+        metricKey: area_ratio
+        valueUpper: 5
+        unit: "%"
+      - scale: 3
+        quantitative: 锈蚀膨胀面积大于构件面积的5%
+        metricKey: area_ratio
+        valueLower: 5
+        unit: "%"
+  - code: GR-CABLE-03
+    name: 立柱松动变形
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别杆件轻度变形
+        quantitative: 个别杆件轻度变形
+      - scale: 2
+        qualitative: 个别杆件明显变形
+        quantitative: 个别杆件明显变形
+      - scale: 3
+        qualitative: 个别杆件显著变形
+        quantitative: 个别杆件显著变形
+  - code: GR-CABLE-04
+    name: 立柱断裂
+    parts: [railing]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有杆件断裂
+        quantitative: 有杆件断裂
+
+  # ===== 表 5.5.1 栏杆 =====
+  - code: RAIL-01
+    name: 剥落露筋
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 局部混凝土剥落
+        quantitative: 局部混凝土剥落
+      - scale: 2
+        qualitative: 多处混凝土剥落，钢筋外露锈蚀
+        quantitative: 多处混凝土剥落，钢筋外露锈蚀
+      - scale: 3
+        qualitative: 混凝土剥落，钢筋严重锈蚀
+        quantitative: 混凝土剥落，钢筋严重锈蚀
+  - code: RAIL-02
+    name: 开裂
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别杆件开裂
+        quantitative: 个别杆件开裂
+      - scale: 2
+        qualitative: 局部杆件开裂，尚不影响安全
+        quantitative: 局部杆件开裂，尚不影响安全
+      - scale: 3
+        qualitative: 大量杆件开裂或有杆件断裂
+        quantitative: 大量杆件开裂或有杆件断裂
+  - code: RAIL-03
+    name: 松动、变形
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别杆件松动
+        quantitative: 个别杆件松动
+      - scale: 2
+        qualitative: 局部杆件变形，尚不影响安全
+        quantitative: 局部杆件变形，尚不影响安全
+      - scale: 3
+        qualitative: 局部、整体变形
+        quantitative: 局部、整体变形
+  - code: RAIL-04
+    name: 锚固缺损
+    parts: [railing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 个别立柱或挑梁松动
+        quantitative: 个别立柱或挑梁松动
+      - scale: 3
+        qualitative: 较多立柱或挑梁松动
+        quantitative: 较多立柱或挑梁松动
+
+  # ===== 表 5.5.2 人行道 =====
+  - code: SIDEWALK-01
+    name: 人行道板缺损
+    parts: [railing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 粉化、剥落
+        quantitative: 粉化、剥落
+      - scale: 1
+        qualitative: 磨耗、露骨
+        quantitative: 磨耗、露骨
+      - scale: 2
+        qualitative: 缺角、松动、钢筋锈蚀
+        quantitative: 缺角、松动、钢筋锈蚀
+      - scale: 3
+        qualitative: 断裂、塌陷
+        quantitative: 断裂、塌陷
+  - code: SIDEWALK-02
+    name: 人行道面砖缺损
+    parts: [railing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 脱落不大于10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 3
+        quantitative: 脱落大于10%
+        metricKey: count_ratio
+        valueLower: 10
+        unit: "%"
+  - code: SIDEWALK-03
+    name: 挑梁缺损
+    parts: [railing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 渗水侵蚀
+        quantitative: 渗水侵蚀
+      - scale: 2
+        qualitative: 混凝土剥落、钢筋锈蚀
+        quantitative: 混凝土剥落、钢筋锈蚀
+      - scale: 3
+        qualitative: 裂缝、松动、变形
+        quantitative: 裂缝、松动、变形
+  - code: SIDEWALK-04
+    name: 路缘石缺损
+    parts: [railing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 磨损
+        quantitative: 磨损
+      - scale: 1
+        qualitative: 缺角、钢筋锈蚀
+        quantitative: 缺角、钢筋锈蚀
+      - scale: 2
+        qualitative: 混凝土剥落、钢筋锈蚀
+        quantitative: 混凝土剥落、钢筋锈蚀
+      - scale: 3
+        qualitative: 断裂、缺失
+        quantitative: 断裂、缺失
+
+  # ===== 表 5.6.1 排水系统 =====
+  - code: DR-01
+    name: 排水口堵塞
+    parts: [drainage]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 数量不大于总量的30%
+        metricKey: count_ratio
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 数量大于总量的30%
+        metricKey: count_ratio
+        valueLower: 30
+        unit: "%"
+  - code: DR-02
+    name: 设置缺陷
+    parts: [drainage]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 排水侵蚀梁体
+        quantitative: 排水侵蚀梁体
+      - scale: 3
+        quantitative: 排水侵蚀导致防护劣化；排水口高于桥面铺装
+  - code: DR-03
+    name: 设置不足
+    parts: [drainage]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 数量不满足规范要求
+        quantitative: 数量不满足规范要求

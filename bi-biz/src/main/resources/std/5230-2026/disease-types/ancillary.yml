@@ -1,0 +1,151 @@
+# 第 12 章 附属构造结构性缺损评定（正式稿 JTG/T 5230—2026）
+diseaseTypes:
+  # 12.2 河床及调治构造物
+  # 表 12.2.1 河床评定
+  - code: ANC-RIV-01
+    name: 河床铺砌缺损
+    parts: [riverbed]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度缺损无塌陷
+        quantitative: 轻度缺损无塌陷
+      - scale: 2
+        qualitative: 局部塌陷
+        quantitative: 局部塌陷
+      - scale: 3
+        qualitative: 大面积塌陷
+        quantitative: 大面积塌陷
+  - code: ANC-RIV-02
+    name: 河床冲刷
+    parts: [riverbed]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 明显冲刷，未超过一般冲刷线
+        quantitative: 明显冲刷，未超过一般冲刷线
+      - scale: 3
+        qualitative: 严重冲刷，超过一般冲刷线
+        quantitative: 严重冲刷，超过一般冲刷线
+  - code: ANC-RIV-03
+    name: 河道淤塞
+    parts: [riverbed]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 明显淤塞
+        quantitative: 明显淤塞
+      - scale: 3
+        qualitative: 严重淤塞
+        quantitative: 严重淤塞
+  - code: ANC-RIV-04
+    name: 河道迁移
+    parts: [riverbed]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 明显迁移，但对结构无影响
+        quantitative: 明显迁移，但对结构无影响
+      - scale: 2
+        qualitative: 明显迁移，造成墩台局部冲刷
+        quantitative: 明显迁移，造成墩台局部冲刷
+      - scale: 3
+        qualitative: 严重变迁，造成墩台冲刷严重
+        quantitative: 严重变迁，造成墩台冲刷严重
+  # 表 12.2.2 调治构造物评定
+  # 注：调治构造物包括导流堤、临近的丁坝等构造。
+  - code: ANC-RIV-05
+    name: 缺损
+    parts: [riverbed]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 无缺损或未设置
+        quantitative: 无缺损或未设置
+      - scale: 1
+        qualitative: 轻度缺损
+        quantitative: 轻度缺损
+      - scale: 2
+        qualitative: 明显缺损，未对相关结构造成影响
+        quantitative: 明显缺损，未对相关结构造成影响
+      - scale: 3
+        qualitative: 严重缺损或对相关结构造成影响
+        quantitative: 严重缺损或对相关结构造成影响
+
+  # 12.3 翼墙、锥坡、护坡
+  # 表 12.3.1 翼墙、锥坡、护坡评定
+  - code: ANC-REV-01
+    name: 缺损
+    parts: [revetment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度缺损
+        quantitative: 轻度缺损
+      - scale: 2
+        qualitative: 中度缺损，未对相关结构造成影响
+        quantitative: 中度缺损，未对相关结构造成影响
+      - scale: 3
+        qualitative: 严重缺损，对相关结构造成影响
+        quantitative: 严重缺损，对相关结构造成影响
+  - code: ANC-REV-02
+    name: 裂缝
+    parts: [revetment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.5mm
+        metricKey: crack_width
+        valueUpper: 0.5
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.5~1.0mm
+        metricKey: crack_width
+        valueLower: 0.5
+        valueUpper: 1.0
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于1.0mm
+        metricKey: crack_width
+        valueLower: 1.0
+        unit: mm
+  - code: ANC-REV-03
+    name: 变形、变位
+    parts: [revetment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 有外鼓
+        quantitative: 有外鼓
+      - scale: 2
+        qualitative: 有位移
+        quantitative: 有位移
+      - scale: 3
+        qualitative: 局部塌落
+        quantitative: 局部塌落
+
+  # 12.4 其他附属设施
+  # 表 12.4.1 其他附属设施评定（未按标准或设计文件设置的附属设施评定标度值应为 3）
+  - code: ANC-OTH-01
+    name: 缺损
+    parts: [otherAncillary]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度缺损
+        quantitative: 轻度缺损
+      - scale: 2
+        qualitative: 中度缺损
+        quantitative: 中度缺损
+      - scale: 3
+        qualitative: 严重缺损
+        quantitative: 严重缺损

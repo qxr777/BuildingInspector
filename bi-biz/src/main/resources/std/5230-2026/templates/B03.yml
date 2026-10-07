@@ -1,0 +1,7 @@
+# B03 装配式组合箱梁桥（附录 B 表 B.2.4，与装配式肋梁共用参数表）
+code: B03
+gamma: {deck: 0.15, superstructure: 0.42, substructure: 0.38, ancillary: 0.05}
+superstructureParts:
+  - {key: mainGirder, name: 主梁, omega: 55}
+  - {key: diaphragm, name: 横隔板, omega: 20}
+  - {key: bearing, name: 支座, omega: 25}

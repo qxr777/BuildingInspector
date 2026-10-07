@@ -1,0 +1,7 @@
+# B02 装配式实心板梁桥 / 装配式空心板梁桥（附录 B 表 B.2.3）
+code: B02
+gamma: {deck: 0.15, superstructure: 0.40, substructure: 0.40, ancillary: 0.05}
+superstructureParts:
+  - {key: slab, name: 实心板或空心板, omega: 60}
+  - {key: hinge, name: 铰缝, omega: 25}
+  - {key: bearing, name: 支座, omega: 15}

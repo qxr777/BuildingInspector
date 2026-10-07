@@ -1,0 +1,414 @@
+# 第 6.2 节 主梁——钢梁各形式 / 牛腿；第 6.3 节 钢横向联系（正式稿 JTG/T 5230—2026）
+# 部件键：steelMainGirder 钢主梁 / deckSlab 桥面板 / lateralBracing 横向联系 / mainGirder、slab（牛腿）
+diseaseTypes:
+
+  # ===== 表 6.2.12 钢箱梁 =====
+  - code: STL-BOX-01
+    name: 锈蚀
+    parts: [steelMainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积不大于10%
+        metricKey: area_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积大于10%
+        metricKey: area_ratio
+        valueLower: 10
+        unit: "%"
+      - scale: 3
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: STL-BOX-02
+    name: 裂纹
+    parts: [steelMainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有裂纹
+        quantitative: 有裂纹
+  - code: STL-BOX-03
+    name: 局部变形
+    parts: [steelMainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显局部变形
+        quantitative: 明显局部变形
+  - code: STL-BOX-04
+    name: 加劲肋裂纹
+    parts: [steelMainGirder]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 裂纹长度不大于断面长度的5%
+        metricKey: length_ratio
+        valueUpper: 5
+        unit: "%"
+      - scale: 3
+        quantitative: 裂纹长度大于断面长度的5%
+        metricKey: length_ratio
+        valueLower: 5
+        unit: "%"
+  - code: STL-BOX-05
+    name: 螺栓、铆钉缺损
+    parts: [steelMainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 表面轻度锈蚀
+        quantitative: 表面轻度锈蚀
+      - scale: 2
+        quantitative: 松动、脱落数量不大于节点总量的10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 3
+        quantitative: 松动、脱落数量大于节点总量的10%
+        metricKey: count_ratio
+        valueLower: 10
+        unit: "%"
+  - code: STL-BOX-06
+    name: 除湿系统
+    parts: [steelMainGirder]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 除湿系统异常，湿度不大于设计值
+        quantitative: 除湿系统异常，湿度不大于设计值
+      - scale: 3
+        qualitative: 除湿系统异常，湿度大于设计值
+        quantitative: 除湿系统异常，湿度大于设计值
+
+  # ===== 表 6.2.13 钢桁梁 =====
+  - code: STL-TR-01
+    name: 锈蚀
+    parts: [steelMainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积不大于10%
+        metricKey: area_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积大于10%
+        metricKey: area_ratio
+        valueLower: 10
+        unit: "%"
+      - scale: 3
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: STL-TR-02
+    name: 裂纹
+    parts: [steelMainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有裂纹
+        quantitative: 有裂纹
+  - code: STL-TR-03
+    name: 局部变形
+    parts: [steelMainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显局部变形
+        quantitative: 明显局部变形
+  - code: STL-TR-04
+    name: 加劲肋裂纹
+    parts: [steelMainGirder]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 裂纹长度不大于断面长度的5%
+        metricKey: length_ratio
+        valueUpper: 5
+        unit: "%"
+      - scale: 3
+        quantitative: 裂纹长度大于断面长度的5%
+        metricKey: length_ratio
+        valueLower: 5
+        unit: "%"
+  - code: STL-TR-05
+    name: 螺栓、铆钉缺损
+    parts: [steelMainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 表面轻度锈蚀
+        quantitative: 表面轻度锈蚀
+      - scale: 2
+        quantitative: 松动、脱落数量不大于节点总量的10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 3
+        quantitative: 松动、脱落数量大于节点总量的10%
+        metricKey: count_ratio
+        valueLower: 10
+        unit: "%"
+
+  # ===== 表 6.2.14 钢板梁 =====
+  - code: STL-PL-01
+    name: 锈蚀
+    parts: [steelMainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积不大于10%
+        metricKey: area_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积大于10%
+        metricKey: area_ratio
+        valueLower: 10
+        unit: "%"
+      - scale: 3
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: STL-PL-02
+    name: 裂纹
+    parts: [steelMainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有裂纹
+        quantitative: 有裂纹
+  - code: STL-PL-03
+    name: 局部变形
+    parts: [steelMainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显局部变形
+        quantitative: 明显局部变形
+  - code: STL-PL-04
+    name: 加劲肋裂纹
+    parts: [steelMainGirder]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 裂纹长度不大于断面长度的5%
+        metricKey: length_ratio
+        valueUpper: 5
+        unit: "%"
+      - scale: 3
+        quantitative: 裂纹长度大于断面长度的5%
+        metricKey: length_ratio
+        valueLower: 5
+        unit: "%"
+
+  # ===== 表 6.2.15 钢-混凝土组合梁连接部 =====
+  - code: STL-CONN-01
+    name: 渗水侵蚀
+    parts: [steelMainGirder, deckSlab]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        qualitative: 有渗水侵蚀
+        quantitative: 有渗水侵蚀
+      - scale: 2
+        qualitative: 严重渗水侵蚀
+        quantitative: 严重渗水侵蚀
+  - code: STL-CONN-02
+    name: 裂缝
+    parts: [steelMainGirder, deckSlab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 混凝土板不规则开裂
+        quantitative: 混凝土板不规则开裂
+      - scale: 3
+        qualitative: 混凝土板沿结合面局部开裂
+        quantitative: 混凝土板沿结合面局部开裂
+
+  # ===== 表 6.2.16 牛腿 =====
+  - code: STL-COR-01
+    name: 渗水侵蚀
+    parts: [mainGirder, slab]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        qualitative: 偶有渗水侵蚀
+        quantitative: 偶有渗水侵蚀
+      - scale: 2
+        qualitative: 经常性渗水侵蚀
+        quantitative: 经常性渗水侵蚀
+  - code: STL-COR-02
+    name: 钢筋锈蚀
+    parts: [mainGirder, slab]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 钢筋锈蚀
+        quantitative: 钢筋锈蚀
+      - scale: 3
+        qualitative: 钢筋严重锈蚀
+        quantitative: 钢筋严重锈蚀
+  - code: STL-COR-03
+    name: 根部裂缝
+    parts: [mainGirder, slab]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有受力裂缝
+        quantitative: 有受力裂缝
+  - code: STL-COR-04
+    name: 防落梁构造损伤
+    parts: [mainGirder, slab]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 与挂梁抵死
+        quantitative: 与挂梁抵死
+      - scale: 2
+        quantitative: 裂缝宽度不大于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 3
+        quantitative: 裂缝宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+
+  # ===== 表 6.3.3 钢横梁及横隔板 =====
+  - code: LAT-BEAM-01
+    name: 锈蚀
+    parts: [lateralBracing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积不大于10%
+        metricKey: area_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积大于10%
+        metricKey: area_ratio
+        valueLower: 10
+        unit: "%"
+      - scale: 3
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: LAT-BEAM-02
+    name: 裂纹
+    parts: [lateralBracing]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有裂纹
+        quantitative: 有裂纹
+  - code: LAT-BEAM-03
+    name: 局部变形
+    parts: [lateralBracing]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显局部变形
+        quantitative: 明显局部变形
+  - code: LAT-BEAM-04
+    name: 螺栓、铆钉缺损
+    parts: [lateralBracing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 表面轻度锈蚀
+        quantitative: 表面轻度锈蚀
+      - scale: 2
+        quantitative: 松动、脱落数量不大于节点总量的10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 3
+        quantitative: 松动、脱落数量大于节点总量的10%
+        metricKey: count_ratio
+        valueLower: 10
+        unit: "%"
+
+  # ===== 表 6.3.4 纵平联 =====
+  - code: LAT-LAT-01
+    name: 锈蚀
+    parts: [lateralBracing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积不大于10%
+        metricKey: area_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 2
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积大于10%
+        metricKey: area_ratio
+        valueLower: 10
+        unit: "%"
+      - scale: 3
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: LAT-LAT-02
+    name: 裂纹
+    parts: [lateralBracing]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有裂纹
+        quantitative: 有裂纹
+  - code: LAT-LAT-03
+    name: 局部变形
+    parts: [lateralBracing]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显局部变形
+        quantitative: 明显局部变形
+  - code: LAT-LAT-04
+    name: 螺栓、铆钉缺损
+    parts: [lateralBracing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 表面轻度锈蚀
+        quantitative: 表面轻度锈蚀
+      - scale: 2
+        quantitative: 松动、脱落数量不大于节点总量的10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 3
+        quantitative: 松动、脱落数量大于节点总量的10%
+        metricKey: count_ratio
+        valueLower: 10
+        unit: "%"

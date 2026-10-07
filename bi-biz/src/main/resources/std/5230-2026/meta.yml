@@ -1,0 +1,40 @@
+# JTG/T 5230—2026《公路桥梁技术状况评定标准》元数据
+# 桥型划分依据附录 B 表 B.1.1（公路桥梁评定桥型），共 21 型。
+stdVersion: 5230-2026
+name: 公路桥梁技术状况评定标准
+code: JTG/T 5230-2026
+publishedDate: 2026-08-26
+effectiveDate: 2026-11-01
+replaces: JTG/T H21-2011
+
+bridgeTypes:
+  # ---- 梁桥（本批完成） ----
+  - {code: B01, name: 整体式实心板梁桥、整体式空心板梁桥, category: 梁桥, structureComplete: true}
+  - {code: B02, name: 装配式实心板梁桥、装配式空心板梁桥, category: 梁桥, structureComplete: true}
+  - {code: B03, name: 装配式组合箱梁桥, category: 梁桥, structureComplete: true}
+  - {code: B04, name: 装配式肋梁桥, category: 梁桥, structureComplete: true}
+  - {code: B05, name: 整体现浇箱梁桥, category: 梁桥, structureComplete: true}
+  - {code: B06, name: 悬臂浇筑箱梁桥, category: 梁桥, structureComplete: true}
+  - {code: B07, name: 钢及钢-混凝土组合梁桥, category: 梁桥, structureComplete: true}
+
+  # ---- 拱桥（后续批次，先落根桩并停用） ----
+  - {code: B08, name: 实腹式板拱桥, category: 拱桥, structureComplete: false}
+  - {code: B09, name: 空腹式板拱桥, category: 拱桥, structureComplete: false}
+  - {code: B10, name: 肋拱桥, category: 拱桥, structureComplete: false}
+  - {code: B11, name: 箱形拱桥, category: 拱桥, structureComplete: false}
+  - {code: B12, name: 双曲拱桥, category: 拱桥, structureComplete: false}
+  - {code: B13, name: 桁架拱桥, category: 拱桥, structureComplete: false}
+  - {code: B14, name: 刚架拱桥, category: 拱桥, structureComplete: false}
+
+  # ---- 组合体系拱桥（后续批次） ----
+  - {code: B15, name: 无系杆组合体系拱桥, category: 组合体系拱桥, structureComplete: false}
+  - {code: B16, name: 柔性系杆组合体系拱桥, category: 组合体系拱桥, structureComplete: false}
+  - {code: B17, name: 刚性系杆组合体系拱桥, category: 组合体系拱桥, structureComplete: false}
+
+  # ---- 悬索桥（后续批次） ----
+  - {code: B18, name: 自锚式悬索桥, category: 悬索桥, structureComplete: false}
+  - {code: B19, name: 地锚式悬索桥, category: 悬索桥, structureComplete: false}
+
+  # ---- 斜拉桥（后续批次） ----
+  - {code: B20, name: 斜拉桥, category: 斜拉桥, structureComplete: false}
+  - {code: B21, name: 部分斜拉桥, category: 斜拉桥, structureComplete: false}

@@ -1,0 +1,687 @@
+# 第 6.4 节 支座各形式（正式稿 JTG/T 5230—2026）
+# 均绑定部件键 bearing（B01–B07 全部梁桥共用，形式覆盖）
+diseaseTypes:
+
+  # ===== 表 6.4.1 板式橡胶支座 =====
+  - code: BRG-P-01
+    name: 老化开裂（矩形）
+    parts: [bearing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 轻度老化，无裂纹
+        quantitative: 轻度老化，无裂纹
+      - scale: 1
+        quantitative: 龟裂；裂缝宽度小于0.5mm
+        metricKey: crack_width
+        valueUpper: 0.5
+        unit: mm
+      - scale: 2
+        quantitative: 裂缝宽度介于0.5~2mm
+        metricKey: crack_width
+        valueLower: 0.5
+        valueUpper: 2
+        unit: mm
+      - scale: 3
+        quantitative: 裂缝宽度大于2mm
+        metricKey: crack_width
+        valueLower: 2
+        unit: mm
+  - code: BRG-P-02
+    name: 老化开裂（圆形）
+    parts: [bearing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 轻度老化，无裂纹
+        quantitative: 轻度老化，无裂纹
+      - scale: 1
+        quantitative: 龟裂；裂缝宽度小于0.5mm；裂缝长度小于周长的20%
+      - scale: 2
+        quantitative: 裂缝宽度介于0.5~2mm；裂缝长度介于周长的20%~40%
+      - scale: 3
+        quantitative: 宽度大于2mm；裂缝长度大于周长的40%
+  - code: BRG-P-03
+    name: 不均匀外鼓
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 外鼓范围小于表面积的20%
+        metricKey: area_ratio
+        valueUpper: 20
+        unit: "%"
+      - scale: 2
+        quantitative: 外鼓范围介于表面积的20%~50%
+        metricKey: area_ratio
+        valueLower: 20
+        valueUpper: 50
+        unit: "%"
+      - scale: 3
+        quantitative: 外鼓范围大于表面积的50%
+        metricKey: area_ratio
+        valueLower: 50
+        unit: "%"
+  - code: BRG-P-04
+    name: 剪切变形*
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 剪切角介于27°~35°
+        metricKey: shear_angle
+        valueLower: 27
+        valueUpper: 35
+        unit: "°"
+      - scale: 3
+        quantitative: 剪切角大于35°
+        metricKey: shear_angle
+        valueLower: 35
+        unit: "°"
+  - code: BRG-P-05
+    name: 剪切变形b
+    parts: [bearing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 无明显剪切变形
+        quantitative: 无明显剪切变形
+      - scale: 1
+        quantitative: 有明显剪切变形，剪切角小于5°
+        metricKey: shear_angle
+        valueUpper: 5
+        unit: "°"
+      - scale: 2
+        quantitative: 剪切角介于5°~15°
+        metricKey: shear_angle
+        valueLower: 5
+        valueUpper: 15
+        unit: "°"
+      - scale: 3
+        quantitative: 剪切角大于15°
+        metricKey: shear_angle
+        valueLower: 15
+        unit: "°"
+  - code: BRG-P-06
+    name: 脱空
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 面积不大于承压面积的30%
+        metricKey: area_ratio
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 面积大于承压面积的30%
+        metricKey: area_ratio
+        valueLower: 30
+        unit: "%"
+  - code: BRG-P-07
+    name: 串动
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度偏移，无悬空
+        quantitative: 轻度偏移，无悬空
+      - scale: 2
+        quantitative: 串动不大于相应边长的25%，无悬空
+        metricKey: length_ratio
+        valueUpper: 25
+        unit: "%"
+      - scale: 3
+        quantitative: 串动大于相应边长的25%，或局部悬空
+        metricKey: length_ratio
+        valueLower: 25
+        unit: "%"
+  - code: BRG-P-08
+    name: 滑动组件缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度受限
+        quantitative: 轻度受限
+      - scale: 2
+        qualitative: 明显受限但仍可滑动
+        quantitative: 明显受限但仍可滑动
+      - scale: 3
+        qualitative: 达到位移极限或变形、断裂
+        quantitative: 达到位移极限或变形、断裂
+  - code: BRG-P-09
+    name: 承压板锈蚀
+    parts: [bearing]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 轻度锈蚀，面积不大于30%
+        metricKey: area_ratio
+        valueUpper: 30
+        unit: "%"
+      - scale: 2
+        quantitative: 锈蚀面积大于30%，有蚀坑
+        metricKey: area_ratio
+        valueLower: 30
+        unit: "%"
+  - code: BRG-P-10
+    name: 安装缺陷
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 普通矩形支座纵横反置
+        quantitative: 普通矩形支座纵横反置
+      - scale: 3
+        qualitative: 滑动支座倒置
+        quantitative: 滑动支座倒置
+  - code: BRG-P-11
+    name: 垫石缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 未拆模；边角缺损；顶面高差不大于2mm
+        quantitative: 未拆模；边角缺损；顶面高差不大于2mm
+      - scale: 2
+        quantitative: 开裂宽度不大于0.3mm；顶面高差大于2mm
+      - scale: 3
+        quantitative: 开裂宽度大于0.3mm；压溃
+  - code: BRG-P-12
+    name: 周围环境缺损
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 有垃圾或积水
+        quantitative: 有垃圾或积水
+      - scale: 3
+        qualitative: 垃圾影响支座运行或长期积水
+        quantitative: 垃圾影响支座运行或长期积水
+
+  # ===== 表 6.4.2 盆式支座 =====
+  - code: BRG-POT-01
+    name: 钢件锈蚀
+    parts: [bearing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 氧化皮覆盖，几乎没有铁锈
+        quantitative: 氧化皮覆盖，几乎没有铁锈
+      - scale: 1
+        qualitative: 发生锈蚀且氧化皮已开始剥落
+        quantitative: 发生锈蚀且氧化皮已开始剥落
+      - scale: 2
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+      - scale: 3
+        qualitative: 严重锈蚀
+        quantitative: 严重锈蚀
+  - code: BRG-POT-02
+    name: 钢件缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 盆底边角翘起
+        quantitative: 盆底边角翘起
+      - scale: 2
+        qualitative: 盆环以外部分钢件开裂
+        quantitative: 盆环以外部分钢件开裂
+      - scale: 3
+        qualitative: 盆环严重变形或开裂
+        quantitative: 盆环严重变形或开裂
+  - code: BRG-POT-03
+    name: 橡胶缺损
+    parts: [bearing]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 挤出钢盆边缘
+        quantitative: 挤出钢盆边缘
+  - code: BRG-POT-04
+    name: 位移、转角
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 位移超允许值不大于10mm
+        metricKey: displacement
+        valueUpper: 10
+        unit: mm
+      - scale: 3
+        quantitative: 位移超允许值大于10mm；黄铜密封圈损伤
+  - code: BRG-POT-05
+    name: 滑动组件缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度受限
+        quantitative: 轻度受限
+      - scale: 2
+        qualitative: 明显受限但仍可滑动
+        quantitative: 明显受限但仍可滑动
+      - scale: 3
+        qualitative: 达到位移极限或限位板变形、断裂
+        quantitative: 达到位移极限或限位板变形、断裂
+  - code: BRG-POT-06
+    name: 锚固缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别锚栓未紧固
+        quantitative: 个别锚栓未紧固
+      - scale: 2
+        qualitative: 多数锚栓未紧固
+        quantitative: 多数锚栓未紧固
+      - scale: 3
+        qualitative: 锚栓断裂或失效
+        quantitative: 锚栓断裂或失效
+  - code: BRG-POT-07
+    name: 安装缺陷
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 安装组件未拆除
+        quantitative: 安装组件未拆除
+      - scale: 3
+        qualitative: 位移方向安装错误
+        quantitative: 位移方向安装错误
+  - code: BRG-POT-08
+    name: 垫石缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 未拆模；边角缺损；顶面高差不大于2mm
+        quantitative: 未拆模；边角缺损；顶面高差不大于2mm
+      - scale: 2
+        quantitative: 开裂宽度不大于0.3mm；顶面高差大于2mm
+      - scale: 3
+        quantitative: 开裂宽度大于0.3mm；压溃
+  - code: BRG-POT-09
+    name: 周围环境缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 有少量垃圾，无积水
+        quantitative: 有少量垃圾，无积水
+      - scale: 2
+        qualitative: 较多垃圾，偶有积水
+        quantitative: 较多垃圾，偶有积水
+      - scale: 3
+        qualitative: 垃圾影响支座运行或长期积水
+        quantitative: 垃圾影响支座运行或长期积水
+
+  # ===== 表 6.4.3 球形支座 =====
+  - code: BRG-SPH-01
+    name: 钢件锈蚀
+    parts: [bearing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 氧化皮覆盖，几乎没有铁锈
+        quantitative: 氧化皮覆盖，几乎没有铁锈
+      - scale: 1
+        qualitative: 发生锈蚀且氧化皮已开始剥落
+        quantitative: 发生锈蚀且氧化皮已开始剥落
+      - scale: 2
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+      - scale: 3
+        qualitative: 严重锈蚀
+        quantitative: 严重锈蚀
+  - code: BRG-SPH-02
+    name: 钢件缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 盆底边角翘起
+        quantitative: 盆底边角翘起
+      - scale: 2
+        qualitative: 盆环以外部分钢件开裂
+        quantitative: 盆环以外部分钢件开裂
+      - scale: 3
+        qualitative: 盆环严重变形或开裂
+        quantitative: 盆环严重变形或开裂
+  - code: BRG-SPH-03
+    name: 位移、转角
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 位移超允许值不大于10mm
+        metricKey: displacement
+        valueUpper: 10
+        unit: mm
+      - scale: 3
+        quantitative: 位移超允许值大于10mm，转角超允许值
+  - code: BRG-SPH-04
+    name: 滑动组件缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度受限
+        quantitative: 轻度受限
+      - scale: 2
+        qualitative: 明显受限但仍可滑动
+        quantitative: 明显受限但仍可滑动
+      - scale: 3
+        qualitative: 达到位移极限或限位板变形、断裂
+        quantitative: 达到位移极限或限位板变形、断裂
+  - code: BRG-SPH-05
+    name: 锚固缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别锚栓未紧固
+        quantitative: 个别锚栓未紧固
+      - scale: 2
+        qualitative: 多数锚栓未紧固
+        quantitative: 多数锚栓未紧固
+      - scale: 3
+        qualitative: 锚栓有断裂或失效
+        quantitative: 锚栓有断裂或失效
+  - code: BRG-SPH-06
+    name: 安装缺陷
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 安装组件未拆除
+        quantitative: 安装组件未拆除
+      - scale: 3
+        qualitative: 位移方向安装错误
+        quantitative: 位移方向安装错误
+  - code: BRG-SPH-07
+    name: 垫石缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 未拆模；边角缺损；顶面高差不大于2mm
+        quantitative: 未拆模；边角缺损；顶面高差不大于2mm
+      - scale: 2
+        quantitative: 开裂宽度不大于0.3mm；顶面高差大于2mm
+      - scale: 3
+        quantitative: 开裂宽度大于0.3mm；压溃
+  - code: BRG-SPH-08
+    name: 周围环境缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 有少量垃圾，无积水
+        quantitative: 有少量垃圾，无积水
+      - scale: 2
+        qualitative: 较多垃圾，偶有积水
+        quantitative: 较多垃圾，偶有积水
+      - scale: 3
+        qualitative: 垃圾影响支座运行或长期积水
+        quantitative: 垃圾影响支座运行或长期积水
+
+  # ===== 表 6.4.4 钢支座 =====
+  - code: BRG-ST-01
+    name: 钢件锈蚀
+    parts: [bearing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 氧化皮覆盖，几乎没有铁锈
+        quantitative: 氧化皮覆盖，几乎没有铁锈
+      - scale: 1
+        qualitative: 发生锈蚀且氧化皮已开始剥落
+        quantitative: 发生锈蚀且氧化皮已开始剥落
+      - scale: 2
+        qualitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+      - scale: 3
+        qualitative: 严重锈蚀
+        quantitative: 严重锈蚀
+  - code: BRG-ST-02
+    name: 钢件缺损
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 局部变形
+        quantitative: 局部变形
+      - scale: 3
+        qualitative: 严重变形或开裂
+        quantitative: 严重变形或开裂
+  - code: BRG-ST-03
+    name: 位移、转角
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 位移超允许值，仍可恢复
+        quantitative: 位移超允许值，仍可恢复
+      - scale: 3
+        qualitative: 位移超允许值，不可恢复
+        quantitative: 位移超允许值，不可恢复
+  - code: BRG-ST-04
+    name: 滑动组件缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 轻度受限
+        quantitative: 轻度受限
+      - scale: 2
+        qualitative: 明显受限但仍可滑动
+        quantitative: 明显受限但仍可滑动
+      - scale: 3
+        qualitative: 达到位移极限或限位板变形、断裂
+        quantitative: 达到位移极限或限位板变形、断裂
+  - code: BRG-ST-05
+    name: 锚固缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 个别锚栓未紧固
+        quantitative: 个别锚栓未紧固
+      - scale: 2
+        qualitative: 多数锚栓未紧固
+        quantitative: 多数锚栓未紧固
+      - scale: 3
+        qualitative: 锚栓断裂或失效
+        quantitative: 锚栓断裂或失效
+  - code: BRG-ST-06
+    name: 安装缺陷
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 安装组件未拆除
+        quantitative: 安装组件未拆除
+      - scale: 3
+        qualitative: 位移方向安装错误
+        quantitative: 位移方向安装错误
+  - code: BRG-ST-07
+    name: 垫石缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 未拆模；边角缺损；顶面高差不大于2mm
+        quantitative: 未拆模；边角缺损；顶面高差不大于2mm
+      - scale: 2
+        quantitative: 开裂宽度不大于0.3mm；顶面高差大于2mm
+      - scale: 3
+        quantitative: 开裂宽度大于0.3mm；压溃
+  - code: BRG-ST-08
+    name: 周围环境缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 有少量垃圾，无积水
+        quantitative: 有少量垃圾，无积水
+      - scale: 2
+        qualitative: 较多垃圾，偶有积水
+        quantitative: 较多垃圾，偶有积水
+      - scale: 3
+        qualitative: 垃圾影响支座运行或长期积水
+        quantitative: 垃圾影响支座运行或长期积水
+
+  # ===== 表 6.4.5 隔震橡胶支座 =====
+  - code: BRG-ISO-01
+    name: 老化开裂
+    parts: [bearing]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 轻度老化、龟裂
+        quantitative: 轻度老化、龟裂
+      - scale: 1
+        quantitative: 裂缝宽度小于0.5mm
+        metricKey: crack_width
+        valueUpper: 0.5
+        unit: mm
+      - scale: 2
+        quantitative: 裂缝宽度介于0.5~2mm
+        metricKey: crack_width
+        valueLower: 0.5
+        valueUpper: 2
+        unit: mm
+      - scale: 3
+        quantitative: 裂缝宽度大于2mm
+        metricKey: crack_width
+        valueLower: 2
+        unit: mm
+  - code: BRG-ISO-02
+    name: 剪切变形
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 剪切角介于27°~35°
+        metricKey: shear_angle
+        valueLower: 27
+        valueUpper: 35
+        unit: "°"
+      - scale: 3
+        quantitative: 剪切角大于35°
+        metricKey: shear_angle
+        valueLower: 35
+        unit: "°"
+  - code: BRG-ISO-03
+    name: 脱空
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 面积不大于承压面积的30%
+        metricKey: area_ratio
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 面积大于承压面积的30%
+        metricKey: area_ratio
+        valueLower: 30
+        unit: "%"
+  - code: BRG-ISO-04
+    name: 串动
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        quantitative: 串动不大于相应边长的10%
+        metricKey: length_ratio
+        valueUpper: 10
+        unit: "%"
+      - scale: 3
+        quantitative: 串动大于相应边长的10%
+        metricKey: length_ratio
+        valueLower: 10
+        unit: "%"
+  - code: BRG-ISO-05
+    name: 连接措施损伤
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 锈蚀
+        quantitative: 锈蚀
+      - scale: 2
+        qualitative: 严重锈蚀
+        quantitative: 严重锈蚀
+      - scale: 3
+        qualitative: 缺失或断开
+        quantitative: 缺失或断开
+  - code: BRG-ISO-06
+    name: 垫石缺损
+    parts: [bearing]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 未拆模；边角缺损；顶面高差不大于2mm
+        quantitative: 未拆模；边角缺损；顶面高差不大于2mm
+      - scale: 2
+        quantitative: 开裂宽度不大于0.3mm；顶面高差大于2mm
+      - scale: 3
+        quantitative: 开裂宽度大于0.3mm；压溃
+  - code: BRG-ISO-07
+    name: 周围环境缺损
+    parts: [bearing]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 有垃圾或积水
+        quantitative: 有垃圾或积水
+      - scale: 3
+        qualitative: 垃圾影响支座运行或长期积水
+        quantitative: 垃圾影响支座运行或长期积水

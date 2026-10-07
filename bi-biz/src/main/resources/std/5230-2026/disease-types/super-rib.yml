@@ -1,0 +1,453 @@
+# 第 6.2 节 主梁——肋梁 / 装配式组合箱梁（正式稿 JTG/T 5230—2026）
+# 均绑定部件键 mainGirder（B03 装配式组合箱梁、B04 装配式肋梁共用，形式覆盖）
+diseaseTypes:
+
+  # ===== 表 6.2.6 钢筋混凝土肋梁 =====
+  - code: RIB-RC-01
+    name: 钢筋锈蚀
+    parts: [mainGirder]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: RIB-RC-02
+    name: 梁底纵向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.3mm
+        metricKey: crack_width
+        valueUpper: 0.3
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: RIB-RC-03
+    name: 梁底横向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: RIB-RC-04
+    name: 腹板竖（斜）向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.3mm；从梁底向上延伸高度不大于1/2截面高度
+      - scale: 3
+        quantitative: 宽度大于0.3mm；从梁底向上延伸高度大于1/2截面高度
+  - code: RIB-RC-05
+    name: 腹板水平裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.3mm
+        metricKey: crack_width
+        valueUpper: 0.3
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: RIB-RC-06
+    name: 翼缘板/湿接缝渗水侵蚀
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 渗水泛白
+        quantitative: 渗水泛白
+      - scale: 2
+        qualitative: 大面积渗水泛白，钢筋锈蚀
+        quantitative: 大面积渗水泛白，钢筋锈蚀
+      - scale: 3
+        qualitative: 钢筋锈胀导致混凝土剥落
+        quantitative: 钢筋锈胀导致混凝土剥落
+  - code: RIB-RC-07
+    name: 翼缘板/湿接缝裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: RIB-RC-08
+    name: 梁端剪切裂缝
+    parts: [mainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝
+
+  # ===== 表 6.2.7 预应力混凝土肋梁 =====
+  - code: RIB-PC-01
+    name: 钢筋锈蚀
+    parts: [mainGirder]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: RIB-PC-02
+    name: 梁底纵向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.3mm
+        metricKey: crack_width
+        valueUpper: 0.3
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: RIB-PC-03
+    name: 梁底横向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 宽度不大于0.1mm，横向未贯通
+        quantitative: 宽度不大于0.1mm，横向未贯通
+      - scale: 2
+        qualitative: 宽度不大于0.1mm，横向贯通
+        quantitative: 宽度不大于0.1mm，横向贯通
+      - scale: 3
+        qualitative: 宽度大于0.1mm；裂缝横向贯通并延伸至腹板
+        quantitative: 宽度大于0.1mm；裂缝横向贯通并延伸至腹板
+  - code: RIB-PC-04
+    name: 腹板竖向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.1mm，与梁底横向裂缝不连续
+      - scale: 3
+        quantitative: 宽度大于0.1mm，裂缝从梁底向上延伸
+  - code: RIB-PC-05
+    name: 腹板斜向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.15mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.15
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.15mm
+        metricKey: crack_width
+        valueLower: 0.15
+        unit: mm
+  - code: RIB-PC-06
+    name: 腹板水平裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+  - code: RIB-PC-07
+    name: 翼缘板/湿接缝渗水侵蚀
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 渗水泛白
+        quantitative: 渗水泛白
+      - scale: 2
+        qualitative: 大面积渗水泛白，钢筋锈蚀
+        quantitative: 大面积渗水泛白，钢筋锈蚀
+      - scale: 3
+        qualitative: 钢筋锈胀导致混凝土剥落
+        quantitative: 钢筋锈胀导致混凝土剥落
+  - code: RIB-PC-08
+    name: 翼缘板/湿接缝裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: RIB-PC-09
+    name: 预应力损伤
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 波纹管外露，锚头外露
+        quantitative: 波纹管外露，锚头外露
+      - scale: 2
+        qualitative: 预应力筋外露，锚头锈蚀
+        quantitative: 预应力筋外露，锚头锈蚀
+      - scale: 3
+        qualitative: 预应力筋严重锈蚀，锚头失效
+        quantitative: 预应力筋严重锈蚀，锚头失效
+  - code: RIB-PC-10
+    name: 梁端剪切裂缝
+    parts: [mainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝
+
+  # ===== 表 6.2.8 装配式预应力混凝土组合箱梁 =====
+  - code: RIB-BOX-01
+    name: 钢筋锈蚀
+    parts: [mainGirder]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: RIB-BOX-02
+    name: 梁底纵向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.3mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: RIB-BOX-03
+    name: 梁底横向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 宽度不大于0.1mm，横向未贯通
+        quantitative: 宽度不大于0.1mm，横向未贯通
+      - scale: 2
+        qualitative: 宽度不大于0.1mm，横向贯通
+        quantitative: 宽度不大于0.1mm，横向贯通
+      - scale: 3
+        qualitative: 宽度大于0.1mm；裂缝横向贯通并延伸至腹板
+        quantitative: 宽度大于0.1mm；裂缝横向贯通并延伸至腹板
+  - code: RIB-BOX-04
+    name: 腹板竖向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.1mm，与梁底横向裂缝不连续
+      - scale: 3
+        quantitative: 宽度大于0.1mm，裂缝从梁底向上延伸
+  - code: RIB-BOX-05
+    name: 腹板斜向裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.15mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.15
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.15mm
+        metricKey: crack_width
+        valueLower: 0.15
+        unit: mm
+  - code: RIB-BOX-06
+    name: 腹板水平裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 2
+    scales:
+      - scale: 1
+        quantitative: 宽度不大于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+  - code: RIB-BOX-07
+    name: 翼缘板/湿接缝渗水侵蚀
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 渗水泛白
+        quantitative: 渗水泛白
+      - scale: 2
+        qualitative: 大面积渗水泛白，钢筋锈蚀
+        quantitative: 大面积渗水泛白，钢筋锈蚀
+      - scale: 3
+        qualitative: 钢筋锈胀导致混凝土剥落
+        quantitative: 钢筋锈胀导致混凝土剥落
+  - code: RIB-BOX-08
+    name: 翼缘板/湿接缝裂缝
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.25mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.25
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.25mm
+        metricKey: crack_width
+        valueLower: 0.25
+        unit: mm
+  - code: RIB-BOX-09
+    name: 预应力损伤
+    parts: [mainGirder]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 波纹管外露，锚头外露
+        quantitative: 波纹管外露，锚头外露
+      - scale: 2
+        qualitative: 预应力筋外露，锚头锈蚀
+        quantitative: 预应力筋外露，锚头锈蚀
+      - scale: 3
+        qualitative: 预应力筋锈蚀，锚头失效
+        quantitative: 预应力筋锈蚀，锚头失效
+  - code: RIB-BOX-10
+    name: 梁端剪切裂缝
+    parts: [mainGirder]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有剪切裂缝
+        quantitative: 有剪切裂缝

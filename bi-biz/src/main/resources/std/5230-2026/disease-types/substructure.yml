@@ -1,0 +1,1061 @@
+# 第 11 章 下部结构构件结构性缺损评定（正式稿 JTG/T 5230—2026）
+diseaseTypes:
+  # ================================================================
+  # 11.2 桥墩
+  # ================================================================
+  # 表 11.2.1 砖石砌体桥墩评定
+  # 注：脱落长度大于0.2m时计为砌缝脱落。
+  - code: SUB-PIER-01
+    name: 砌缝脱落
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 深度小于10mm
+        metricKey: depth
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 深度介于10~20mm，范围不大于30%
+      - scale: 3
+        quantitative: 深度介于10~20mm，范围大于30%；深度大于20mm
+  - code: SUB-PIER-02
+    name: 砌体开裂
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-PIER-03
+    name: 砌块脱落
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 个别砌块脱落
+        quantitative: 个别砌块脱落
+      - scale: 3
+        qualitative: 多个砌块脱落
+        quantitative: 多个砌块脱落
+  - code: SUB-PIER-04
+    name: 变形、倾斜
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        quantitative: 大于规范或设计值
+
+  # 表 11.2.2 钢筋混凝土实体桥墩、薄壁桥墩和空心桥墩评定
+  - code: SUB-PIER-05
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SUB-PIER-06
+    name: 竖向裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-PIER-07
+    name: 水平裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-PIER-08
+    name: 变形、倾斜
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        quantitative: 大于规范或设计值
+
+  # 表 11.2.3 钢筋混凝土柱式桥墩和框架式桥墩评定
+  - code: SUB-PIER-09
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  # 原表该评定指标行名称分两行排：水平裂缝 / 环向裂缝，合用同一组标度
+  - code: SUB-PIER-10
+    name: 水平裂缝、环向裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-PIER-11
+    name: 变形、倾斜
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        quantitative: 大于规范或设计值
+
+  # 表 11.2.4 钢-混凝土组合桥墩评定
+  - code: SUB-PIER-12
+    name: 锈蚀
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积不大于10%
+      - scale: 2
+        quantitative: 发生锈蚀且氧化皮已开始剥落，面积大于10%
+      - scale: 3
+        quantitative: 氧化皮因锈蚀而剥落，有轻微点蚀
+  - code: SUB-PIER-13
+    name: 裂纹
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有裂纹
+        quantitative: 有裂纹
+  # 注：明显局部变形时需确认外力导致或结构受力导致，必要时专项检查确认，外力导致且不影响结构受力时不参与评定。
+  - code: SUB-PIER-14
+    name: 局部变形
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显局部变形
+        quantitative: 明显局部变形
+  - code: SUB-PIER-15
+    name: 管内混凝土脱空
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 脱空范围小于10%截面
+        metricKey: area_ratio
+        valueUpper: 10
+        unit: '%'
+      - scale: 2
+        quantitative: 脱空范围介于10%~30%截面
+        metricKey: area_ratio
+        valueLower: 10
+        valueUpper: 30
+        unit: '%'
+      - scale: 3
+        quantitative: 脱空范围大于30%截面
+        metricKey: area_ratio
+        valueLower: 30
+        unit: '%'
+  - code: SUB-PIER-16
+    name: 螺栓、铆钉缺损
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 表面轻度锈蚀
+        quantitative: 表面轻度锈蚀
+      - scale: 2
+        quantitative: 松动、脱落数量不大于节点总量的10%
+        metricKey: count_ratio
+        valueUpper: 10
+        unit: '%'
+      - scale: 3
+        quantitative: 松动、脱落数量大于节点总量的10%
+        metricKey: count_ratio
+        valueLower: 10
+        unit: '%'
+  - code: SUB-PIER-17
+    name: 变形、倾斜
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        quantitative: 大于规范或设计值
+
+  # 表 11.2.5 钢筋混凝土盖梁评定
+  - code: SUB-PIER-18
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  # 注：受弯裂缝指盖梁顶部负弯矩裂缝和底部正弯矩裂缝。
+  - code: SUB-PIER-19
+    name: 受弯裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-PIER-20
+    name: 顶面纵向裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-PIER-21
+    name: 防落梁构造损伤
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 与主梁抵死
+        quantitative: 与主梁抵死
+      - scale: 2
+        quantitative: 裂缝宽度不大于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 3
+        quantitative: 裂缝宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+
+  # 表 11.2.6 预应力混凝土盖梁评定
+  - code: SUB-PIER-22
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  # 注：受弯裂缝指盖梁顶部负弯矩裂缝和底部正弯矩裂缝。
+  - code: SUB-PIER-23
+    name: 受弯裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-PIER-24
+    name: 顶面纵向裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-PIER-25
+    name: 预应力损伤
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 波纹管外露
+        quantitative: 波纹管外露
+      - scale: 2
+        qualitative: 锚头外露锈蚀
+        quantitative: 锚头外露锈蚀
+      - scale: 3
+        qualitative: 预应力筋外露；锚头严重锈蚀
+        quantitative: 预应力筋外露；锚头严重锈蚀
+  - code: SUB-PIER-26
+    name: 防落梁构造损伤
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 与主梁抵死
+        quantitative: 与主梁抵死
+      - scale: 2
+        quantitative: 裂缝宽度不大于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 3
+        quantitative: 裂缝宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+
+  # 表 11.2.7 墩帽评定
+  - code: SUB-PIER-27
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SUB-PIER-28
+    name: 竖向裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.3mm
+        metricKey: crack_width
+        valueUpper: 0.3
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.3~0.5mm
+        metricKey: crack_width
+        valueLower: 0.3
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-PIER-29
+    name: 防落梁构造损伤
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 与主梁抵死
+        quantitative: 与主梁抵死
+      - scale: 2
+        quantitative: 裂缝宽度不大于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 3
+        quantitative: 裂缝宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+
+  # 表 11.2.8 系梁评定
+  - code: SUB-PIER-30
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SUB-PIER-31
+    name: 端部裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.2mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.2
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+
+  # ================================================================
+  # 11.3 桥台
+  # ================================================================
+  # 表 11.3.1 砖石砌体桥台评定
+  # 注：脱落长度大于0.2m时计为砌缝脱落。
+  - code: SUB-ABUT-01
+    name: 砌缝脱落
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 深度小于10mm
+        metricKey: depth
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 深度介于10~20mm，范围不大于30%
+      - scale: 3
+        quantitative: 深度介于10~20mm，范围大于30%；深度大于20mm
+  - code: SUB-ABUT-02
+    name: 砌体开裂
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-ABUT-03
+    name: 砌块脱落
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 个别砌块脱落
+        quantitative: 个别砌块脱落
+      - scale: 3
+        qualitative: 多个砌块脱落
+        quantitative: 多个砌块脱落
+  - code: SUB-ABUT-04
+    name: 变形、倾斜
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        quantitative: 大于规范或设计值
+
+  # 表 11.3.2 钢筋混凝土实体桥台、薄壁桥台和肋板式桥台评定
+  - code: SUB-ABUT-05
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SUB-ABUT-06
+    name: 竖向裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-ABUT-07
+    name: 水平裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-ABUT-08
+    name: 变形、倾斜
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        quantitative: 大于规范或设计值
+
+  # 表 11.3.3 钢筋混凝土桩柱式桥台和框架式桥台评定
+  - code: SUB-ABUT-09
+    name: 钢筋锈蚀
+    parts: [pierAbutment]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  # 原表该评定指标行名称分两行排：水平裂缝 / 环向裂缝，合用同一组标度
+  - code: SUB-ABUT-10
+    name: 水平裂缝、环向裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-ABUT-11
+    name: 变形、倾斜
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        quantitative: 大于规范或设计值
+
+  # 11.3.4 ~ 11.3.7 为跨条引用，不另建表：
+  #   钢筋混凝土盖梁按第 11.2.5 条、预应力混凝土盖梁按第 11.2.6 条、
+  #   台帽按第 11.2.7 条、系梁按第 11.2.8 条执行。
+  # 对应 SUB-PIER-18 ~ SUB-PIER-31 的 parts 均为 pierAbutment，桥台共用。
+
+  # 表 11.3.8 耳墙评定
+  - code: SUB-ABUT-12
+    name: 局部断裂
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 中部断裂
+        quantitative: 中部断裂
+  - code: SUB-ABUT-13
+    name: 根部裂缝
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.15mm
+        metricKey: crack_width
+        valueUpper: 0.15
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.15~0.3mm
+        metricKey: crack_width
+        valueLower: 0.15
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+
+  # 表 11.3.9 桥头跳车评定
+  - code: SUB-ABUT-14
+    name: 台后沉降
+    parts: [pierAbutment]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 高差小于10mm
+        metricKey: height
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 高差介于10~20mm
+        metricKey: height
+        valueLower: 10
+        valueUpper: 20
+        unit: mm
+      - scale: 3
+        quantitative: 高差大于20mm
+        metricKey: height
+        valueLower: 20
+        unit: mm
+  - code: SUB-ABUT-15
+    name: 搭板断裂
+    parts: [pierAbutment]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 有断裂
+        quantitative: 有断裂
+
+  # ================================================================
+  # 11.4 墩台基础
+  # ================================================================
+  # 表 11.4.1 砖石砌体扩大基础评定
+  # 注：脱落长度大于0.2m时计为砌缝脱落；基础明显冲刷时，基础埋置深度按照
+  # 《公路桥涵地基与基础设计规范》（JTG 3363—2019）第5.1.1条确定。
+  - code: SUB-FND-01
+    name: 砌缝脱落
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 深度小于10mm
+        metricKey: depth
+        valueUpper: 10
+        unit: mm
+      - scale: 2
+        quantitative: 深度介于10~30mm，范围不大于30%
+      - scale: 3
+        quantitative: 深度介于10~30mm，范围大于30%；深度大于30mm
+  - code: SUB-FND-02
+    name: 砌体开裂
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-FND-03
+    name: 砌块脱落
+    parts: [foundation]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 个别砌块脱落
+        quantitative: 个别砌块脱落
+      - scale: 3
+        qualitative: 多个砌块脱落
+        quantitative: 多个砌块脱落
+  - code: SUB-FND-04
+    name: 冲刷
+    # NOTE: 标度不连续
+    parts: [foundation]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 无明显冲刷
+        quantitative: 无明显冲刷
+      - scale: 1
+        qualitative: 有冲刷，基础埋置深度符合规范要求
+        quantitative: 有冲刷，基础埋置深度符合规范要求
+      - scale: 3
+        qualitative: 基础埋置深度不符合规范要求
+        quantitative: 基础埋置深度不符合规范要求
+  - code: SUB-FND-05
+    name: 沉降
+    parts: [foundation]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 有沉降但对相关构件无明显影响
+        quantitative: 有沉降但对相关构件无明显影响
+      - scale: 3
+        qualitative: 显著沉降对相关构件已造成影响
+        quantitative: 显著沉降对相关构件已造成影响
+
+  # 表 11.4.2 混凝土扩大基础评定
+  - code: SUB-FND-06
+    name: 钢筋锈蚀
+    parts: [foundation]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SUB-FND-07
+    name: 竖向裂缝
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-FND-08
+    name: 横向裂缝
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  # 注：基础明显冲刷时，基础埋置深度按照《公路桥涵地基与基础设计规范》
+  # （JTG 3363—2019）第5.1.1条确定。
+  - code: SUB-FND-09
+    name: 冲刷
+    # NOTE: 标度不连续
+    parts: [foundation]
+    minScale: 0
+    maxScale: 3
+    scales:
+      - scale: 0
+        qualitative: 无明显冲刷
+        quantitative: 无明显冲刷
+      - scale: 1
+        qualitative: 有冲刷，基础埋置深度符合规范要求
+        quantitative: 有冲刷，基础埋置深度符合规范要求
+      - scale: 3
+        qualitative: 基础埋置深度不符合规范要求
+        quantitative: 基础埋置深度不符合规范要求
+  - code: SUB-FND-10
+    name: 沉降
+    parts: [foundation]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显沉降
+        quantitative: 明显沉降
+
+  # 表 11.4.3 桩基础评定
+  - code: SUB-FND-11
+    name: 钢筋锈蚀
+    parts: [foundation]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SUB-FND-12
+    name: 环向裂缝
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.3mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.3
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.3mm
+        metricKey: crack_width
+        valueLower: 0.3
+        unit: mm
+  - code: SUB-FND-13
+    name: 缩颈
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 截面损失小于5%，主筋外露小于10%
+      - scale: 2
+        quantitative: 截面损失介于5%~10%；主筋外露介于10%~30%
+      - scale: 3
+        quantitative: 截面损失大于10%；主筋外露大于30%
+  - code: SUB-FND-14
+    name: 沉降
+    parts: [foundation]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显沉降
+        quantitative: 明显沉降
+  # 注：基础明显冲刷时，设计冲刷深度根据基础类型按照《公路桥涵地基与基础设计规范》
+  # （JTG 3363—2019）第6.3节确定。
+  - code: SUB-FND-15
+    name: 冲刷
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 冲刷深度不大于3m
+        metricKey: depth
+        valueUpper: 3
+        unit: m
+      - scale: 2
+        quantitative: 冲刷深度大于3m，但不大于设计冲刷深度
+      - scale: 3
+        quantitative: 冲刷深度大于设计冲刷深度
+
+  # 表 11.4.4 沉井基础评定
+  - code: SUB-FND-16
+    name: 钢筋锈蚀
+    parts: [foundation]
+    minScale: 2
+    maxScale: 3
+    scales:
+      - scale: 2
+        qualitative: 主筋外露锈蚀
+        quantitative: 主筋外露锈蚀
+      - scale: 3
+        qualitative: 主筋严重锈蚀
+        quantitative: 主筋严重锈蚀
+  - code: SUB-FND-17
+    name: 裂缝
+    parts: [foundation]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.2mm
+        metricKey: crack_width
+        valueUpper: 0.2
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.2~0.5mm
+        metricKey: crack_width
+        valueLower: 0.2
+        valueUpper: 0.5
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.5mm
+        metricKey: crack_width
+        valueLower: 0.5
+        unit: mm
+  - code: SUB-FND-18
+    name: 冲刷
+    parts: [foundation]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 冲刷至基础底面
+        quantitative: 冲刷至基础底面
+  - code: SUB-FND-19
+    name: 沉降
+    parts: [foundation]
+    minScale: 3
+    maxScale: 3
+    scales:
+      - scale: 3
+        qualitative: 明显沉降
+        quantitative: 明显沉降

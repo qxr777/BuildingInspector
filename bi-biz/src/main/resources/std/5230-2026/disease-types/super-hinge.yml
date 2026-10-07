@@ -1,0 +1,82 @@
+# 第 6.3 节 横向联系——铰缝 / 钢筋混凝土横隔板（正式稿 JTG/T 5230—2026）
+# 部件键：hinge 铰缝（B02）/ diaphragm 横隔板（B03、B04）
+diseaseTypes:
+
+  # ===== 表 6.3.1 铰缝 =====
+  - code: HNG-01
+    name: 渗水侵蚀
+    parts: [hinge]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 点状渗水泛白；线状渗水泛白总长度小于构件长度的20%
+      - scale: 2
+        quantitative: 线状渗水泛白总长度介于构件长度的20%~50%
+        metricKey: length_ratio
+        valueLower: 20
+        valueUpper: 50
+        unit: "%"
+      - scale: 3
+        quantitative: 线状渗水泛白总长度大于构件长度的50%
+        metricKey: length_ratio
+        valueLower: 50
+        unit: "%"
+  - code: HNG-02
+    name: 破损开裂
+    parts: [hinge]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 勾缝脱落
+        quantitative: 勾缝脱落
+      - scale: 2
+        quantitative: 开裂总长度不大于构件长度的30%
+        metricKey: length_ratio
+        valueUpper: 30
+        unit: "%"
+      - scale: 3
+        quantitative: 开裂总长度大于构件长度的30%
+        metricKey: length_ratio
+        valueLower: 30
+        unit: "%"
+
+  # ===== 表 6.3.2 钢筋混凝土横隔板 =====
+  - code: DIA-01
+    name: 竖向裂缝
+    parts: [diaphragm]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        quantitative: 宽度小于0.1mm
+        metricKey: crack_width
+        valueUpper: 0.1
+        unit: mm
+      - scale: 2
+        quantitative: 宽度介于0.1~0.2mm
+        metricKey: crack_width
+        valueLower: 0.1
+        valueUpper: 0.2
+        unit: mm
+      - scale: 3
+        quantitative: 宽度大于0.2mm
+        metricKey: crack_width
+        valueLower: 0.2
+        unit: mm
+  - code: DIA-02
+    name: 连接钢板缺损
+    parts: [diaphragm]
+    minScale: 1
+    maxScale: 3
+    scales:
+      - scale: 1
+        qualitative: 混凝土脱落
+        quantitative: 混凝土脱落
+      - scale: 2
+        qualitative: 部分焊点开裂
+        quantitative: 部分焊点开裂
+      - scale: 3
+        qualitative: 焊点全部断开
+        quantitative: 焊点全部断开
