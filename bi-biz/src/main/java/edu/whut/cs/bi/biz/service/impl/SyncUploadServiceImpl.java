@@ -41,13 +41,7 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     @Autowired
     private SyncLogMapper syncLogMapper;
     @Autowired
-    private BiObjectComponentMapper biObjectComponentMapper;
-    @Autowired
     private SpanComponentPartMapper spanComponentPartMapper;
-    @Autowired
-    private edu.whut.cs.bi.biz.engine.BridgeEvaluationEngine bridgeEvaluationEngine;
-    @Autowired
-    private edu.whut.cs.bi.biz.mapper.BiEvalComponentDetailMapper biEvalComponentDetailMapper;
 
     private static final String ENTITY_BUILDING = "Building";
     private static final String ENTITY_OBJECT = "BiObject";
@@ -55,7 +49,6 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private static final String ENTITY_DISEASE = "Disease";
     private static final String ENTITY_DISEASE_DETAIL = "DiseaseDetail";
     private static final String ENTITY_ATTACHMENT = "Attachment";
-    private static final String ENTITY_OBJECT_COMPONENT = "BiObjectComponent";
     private static final String ENTITY_SPAN_COMPONENT_PART = "SpanComponentPart";
 
     @Override
@@ -121,104 +114,6 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
             log.info("处理 SpanComponentPart...");
             processSpanComponentParts(dataMap.get("spanComponentParts"), syncUuid, uuidMap, result, loginName);
 
-            // 阶段 8: 触发 2026 新标评定
-            try {
-                Set<Long> affectedSpanIds = new HashSet<>();
-                processBiObjectComponents(dataMap.get("biObjectComponents"), syncUuid, uuidMap, result, loginName,
-                        affectedSpanIds);
-
-                // 同时也要考虑普通构件归属的变化对跨评定的影响
-                List<Component> clientComponents = parseList(dataMap.get("components"), Component.class);
-                for (Component clientComp : clientComponents) {
-                    Long serverId = uuidMap.get(clientComp.getOfflineUuid());
-                    if (serverId != null) {
-                        Component serverComp = componentMapper.selectComponentById(serverId);
-                        if (serverComp != null && serverComp.getBiObjectId() != null) {
-                            affectedSpanIds.add(serverComp.getBiObjectId());
-                        }
-                    }
-                }
-
-                if (!affectedSpanIds.isEmpty()) {
-                    Long taskId = null;
-                    Object taskIdObj = dataMap.get("taskId");
-                    if (taskIdObj != null)
-                        taskId = Long.valueOf(taskIdObj.toString());
-
-                    if (taskId == null) {
-                        List<Disease> diseases = parseList(dataMap.get("diseases"), Disease.class);
-                        if (!diseases.isEmpty() && diseases.get(0).getTaskId() != null) {
-                            taskId = diseases.get(0).getTaskId();
-                        }
-                    }
-
-                    if (taskId != null) {
-                        log.info("开始进行构件评定标度数据转移...");
-                        List<edu.whut.cs.bi.biz.domain.BiEvalComponentDetail> detailList = new ArrayList<>();
-                        for (Long spanId : affectedSpanIds) {
-                            // 使用专用的评定构件检索方法 (包含物理归属与逻辑关联)
-                            List<Component> components = componentMapper.selectComponentsByObjectIdForEval(spanId);
-                            for (Component c : components) {
-                                Disease diseaseQuery = new Disease();
-                                diseaseQuery.setTaskId(taskId);
-                                diseaseQuery.setComponentId(c.getId());
-                                List<Disease> diseasesOfComp = diseaseMapper.selectDiseaseList(diseaseQuery);
-
-                                Integer edi = null;
-                                Integer efi = 0;
-                                Integer eai = -1;
-                                boolean hasDiseaseMetrics = false;
-
-                                if (diseasesOfComp != null && !diseasesOfComp.isEmpty()) {
-                                    for (Disease d : diseasesOfComp) {
-                                        if (d.getEdi() != null) {
-                                            hasDiseaseMetrics = true;
-                                            if (edi == null || d.getEdi() > edi)
-                                                edi = d.getEdi();
-                                        }
-                                        if (d.getEfi() != null) {
-                                            hasDiseaseMetrics = true;
-                                            if (d.getEfi() > efi)
-                                                efi = d.getEfi();
-                                        }
-                                        if (d.getEai() != null) {
-                                            hasDiseaseMetrics = true;
-                                            if (d.getEai() > eai)
-                                                eai = d.getEai();
-                                        }
-                                    }
-                                }
-
-                                if (!hasDiseaseMetrics) {
-                                    edi = c.getEdi();
-                                    if (c.getEfi() != null)
-                                        efi = c.getEfi();
-                                    if (c.getEai() != null)
-                                        eai = c.getEai();
-                                }
-
-                                if (edi != null || c.getEdi() != null) {
-                                    edu.whut.cs.bi.biz.domain.BiEvalComponentDetail detail = new edu.whut.cs.bi.biz.domain.BiEvalComponentDetail();
-                                    detail.setTaskId(taskId);
-                                    detail.setSpanId(spanId);
-                                    detail.setComponentId(c.getId());
-                                    detail.setEdi(edi != null ? edi : c.getEdi());
-                                    detail.setEfi(efi);
-                                    detail.setEai(eai);
-                                    detailList.add(detail);
-                                }
-                            }
-                        }
-                        if (!detailList.isEmpty()) {
-                            biEvalComponentDetailMapper.batchInsert(detailList);
-                            log.info("成功转移 {} 条评定细目", detailList.size());
-                        }
-                    }
-                }
-            } catch (Exception ee) {
-                log.error("自动评定失败: {}", ee.getMessage());
-            }
-
             syncLogMapper.updateStatus(syncUuid, 1, "同步成功");
 
         } catch (Exception e) {
@@ -252,7 +147,6 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
                     continue;
                 }
-                item.setIsOfflineData(1);
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
                 buildingMapper.insertBuilding(item);
@@ -363,15 +257,6 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 item.setCreateBy(loginName);
                 item.setCreateTime(DateUtils.getNowDate());
                 componentMapper.insertComponent(item);
-                if (item.getId() != null && item.getBiObjectId() != null) {
-                    BiObjectComponent rel = new BiObjectComponent();
-                    rel.setComponentId(item.getId());
-                    rel.setBiObjectId(item.getBiObjectId());
-                    rel.setWeight(new java.math.BigDecimal("1.0"));
-                    rel.setCreateBy(loginName);
-                    rel.setCreateTime(item.getCreateTime());
-                    biObjectComponentMapper.insertBiObjectComponent(rel);
-                }
                 saveMapping(ENTITY_COMPONENT, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
             } catch (Exception e) {
                 result.addError(ENTITY_COMPONENT, item.getOfflineUuid(), e.getMessage());
@@ -532,51 +417,6 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 saveMapping(ENTITY_SPAN_COMPONENT_PART, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
             } catch (Exception e) {
                 result.addError(ENTITY_SPAN_COMPONENT_PART, item.getOfflineUuid(), e.getMessage());
-            }
-        }
-    }
-
-    private void processBiObjectComponents(Object data, String syncUuid, Map<String, Long> uuidMap, SyncResultVo result,
-            String loginName, Set<Long> affectedSpanIds) {
-        if (data == null)
-            return;
-        List<BiObjectComponent> list = parseList(data, BiObjectComponent.class);
-        for (BiObjectComponent item : list) {
-            try {
-                if (item.getComponentUuid() != null)
-                    item.setComponentId(uuidMap.get(item.getComponentUuid()));
-                if (item.getObjectUuid() != null)
-                    item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
-                List<BiObjectComponent> existings = biObjectComponentMapper.selectBiObjectComponentList(new BiObjectComponent() {{ setOfflineUuid(item.getOfflineUuid()); }});
-                if (!existings.isEmpty()) {
-                    BiObjectComponent existing = existings.get(0);
-                    item.setId(existing.getId());
-                    item.setUpdateBy(loginName);
-                    item.setUpdateTime(DateUtils.getNowDate());
-                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
-                        biObjectComponentMapper.deleteBiObjectComponentById(item.getId());
-                        continue;
-                    }
-                    biObjectComponentMapper.updateBiObjectComponent(item);
-                    result.setSuccessCount(result.getSuccessCount() + 1);
-                    continue;
-                }
-                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
-                    continue;
-                }
-
-                if (item.getComponentId() == null || item.getBiObjectId() == null)
-                    continue;
-
-                item.setIsOfflineData(1);
-                item.setCreateBy(loginName);
-                item.setCreateTime(DateUtils.getNowDate());
-                biObjectComponentMapper.insertBiObjectComponent(item);
-
-                affectedSpanIds.add(item.getBiObjectId());
-                saveMapping(ENTITY_OBJECT_COMPONENT, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
-            } catch (Exception e) {
-                result.addError(ENTITY_OBJECT_COMPONENT, item.getOfflineUuid(), e.getMessage());
             }
         }
     }

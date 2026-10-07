@@ -39,7 +39,6 @@
         <result property="omega" column="omega" />
         <result property="propsJson" column="props_json" />
         <result property="spanNo" column="span_no" />
-        <result property="spanLength" column="span_length" />
         <collection property="children" ofType="BiObject">
             <id     property="id"        column="child_id"         />
             <result property="name"      column="child_name"       />
@@ -54,7 +53,7 @@
     <sql id="selectBiObjectVo">
          select id, name, parent_id, ancestors, order_num, status, del_flag, longitude, latitude,
                 altitude, position, area, admin_dept, weight, video_feed, props, create_by, create_time, update_by,
-                update_time, remark, template_object_id, count, offline_uuid, parent_uuid, is_offline_data, node_type, bridge_type, gamma, omega, props_json, span_no, span_length
+                update_time, remark, template_object_id, count, offline_uuid, parent_uuid, is_offline_data, node_type, bridge_type, gamma, omega, props_json, span_no
         from bi_object
     </sql>
 
@@ -198,7 +197,6 @@
             <if test="omega != null">omega,</if>
             <if test="propsJson != null">props_json,</if>
             <if test="spanNo != null">span_no,</if>
-            <if test="spanLength != null">span_length,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="id != null">#{id},</if>
@@ -232,7 +230,6 @@
             <if test="omega != null">#{omega},</if>
             <if test="propsJson != null">#{propsJson},</if>
             <if test="spanNo != null">#{spanNo},</if>
-            <if test="spanLength != null">#{spanLength},</if>
         </trim>
     </insert>
 
@@ -270,7 +267,6 @@
             <if test="omega != null">omega = #{omega},</if>
             <if test="propsJson != null">props_json = #{propsJson},</if>
             <if test="spanNo != null">span_no = #{spanNo},</if>
-            <if test="spanLength != null">span_length = #{spanLength},</if>
         </trim>
         where id = #{id}
     </update>
@@ -502,14 +498,14 @@
         name, parent_id, ancestors, order_num, status, del_flag,
         longitude, latitude, altitude, position, area, admin_dept,
         weight, video_feed, props, create_by, create_time, update_by,
-        update_time, remark, template_object_id, span_no, span_length
+        update_time, remark, template_object_id, span_no
         ) values
         <foreach collection="list" item="item" separator=",">
             (
             #{item.name}, #{item.parentId}, #{item.ancestors}, #{item.orderNum}, #{item.status}, '0',
             #{item.longitude}, #{item.latitude}, #{item.altitude}, #{item.position}, #{item.area}, #{item.adminDept},
             #{item.weight}, #{item.videoFeed}, #{item.props}, #{item.createBy}, #{item.createTime}, #{item.updateBy},
-            #{item.updateTime}, #{item.remark}, #{item.templateObjectId}, #{item.spanNo}, #{item.spanLength}
+            #{item.updateTime}, #{item.remark}, #{item.templateObjectId}, #{item.spanNo}
             )
         </foreach>
     </insert>

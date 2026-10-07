@@ -19,7 +19,6 @@ public class SyncTestDataBuilder {
     private final List<Map<String, Object>> diseases;
     private final List<Map<String, Object>> diseaseDetails;
     private final List<Map<String, Object>> attachments;
-    private final List<Map<String, Object>> biObjectComponents;
     private String clientInfo;
 
     private SyncTestDataBuilder() {
@@ -30,7 +29,6 @@ public class SyncTestDataBuilder {
         this.diseases = new ArrayList<>();
         this.diseaseDetails = new ArrayList<>();
         this.attachments = new ArrayList<>();
-        this.biObjectComponents = new ArrayList<>();
         this.clientInfo = "TestDataBuilder/1.0";
     }
 
@@ -250,32 +248,6 @@ public class SyncTestDataBuilder {
         return this;
     }
 
-    // ==================== BiObjectComponent 相关方法 ====================
-
-    /**
-     * 添加 BiObjectComponent
-     */
-    public SyncTestDataBuilder addBiObjectComponent(String offlineUuid, String componentUuid,
-                                                     String objectUuid, double weight) {
-        return addBiObjectComponent(offlineUuid, componentUuid, objectUuid, weight, false);
-    }
-
-    /**
-     * 添加 BiObjectComponent（完整参数）
-     */
-    public SyncTestDataBuilder addBiObjectComponent(String offlineUuid, String componentUuid,
-                                                     String objectUuid, double weight,
-                                                     boolean deleted) {
-        Map<String, Object> rel = new HashMap<>();
-        rel.put("offlineUuid", offlineUuid);
-        rel.put("componentUuid", componentUuid);
-        rel.put("objectUuid", objectUuid);
-        rel.put("weight", weight);
-        rel.put("offlineDeleted", deleted ? 1 : 0);
-        biObjectComponents.add(rel);
-        return this;
-    }
-
     // ==================== 构建方法 ====================
 
     /**
@@ -291,7 +263,6 @@ public class SyncTestDataBuilder {
         payload.put("diseases", diseases);
         payload.put("diseaseDetails", diseaseDetails);
         payload.put("attachments", attachments);
-        payload.put("biObjectComponents", biObjectComponents);
         return payload;
     }
 

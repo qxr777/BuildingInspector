@@ -88,7 +88,7 @@ public class PostSyncUploadE2ETest {
         )));
         payload.put("objects", List.of(
                 mapOf("offlineUuid", rootUuid, "name", "上部结构", "parentUuid", "", "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0),
-                mapOf("offlineUuid", spanUuid, "name", "第1跨", "parentUuid", rootUuid, "buildingUuid", bUuid, "status", "0", "spanIndex", 1, "spanLength", 30.5, "offlineDeleted", 0)
+                mapOf("offlineUuid", spanUuid, "name", "第1跨", "parentUuid", rootUuid, "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0)
         ));
         payload.put("components", List.of(mapOf(
                 "offlineUuid", cUuid,
@@ -96,9 +96,6 @@ public class PostSyncUploadE2ETest {
                 "code", "T1-GL-01",
                 "status", "0",
                 "objectUuid", spanUuid,
-                "edi", 1,
-                "efi", 0,
-                "eai", 0,
                 "offlineDeleted", 0
         )));
         payload.put("diseases", List.of(mapOf(
@@ -135,14 +132,6 @@ public class PostSyncUploadE2ETest {
                 "minioId", 76115,
                 "offlineDeleted", 0
         )));
-        payload.put("biObjectComponents", List.of(mapOf(
-                "offlineUuid", rnd("t1-rel-"),
-                "objectUuid", spanUuid,
-                "componentUuid", cUuid,
-                "weight", 1.0,
-                "offlineDeleted", 0
-        )));
-
         JsonNode res = postUpload(token, payload, true);
         assertUploadAccepted(res);
         assertNotNull(buildingMapper.selectByOfflineUuid(bUuid));
@@ -222,10 +211,6 @@ public class PostSyncUploadE2ETest {
         p4.put("buildings", List.of(mapOf("offlineUuid", bUuid, "name", "桥梁T5-4", "isLeaf", "1", "status", "0", "offlineDeleted", 0)));
         p4.put("objects", List.of(mapOf("offlineUuid", oUuid, "name", "对象T5-4", "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0)));
         p4.put("components", List.of(mapOf("offlineUuid", cUuid, "name", "构件T5-4", "code", "T5C04", "status", "0", "objectUuid", oUuid, "offlineDeleted", 0)));
-        p4.put("biObjectComponents", List.of(
-                mapOf("offlineUuid", rnd("t5-rel-a-"), "objectUuid", oUuid, "componentUuid", cUuid, "weight", 0, "offlineDeleted", 0),
-                mapOf("offlineUuid", rnd("t5-rel-b-"), "objectUuid", oUuid, "componentUuid", cUuid, "weight", 1.5, "offlineDeleted", 0)
-        ));
         JsonNode r4 = postUpload(token, p4, true);
         assertUploadAccepted(r4);
     }
@@ -302,24 +287,6 @@ public class PostSyncUploadE2ETest {
 
         JsonNode res = postUpload(token, payload, true);
         assertUploadErrorOrAccepted(res);
-    }
-
-    @Test
-    @DisplayName("PostUpload-Test10: 新标 biObjectComponents")
-    void test10_biObjectComponents() throws Exception {
-        String token = loginAndGetToken();
-        String bUuid = rnd("t10-bld-");
-        String oUuid = rnd("t10-obj-");
-        String cUuid = rnd("t10-comp-");
-
-        Map<String, Object> payload = basePayload("Test10");
-        payload.put("buildings", List.of(mapOf("offlineUuid", bUuid, "name", "桥梁T10", "isLeaf", "1", "status", "0", "offlineDeleted", 0)));
-        payload.put("objects", List.of(mapOf("offlineUuid", oUuid, "name", "对象T10", "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0)));
-        payload.put("components", List.of(mapOf("offlineUuid", cUuid, "name", "构件T10", "code", "T10-C01", "status", "0", "objectUuid", oUuid, "offlineDeleted", 0)));
-        payload.put("biObjectComponents", List.of(mapOf("offlineUuid", rnd("t10-rel-"), "objectUuid", oUuid, "componentUuid", cUuid, "weight", 1.0, "offlineDeleted", 0)));
-
-        JsonNode res = postUpload(token, payload, true);
-        assertUploadAccepted(res);
     }
 
     @Test
@@ -436,7 +403,6 @@ public class PostSyncUploadE2ETest {
         payload.put("diseases", new ArrayList<>());
         payload.put("diseaseDetails", new ArrayList<>());
         payload.put("attachments", new ArrayList<>());
-        payload.put("biObjectComponents", new ArrayList<>());
         return payload;
     }
 

@@ -65,6 +65,11 @@ public class DiseaseType extends BaseEntity {
      */
     private String groupName;
 
+    /**
+     * 所属标准版本（如 H21-2011 / 5230-2026）；为空视同旧标准 H21-2011
+     */
+    private String stdVersion;
+
     // 关联的病害标度
     private List<DiseaseScale> diseaseScales;
 

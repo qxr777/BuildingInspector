@@ -183,9 +183,6 @@ public class Building extends BaseEntity {
     /** 离线记录唯一标识(UUID) */
     private String offlineUuid;
 
-    /** 是否为离线同步数据 (0:否, 1:是) */
-    private Integer isOfflineData;
-
     /** 是否被App离线删除标记 (0:否, 1:是) */
     private Integer offlineDeleted;
 
@@ -216,7 +213,6 @@ public class Building extends BaseEntity {
                 .append("rootObjectId", getRootObjectId())
                 .append("rootObjectUuid", getRootObjectUuid())
                 .append("offlineUuid", getOfflineUuid())
-                .append("isOfflineData", getIsOfflineData())
                 .toString();
     }
 }

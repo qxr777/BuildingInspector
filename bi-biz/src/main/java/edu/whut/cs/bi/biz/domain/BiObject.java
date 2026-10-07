@@ -162,9 +162,6 @@ public class BiObject extends TreeEntity {
     /** 跨号(1, 2, 3...) */
     private Integer spanNo;
 
-    /** 跨径长度(米) */
-    private BigDecimal spanLength;
-
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
@@ -198,7 +195,6 @@ public class BiObject extends TreeEntity {
                 .append("omega", getOmega())
                 .append("propsJson", getPropsJson())
                 .append("spanNo", getSpanNo())
-                .append("spanLength", getSpanLength())
                 .toString();
     }
 }

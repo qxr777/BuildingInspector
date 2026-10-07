@@ -1,6 +1,7 @@
 package edu.whut.cs.bi.biz.mapper;
 
 import edu.whut.cs.bi.biz.domain.DiseaseScale;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -26,6 +27,12 @@ public interface DiseaseScaleMapper
      * @return 病害标度集合信息
      */
     public List<DiseaseScale> selectDiseaseScaleByTypeCode(String typeCode);
+
+    /**
+     * 按“病害类型代码 + 标准版本”查询标度（种子自然键、按标度升序）
+     */
+    public List<DiseaseScale> selectByTypeCodeAndStdVersion(@Param("typeCode") String typeCode,
+                                                            @Param("stdVersion") String stdVersion);
 
     /**
      * 根据病害标度ID查询信息

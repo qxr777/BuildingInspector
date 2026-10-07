@@ -4,6 +4,8 @@ import com.ruoyi.common.core.domain.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.math.BigDecimal;
+
 /**
  * @author QiXin
  * @date 2025/4/9
@@ -36,4 +38,29 @@ public class DiseaseScale extends BaseEntity {
      * 病害类型状态（0正常 1停用）
      */
     private String status;
+
+    /**
+     * 所属标准版本（如 H21-2011 / 5230-2026）；为空视同旧标准 H21-2011
+     */
+    private String stdVersion;
+
+    /**
+     * 结构化指标键（如 crack_width），为数据驱动评定准备；可空
+     */
+    private String metricKey;
+
+    /**
+     * 结构化区间下界（含），可空
+     */
+    private BigDecimal valueLower;
+
+    /**
+     * 结构化区间上界（含），可空
+     */
+    private BigDecimal valueUpper;
+
+    /**
+     * 计量单位，可空
+     */
+    private String unit;
 }

@@ -966,7 +966,6 @@ public class SyncSqliteClosedLoopE2ETest {
             payload.put("diseases", rowsByOffline(c, "bi_disease"));
             payload.put("diseaseDetails", rowsByOffline(c, "bi_disease_detail"));
             payload.put("attachments", rowsByOffline(c, "bi_attachment"));
-            payload.put("biObjectComponents", rowsByOffline(c, "bi_object_component"));
             return payload;
         }
     }
@@ -1198,7 +1197,6 @@ public class SyncSqliteClosedLoopE2ETest {
         System.out.println("  diseases=" + castListMap(payload.get("diseases")).size());
         System.out.println("  diseaseDetails=" + castListMap(payload.get("diseaseDetails")).size());
         System.out.println("  attachments=" + castListMap(payload.get("attachments")).size());
-        System.out.println("  biObjectComponents=" + castListMap(payload.get("biObjectComponents")).size());
         System.out.println("[E2E payload " + label + " detail] " + MAPPER.writeValueAsString(payload));
     }
 }

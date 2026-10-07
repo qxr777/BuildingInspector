@@ -19,6 +19,7 @@
         <result property="selectColumn" column="select_column"/>
         <result property="threshold" column="threshold"/>
         <result property="groupName" column="group_name"/>
+        <result property="stdVersion" column="std_version"/>
     </resultMap>
 
     <resultMap type="TemplateDiseaseTypeVO" id="TemplateDiseaseTypeVOResult" extends="DiseaseTypeResult">
@@ -39,7 +40,8 @@
                remark,
                select_column,
                threshold,
-               group_name
+               group_name,
+               std_version
         from bi_disease_type
     </sql>
 
@@ -54,6 +56,9 @@
             </if>
             <if test="status != null and status != ''">
                 AND status = #{status}
+            </if>
+            <if test="stdVersion != null and stdVersion != ''">
+                AND std_version = #{stdVersion}
             </if>
             <if test="params.beginTime != null and params.beginTime != ''">
                 and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
@@ -102,6 +107,11 @@
         where code = #{code} and status = '0' limit 1
     </select>
 
+    <select id="selectByCodeAndStdVersion" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+        where code = #{code} and std_version = #{stdVersion} limit 1
+    </select>
+
     <select id="selectDiseaseTypeListByIds" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
         where id in
@@ -138,6 +148,7 @@
             <if test="selectColumn != null">select_column = #{selectColumn},</if>
             <if test="threshold != null">threshold = #{threshold},</if>
             <if test="groupName != null and groupName != ''">group_name = #{groupName},</if>
+            <if test="stdVersion != null and stdVersion != ''">std_version = #{stdVersion},</if>
             update_time = sysdate()
         </set>
         where id = #{id}
@@ -162,6 +173,7 @@
             <if test="selectColumn != null">select_column,</if>
             <if test="threshold != null">threshold,</if>
             <if test="groupName != null and groupName != ''">group_name,</if>
+            <if test="stdVersion != null and stdVersion != ''">std_version,</if>
             create_time
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -175,6 +187,7 @@
             <if test="selectColumn != null">#{selectColumn},</if>
             <if test="threshold != null">#{threshold},</if>
             <if test="groupName != null and groupName != ''">#{groupName},</if>
+            <if test="stdVersion != null and stdVersion != ''">#{stdVersion},</if>
             sysdate()
         </trim>
     </insert>

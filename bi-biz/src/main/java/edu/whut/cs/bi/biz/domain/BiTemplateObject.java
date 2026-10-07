@@ -77,6 +77,16 @@ public class BiTemplateObject extends TreeEntity {
     private Integer diseaseTypeCount;
 
     /**
+     * 所属标准版本（如 H21-2011 / 5230-2026）；为空视同旧标准 H21-2011
+     */
+    private String stdVersion;
+
+    /**
+     * 节点自然键（版本内唯一），种子据此幂等 upsert；旧模板可为空
+     */
+    private String nodeCode;
+
+    /**
      * 子模板对象
      */
     private List<BiTemplateObject> children = new ArrayList<BiTemplateObject>();
@@ -97,6 +107,22 @@ public class BiTemplateObject extends TreeEntity {
 
     public void setDiseaseTypeCount(Integer diseaseTypeCount) {
         this.diseaseTypeCount = diseaseTypeCount;
+    }
+
+    public String getStdVersion() {
+        return stdVersion;
+    }
+
+    public void setStdVersion(String stdVersion) {
+        this.stdVersion = stdVersion;
+    }
+
+    public String getNodeCode() {
+        return nodeCode;
+    }
+
+    public void setNodeCode(String nodeCode) {
+        this.nodeCode = nodeCode;
     }
 
     public List<BiTemplateObject> getChildren() {

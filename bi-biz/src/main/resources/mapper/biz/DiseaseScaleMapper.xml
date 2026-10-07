@@ -16,6 +16,11 @@
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
         <result property="remark" column="remark"/>
+        <result property="stdVersion" column="std_version"/>
+        <result property="metricKey" column="metric_key"/>
+        <result property="valueLower" column="value_lower"/>
+        <result property="valueUpper" column="value_upper"/>
+        <result property="unit" column="unit"/>
     </resultMap>
 
     <sql id="selectDiseaseScaleVo">
@@ -29,7 +34,12 @@
                create_time,
                update_by,
                update_time,
-               remark
+               remark,
+               std_version,
+               metric_key,
+               value_lower,
+               value_upper,
+               unit
         from bi_disease_scale
     </sql>
 
@@ -45,6 +55,9 @@
             <if test="status != null and status != ''">
                 AND status = #{status}
             </if>
+            <if test="stdVersion != null and stdVersion != ''">
+                AND std_version = #{stdVersion}
+            </if>
             <if test="params.beginTime != null and params.beginTime != ''">
                 and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
             </if>
@@ -58,6 +71,12 @@
     <select id="selectDiseaseScaleByTypeCode" parameterType="String" resultMap="DiseaseScaleResult">
         <include refid="selectDiseaseScaleVo"/>
         where type_code = #{typeCode}
+        order by scale asc
+    </select>
+
+    <select id="selectByTypeCodeAndStdVersion" resultMap="DiseaseScaleResult">
+        <include refid="selectDiseaseScaleVo"/>
+        where type_code = #{typeCode} and std_version = #{stdVersion}
         order by scale asc
     </select>
 
@@ -101,6 +120,11 @@
             <if test="status != null">status = #{status},</if>
             <if test="remark != null and remark != ''">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="stdVersion != null and stdVersion != ''">std_version = #{stdVersion},</if>
+            <if test="metricKey != null and metricKey != ''">metric_key = #{metricKey},</if>
+            <if test="valueLower != null">value_lower = #{valueLower},</if>
+            <if test="valueUpper != null">value_upper = #{valueUpper},</if>
+            <if test="unit != null and unit != ''">unit = #{unit},</if>
             update_time = sysdate()
         </set>
         where id = #{id}
@@ -116,6 +140,11 @@
             <if test="status != null">status,</if>
             <if test="remark != null and remark != ''">remark,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="stdVersion != null and stdVersion != ''">std_version,</if>
+            <if test="metricKey != null and metricKey != ''">metric_key,</if>
+            <if test="valueLower != null">value_lower,</if>
+            <if test="valueUpper != null">value_upper,</if>
+            <if test="unit != null and unit != ''">unit,</if>
         </trim>
         values
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -127,6 +156,11 @@
             <if test="status != null">#{status},</if>
             <if test="remark != null and remark != ''">#{remark},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="stdVersion != null and stdVersion != ''">#{stdVersion},</if>
+            <if test="metricKey != null and metricKey != ''">#{metricKey},</if>
+            <if test="valueLower != null">#{valueLower},</if>
+            <if test="valueUpper != null">#{valueUpper},</if>
+            <if test="unit != null and unit != ''">#{unit},</if>
         </trim>
     </insert>
 

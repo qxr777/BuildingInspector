@@ -3,6 +3,7 @@ package edu.whut.cs.bi.biz.mapper;
 import java.util.List;
 
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 桥梁构件模版Mapper接口
@@ -74,4 +75,15 @@ public interface BiTemplateObjectMapper {
      * @return 子节点列表
      */
     public List<BiTemplateObject> selectChildrenById(Long id);
+
+    /**
+     * 按“节点自然键 + 标准版本”查询（种子自然键）
+     */
+    public BiTemplateObject selectByNodeCodeAndStdVersion(@Param("nodeCode") String nodeCode,
+                                                          @Param("stdVersion") String stdVersion);
+
+    /**
+     * 查询某标准版本下的全部模板节点（用于受限对账）
+     */
+    public List<BiTemplateObject> selectByStdVersion(@Param("stdVersion") String stdVersion);
 }

@@ -23,6 +23,8 @@
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
         <result property="parentName" column="parent_name"/>
+        <result property="stdVersion" column="std_version"/>
+        <result property="nodeCode" column="node_code"/>
         <collection property="children" ofType="BiTemplateObject">
             <id property="id" column="child_id"/>
             <result property="name" column="child_name"/>
@@ -41,17 +43,20 @@
             <result property="createTime" column="child_create_time"/>
             <result property="updateBy" column="child_update_by"/>
             <result property="updateTime" column="child_update_time"/>
+            <result property="stdVersion" column="child_std_version"/>
+            <result property="nodeCode" column="child_node_code"/>
         </collection>
     </resultMap>
 
     <sql id="selectBiTemplateObjectVo">
-        select id, name, parent_id, ancestors, order_num, status, del_flag, weight, omega, gamma, category_i, props, remark, create_by, create_time, update_by, update_time from bi_template_object
+        select id, name, parent_id, ancestors, order_num, status, del_flag, weight, omega, gamma, category_i, props, remark, create_by, create_time, update_by, update_time, std_version, node_code from bi_template_object
     </sql>
 
     <select id="selectBiTemplateObjectList" parameterType="BiTemplateObject" resultMap="BiTemplateObjectResult">
         SELECT
         t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
-        t.weight, t.omega, t.gamma, t.category_i, t.props, t.remark, t.create_by, t.create_time, t.update_by, t.update_time
+        t.weight, t.omega, t.gamma, t.category_i, t.props, t.remark, t.create_by, t.create_time, t.update_by, t.update_time,
+        t.std_version, t.node_code
         FROM bi_template_object t
         <where>
             <if test="status != null and status != ''">
@@ -59,6 +64,9 @@
             </if>
             <if test="parentId != null">
                 AND t.parent_id = #{parentId}
+            </if>
+            <if test="stdVersion != null and stdVersion != ''">
+                AND t.std_version = #{stdVersion}
             </if>
             AND t.del_flag = '0'
         </where>
@@ -92,6 +100,16 @@
         ) and del_flag = '0'
     </select>
 
+    <select id="selectByNodeCodeAndStdVersion" resultMap="BiTemplateObjectResult">
+        <include refid="selectBiTemplateObjectVo"/>
+        where node_code = #{nodeCode} and std_version = #{stdVersion} and del_flag = '0' limit 1
+    </select>
+
+    <select id="selectByStdVersion" resultMap="BiTemplateObjectResult">
+        <include refid="selectBiTemplateObjectVo"/>
+        where std_version = #{stdVersion}
+    </select>
+
     <insert id="insertBiTemplateObject" parameterType="BiTemplateObject" useGeneratedKeys="true" keyProperty="id">
         insert into bi_template_object(
         <if test="id != null">id,</if>
@@ -108,6 +126,8 @@
         <if test="props != null">props,</if>
         <if test="remark != null">remark,</if>
         <if test="createBy != null">create_by,</if>
+        <if test="stdVersion != null and stdVersion != ''">std_version,</if>
+        <if test="nodeCode != null and nodeCode != ''">node_code,</if>
         create_time
         )values(
         <if test="id != null">#{id},</if>
@@ -124,6 +144,8 @@
         <if test="props != null">#{props},</if>
         <if test="remark != null">#{remark},</if>
         <if test="createBy != null">#{createBy},</if>
+        <if test="stdVersion != null and stdVersion != ''">#{stdVersion},</if>
+        <if test="nodeCode != null and nodeCode != ''">#{nodeCode},</if>
         sysdate()
         )
     </insert>
@@ -144,6 +166,8 @@
             <if test="props != null">props = #{props},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="stdVersion != null and stdVersion != ''">std_version = #{stdVersion},</if>
+            <if test="nodeCode != null and nodeCode != ''">node_code = #{nodeCode},</if>
             update_time = sysdate()
         </set>
         where id = #{id} and del_flag = '0'

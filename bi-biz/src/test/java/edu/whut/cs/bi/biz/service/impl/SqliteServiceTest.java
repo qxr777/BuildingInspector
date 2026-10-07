@@ -16,11 +16,10 @@ import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.UserSqlite;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
-import edu.whut.cs.bi.biz.domain.BiObjectComponent;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
-import edu.whut.cs.bi.biz.mapper.BiObjectComponentMapper;
 import edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.mapper.SpanComponentPartMapper;
 import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
@@ -109,9 +108,9 @@ class SqliteServiceTest {
     @Mock
     private MinioConfig minioConfig;
     @Mock
-    private BiObjectComponentMapper biObjectComponentMapper;
-    @Mock
     private PropertyMapper propertyMapper;
+    @Mock
+    private SpanComponentPartMapper spanComponentPartMapper;
 
     private final List<File> generatedFiles = new ArrayList<>();
 
@@ -191,7 +190,7 @@ class SqliteServiceTest {
         doReturn(Collections.singletonList(diseaseAttachment), Collections.singletonList(buildingAttachment))
                 .when(attachmentService).getAttachmentBySubjectIds(anyList());
         doReturn(Collections.singletonList(map1)).when(fileMapMapper).selectFileMapByIds(Arrays.asList(701L, 702L, 703L));
-        doReturn(new ArrayList<>()).when(biObjectComponentMapper).selectBiObjectComponentList(any());
+        doReturn(new ArrayList<>()).when(spanComponentPartMapper).selectSpanComponentPartList(any());
 
         File result = sqliteService.doGenerateBuildingSqlite(buildingId);
         generatedFiles.add(result);

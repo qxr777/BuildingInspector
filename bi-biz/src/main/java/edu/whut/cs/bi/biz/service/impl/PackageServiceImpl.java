@@ -33,6 +33,9 @@ import edu.whut.cs.bi.biz.domain.vo.PropertyTreeVo;
 import edu.whut.cs.bi.biz.domain.vo.TasksOfProjectVo;
 import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.service.std.StandardCatalogLoader;
+import edu.whut.cs.bi.biz.service.std.StdDiseaseScaleJsonWriter;
+import edu.whut.cs.bi.biz.service.std.model.StdCatalog;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.StatObjectArgs;
@@ -102,6 +105,12 @@ public class PackageServiceImpl implements IPackageService {
 
     @Resource
     private IBiTemplateObjectService biTemplateObjectService;
+
+    @Resource
+    private StandardCatalogLoader standardCatalogLoader;
+
+    @Resource
+    private StdDiseaseScaleJsonWriter stdDiseaseScaleJsonWriter;
 
     @Resource(name = "taskExecutor")
     private Executor packageTaskExecutor;
@@ -390,6 +399,7 @@ public class PackageServiceImpl implements IPackageService {
                  ZipOutputStream zipOut = new ZipOutputStream(fos)) {
                 templateCount = copyTemplateJsonEntries(templateZipBytes, zipOut);
                 addResourceToZip(zipOut, "disease_scale.json", diseaseScaleResource);
+                addNewStandardDiseaseScale(zipOut);
             }
 
             if (templateCount == 0) {
@@ -585,6 +595,19 @@ public class PackageServiceImpl implements IPackageService {
                 zipOut.write(buffer, 0, bytesRead);
             }
         }
+        zipOut.closeEntry();
+    }
+
+    /**
+     * 追加 5230-2026 新标线下发病害标度字典，与 H21 的 {@code disease_scale.json} 并存。
+     * 内容由 {@link StandardCatalogLoader} 权威目录即时生成，H21 旧文件保持原样不动。
+     */
+    private void addNewStandardDiseaseScale(ZipOutputStream zipOut) throws IOException {
+        StdCatalog catalog = standardCatalogLoader.getCatalog();
+        byte[] jsonBytes = stdDiseaseScaleJsonWriter.writeDiseaseScaleJson(catalog);
+        String entryName = "disease_scale_" + catalog.getStdVersion() + ".json";
+        zipOut.putNextEntry(new ZipEntry(entryName));
+        zipOut.write(jsonBytes);
         zipOut.closeEntry();
     }
 

@@ -46,6 +46,12 @@ public interface DiseaseTypeMapper
     public DiseaseType selectDiseaseTypeByCode(String code);
 
     /**
+     * 按“代码 + 标准版本”查询病害类型（种子自然键）
+     */
+    public DiseaseType selectByCodeAndStdVersion(@Param("code") String code,
+                                                  @Param("stdVersion") String stdVersion);
+
+    /**
      * 通过病害ID删除病害信息
      * 
      * @param id 病害ID

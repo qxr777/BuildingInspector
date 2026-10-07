@@ -34,6 +34,12 @@
                           ))
     </select>
 
+    <select id="selectDiseaseTypeIdsByTemplateObjectId" resultType="java.lang.Long">
+        select disease_type_id
+        from bi_template_object_disease_type
+        where template_object_id = #{templateObjectId}
+    </select>
+
     <delete id="deleteData">
         delete from bi_template_object_disease_type
         where template_object_id = #{templateObjectId}

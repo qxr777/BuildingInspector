@@ -29,6 +29,11 @@ public interface TODiseaseTypeMapper
     List<Long> selectByTemplateObjectId(Long biObjectId);
 
     /**
+     * 查询某模板节点当前绑定的病害类型ID集合（种子对账用）
+     */
+    List<Long> selectDiseaseTypeIdsByTemplateObjectId(@Param("templateObjectId") Long templateObjectId);
+
+    /**
      * 删除模板对象和病害类型关联数据
      *
      * @param templateObjectId

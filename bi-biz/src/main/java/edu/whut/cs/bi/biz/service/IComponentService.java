@@ -131,11 +131,4 @@ public interface IComponentService {
      * @return 构件列表
      */
     public List<Component> selectComponentsByIds(List<Long> ids);
-    /**
-     * 根据对象ID查询关联的构件列表 (包含共享构件)
-     *
-     * @param biObjectId 对象ID
-     * @return 构件集合
-     */
-    public List<Component> selectComponentsByObjectIdForEval(Long biObjectId);
 }
