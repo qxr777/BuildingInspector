@@ -8,7 +8,6 @@ import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.DiseaseDetail;
-import edu.whut.cs.bi.biz.domain.DiseasePosition;
 import edu.whut.cs.bi.biz.domain.DiseaseScale;
 import edu.whut.cs.bi.biz.domain.DiseaseType;
 import edu.whut.cs.bi.biz.domain.FileMap;
@@ -25,13 +24,11 @@ import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ComponentMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
-import edu.whut.cs.bi.biz.mapper.DiseasePositionMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseScaleMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.FileMapMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.mapper.PropertyMapper;
-import edu.whut.cs.bi.biz.mapper.TODiseasePositionMapper;
 import edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.mapper.UserSqliteMapper;
@@ -107,10 +104,6 @@ class SqliteServiceTest {
     private DiseaseTypeMapper diseaseTypeMapper;
     @Mock
     private DiseaseScaleMapper diseaseScaleMapper;
-    @Mock
-    private DiseasePositionMapper diseasePositionMapper;
-    @Mock
-    private TODiseasePositionMapper toDiseasePositionMapper;
     @Mock
     private MinioClient minioClient;
     @Mock
@@ -335,10 +328,6 @@ class SqliteServiceTest {
                 .selectDiseaseTypeList(any(DiseaseType.class));
         doReturn(Collections.singletonList(scale)).when(diseaseScaleMapper)
                 .selectDiseaseScaleList(any(DiseaseScale.class));
-        doReturn(Collections.emptyList()).when(diseasePositionMapper)
-                .selectDiseasePositionList(any());
-        doReturn(Collections.emptyList()).when(toDiseasePositionMapper)
-                .selectAllMappings();
 
         doReturn("bucket-test").when(minioConfig).getBucketName();
         doReturn("http://minio.local").when(minioConfig).getUrl();
@@ -372,47 +361,6 @@ class SqliteServiceTest {
 
         assertNull(vo);
         verify(minioClient, never()).putObject(any());
-    }
-
-    /**
-     * 测试场景：项目 SQLite 下载地址查询成功。
-     * Mock 内容：projectMapper 返回 sqliteMinioId，fileMapMapper 返回文件映射，MinioConfig 提供访问前缀。
-     * 预期结果：返回包含正确 url 的 SqliteVo。
-     */
-    @Test
-    void testGetProjectSqliteUrl_HappyPath() {
-        Project project = new Project();
-        project.setId(1L);
-        project.setSqliteMinioId(123L);
-
-        FileMap fm = new FileMap();
-        fm.setId(123);
-        fm.setNewName("aa_file.db");
-        fm.setCreateTime(new Date());
-
-        doReturn(project).when(projectMapper).selectProjectById(1L);
-        doReturn(fm).when(fileMapMapper).selectFileMapById(123L);
-        doReturn("http://localhost:9000").when(minioConfig).getUrl();
-        doReturn("bucket-test").when(minioConfig).getBucketName();
-
-        SqliteVo vo = sqliteService.getProjectSqliteUrl(1L);
-
-        assertNotNull(vo);
-        assertEquals("http://localhost:9000/bucket-test/aa/aa_file.db", vo.getUrl());
-    }
-
-    /**
-     * 测试场景：项目不存在或未关联 SQLite。
-     * Mock 内容：projectMapper 返回 null。
-     * 预期结果：返回 null。
-     */
-    @Test
-    void testGetProjectSqliteUrl_EdgeCase_ProjectNotFound() {
-        doReturn(null).when(projectMapper).selectProjectById(999L);
-
-        SqliteVo vo = sqliteService.getProjectSqliteUrl(999L);
-
-        assertNull(vo);
     }
 
     /**

@@ -175,16 +175,6 @@ public class ProjectServiceImpl implements IProjectService {
 
         int result = projectMapper.updateProject(project);
         
-        // 触发 SQLite 生成
-        if (project.getId() != null) {
-            sqliteService.generateSqliteAsync(project.getId());
-            // 联动更新项目下所有用户的 SQLite
-            List<Long> allUserIds = projectUserMapper.selectAllUserIdsByProjectId(project.getId());
-            if (allUserIds != null) {
-                allUserIds.forEach(uid -> sqliteService.generateUserSqliteSync(uid));
-            }
-        }
-        
         return result;
     }
 
@@ -452,9 +442,6 @@ public class ProjectServiceImpl implements IProjectService {
         }
 
         projectMapper.updateProjectTimeByProjectId(projectId);
-        
-        // 触发 SQLite 生成
-        sqliteService.generateSqliteAsync(projectId);
 
         // 联动更新所有相关用户的 SQLite
         Set<Long> userIdsToUpdate = new HashSet<>();

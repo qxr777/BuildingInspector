@@ -213,20 +213,6 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                             biEvalComponentDetailMapper.batchInsert(detailList);
                             log.info("成功转移 {} 条评定细目", detailList.size());
                         }
-
-                        log.info("开始触发分跨评定, 共 {} 跨", affectedSpanIds.size());
-                        for (Long spanId : affectedSpanIds) {
-                            bridgeEvaluationEngine.evaluate("SPAN", spanId, taskId);
-                        }
-
-                        Long buildingId = null;
-                        List<Building> buildings = parseList(dataMap.get("buildings"), Building.class);
-                        if (!buildings.isEmpty()) {
-                            buildingId = uuidMap.get(buildings.get(0).getOfflineUuid());
-                        }
-                        if (buildingId != null) {
-                            bridgeEvaluationEngine.evaluate("BRIDGE", buildingId, taskId);
-                        }
                     }
                 }
             } catch (Exception ee) {

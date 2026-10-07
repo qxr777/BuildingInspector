@@ -37,41 +37,6 @@ class ApiControllerV2Test {
     private SqliteService sqliteService;
 
     @Test
-    void testGetProjectSqliteUrl_Success() {
-        SqliteVo vo = new SqliteVo();
-        vo.setUrl("http://localhost:9000/bucket/aa/file.db");
-
-        doReturn(vo).when(sqliteService).getProjectSqliteUrl(1L);
-
-        AjaxResult result = apiControllerV2.getProjectSqliteUrl(1L);
-
-        assertEquals(0, result.get(AjaxResult.CODE_TAG));
-        assertEquals("获取成功", result.get(AjaxResult.MSG_TAG));
-        assertSame(vo, result.get(AjaxResult.DATA_TAG));
-    }
-
-    @Test
-    void testGetProjectSqliteUrl_NotFound() {
-        doReturn(null).when(sqliteService).getProjectSqliteUrl(2L);
-
-        AjaxResult result = apiControllerV2.getProjectSqliteUrl(2L);
-
-        assertEquals(500, result.get(AjaxResult.CODE_TAG));
-        assertEquals("SQLite 文件未生成或不存在，请稍候再试", result.get(AjaxResult.MSG_TAG));
-        assertNull(result.get(AjaxResult.DATA_TAG));
-    }
-
-    @Test
-    void testGetProjectSqliteUrl_Exception() {
-        doThrow(new RuntimeException("boom")).when(sqliteService).getProjectSqliteUrl(3L);
-
-        AjaxResult result = apiControllerV2.getProjectSqliteUrl(3L);
-
-        assertEquals(500, result.get(AjaxResult.CODE_TAG));
-        assertTrue(String.valueOf(result.get(AjaxResult.MSG_TAG)).contains("获取 SQLite 文件失败"));
-    }
-
-    @Test
     void testGetUserSqliteUrl_Success() {
         SqliteVo vo = new SqliteVo();
         vo.setUrl("http://localhost:9000/bucket/bb/user.db");

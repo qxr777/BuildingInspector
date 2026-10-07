@@ -40,28 +40,6 @@ public class BridgeEvaluationEngine {
     @Autowired
     private edu.whut.cs.bi.biz.mapper.BiEvalComponentDetailMapper biEvalComponentDetailMapper;
 
-    /**
-     * 计算并保存指定单元（桥跨或全桥）的技术状况
-     */
-    public BiEvaluation evaluate(String targetType, Long targetId, Long taskId) {
-        BiEvaluation eval = new BiEvaluation();
-        eval.setTargetType(targetType);
-        eval.setTargetId(targetId);
-        eval.setTaskId(taskId);
-
-        if ("SPAN".equals(targetType)) {
-            calculateSpanEvaluation(eval, targetId, taskId);
-            // 恢复存储评定结果到 bi_evaluation
-            biEvaluationMapper.insertBiEvaluation(eval);
-        } else {
-            // 全桥评定逻辑
-            calculateBridgeEvaluation(eval, targetId, taskId);
-            // 恢复存储评定结果到 bi_evaluation
-            biEvaluationMapper.insertBiEvaluation(eval);
-        }
-
-        return eval;
-    }
 
     /**
      * 计算单跨评分 (2026 新标逻辑)
@@ -221,48 +199,6 @@ public class BridgeEvaluationEngine {
                 .add(eval.getDeckSystemScore().multiply(new BigDecimal("0.2")));
         
         return score.setScale(1, RoundingMode.HALF_UP);
-    }
-
-    /**
-     * 全桥评定逻辑 (跨径汇总)
-     */
-    private void calculateBridgeEvaluation(BiEvaluation eval, Long bridgeId, Long taskId) {
-        // 1. 查询该任务下所有已计算的分跨评定结果
-        BiEvaluation query = new BiEvaluation();
-        query.setTaskId(taskId);
-        query.setTargetType("SPAN");
-        List<BiEvaluation> spanEvals = biEvaluationMapper.selectBiEvaluationList(query);
-
-        if (spanEvals == null || spanEvals.isEmpty()) {
-            eval.setSystemScore(new BigDecimal("100.00"));
-            return;
-        }
-
-        BigDecimal totalScore = BigDecimal.ZERO;
-        BigDecimal minScore = new BigDecimal("100.00");
-        
-        for (BiEvaluation spanEval : spanEvals) {
-            BigDecimal s = spanEval.getSystemScore() != null ? spanEval.getSystemScore() : new BigDecimal("100.00");
-            totalScore = totalScore.add(s);
-            if (s.compareTo(minScore) < 0) {
-                minScore = s;
-            }
-        }
-
-        BigDecimal avgScore = totalScore.divide(new BigDecimal(spanEvals.size()), 2, RoundingMode.HALF_UP);
-        
-        BigDecimal finalScore = avgScore;
-        if (minScore.compareTo(new BigDecimal("60.00")) < 0) {
-            finalScore = minScore; // 触及四类/五类控制项
-        }
-
-        eval.setSystemScore(finalScore);
-        eval.setTargetType("BRIDGE");
-        eval.setTargetId(bridgeId);
-        
-        eval.setSuperstructureScore(averagePartScore(spanEvals, "SUPER"));
-        eval.setSubstructureScore(averagePartScore(spanEvals, "SUB"));
-        eval.setDeckSystemScore(averagePartScore(spanEvals, "DECK"));
     }
 
     private BigDecimal averagePartScore(List<BiEvaluation> evals, String type) {

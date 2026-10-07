@@ -66,10 +66,6 @@ public class SqliteService {
     @Resource
     private DiseaseScaleMapper diseaseScaleMapper;
     @Resource
-    private DiseasePositionMapper diseasePositionMapper;
-    @Resource
-    private TODiseasePositionMapper toDiseasePositionMapper;
-    @Resource
     private BiObjectComponentMapper biObjectComponentMapper;
     @Resource
     private SpanComponentPartMapper spanComponentPartMapper;
@@ -85,32 +81,6 @@ public class SqliteService {
     private static final long DEBOUNCE_MS = 5000;
 
     // ======================== API 入口 ========================
-
-    /**
-     * 按项目异步生成全量 SQLite
-     */
-    @Async("sqliteTaskExecutor")
-    public void generateSqliteAsync(Long projectId) {
-        if (projectId == null)
-            return;
-        if (isDebounced("project_" + projectId))
-            return;
-
-        log.info("[SQLite] 开始为项目 {} 生成全量 SQLite", projectId);
-        File sqliteFile = null;
-        try {
-            sqliteFile = doGenerateProjectSqlite(projectId);
-            if (sqliteFile != null && sqliteFile.exists()) {
-                String fileMapId = uploadToMinio(sqliteFile, "project_" + projectId + ".db");
-                updateProjectSqliteRef(projectId, fileMapId);
-                log.info("[SQLite] 项目 {} 全量包上传成功", projectId);
-            }
-        } catch (Exception e) {
-            log.error("[SQLite] 项目 {} 生成失败", projectId, e);
-        } finally {
-            cleanupTempFile(sqliteFile);
-        }
-    }
 
     /**
      * 按用户同步生成核心表 SQLite (供闭环强一致性使用)
@@ -137,19 +107,6 @@ public class SqliteService {
         return null;
     }
 
-    /**
-     * 按结构物异步生成检查数据 SQLite (bi_object, bi_component, bi_disease 等)
-     */
-
-    /**
-     * 获取项目的 SQLite 文件同步信息
-     */
-    public SqliteVo getProjectSqliteUrl(Long projectId) {
-        Project project = projectMapper.selectProjectById(projectId);
-        if (project == null || project.getSqliteMinioId() == null)
-            return null;
-        return getVoFromFileMapId(project.getSqliteMinioId(), null);
-    }
 
     /**
      * 获取用户的 SQLite 文件同步信息
@@ -302,19 +259,15 @@ public class SqliteService {
         List<Map<String, Object>> toMappings = toDiseaseTypeMapper.selectAllTemplateObjectDiseaseTypeMappings();
         List<DiseaseType> diseaseTypes = diseaseTypeMapper.selectDiseaseTypeList(new DiseaseType());
         List<DiseaseScale> diseaseScales = diseaseScaleMapper.selectDiseaseScaleList(new DiseaseScale());
-        List<DiseasePosition> diseasePositions = diseasePositionMapper.selectDiseasePositionList(new DiseasePosition());
-        List<Map<String, Object>> toDpMappings = toDiseasePositionMapper.selectAllMappings();
 
         File tempFile = File.createTempFile("common_base_", ".db");
         try (Connection conn = connect(tempFile)) {
             createTables(conn, "bi_template_object", "bi_template_object_disease_type", "bi_disease_type",
-                    "bi_disease_scale", "bi_disease_position", "bi_template_object_disease_position");
+                    "bi_disease_scale");
             insertTemplateObjects(conn, templateObjects);
             insertTODiseaseTypeMappings(conn, toMappings);
             insertDiseaseTypes(conn, diseaseTypes);
             insertDiseaseScales(conn, diseaseScales);
-            insertDiseasePositions(conn, diseasePositions);
-            insertTODiseasePositionMappings(conn, toDpMappings);
             conn.commit();
         }
         return tempFile;
@@ -452,13 +405,6 @@ public class SqliteService {
         return fm.getId().toString();
     }
 
-    private void updateProjectSqliteRef(Long projectId, String fileMapId) {
-        Project p = new Project();
-        p.setId(projectId);
-        p.setSqliteMinioId(Long.valueOf(fileMapId));
-        projectMapper.updateProject(p);
-    }
-
     private void updateUserSqliteRef(Long userId, String fileMapId, long size) {
         UserSqlite us = userSqliteMapper.selectUserSqliteByUserId(userId);
         boolean exists = (us != null);
@@ -526,12 +472,6 @@ public class SqliteService {
             if (set.contains("bi_disease_scale"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_disease_scale (id INTEGER PRIMARY KEY, type_code TEXT, scale INTEGER, qualitative_description TEXT, quantitative_description TEXT, status TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
-            if (set.contains("bi_disease_position"))
-                s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_disease_position (id INTEGER PRIMARY KEY, name TEXT, code TEXT, props TEXT, ref1 TEXT, ref2 TEXT, sort_order INTEGER, status TEXT, del_flag TEXT, remark TEXT, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT)");
-            if (set.contains("bi_template_object_disease_position"))
-                s.execute(
-                        "CREATE TABLE IF NOT EXISTS bi_template_object_disease_position (template_object_id INTEGER, disease_position_id INTEGER, PRIMARY KEY(template_object_id, disease_position_id))");
             if (set.contains("bi_object_component"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_object_component (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, component_id INTEGER, bi_object_id INTEGER, component_uuid TEXT, object_uuid TEXT, weight REAL, is_offline_data INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, offline_deleted INTEGER DEFAULT 0)");
@@ -969,42 +909,6 @@ public class SqliteService {
                 ps.setString(9, s.getUpdateBy());
                 ps.setString(10, dateToStr(s.getUpdateTime()));
                 ps.setString(11, s.getRemark());
-                ps.addBatch();
-            }
-            ps.executeBatch();
-        }
-    }
-
-    private void insertDiseasePositions(Connection conn, List<DiseasePosition> positions) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_disease_position (id, name, code, props, ref1, ref2, sort_order, status, del_flag, remark, create_by, create_time, update_by, update_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            for (DiseasePosition dp : positions) {
-                ps.setLong(1, dp.getId());
-                ps.setString(2, dp.getName());
-                ps.setString(3, dp.getCode());
-                ps.setString(4, dp.getProps());
-                ps.setString(5, dp.getRef1());
-                ps.setString(6, dp.getRef2());
-                setIntOrNull(ps, 7, dp.getSortOrder());
-                ps.setString(8, dp.getStatus());
-                ps.setString(9, dp.getDelFlag());
-                ps.setString(10, dp.getRemark());
-                ps.setString(11, dp.getCreateBy());
-                ps.setString(12, dateToStr(dp.getCreateTime()));
-                ps.setString(13, dp.getUpdateBy());
-                ps.setString(14, dateToStr(dp.getUpdateTime()));
-                ps.addBatch();
-            }
-            ps.executeBatch();
-        }
-    }
-
-    private void insertTODiseasePositionMappings(Connection conn, List<Map<String, Object>> mappings) throws SQLException {
-        String sql = "INSERT OR REPLACE INTO bi_template_object_disease_position (template_object_id, disease_position_id) VALUES (?,?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            for (Map<String, Object> m : mappings) {
-                ps.setObject(1, m.get("template_object_id"));
-                ps.setObject(2, m.get("disease_position_id"));
                 ps.addBatch();
             }
             ps.executeBatch();

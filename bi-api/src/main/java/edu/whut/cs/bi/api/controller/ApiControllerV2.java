@@ -46,25 +46,6 @@ public class ApiControllerV2 {
     private OssBridgeUploadUtil ossBridgeUploadUtil;
 
     /**
-     * 获取项目关联的离线 SQLite 数据库文件下载地址 (全量)
-     */
-    @GetMapping("/project/{id}/sqlite")
-    @ResponseBody
-    @ApiOperation("获取项目SQLite下载地址")
-    public AjaxResult getProjectSqliteUrl(@PathVariable("id") Long projectId) {
-        try {
-            SqliteVo sqliteInfo = sqliteService.getProjectSqliteUrl(projectId);
-            if (sqliteInfo == null) {
-                return AjaxResult.error("SQLite 文件未生成或不存在，请稍候再试");
-            }
-            return AjaxResult.success("获取成功", sqliteInfo);
-        } catch (Exception e) {
-            log.error("获取项目 SQLite 文件失败, projectId: {}", projectId, e);
-            return AjaxResult.error("获取 SQLite 文件失败: " + e.getMessage());
-        }
-    }
-
-    /**
      * 获取用户的离线 SQLite 数据库文件下载地址 (3张核心表)
      */
     @GetMapping("/user/{id}/sqlite")
