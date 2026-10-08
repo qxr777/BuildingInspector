@@ -1,0 +1,17 @@
+# =============================================================================
+# JTG/T 5230—2026 表 3.3.3 梁桥主要部件
+#
+# 用途：
+#   1) 3.3.3 主要构件最差等级覆盖（ECL 4/5 类且影响桥梁安全时桥跨封顶定级）；
+#   2) 仅主要构件的 EAI 可取 -1/1，非主要部件强制为 0。
+# 键为桥型代码，值为部件 key（与 templates / shared-layers 中的 key 一致）。
+# 桥墩、桥台在下部结构中合并为 pierAbutment 部件，基础为 foundation。
+# =============================================================================
+mainParts:
+  B01: [slab, bearing, pierAbutment, foundation]
+  B02: [slab, bearing, pierAbutment, foundation]
+  B03: [mainGirder, bearing, pierAbutment, foundation]
+  B04: [mainGirder, bearing, pierAbutment, foundation]
+  B05: [boxGirder, bearing, pierAbutment, foundation]
+  B06: [boxGirder, bearing, pierAbutment, foundation]
+  B07: [steelMainGirder, bearing, pierAbutment, foundation]

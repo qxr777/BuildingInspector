@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ComponentEvaluationMapper">
+
+    <resultMap type="ComponentEvaluation" id="ComponentEvaluationResult">
+        <result property="id"          column="id"           />
+        <result property="taskId"      column="task_id"      />
+        <result property="componentId" column="component_id" />
+        <result property="partKey"     column="part_key"     />
+        <result property="esdi"        column="esdi"         />
+        <result property="eddi"        column="eddi"         />
+        <result property="edi"         column="edi"          />
+        <result property="efi"         column="efi"          />
+        <result property="eai"         column="eai"          />
+        <result property="eci"         column="eci"          />
+        <result property="ecl"         column="ecl"          />
+        <result property="createTime"  column="create_time"  />
+    </resultMap>
+
+    <sql id="selectComponentEvaluationVo">
+        select id, task_id, component_id, part_key, esdi, eddi, edi, efi, eai, eci, ecl, create_time
+        from bi_v2_component_evaluation
+    </sql>
+
+    <select id="selectByTaskId" parameterType="Long" resultMap="ComponentEvaluationResult">
+        <include refid="selectComponentEvaluationVo"/>
+        where task_id = #{taskId}
+    </select>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into bi_v2_component_evaluation
+            (task_id, component_id, part_key, esdi, eddi, edi, efi, eai, eci, ecl, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.taskId}, #{item.componentId}, #{item.partKey},
+             #{item.esdi}, #{item.eddi}, #{item.edi}, #{item.efi}, #{item.eai},
+             #{item.eci}, #{item.ecl}, sysdate())
+        </foreach>
+    </insert>
+
+    <delete id="deleteByTaskId" parameterType="Long">
+        delete from bi_v2_component_evaluation where task_id = #{taskId}
+    </delete>
+
+</mapper>

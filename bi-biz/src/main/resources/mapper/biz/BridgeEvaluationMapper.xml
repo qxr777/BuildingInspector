@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.BridgeEvaluationMapper">
+
+    <resultMap type="BridgeEvaluation" id="BridgeEvaluationResult">
+        <result property="id"                 column="id"                  />
+        <result property="taskId"             column="task_id"             />
+        <result property="rootObjectId"       column="root_object_id"      />
+        <result property="bridgeType"         column="bridge_type"         />
+        <result property="bci"                column="bci"                 />
+        <result property="bcl"                column="bcl"                 />
+        <result property="calcMode"           column="calc_mode"           />
+        <result property="bsciMin"            column="bsci_min"            />
+        <result property="bsciMax"            column="bsci_max"            />
+        <result property="bsciMean"           column="bsci_mean"           />
+        <result property="bsciLim"            column="bsci_lim"            />
+        <result property="bclLayered"         column="bcl_layered"         />
+        <result property="bciLayered"         column="bci_layered"         />
+        <result property="singleControlHit"   column="single_control_hit"  />
+        <result property="singleControlNos"   column="single_control_nos"  />
+        <result property="worstSpanId"        column="worst_span_id"       />
+        <result property="stdVersion"         column="std_version"         />
+        <result property="createBy"           column="create_by"           />
+        <result property="createTime"         column="create_time"         />
+        <result property="updateBy"           column="update_by"           />
+        <result property="updateTime"         column="update_time"         />
+        <result property="remark"             column="remark"              />
+    </resultMap>
+
+    <select id="selectByTaskId" parameterType="Long" resultMap="BridgeEvaluationResult">
+        select id, task_id, root_object_id, bridge_type, bci, bcl, calc_mode,
+               bsci_min, bsci_max, bsci_mean, bsci_lim,
+               bcl_layered, bci_layered, single_control_hit, single_control_nos,
+               worst_span_id, std_version,
+               create_by, create_time, update_by, update_time, remark
+        from bi_bridge_evaluation
+        where task_id = #{taskId}
+    </select>
+
+    <insert id="insert" parameterType="BridgeEvaluation" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_bridge_evaluation
+            (task_id, root_object_id, bridge_type, bci, bcl, calc_mode,
+             bsci_min, bsci_max, bsci_mean, bsci_lim,
+             bcl_layered, bci_layered, single_control_hit, single_control_nos,
+             worst_span_id, std_version, create_by, create_time)
+        values
+            (#{taskId}, #{rootObjectId}, #{bridgeType}, #{bci}, #{bcl}, #{calcMode},
+             #{bsciMin}, #{bsciMax}, #{bsciMean}, #{bsciLim},
+             #{bclLayered}, #{bciLayered}, #{singleControlHit}, #{singleControlNos},
+             #{worstSpanId}, #{stdVersion}, #{createBy}, sysdate())
+    </insert>
+
+    <delete id="deleteByTaskId" parameterType="Long">
+        delete from bi_bridge_evaluation where task_id = #{taskId}
+    </delete>
+
+</mapper>

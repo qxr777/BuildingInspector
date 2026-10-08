@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.V2SingleControlMarkMapper">
+
+    <resultMap type="V2SingleControlMark" id="V2SingleControlMarkResult">
+        <result property="id"             column="id"              />
+        <result property="taskId"         column="task_id"         />
+        <result property="indicatorNo"    column="indicator_no"    />
+        <result property="hit"            column="hit"             />
+        <result property="componentId"    column="component_id"    />
+        <result property="spanId"         column="span_id"         />
+        <result property="evidence"       column="evidence"        />
+        <result property="offlineUuid"    column="offline_uuid"    />
+        <result property="isOfflineData"  column="is_offline_data" />
+        <result property="offlineDeleted" column="offline_deleted" />
+        <result property="componentUuid"  column="component_uuid"  />
+        <result property="spanUuid"       column="span_uuid"       />
+        <result property="createBy"       column="create_by"       />
+        <result property="createTime"     column="create_time"     />
+        <result property="updateBy"       column="update_by"       />
+        <result property="updateTime"     column="update_time"     />
+        <result property="remark"         column="remark"          />
+    </resultMap>
+
+    <sql id="selectV2SingleControlMarkVo">
+        select id, task_id, indicator_no, hit, component_id, span_id, evidence,
+               offline_uuid, is_offline_data, offline_deleted, component_uuid, span_uuid,
+               create_by, create_time, update_by, update_time, remark
+        from bi_v2_single_control_mark
+    </sql>
+
+    <select id="selectByTaskId" parameterType="Long" resultMap="V2SingleControlMarkResult">
+        <include refid="selectV2SingleControlMarkVo"/>
+        where offline_deleted = 0 and task_id = #{taskId}
+    </select>
+
+    <select id="selectByTaskIds" resultMap="V2SingleControlMarkResult">
+        <include refid="selectV2SingleControlMarkVo"/>
+        where offline_deleted = 0 and task_id in
+        <foreach collection="taskIds" item="taskId" open="(" separator="," close=")">
+            #{taskId}
+        </foreach>
+    </select>
+
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="V2SingleControlMarkResult">
+        <include refid="selectV2SingleControlMarkVo"/>
+        where offline_uuid = #{offlineUuid} limit 1
+    </select>
+
+    <insert id="insert" parameterType="V2SingleControlMark" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_v2_single_control_mark
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">task_id,</if>
+            <if test="indicatorNo != null">indicator_no,</if>
+            <if test="hit != null">hit,</if>
+            <if test="componentId != null">component_id,</if>
+            <if test="spanId != null">span_id,</if>
+            <if test="evidence != null">evidence,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
+            <if test="offlineDeleted != null">offline_deleted,</if>
+            <if test="componentUuid != null">component_uuid,</if>
+            <if test="spanUuid != null">span_uuid,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">#{taskId},</if>
+            <if test="indicatorNo != null">#{indicatorNo},</if>
+            <if test="hit != null">#{hit},</if>
+            <if test="componentId != null">#{componentId},</if>
+            <if test="spanId != null">#{spanId},</if>
+            <if test="evidence != null">#{evidence},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
+            <if test="offlineDeleted != null">#{offlineDeleted},</if>
+            <if test="componentUuid != null">#{componentUuid},</if>
+            <if test="spanUuid != null">#{spanUuid},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="V2SingleControlMark">
+        update bi_v2_single_control_mark
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="taskId != null">task_id = #{taskId},</if>
+            <if test="indicatorNo != null">indicator_no = #{indicatorNo},</if>
+            <if test="hit != null">hit = #{hit},</if>
+            <if test="componentId != null">component_id = #{componentId},</if>
+            <if test="spanId != null">span_id = #{spanId},</if>
+            <if test="evidence != null">evidence = #{evidence},</if>
+            <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
+            <if test="offlineDeleted != null">offline_deleted = #{offlineDeleted},</if>
+            <if test="componentUuid != null">component_uuid = #{componentUuid},</if>
+            <if test="spanUuid != null">span_uuid = #{spanUuid},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        delete from bi_v2_single_control_mark where id = #{id}
+    </delete>
+
+</mapper>

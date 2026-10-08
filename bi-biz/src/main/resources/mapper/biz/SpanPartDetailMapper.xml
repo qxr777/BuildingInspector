@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.SpanPartDetailMapper">
+
+    <resultMap type="SpanPartDetail" id="SpanPartDetailResult">
+        <result property="id"             column="id"              />
+        <result property="taskId"         column="task_id"         />
+        <result property="spanId"         column="span_id"         />
+        <result property="partId"         column="part_id"         />
+        <result property="layerKey"       column="layer_key"       />
+        <result property="partKey"        column="part_key"        />
+        <result property="ci"             column="ci"              />
+        <result property="omegaOriginal"  column="omega_original"  />
+        <result property="omegaEffective" column="omega_effective" />
+        <result property="gamma"          column="gamma"           />
+        <result property="absentFlag"     column="absent_flag"     />
+        <result property="createTime"     column="create_time"     />
+    </resultMap>
+
+    <sql id="selectSpanPartDetailVo">
+        select id, task_id, span_id, part_id, layer_key, part_key, ci,
+               omega_original, omega_effective, gamma, absent_flag, create_time
+        from bi_v2_span_part_detail
+    </sql>
+
+    <select id="selectByTaskId" parameterType="Long" resultMap="SpanPartDetailResult">
+        <include refid="selectSpanPartDetailVo"/>
+        where task_id = #{taskId}
+    </select>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into bi_v2_span_part_detail
+            (task_id, span_id, part_id, layer_key, part_key, ci,
+             omega_original, omega_effective, gamma, absent_flag, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.taskId}, #{item.spanId}, #{item.partId}, #{item.layerKey}, #{item.partKey},
+             #{item.ci}, #{item.omegaOriginal}, #{item.omegaEffective}, #{item.gamma},
+             #{item.absentFlag}, sysdate())
+        </foreach>
+    </insert>
+
+    <delete id="deleteByTaskId" parameterType="Long">
+        delete from bi_v2_span_part_detail where task_id = #{taskId}
+    </delete>
+
+</mapper>
