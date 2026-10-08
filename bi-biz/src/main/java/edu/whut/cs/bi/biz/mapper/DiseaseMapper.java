@@ -149,4 +149,16 @@ public interface DiseaseMapper {
     public Disease selectByOfflineUuid(String offlineUuid);
 
     int fillLocalIdWithId(@Param("list") List<Long> ids);
+
+    /**
+     * 查询某任务下、指定构件(biObject)集合上参与评定的 5230-2026 病害。
+     *
+     * @param taskId 任务ID
+     * @param biObjectIds 构件节点ID集合（非空）
+     * @param participateAssess 参与评定标记（固定传 "1"）
+     * @return 病害列表（JOIN 5230-2026 病害类型）
+     */
+    List<Disease> selectTaskDiseases(@Param("taskId") Long taskId,
+                                     @Param("biObjectIds") List<Long> biObjectIds,
+                                     @Param("participateAssess") String participateAssess);
 }

@@ -57,6 +57,8 @@ public class StandardCatalogLoader {
                 parseDiseaseTypes(catalog, root);
             } else if (root.containsKey("layers")) {
                 parseSharedLayers(sharedByKey, root);
+            } else if (root.containsKey("mainParts")) {
+                parseMainParts(catalog, root);
             } else if (root.containsKey("gamma") && root.containsKey("code")) {
                 parseBridgeTemplate(catalog, root);
             } else {
@@ -157,6 +159,16 @@ public class StandardCatalogLoader {
         part.setName(str(partRow.get("name")));
         part.setOmega(intVal(partRow.get("omega")));
         return part;
+    }
+
+    private void parseMainParts(StdCatalog catalog, Map<String, Object> root) {
+        Object raw = root.get("mainParts");
+        if (!(raw instanceof Map)) {
+            throw new IllegalStateException("mainParts 必须为桥型代码到部件key列表的映射");
+        }
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) raw).entrySet()) {
+            catalog.getMainParts().put(str(entry.getKey()), stringList(entry.getValue()));
+        }
     }
 
     private void parseBridgeTemplate(StdCatalog catalog, Map<String, Object> root) {

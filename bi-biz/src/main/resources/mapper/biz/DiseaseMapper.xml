@@ -638,4 +638,15 @@
             #{id}
         </foreach>
     </update>
+
+    <select id="selectTaskDiseases" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        where d.task_id = #{taskId}
+          and d.participate_assess = #{participateAssess}
+          and dt.std_version = '5230-2026'
+          and d.bi_object_id in
+        <foreach collection="biObjectIds" item="biObjectId" open="(" separator="," close=")">
+            #{biObjectId}
+        </foreach>
+    </select>
 </mapper>

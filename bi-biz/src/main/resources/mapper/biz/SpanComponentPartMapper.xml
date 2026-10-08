@@ -113,4 +113,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </foreach>
     </delete>
 
+    <select id="selectBySpanIds" resultMap="SpanComponentPartResult">
+        <include refid="selectSpanComponentPartVo"/>
+        where offline_deleted = 0 and span_id in
+        <foreach collection="spanIds" item="spanId" open="(" separator="," close=")">
+            #{spanId}
+        </foreach>
+    </select>
+
 </mapper>

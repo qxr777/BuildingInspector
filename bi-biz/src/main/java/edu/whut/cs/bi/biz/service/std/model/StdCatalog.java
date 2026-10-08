@@ -46,4 +46,7 @@ public class StdCatalog {
 
     /** 展开后的全部模板节点（含 B08–B21 根桩） */
     private List<StdTemplateNode> nodes = new ArrayList<>();
+
+    /** 各桥型主要部件 key（表 3.3.3），键为桥型代码 */
+    private Map<String, List<String>> mainParts = new LinkedHashMap<>();
 }

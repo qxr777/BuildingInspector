@@ -15,6 +15,9 @@ import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.UserSqlite;
+import edu.whut.cs.bi.biz.domain.V2AbsentMark;
+import edu.whut.cs.bi.biz.domain.V2ComponentInput;
+import edu.whut.cs.bi.biz.domain.V2SingleControlMark;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper;
@@ -31,6 +34,9 @@ import edu.whut.cs.bi.biz.mapper.PropertyMapper;
 import edu.whut.cs.bi.biz.mapper.TODiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.mapper.UserSqliteMapper;
+import edu.whut.cs.bi.biz.mapper.V2AbsentMarkMapper;
+import edu.whut.cs.bi.biz.mapper.V2ComponentInputMapper;
+import edu.whut.cs.bi.biz.mapper.V2SingleControlMarkMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.AfterEach;
@@ -53,6 +59,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -111,6 +118,12 @@ class SqliteServiceTest {
     private PropertyMapper propertyMapper;
     @Mock
     private SpanComponentPartMapper spanComponentPartMapper;
+    @Mock
+    private V2ComponentInputMapper v2ComponentInputMapper;
+    @Mock
+    private V2AbsentMarkMapper v2AbsentMarkMapper;
+    @Mock
+    private V2SingleControlMarkMapper v2SingleControlMarkMapper;
 
     private final List<File> generatedFiles = new ArrayList<>();
 
@@ -360,6 +373,72 @@ class SqliteServiceTest {
 
         assertNull(vo);
         verify(minioClient, never()).putObject(any());
+    }
+
+    /**
+     * 测试场景：用户包携带三张 5230 人工评定输入表。
+     * Mock 内容：三个 selectByTaskIds 返回构件输入(含 eai=-1)、应设未设(spanId=null)、单项控制。
+     * 预期结果：重建 SQLite 中三表条数正确，负 eai 与 null span_id 语义保留。
+     */
+    @Test
+    void testV2EvaluationInputsPackedIntoUserSqlite() throws Exception {
+        Long userId = 77L;
+
+        Project project = new Project();
+        project.setId(1001L);
+        // task 不挂 building → 跳过检查数据导出，只验证三表打包
+        Task task = new Task();
+        task.setId(2001L);
+
+        V2ComponentInput ci1 = new V2ComponentInput();
+        ci1.setId(900L);
+        ci1.setOfflineUuid("ci-1");
+        ci1.setTaskId(2001L);
+        ci1.setComponentId(400L);
+        ci1.setEai(-1);
+        V2ComponentInput ci2 = new V2ComponentInput();
+        ci2.setId(901L);
+        ci2.setOfflineUuid("ci-2");
+        ci2.setTaskId(2001L);
+        ci2.setComponentId(401L);
+
+        V2AbsentMark absent = new V2AbsentMark();
+        absent.setId(910L);
+        absent.setOfflineUuid("am-1");
+        absent.setTaskId(2001L);
+        absent.setPartId(300L);
+        // spanId 保持 null = 全桥所有跨
+
+        V2SingleControlMark control = new V2SingleControlMark();
+        control.setId(920L);
+        control.setOfflineUuid("sc-1");
+        control.setTaskId(2001L);
+        control.setIndicatorNo(3);
+        control.setHit(1);
+
+        doReturn(Collections.singletonList(project)).when(projectMapper)
+                .selectProjectList(any(Project.class), eq(userId), eq(null));
+        doReturn(Collections.singletonList(task)).when(taskMapper)
+                .selectFullTaskListByProjectId(1001L);
+        doReturn(List.of(ci1, ci2)).when(v2ComponentInputMapper).selectByTaskIds(anyList());
+        doReturn(Collections.singletonList(absent)).when(v2AbsentMarkMapper).selectByTaskIds(anyList());
+        doReturn(Collections.singletonList(control)).when(v2SingleControlMarkMapper).selectByTaskIds(anyList());
+
+        Method method = SqliteService.class.getDeclaredMethod("doGenerateUserSqlite", Long.class);
+        method.setAccessible(true);
+        File result = (File) method.invoke(sqliteService, userId);
+        generatedFiles.add(result);
+
+        assertNotNull(result);
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + result.getAbsolutePath());
+             Statement statement = conn.createStatement()) {
+            assertEquals(2, queryCount(statement, "select count(1) from bi_v2_component_input"));
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from bi_v2_component_input where eai = -1"));
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from bi_v2_absent_mark where span_id is null"));
+            assertEquals(1, queryCount(statement, "select count(1) from bi_v2_single_control_mark"));
+        }
     }
 
     /**

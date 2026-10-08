@@ -6,6 +6,8 @@ import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.domain.vo.SyncResultVo;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.ISyncUploadService;
+import edu.whut.cs.bi.biz.service.v2.V2InputRowValidator;
+import edu.whut.cs.bi.biz.service.v2.V2TaskContextResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,16 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private SyncLogMapper syncLogMapper;
     @Autowired
     private SpanComponentPartMapper spanComponentPartMapper;
+    @Autowired
+    private V2ComponentInputMapper v2ComponentInputMapper;
+    @Autowired
+    private V2AbsentMarkMapper v2AbsentMarkMapper;
+    @Autowired
+    private V2SingleControlMarkMapper v2SingleControlMarkMapper;
+    @Autowired
+    private V2InputRowValidator v2InputRowValidator;
+    @Autowired
+    private V2TaskContextResolver v2TaskContextResolver;
 
     private static final String ENTITY_BUILDING = "Building";
     private static final String ENTITY_OBJECT = "BiObject";
@@ -50,6 +62,9 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private static final String ENTITY_DISEASE_DETAIL = "DiseaseDetail";
     private static final String ENTITY_ATTACHMENT = "Attachment";
     private static final String ENTITY_SPAN_COMPONENT_PART = "SpanComponentPart";
+    private static final String ENTITY_COMPONENT_INPUT = "V2ComponentInput";
+    private static final String ENTITY_ABSENT_MARK = "V2AbsentMark";
+    private static final String ENTITY_SINGLE_CONTROL_MARK = "V2SingleControlMark";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -113,6 +128,15 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
 
             log.info("处理 SpanComponentPart...");
             processSpanComponentParts(dataMap.get("spanComponentParts"), syncUuid, uuidMap, result, loginName);
+
+            log.info("处理 V2 ComponentInput...");
+            processComponentInputs(dataMap.get("componentInputs"), syncUuid, uuidMap, result, loginName);
+
+            log.info("处理 V2 AbsentMark...");
+            processAbsentMarks(dataMap.get("absentMarks"), syncUuid, uuidMap, result, loginName);
+
+            log.info("处理 V2 SingleControlMark...");
+            processSingleControlMarks(dataMap.get("singleControlMarks"), syncUuid, uuidMap, result, loginName);
 
             syncLogMapper.updateStatus(syncUuid, 1, "同步成功");
 
@@ -418,6 +442,226 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
             } catch (Exception e) {
                 result.addError(ENTITY_SPAN_COMPONENT_PART, item.getOfflineUuid(), e.getMessage());
             }
+        }
+    }
+
+    /**
+     * 构件人工评定输入（EDDI/EFI/EAI/安全影响），App 按构件录入
+     */
+    private void processComponentInputs(Object data, String syncUuid, Map<String, Long> uuidMap,
+            SyncResultVo result, String loginName) {
+        if (data == null)
+            return;
+        List<V2ComponentInput> list = parseList(data, V2ComponentInput.class);
+        Set<Long> knownTasks = new HashSet<>();
+        Set<String> dedupKeys = new HashSet<>();
+        for (V2ComponentInput item : list) {
+            try {
+                requireKnownTask(item.getTaskId(), knownTasks);
+
+                if (item.getComponentUuid() != null)
+                    item.setComponentId(uuidMap.get(item.getComponentUuid()));
+
+                List<String> errors = v2InputRowValidator.validateComponent(item);
+                if (!errors.isEmpty()) {
+                    result.addError(ENTITY_COMPONENT_INPUT, item.getOfflineUuid(), String.join("; ", errors));
+                    continue;
+                }
+
+                String dedupKey = item.getTaskId() + ":" + item.getComponentId();
+                if (!dedupKeys.add(dedupKey)) {
+                    result.addError(ENTITY_COMPONENT_INPUT, item.getOfflineUuid(), "同批次构件输入重复: " + dedupKey);
+                    continue;
+                }
+
+                V2ComponentInput existing = item.getOfflineUuid() != null
+                        ? v2ComponentInputMapper.selectByOfflineUuid(item.getOfflineUuid())
+                        : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        v2ComponentInputMapper.deleteById(item.getId());
+                        continue;
+                    }
+                    v2ComponentInputMapper.update(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                v2ComponentInputMapper.insert(item);
+                saveMapping(ENTITY_COMPONENT_INPUT, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
+            } catch (Exception e) {
+                result.addError(ENTITY_COMPONENT_INPUT, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 应设未设部件标记。spanUuid 为 null 表示全桥所有跨，spanId 保持 null 合法
+     */
+    private void processAbsentMarks(Object data, String syncUuid, Map<String, Long> uuidMap,
+            SyncResultVo result, String loginName) {
+        if (data == null)
+            return;
+        List<V2AbsentMark> list = parseList(data, V2AbsentMark.class);
+        Set<Long> knownTasks = new HashSet<>();
+        Map<Long, String> bridgeTypeCache = new HashMap<>();
+        Set<String> dedupKeys = new HashSet<>();
+        for (V2AbsentMark item : list) {
+            try {
+                requireKnownTask(item.getTaskId(), knownTasks);
+                String bridgeType = bridgeTypeCache.computeIfAbsent(item.getTaskId(),
+                        v2TaskContextResolver::bridgeTypeOf);
+
+                if (item.getPartUuid() != null)
+                    item.setPartId(uuidMap.get(item.getPartUuid()));
+                if (item.getSpanUuid() == null) {
+                    // null = 全桥所有跨；不得按反查失败处理
+                    item.setSpanId(null);
+                } else {
+                    item.setSpanId(uuidMap.get(item.getSpanUuid()));
+                    if (item.getSpanId() == null) {
+                        result.addError(ENTITY_ABSENT_MARK, item.getOfflineUuid(),
+                                "spanUuid 反查失败，桥跨未同步: " + item.getSpanUuid());
+                        continue;
+                    }
+                }
+
+                List<String> errors = v2InputRowValidator.validateAbsent(item, bridgeType);
+                if (!errors.isEmpty()) {
+                    result.addError(ENTITY_ABSENT_MARK, item.getOfflineUuid(), String.join("; ", errors));
+                    continue;
+                }
+
+                String dedupKey = item.getTaskId() + ":" + item.getSpanId() + "|" + item.getPartId();
+                if (!dedupKeys.add(dedupKey)) {
+                    result.addError(ENTITY_ABSENT_MARK, item.getOfflineUuid(), "同批次应设未设标记重复: " + dedupKey);
+                    continue;
+                }
+
+                V2AbsentMark existing = item.getOfflineUuid() != null
+                        ? v2AbsentMarkMapper.selectByOfflineUuid(item.getOfflineUuid())
+                        : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        v2AbsentMarkMapper.deleteById(item.getId());
+                        continue;
+                    }
+                    v2AbsentMarkMapper.update(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                v2AbsentMarkMapper.insert(item);
+                saveMapping(ENTITY_ABSENT_MARK, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
+            } catch (Exception e) {
+                result.addError(ENTITY_ABSENT_MARK, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 16 项单项控制指标标记。componentUuid/spanUuid 均可空
+     */
+    private void processSingleControlMarks(Object data, String syncUuid, Map<String, Long> uuidMap,
+            SyncResultVo result, String loginName) {
+        if (data == null)
+            return;
+        List<V2SingleControlMark> list = parseList(data, V2SingleControlMark.class);
+        Set<Long> knownTasks = new HashSet<>();
+        Set<String> dedupKeys = new HashSet<>();
+        for (V2SingleControlMark item : list) {
+            try {
+                requireKnownTask(item.getTaskId(), knownTasks);
+
+                if (item.getComponentUuid() == null) {
+                    item.setComponentId(null);
+                } else {
+                    item.setComponentId(uuidMap.get(item.getComponentUuid()));
+                    if (item.getComponentId() == null) {
+                        result.addError(ENTITY_SINGLE_CONTROL_MARK, item.getOfflineUuid(),
+                                "componentUuid 反查失败，构件未同步: " + item.getComponentUuid());
+                        continue;
+                    }
+                }
+                if (item.getSpanUuid() == null) {
+                    item.setSpanId(null);
+                } else {
+                    item.setSpanId(uuidMap.get(item.getSpanUuid()));
+                    if (item.getSpanId() == null) {
+                        result.addError(ENTITY_SINGLE_CONTROL_MARK, item.getOfflineUuid(),
+                                "spanUuid 反查失败，桥跨未同步: " + item.getSpanUuid());
+                        continue;
+                    }
+                }
+
+                List<String> errors = v2InputRowValidator.validateControl(item);
+                if (!errors.isEmpty()) {
+                    result.addError(ENTITY_SINGLE_CONTROL_MARK, item.getOfflineUuid(), String.join("; ", errors));
+                    continue;
+                }
+
+                String dedupKey = item.getTaskId() + ":" + item.getIndicatorNo();
+                if (!dedupKeys.add(dedupKey)) {
+                    result.addError(ENTITY_SINGLE_CONTROL_MARK, item.getOfflineUuid(),
+                            "同批次单项控制标记重复: " + dedupKey);
+                    continue;
+                }
+
+                V2SingleControlMark existing = item.getOfflineUuid() != null
+                        ? v2SingleControlMarkMapper.selectByOfflineUuid(item.getOfflineUuid())
+                        : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        v2SingleControlMarkMapper.deleteById(item.getId());
+                        continue;
+                    }
+                    v2SingleControlMarkMapper.update(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                v2SingleControlMarkMapper.insert(item);
+                saveMapping(ENTITY_SINGLE_CONTROL_MARK, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
+            } catch (Exception e) {
+                result.addError(ENTITY_SINGLE_CONTROL_MARK, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 校验任务为 5230 任务；同批次内同 taskId 只查一次
+     */
+    private void requireKnownTask(Long taskId, Set<Long> cache) {
+        if (!cache.contains(taskId)) {
+            v2TaskContextResolver.require5230Task(taskId);
+            cache.add(taskId);
         }
     }
 

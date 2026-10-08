@@ -68,6 +68,12 @@ public class SqliteService {
     @Resource
     private SpanComponentPartMapper spanComponentPartMapper;
     @Resource
+    private V2ComponentInputMapper v2ComponentInputMapper;
+    @Resource
+    private V2AbsentMarkMapper v2AbsentMarkMapper;
+    @Resource
+    private V2SingleControlMarkMapper v2SingleControlMarkMapper;
+    @Resource
     private PropertyMapper propertyMapper;
 
     @Autowired
@@ -170,6 +176,7 @@ public class SqliteService {
                 insertProjects(conn, Collections.singletonList(project));
             insertTasks(conn, tasks);
             insertBuildings(conn, buildings);
+            insertV2EvaluationInputs(conn, taskIds(tasks));
 
             // 递归查询 Inspection Data (Objects -> Components -> Diseases)
             exportInspectionData(conn, bIds);
@@ -201,11 +208,13 @@ public class SqliteService {
         try (Connection conn = connect(tempFile)) {
             // 合并创建用户级与桥梁检查级相关的所有表
             createTables(conn, "bi_project", "bi_building", "bi_task", "bi_object", "bi_component", "bi_disease",
-                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_component_part", "bi_property");
+                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_component_part", "bi_property",
+                    "bi_v2_component_input", "bi_v2_absent_mark", "bi_v2_single_control_mark");
 
             insertProjects(conn, projects);
             insertBuildings(conn, buildings);
             insertTasks(conn, tasks);
+            insertV2EvaluationInputs(conn, taskIds(tasks));
 
             // 4. 将所有关联桥梁的检查数据 (部件结构树、病害、照片等) 直接装填入此单一 DB
             if (!bIds.isEmpty()) {
@@ -409,7 +418,8 @@ public class SqliteService {
 
     private void createAllTables(Connection conn) throws SQLException {
         createTables(conn, "bi_project", "bi_building", "bi_task", "bi_object", "bi_component", "bi_disease",
-                "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_component_part");
+                "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_component_part",
+                "bi_v2_component_input", "bi_v2_absent_mark", "bi_v2_single_control_mark");
     }
 
     private void createTables(Connection conn, String... tableNames) throws SQLException {
@@ -459,6 +469,15 @@ public class SqliteService {
             if (set.contains("bi_span_component_part"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_span_component_part (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, component_id INTEGER, span_id INTEGER, part_id INTEGER, component_uuid TEXT, span_uuid TEXT, part_uuid TEXT, is_shared INTEGER DEFAULT 0, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_v2_component_input"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_v2_component_input (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, task_id INTEGER, component_id INTEGER, eddi INTEGER, efi INTEGER, eai INTEGER, safety_affected INTEGER, component_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_v2_absent_mark"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_v2_absent_mark (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, task_id INTEGER, span_id INTEGER, part_id INTEGER, span_uuid TEXT, part_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_v2_single_control_mark"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_v2_single_control_mark (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, task_id INTEGER, indicator_no INTEGER, hit INTEGER, component_id INTEGER, span_id INTEGER, evidence TEXT, component_uuid TEXT, span_uuid TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
             if (set.contains("bi_property"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_property (id INTEGER PRIMARY KEY, name TEXT, value TEXT, parent_id INTEGER, ancestors TEXT, order_num INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
@@ -601,6 +620,110 @@ public class SqliteService {
                 ps.setString(14, r.getUpdateBy());
                 ps.setString(15, dateToStr(r.getUpdateTime()));
                 ps.setString(16, r.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    /**
+     * 按任务批量取三张人工评定输入表并写入用户/项目包
+     */
+    private void insertV2EvaluationInputs(Connection conn, List<Long> taskIds) throws SQLException {
+        if (taskIds == null || taskIds.isEmpty())
+            return;
+
+        List<V2ComponentInput> componentInputs = v2ComponentInputMapper.selectByTaskIds(taskIds);
+        if (componentInputs != null && !componentInputs.isEmpty())
+            insertComponentInputs(conn, componentInputs);
+
+        List<V2AbsentMark> absentMarks = v2AbsentMarkMapper.selectByTaskIds(taskIds);
+        if (absentMarks != null && !absentMarks.isEmpty())
+            insertAbsentMarks(conn, absentMarks);
+
+        List<V2SingleControlMark> controlMarks = v2SingleControlMarkMapper.selectByTaskIds(taskIds);
+        if (controlMarks != null && !controlMarks.isEmpty())
+            insertSingleControlMarks(conn, controlMarks);
+    }
+
+    private List<Long> taskIds(List<Task> tasks) {
+        return tasks.stream().map(Task::getId).filter(Objects::nonNull).distinct()
+                .collect(Collectors.toList());
+    }
+
+    private void insertComponentInputs(Connection conn, List<V2ComponentInput> rows) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_v2_component_input (server_id, task_id, component_id, eddi, efi, eai, safety_affected, component_uuid, offline_uuid, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (V2ComponentInput r : rows) {
+                ps.setLong(1, r.getId());
+                setLongOrNull(ps, 2, r.getTaskId());
+                setLongOrNull(ps, 3, r.getComponentId());
+                setIntOrNull(ps, 4, r.getEddi());
+                setIntOrNull(ps, 5, r.getEfi());
+                // eai 允许 -1，普通 INTEGER 存储
+                setIntOrNull(ps, 6, r.getEai());
+                setIntOrNull(ps, 7, r.getSafetyAffected());
+                ps.setString(8, r.getComponentUuid());
+                ps.setString(9, offlineUuidOrNew(r.getOfflineUuid()));
+                ps.setInt(10, 0);
+                ps.setInt(11, 0);
+                ps.setString(12, r.getCreateBy());
+                ps.setString(13, dateToStr(r.getCreateTime()));
+                ps.setString(14, r.getUpdateBy());
+                ps.setString(15, dateToStr(r.getUpdateTime()));
+                ps.setString(16, r.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertAbsentMarks(Connection conn, List<V2AbsentMark> rows) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_v2_absent_mark (server_id, task_id, span_id, part_id, span_uuid, part_uuid, offline_uuid, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (V2AbsentMark r : rows) {
+                ps.setLong(1, r.getId());
+                setLongOrNull(ps, 2, r.getTaskId());
+                // span_id 为 NULL = 全桥所有跨，必须保留 null
+                setLongOrNull(ps, 3, r.getSpanId());
+                setLongOrNull(ps, 4, r.getPartId());
+                ps.setString(5, r.getSpanUuid());
+                ps.setString(6, r.getPartUuid());
+                ps.setString(7, offlineUuidOrNew(r.getOfflineUuid()));
+                ps.setInt(8, 0);
+                ps.setInt(9, 0);
+                ps.setString(10, r.getCreateBy());
+                ps.setString(11, dateToStr(r.getCreateTime()));
+                ps.setString(12, r.getUpdateBy());
+                ps.setString(13, dateToStr(r.getUpdateTime()));
+                ps.setString(14, r.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertSingleControlMarks(Connection conn, List<V2SingleControlMark> rows) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_v2_single_control_mark (server_id, task_id, indicator_no, hit, component_id, span_id, evidence, component_uuid, span_uuid, offline_uuid, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (V2SingleControlMark r : rows) {
+                ps.setLong(1, r.getId());
+                setLongOrNull(ps, 2, r.getTaskId());
+                setIntOrNull(ps, 3, r.getIndicatorNo());
+                setIntOrNull(ps, 4, r.getHit());
+                setLongOrNull(ps, 5, r.getComponentId());
+                setLongOrNull(ps, 6, r.getSpanId());
+                ps.setString(7, r.getEvidence());
+                ps.setString(8, r.getComponentUuid());
+                ps.setString(9, r.getSpanUuid());
+                ps.setString(10, offlineUuidOrNew(r.getOfflineUuid()));
+                ps.setInt(11, 0);
+                ps.setInt(12, 0);
+                ps.setString(13, r.getCreateBy());
+                ps.setString(14, dateToStr(r.getCreateTime()));
+                ps.setString(15, r.getUpdateBy());
+                ps.setString(16, dateToStr(r.getUpdateTime()));
+                ps.setString(17, r.getRemark());
                 ps.addBatch();
             }
             ps.executeBatch();
