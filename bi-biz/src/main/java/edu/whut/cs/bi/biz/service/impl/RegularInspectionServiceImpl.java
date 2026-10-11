@@ -972,6 +972,10 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             // 处理 定期检查记录表特殊 的 属性。
             processSingleBridgeRecordTableSpecialProp(properties, building);
             ReportTemplateValueUtils.addAliasProperties(properties);
+            // 第 22 项「桥梁技术状况评定等级」用的是 ${当前评定结果}。
+            // 这个值原来只在桥梁卡片里写入。多桥附表把卡片和定检表拆成两份文档分别填充，
+            // 定检表这份拿不到卡片写入的等级，占位符就会留空。
+            addCurrentEvaluationLevel(properties, task);
             // 将表格中的占位符 替换。
             replacePlaceholdersInTables(document, properties);
             ReportGenerateTools.applyMixedFontsToTables(document);
@@ -1037,6 +1041,30 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
         return properties == null ? new ArrayList<>() : new ArrayList<>(properties);
     }
 
+    /**
+     * 本次技术状况等级来自任务评定结果，写成「n类」，供定检表 ${当前评定结果} 使用。
+     */
+    private void addCurrentEvaluationLevel(List<Property> properties, Task task) {
+        if (properties == null || task == null || task.getId() == null) {
+            return;
+        }
+        BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+        if (evaluation == null || evaluation.getSystemLevel() == null) {
+            return;
+        }
+        String value = evaluation.getSystemLevel() + "类";
+        for (Property property : properties) {
+            if (property != null && "当前评定结果".equals(property.getName())) {
+                property.setValue(value);
+                return;
+            }
+        }
+        Property property = new Property();
+        property.setName("当前评定结果");
+        property.setValue(value);
+        properties.add(property);
+    }
+
     private void addBuildingPropertyIfMissing(List<Property> properties, String name, String value) {
         if (properties == null || name == null || value == null || value.trim().isEmpty()) {
             return;
@@ -1064,6 +1092,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                             String propertyName = prop.getName();
                             String placeholder = "${" + propertyName + "}";
                             String value = prop.getValue() != null ? prop.getValue() : "/";
+                            value = ReportTemplateValueUtils.formatHighwayStake(propertyName, value);
                             replacePlaceholder(paragraph, placeholder, value);
                         }
                     }

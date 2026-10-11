@@ -670,7 +670,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 table = document.insertNewTbl(cursor);
                 cursor.toNextToken();
                 // 初始化表格结构
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < 7; i++) {
                     if (i == 0) {
                         table.getRow(0).getCell(i);
                     } else {
@@ -678,7 +678,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     }
                 }
             } else {
-                table = document.createTable(1, 8);
+                table = document.createTable(1, 7);
             }
 
             // 设置表格边框
@@ -697,20 +697,28 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
             jc.setVal(STJcTable.CENTER);
 
-            // 设置表格宽度为页面宽度（关键修改）
+            // 1 cm = 567 twips。去掉发展趋势后 7 列合计 17.49 cm。
+            int[] columnWidths = {
+                    612,   // 序号 1.08 cm
+                    1072,  // 缺损位置 1.89 cm
+                    1225,  // 缺损类型 2.16 cm
+                    765,   // 数量 1.35 cm
+                    3975,  // 病害描述 7.01 cm
+                    1111,  // 评定类别 1.96 cm
+                    1157   // 照片 2.04 cm
+            };
+            int totalWidth = 0;
+            for (int columnWidth : columnWidths) {
+                totalWidth += columnWidth;
+            }
             CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-            tblWidth.setW(BigInteger.valueOf(9534));
+            tblWidth.setW(BigInteger.valueOf(totalWidth));
             tblWidth.setType(STTblWidth.DXA);
 
             // 设置表头
             XWPFTableRow headerRow = table.getRow(0);
 
-            // 表头文本数组
-            String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "发展趋势", "照片"};
-
-            // 修改列宽比例，确保总和不超过页面宽度
-            Double[] columnWidthRatios = {0.08, 0.18, 0.14, 0.08, 0.26, 0.10, 0.08, 0.08};
-            int totalWidth = 9534;
+            String[] headers = {"序号", "缺损位置", "缺损类型", "数量", "病害描述", "评定类别 (1~5)", "照片"};
 
             CTTblLayoutType tblLayout = tblPr.isSetTblLayout() ? tblPr.getTblLayout() : tblPr.addNewTblLayout();
             tblLayout.setType(STTblLayoutType.FIXED);
@@ -744,8 +752,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     tcPr.unsetTcW(); // 关键：去掉默认宽度
                 }
 
-                // 计算每列的实际宽度
-                int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                int columnWidth = columnWidths[i];
                 CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                 tcW.setW(BigInteger.valueOf(columnWidth));
                 tcW.setType(STTblWidth.DXA);
@@ -773,7 +780,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                     // 设置单元格宽度与表头一致
                     CTTc cttc = cell.getCTTc();
                     CTTcPr tcPr = cttc.isSetTcPr() ? cttc.getTcPr() : cttc.addNewTcPr();
-                    int columnWidth = (int) Math.round(totalWidth * columnWidthRatios[i]);
+                    int columnWidth = columnWidths[i];
                     CTTblWidth tcW = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                     tcW.setW(BigInteger.valueOf(columnWidth));
                     tcW.setType(STTblWidth.DXA);
@@ -818,9 +825,6 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                                     ? String.valueOf(d.getLevel()) : "/");
                             break;
                         case 6:
-                            cellR.setText(d.getDevelopmentTrend());
-                            break;
-                        case 7:
                             // 获取该病害对应的所有图片书签信息
                             List<String> refs = diseaseImageRefs.getOrDefault(d.getId(), new ArrayList<>());
                             // 从书签信息中提取书签名，创建图片引用域
@@ -849,9 +853,12 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 }
             }
 
-            // 在表格下方插入病害图片
-            if (!nodeDiseases.isEmpty()) {
-                insertDiseaseImagesWithStreaming(document, nodeDiseases, diseaseImageRefs, cursor);
+            // 病害照和现状照合成一张表：现状照先补空位，只在最后一行剩一张时居中。
+            List<Pair<String, String>> photos = new ArrayList<>();
+            photos.addAll(collectDiseaseImagePairs(nodeDiseases, diseaseImageRefs));
+            photos.addAll(collectStatusImagePairs(node, chapterImageCounter));
+            if (!photos.isEmpty()) {
+                insertPhotoImageTable(document, photos, cursor);
             }
         } else if (level == 3) {
             // 没有病害信息，显示未见明显病害的说明
@@ -872,9 +879,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             noDiseaseRun.setText("经检查，" + node.getName() + "未见明显病害。");
             noDiseaseRun.setFontSize(12);
 
-            // 插入当前结构的现状照片
             try {
-                insertBiObjectStatusImages(document, node, chapterImageCounter, cursor);
+                insertPhotoImageTable(document, collectStatusImagePairs(node, chapterImageCounter), cursor);
             } catch (Exception e) {
                 log.error("插入BiObject现状照片失败", e);
             }
@@ -985,7 +991,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             XWPFParagraph paragraph = insertEvaluationContent(document, key, Content);
 
             // 调用专门的服务在四句话后生成表格（包含分页符、横向设置和表格）
-            evaluationTableService.generateEvaluationTableAfterParagraph(document, paragraph, building, evaluation, bridgeName);
+            evaluationTableService.generateEvaluationTableAfterParagraph(document, paragraph, building, evaluation, bridgeName, "12");
 
             log.info("评定结果和表格处理完成");
 
@@ -1393,6 +1399,47 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
     }
 
 
+    private void spanPhotoRowFullWidth(XWPFTable table, int rowIndex, int widthTwips) {
+        XWPFTableRow row = table.getRow(rowIndex);
+        if (row == null || row.getTableCells().size() < 2) {
+            return;
+        }
+        XWPFTableCell cell = row.getCell(0);
+        CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+        if (tcPr.isSetGridSpan()) {
+            tcPr.getGridSpan().setVal(BigInteger.valueOf(2));
+        } else {
+            tcPr.addNewGridSpan().setVal(BigInteger.valueOf(2));
+        }
+        CTTblWidth cellWidth = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+        cellWidth.setW(BigInteger.valueOf(widthTwips));
+        cellWidth.setType(STTblWidth.DXA);
+        for (XWPFParagraph paragraph : cell.getParagraphs()) {
+            paragraph.setAlignment(ParagraphAlignment.CENTER);
+        }
+        row.removeCell(1);
+    }
+
+    private void setExactRowHeight(XWPFTableRow row, int heightTwips) {
+        CTTrPr trPr = row.getCtRow().isSetTrPr() ? row.getCtRow().getTrPr() : row.getCtRow().addNewTrPr();
+        CTHeight height = trPr.sizeOfTrHeightArray() > 0 ? trPr.getTrHeightArray(0) : trPr.addNewTrHeight();
+        height.setVal(BigInteger.valueOf(heightTwips));
+        height.setHRule(STHeightRule.EXACT);
+    }
+
+    private void clearCellMargin(CTTcPr tcPr) {
+        CTTcMar mar = tcPr.isSetTcMar() ? tcPr.getTcMar() : tcPr.addNewTcMar();
+        zeroMargin(mar.isSetTop() ? mar.getTop() : mar.addNewTop());
+        zeroMargin(mar.isSetBottom() ? mar.getBottom() : mar.addNewBottom());
+        zeroMargin(mar.isSetLeft() ? mar.getLeft() : mar.addNewLeft());
+        zeroMargin(mar.isSetRight() ? mar.getRight() : mar.addNewRight());
+    }
+
+    private void zeroMargin(CTTblWidth margin) {
+        margin.setW(BigInteger.ZERO);
+        margin.setType(STTblWidth.DXA);
+    }
+
     /**
      * 使用流式处理方式插入病害图片
      *
@@ -1402,45 +1449,65 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
      * @param cursor           XML游标，指定内容插入位置，如果为null则追加到文档末尾
      * @throws Exception 异常
      */
-    private void insertDiseaseImagesWithStreaming(XWPFDocument document, List<Disease> diseases,
-                                                  Map<Long, List<String>> diseaseImageRefs, XmlCursor cursor) throws Exception {
-        // 收集所有图片信息
-        List<Pair<String, String>> allImages = new ArrayList<>(); // <图片文件名, 标题>
-
-        // 逐个处理每个病害的图片
+    private List<Pair<String, String>> collectDiseaseImagePairs(List<Disease> diseases,
+                                                               Map<Long, List<String>> diseaseImageRefs) {
+        List<Pair<String, String>> allImages = new ArrayList<>();
+        if (diseases == null) {
+            return allImages;
+        }
         for (Disease d : diseases) {
             List<Map<String, Object>> images = ReportGenerateTools.getDiseaseImage(d.getId());
             if (images == null || images.isEmpty()) {
                 continue;
             }
-
-            // 获取该病害的图片书签信息
             List<String> imageRefs = diseaseImageRefs.getOrDefault(d.getId(), new ArrayList<>());
             int refIndex = 0;
-
             for (Map<String, Object> img : images) {
-                if (Boolean.TRUE.equals(img.get("isImage"))) {
-                    // 提取图片URL和文件名
-                    String url = (String) img.get("url");
-                    String newName = url.substring(url.lastIndexOf("/") + 1);
-
-                    // 使用已收集的图片书签信息
-                    if (refIndex >= imageRefs.size()) {
-                        continue; // 跳过没有书签的图片
-                    }
-
-                    String[] parts = imageRefs.get(refIndex).split("\\|");
-                    String bookmarkName = parts[0];
-                    String imageDesc = parts.length > 1 ? parts[1] : "";
-                    refIndex++;
-
-                    // 将图片信息添加到列表，包含书签名
-                    allImages.add(Pair.of(newName, bookmarkName + "|" + imageDesc));
+                if (!Boolean.TRUE.equals(img.get("isImage"))) {
+                    continue;
                 }
+                String url = (String) img.get("url");
+                String newName = url.substring(url.lastIndexOf("/") + 1);
+                if (refIndex >= imageRefs.size()) {
+                    continue;
+                }
+                String[] parts = imageRefs.get(refIndex).split("\\|");
+                String bookmarkName = parts[0];
+                String imageDesc = parts.length > 1 ? parts[1] : "";
+                refIndex++;
+                allImages.add(Pair.of(newName, bookmarkName + "|" + imageDesc));
             }
         }
+        return allImages;
+    }
 
-        if (allImages.isEmpty()) {
+    private List<Pair<String, String>> collectStatusImagePairs(BiObject biObject, AtomicInteger chapterImageCounter) {
+        List<Pair<String, String>> allImages = new ArrayList<>();
+        if (biObject == null) {
+            return allImages;
+        }
+        try {
+            List<FileMap> photoList = fileMapService.selectBiObjectPhotoList(biObject.getId());
+            if (photoList == null || photoList.isEmpty()) {
+                return allImages;
+            }
+            for (FileMap fileMap : photoList) {
+                String newName = fileMap.getNewName();
+                String bookmarkName = "fig_status_" + chapterImageCounter.getAndIncrement();
+                String imageDesc = fileMap.getAttachmentRemark() != null && !fileMap.getAttachmentRemark().isEmpty()
+                        ? fileMap.getAttachmentRemark()
+                        : biObject.getName() + "现状照片";
+                allImages.add(Pair.of(newName, bookmarkName + "|" + imageDesc));
+            }
+        } catch (Exception e) {
+            log.error("获取BiObject现状照片失败", e);
+        }
+        return allImages;
+    }
+
+    private void insertPhotoImageTable(XWPFDocument document, List<Pair<String, String>> allImages,
+                                       XmlCursor cursor) throws Exception {
+        if (allImages == null || allImages.isEmpty()) {
             return;
         }
 
@@ -1497,9 +1564,10 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             tblPr = table.getCTTbl().addNewTblPr();
         }
 
-        // 设置表格宽度为页面宽度的100%，避免右侧留白
+        // 照片格宽 8.41 cm，两列共 16.82 cm。
+        int photoCellWidth = 4768;
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(9534)); // 使用100%宽度
+        tblWidth.setW(BigInteger.valueOf(photoCellWidth * 2));
         tblWidth.setType(STTblWidth.DXA);
 
         // 设置表格边框样式
@@ -1528,11 +1596,12 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
         CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
         jc.setVal(STJcTable.CENTER);
 
-        // 设置列宽相等（每列占50%宽度）
-        int cellWidth = 4767;
+        int cellWidth = photoCellWidth;
 
         // 设置所有单元格的样式
         for (int row = 0; row < totalRows; row++) {
+            // 偶数行是照片，高 6 cm；奇数行是图注，高 1.01 cm。
+            setExactRowHeight(table.getRow(row), row % 2 == 0 ? 3402 : 573);
             for (int col = 0; col < 2; col++) {
                 XWPFTableCell cell = table.getRow(row).getCell(col);
                 CTTc ctTc = cell.getCTTc();
@@ -1542,6 +1611,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 CTTblWidth cellWidthObj = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                 cellWidthObj.setW(BigInteger.valueOf(cellWidth));
                 cellWidthObj.setType(STTblWidth.DXA);
+                clearCellMargin(tcPr);
 
                 // 设置单元格垂直居中
                 CTVerticalJc vJc = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
@@ -1558,6 +1628,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 XWPFParagraph para = cell.addParagraph();
                 ReportGenerateTools.setSingleLineSpacing(para);  // 设置单倍行距
                 para.setAlignment(ParagraphAlignment.CENTER);
+                para.setSpacingBefore(0);
+                para.setSpacingAfter(0);
             }
         }
 
@@ -1595,8 +1667,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
                     // 统一图片大小
 //                    int imgWidth = 7 * 360000;
-                    // 11.11 修改 ， 所有图片 除了附表 和 封面 ，统一 8 cm x 6 cm
-                    int imgWidth = 8 * 360000;
+                    // 照片 8.41 cm × 6 cm。
+                    int imgWidth = 3027600;
                     int imgHeight = 6 * 360000;
 
                     imageRun.addPicture(
@@ -1628,19 +1700,9 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 imageIndex++;
             }
 
-            // 如果当前行只有一张图片，需要清空第二列的内容
             if (imageIndex == allImages.size() && (imageIndex - 1) % 2 == 0) {
-                // 最后一张图片在第一列，第二列保持空白
-                XWPFTableCell emptyImageCell = table.getRow(imageRowIndex).getCell(1);
-                XWPFTableCell emptyTitleCell = table.getRow(titleRowIndex).getCell(1);
-
-                // 确保空单元格有段落但无内容
-                if (emptyImageCell.getParagraphs().isEmpty()) {
-                    emptyImageCell.addParagraph();
-                }
-                if (emptyTitleCell.getParagraphs().isEmpty()) {
-                    emptyTitleCell.addParagraph();
-                }
+                spanPhotoRowFullWidth(table, imageRowIndex, photoCellWidth * 2);
+                spanPhotoRowFullWidth(table, titleRowIndex, photoCellWidth * 2);
             }
         }
 
@@ -1752,9 +1814,10 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             tblPr = table.getCTTbl().addNewTblPr();
         }
 
-        // 设置表格宽度为页面宽度的100%，避免右侧留白
+        // 照片格宽 8.41 cm，两列共 16.82 cm。
+        int photoCellWidth = 4768;
         CTTblWidth tblWidth = tblPr.isSetTblW() ? tblPr.getTblW() : tblPr.addNewTblW();
-        tblWidth.setW(BigInteger.valueOf(9534)); // 使用100%宽度
+        tblWidth.setW(BigInteger.valueOf(photoCellWidth * 2));
         tblWidth.setType(STTblWidth.DXA);
 
         // 设置表格边框样式
@@ -1783,11 +1846,12 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
         CTJcTable jc = tblPr.isSetJc() ? tblPr.getJc() : tblPr.addNewJc();
         jc.setVal(STJcTable.CENTER);
 
-        // 设置列宽相等（每列占50%宽度）
-        int cellWidth = 4767;
+        int cellWidth = photoCellWidth;
 
         // 设置所有单元格的样式
         for (int row = 0; row < totalRows; row++) {
+            // 偶数行是照片，高 6 cm；奇数行是图注，高 1.01 cm。
+            setExactRowHeight(table.getRow(row), row % 2 == 0 ? 3402 : 573);
             for (int col = 0; col < 2; col++) {
                 XWPFTableCell cell = table.getRow(row).getCell(col);
                 CTTc ctTc = cell.getCTTc();
@@ -1797,6 +1861,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 CTTblWidth cellWidthObj = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                 cellWidthObj.setW(BigInteger.valueOf(cellWidth));
                 cellWidthObj.setType(STTblWidth.DXA);
+                clearCellMargin(tcPr);
 
                 // 设置单元格垂直居中
                 CTVerticalJc vJc = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
@@ -1813,6 +1878,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 XWPFParagraph para = cell.addParagraph();
                 ReportGenerateTools.setSingleLineSpacing(para);  // 设置单倍行距
                 para.setAlignment(ParagraphAlignment.CENTER);
+                para.setSpacingBefore(0);
+                para.setSpacingAfter(0);
             }
         }
 
@@ -1848,8 +1915,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                                 .object(fileName.substring(0, 2) + "/" + fileName)
                                 .build())) {
 
-                    // 统一图片大小
-                    int imgWidth = 8 * 360000;
+                    // 照片 8.41 cm × 6 cm。
+                    int imgWidth = 3027600;
                     int imgHeight = 6 * 360000;
 
                     imageRun.addPicture(
@@ -1881,19 +1948,9 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                 imageIndex++;
             }
 
-            // 如果当前行只有一张图片，需要清空第二列的内容
             if (imageIndex == allImages.size() && (imageIndex - 1) % 2 == 0) {
-                // 最后一张图片在第一列，第二列保持空白
-                XWPFTableCell emptyImageCell = table.getRow(imageRowIndex).getCell(1);
-                XWPFTableCell emptyTitleCell = table.getRow(titleRowIndex).getCell(1);
-
-                // 确保空单元格有段落但无内容
-                if (emptyImageCell.getParagraphs().isEmpty()) {
-                    emptyImageCell.addParagraph();
-                }
-                if (emptyTitleCell.getParagraphs().isEmpty()) {
-                    emptyTitleCell.addParagraph();
-                }
+                spanPhotoRowFullWidth(table, imageRowIndex, photoCellWidth * 2);
+                spanPhotoRowFullWidth(table, titleRowIndex, photoCellWidth * 2);
             }
         }
 

@@ -17,6 +17,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -121,7 +123,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                 for (Property prop : properties) {
                     String propertyName = prop.getName();
                     String placeholder = "${" + propertyName + "}";
-                    String value = prop.getValue() != null ? prop.getValue() : "";
+                    String value = formatOverviewStake(propertyName, formatOverviewMeasure(propertyName, prop.getValue()));
                     replaceTextInParagraphs(document.getParagraphs(), placeholder, value, "正文文本，本次指向桥梁概况", 12);
                 }
             }
@@ -148,6 +150,47 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         }
         List<Property> properties = propertyService.selectPropertyList(property);
         return properties == null ? new ArrayList<>() : new ArrayList<>(properties);
+    }
+
+    private static final Set<String> OVERVIEW_TWO_DECIMAL_PROPERTIES = Set.of(
+            "桥梁全长", "桥梁全长(m)", "桥梁全长（m）",
+            "桥面全宽", "桥梁全宽", "桥面总宽", "桥面总宽(m)", "桥面总宽（m）"
+    );
+
+
+    /**
+     * 桥梁概况中的全长、全宽固定保留两位小数，例如 465.00、10.50。
+     * 卡片表格仍使用原始属性值。
+     */
+    private String formatOverviewMeasure(String propertyName, String value) {
+        if (value == null) {
+            return "";
+        }
+        if (propertyName == null || !OVERVIEW_TWO_DECIMAL_PROPERTIES.contains(propertyName)) {
+            return value;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return value;
+        }
+        String suffix = "";
+        String numeric = trimmed;
+        if (numeric.endsWith("米")) {
+            suffix = "米";
+            numeric = numeric.substring(0, numeric.length() - 1).trim();
+        } else if (numeric.endsWith("m") || numeric.endsWith("M")) {
+            suffix = numeric.substring(numeric.length() - 1);
+            numeric = numeric.substring(0, numeric.length() - 1).trim();
+        }
+        try {
+            return new BigDecimal(numeric).setScale(2, RoundingMode.HALF_UP).toPlainString() + suffix;
+        } catch (NumberFormatException e) {
+            return value;
+        }
+    }
+
+    private String formatOverviewStake(String propertyName, String value) {
+        return ReportTemplateValueUtils.formatHighwayStake(propertyName, value);
     }
 
     /**
@@ -250,6 +293,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         propertyBuilding.setName("桥梁名称");
         propertyBuilding.setValue(building.getName());
         properties.add(propertyBuilding);
+        addBuildingBaseProperty(properties, "桥梁所处行政区划代码", building.getArea());
         addBuildingBaseProperty(properties, "桥梁编号", building.getBuildingCode());
         addBuildingBaseProperty(properties, "路线编号", building.getRouteCode());
         addBuildingBaseProperty(properties, "路线名称", building.getRouteName());
@@ -262,6 +306,10 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy年MM月dd日");
         propertyGenerateDate.setValue(simpleDateFormat.format(date));
         properties.add(propertyGenerateDate);
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+        calendar.add(Calendar.YEAR, 3);
+        addBuildingBaseProperty(properties, "下次检测时间", calendar.get(Calendar.YEAR) + "年");
         // 如果是单桥 判断结构体系
         if (templateType != null && (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType()) || ReportTemplateTypes.is1LevelSigleBridge(templateType.getType()))) {
             Property propertyStructure = new Property();
@@ -492,6 +540,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                             String propertyName = prop.getName();
                             String placeholder = "${" + propertyName + "}";
                             String value = prop.getValue() != null ? prop.getValue() : "/";
+                            value = formatOverviewStake(propertyName, value);
                             replacePlaceholder(paragraph, placeholder, value);
                         }
                     }

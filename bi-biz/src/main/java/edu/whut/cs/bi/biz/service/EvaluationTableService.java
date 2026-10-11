@@ -20,4 +20,9 @@ public interface EvaluationTableService {
      * @param bridgeName 桥梁名称
      */
     void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName);
+
+    /**
+     * 生成技术状况评定表。captionStyleId 为段落样式，单桥传 12。
+     */
+    void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName, String captionStyleId);
 }

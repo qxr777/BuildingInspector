@@ -164,7 +164,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
 
             // 使用现有方法创建表格标题
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
-                    document, tableTitle, cursor, 9, chapter9TableCounter, 21, 240, false, 0);
+                    document, tableTitle, cursor, 9, chapter9TableCounter, 21, 240, false, 0, 0, "12");
 
             // 创建章节格式的表格引用域
             WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark,
@@ -175,6 +175,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             createComparisonTableWithData(document, cursor, bridgeName,
                     currentYear, currentEvaluation,
                     previousYear, previousEvaluation);
+            removeLeftoverPlaceholderParagraph(document, targetParagraph);
 
         } catch (Exception e) {
             log.error("生成比较分析表格失败", e);
@@ -220,7 +221,7 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
 
             // 使用现有方法创建表格标题
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
-                    document, tableTitle, cursor, 9, chapter9TableCounter, 21, 240, false, 0);
+                    document, tableTitle, cursor, 9, chapter9TableCounter, 21, 240, false, 0, 0, "12");
 
 //            // 创建章节格式的表格引用域
 //            WordFieldUtils.createChapterTableReference(tableRefPara, tableBookmark,
@@ -238,10 +239,22 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
             createComparisonTableWithData(document, cursor, bridgeName,
                     currentYear, currentEvaluation,
                     previousYear, previousEvaluation);
+            removeLeftoverPlaceholderParagraph(document, targetParagraph);
 
         } catch (Exception e) {
             log.error("生成比较分析表格失败", e);
             throw e;
+        }
+    }
+
+    /** 占位符段落清空后会留在表后，单桥不要这行空段。 */
+    private void removeLeftoverPlaceholderParagraph(XWPFDocument document, XWPFParagraph targetParagraph) {
+        if (document == null || targetParagraph == null) {
+            return;
+        }
+        int pos = document.getPosOfParagraph(targetParagraph);
+        if (pos >= 0) {
+            document.removeBodyElement(pos);
         }
     }
 

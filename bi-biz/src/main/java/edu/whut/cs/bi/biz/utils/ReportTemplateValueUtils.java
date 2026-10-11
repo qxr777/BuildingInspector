@@ -5,6 +5,8 @@ import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.domain.ReportData;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -26,6 +28,10 @@ public final class ReportTemplateValueUtils {
     private static final Map<String, List<String>> PLACEHOLDER_ALIASES = new LinkedHashMap<>();
     private static final List<List<String>> PROPERTY_ALIAS_GROUPS = new ArrayList<>();
     private static final Set<String> SKIPPED_BI_OBJECT_NAMES = Set.of("附属设施", "其他");
+    private static final Set<String> HIGHWAY_STAKE_PROPERTIES = Set.of(
+            "桥梁中心桩号", "桥位桩号", "中心桩号", "桥梁桩号",
+            "跨越地物桩号", "被跨越道路桩号", "被跨越道路（通道）桩号"
+    );
     /**
      * 外观检测/评定部件规范顺序。不能按汉字拼音排，否则「上部一般构件」会跑到「上部承重构件」前面。
      */
@@ -37,6 +43,7 @@ public final class ReportTemplateValueUtils {
         PLACEHOLDER_ALIASES.put("${project-name}", Arrays.asList("${检测项目}"));
         PLACEHOLDER_ALIASES.put("${detection-category}", Arrays.asList("${检测类别}"));
 
+        addPropertyAliasGroup("桥梁所处行政区划代码", "行政区划代码", "所在行政区代码", "所在政区代码");
         addPropertyAliasGroup("路线技术等级", "路线等级", "道路等级", "公路等级");
         addPropertyAliasGroup("桥梁代码", "桥梁编号");
         addPropertyAliasGroup("桥梁中心桩号", "桥位桩号", "中心桩号", "桥梁桩号");
@@ -117,6 +124,38 @@ public final class ReportTemplateValueUtils {
         }
         addPlaceholderAliases(values, userKeys);
         return values;
+    }
+
+    /**
+     * 公里小数改为 K 桩号，例如 3.362 → K3+362。已经是 K3+362 时保持原样。
+     * 不是桩号字段或无法解析时返回原值。
+     */
+    public static String formatHighwayStake(String propertyName, String value) {
+        if (value == null) {
+            return "";
+        }
+        if (propertyName == null || !HIGHWAY_STAKE_PROPERTIES.contains(propertyName)) {
+            return value;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty() || trimmed.matches("(?i).*[Kk]\\d+\\+\\d+.*")) {
+            return value;
+        }
+        try {
+            BigDecimal kilometers = new BigDecimal(trimmed);
+            if (kilometers.signum() < 0) {
+                return value;
+            }
+            BigDecimal kilometerPart = kilometers.setScale(0, RoundingMode.DOWN);
+            BigDecimal meterPart = kilometers.subtract(kilometerPart).movePointRight(3).setScale(0, RoundingMode.HALF_UP);
+            if (meterPart.compareTo(new BigDecimal("1000")) >= 0) {
+                kilometerPart = kilometerPart.add(BigDecimal.ONE);
+                meterPart = meterPart.subtract(new BigDecimal("1000"));
+            }
+            return "K" + kilometerPart.toPlainString() + "+" + String.format("%03d", meterPart.intValue());
+        } catch (NumberFormatException e) {
+            return value;
+        }
     }
 
     public static void addAliasProperties(List<Property> properties) {
