@@ -3554,22 +3554,35 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 imageIndex++;
             }
 
-            // 如果当前行只有一张图片，需要清空第二列的内容
+            // 末行只有一张时，合并成通栏并居中，避免照片贴在左半边。
             if (imageIndex == allImages.size() && (imageIndex - 1) % 2 == 0) {
-                // 最后一张图片在第一列，第二列保持空白
-                XWPFTableCell emptyImageCell = table.getRow(imageRowIndex).getCell(1);
-                XWPFTableCell emptyTitleCell = table.getRow(titleRowIndex).getCell(1);
-
-                // 确保空单元格有段落但无内容
-                if (emptyImageCell.getParagraphs().isEmpty()) {
-                    emptyImageCell.addParagraph();
-                }
-                if (emptyTitleCell.getParagraphs().isEmpty()) {
-                    emptyTitleCell.addParagraph();
-                }
+                spanPhotoRowFullWidth(table, imageRowIndex);
+                spanPhotoRowFullWidth(table, titleRowIndex);
             }
         }
         // 照片表格后直接接下一分项标题；检测结果表后的空行已在图片前插入。
+    }
+
+    /** 把照片行两列合成一格，段落居中后单张照片位于行中间。 */
+    private void spanPhotoRowFullWidth(XWPFTable table, int rowIndex) {
+        XWPFTableRow row = table.getRow(rowIndex);
+        if (row == null || row.getTableCells().size() < 2) {
+            return;
+        }
+        XWPFTableCell cell = row.getCell(0);
+        CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
+        if (tcPr.isSetGridSpan()) {
+            tcPr.getGridSpan().setVal(BigInteger.valueOf(2));
+        } else {
+            tcPr.addNewGridSpan().setVal(BigInteger.valueOf(2));
+        }
+        CTTblWidth cellWidth = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
+        cellWidth.setW(BigInteger.valueOf(9534));
+        cellWidth.setType(STTblWidth.DXA);
+        for (XWPFParagraph paragraph : cell.getParagraphs()) {
+            paragraph.setAlignment(ParagraphAlignment.CENTER);
+        }
+        row.removeCell(1);
     }
 
 
@@ -3789,19 +3802,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 imageIndex++;
             }
 
-            // 如果当前行只有一张图片，需要清空第二列的内容
+            // 现状照末行只有一张时，与病害照一样合并通栏居中。
             if (imageIndex == allImages.size() && (imageIndex - 1) % 2 == 0) {
-                // 最后一张图片在第一列，第二列保持空白
-                XWPFTableCell emptyImageCell = table.getRow(imageRowIndex).getCell(1);
-                XWPFTableCell emptyTitleCell = table.getRow(titleRowIndex).getCell(1);
-
-                // 确保空单元格有段落但无内容
-                if (emptyImageCell.getParagraphs().isEmpty()) {
-                    emptyImageCell.addParagraph();
-                }
-                if (emptyTitleCell.getParagraphs().isEmpty()) {
-                    emptyTitleCell.addParagraph();
-                }
+                spanPhotoRowFullWidth(table, imageRowIndex);
+                spanPhotoRowFullWidth(table, titleRowIndex);
             }
         }
 

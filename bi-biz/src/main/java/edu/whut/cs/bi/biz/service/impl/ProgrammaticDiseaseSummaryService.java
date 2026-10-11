@@ -500,18 +500,13 @@ public class ProgrammaticDiseaseSummaryService {
                     && SPECIAL_AREA_IN_SQUARE_CENTIMETRES.matcher(description.toLowerCase(Locale.ROOT)).find();
         }
 
-        /** 宽度固定保留两位小数，例如 0.10mm。 */
+        /** 宽度、长度、面积、角度、程度固定保留两位小数，例如 0.10mm、1.50m。 */
         private static String formatWidth(BigDecimal value) {
-            return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
+            return formatNumber(value);
         }
 
         private static String formatNumber(BigDecimal value) {
-            BigDecimal normalized = value;
-            if (normalized.scale() > 4) {
-                normalized = normalized.setScale(4, RoundingMode.HALF_UP);
-            }
-            normalized = normalized.stripTrailingZeros();
-            return normalized.signum() == 0 ? "0" : normalized.toPlainString();
+            return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
         }
     }
 }

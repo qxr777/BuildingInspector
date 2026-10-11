@@ -42,6 +42,11 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
     @Override
     public void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName) {
+        generateEvaluationTableAfterParagraph(document, afterParagraph, building, evaluation, bridgeName, "13");
+    }
+
+    @Override
+    public void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName, String captionStyleId) {
         try {
             log.info("开始在指定位置生成第八章技术状况评定表格");
 
@@ -70,7 +75,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
             // 使用XmlCursor在指定位置创建表格标题
             String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
-                    document, tableTitle, cursor, 8, tableCounter, 21, 240, false, 0);
+                    document, tableTitle, cursor, 8, tableCounter, 21, 240, false, 0, 0, captionStyleId);
 
             // 获取第二层和第三层结构
             Map<String, List<BiObject>> structureData = collectStructureData(building.getRootObjectId(), evaluation.getId());

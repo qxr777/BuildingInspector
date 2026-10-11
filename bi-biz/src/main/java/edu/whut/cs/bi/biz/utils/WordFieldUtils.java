@@ -2,6 +2,7 @@ package edu.whut.cs.bi.biz.utils;
 
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
+import org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 
 import java.math.BigInteger;
@@ -147,7 +148,29 @@ public class WordFieldUtils {
                                                        int fontHalfPoints, long lineTwips,
                                                        boolean bold, long beforeAfterTwips) {
         return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter,
-                fontHalfPoints, lineTwips, true, bold, beforeAfterTwips);
+                fontHalfPoints, lineTwips, bold, beforeAfterTwips, "13");
+    }
+
+    /**
+     * 创建表格标题，并指定段落样式。单桥评定表、对比表用 12，避开 WPS 写在样式 13 上的蓝边。
+     */
+    public static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
+                                                       Integer chapterNumber, AtomicInteger tableCounter,
+                                                       int fontHalfPoints, long lineTwips,
+                                                       boolean bold, long beforeAfterTwips, String styleId) {
+        return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter,
+                fontHalfPoints, lineTwips, true, bold, beforeAfterTwips, beforeAfterTwips, styleId);
+    }
+
+    /**
+     * 创建表格标题，段前段后可分别指定。图片题注：段前 5 磅、段后 10 磅、单倍行距。
+     */
+    public static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
+                                                       Integer chapterNumber, AtomicInteger tableCounter,
+                                                       int fontHalfPoints, long lineTwips,
+                                                       boolean bold, long beforeTwips, long afterTwips, String styleId) {
+        return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter,
+                fontHalfPoints, lineTwips, true, bold, beforeTwips, afterTwips, styleId);
     }
 
     private static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
@@ -161,6 +184,14 @@ public class WordFieldUtils {
                                                         Integer chapterNumber, AtomicInteger tableCounter,
                                                         int fontHalfPoints, long lineTwips, boolean applyCustomStyle,
                                                         boolean bold, long beforeAfterTwips) {
+        return createTableCaptionWithCounter(document, titleText, cursor, chapterNumber, tableCounter,
+                fontHalfPoints, lineTwips, applyCustomStyle, bold, beforeAfterTwips, beforeAfterTwips, "13");
+    }
+
+    private static String createTableCaptionWithCounter(XWPFDocument document, String titleText, XmlCursor cursor,
+                                                        Integer chapterNumber, AtomicInteger tableCounter,
+                                                        int fontHalfPoints, long lineTwips, boolean applyCustomStyle,
+                                                        boolean bold, long beforeTwips, long afterTwips, String styleId) {
         XWPFParagraph paragraph;
         if (cursor != null) {
             paragraph = document.insertNewParagraph(cursor);
@@ -170,13 +201,13 @@ public class WordFieldUtils {
         }
 
         if (applyCustomStyle) {
-            applyTableCaptionStyle(paragraph, lineTwips, beforeAfterTwips);
+            applyCaptionParagraphStyle(paragraph, lineTwips, beforeTwips, afterTwips, styleId);
         } else {
             paragraph.setAlignment(ParagraphAlignment.CENTER);
             try {
                 paragraph.setStyle("12");
             } catch (Exception e) {
-                applyTableCaptionStyle(paragraph, lineTwips, beforeAfterTwips);
+                applyCaptionParagraphStyle(paragraph, lineTwips, beforeTwips, afterTwips, "13");
             }
         }
 
@@ -240,10 +271,14 @@ public class WordFieldUtils {
      * @param beforeAfterTwips 段前段后间距（twips，0 表示不要段前段后）
      */
     public static void applyTableCaptionStyle(XWPFParagraph paragraph, long lineTwips, long beforeAfterTwips) {
+        applyCaptionParagraphStyle(paragraph, lineTwips, beforeAfterTwips, beforeAfterTwips, "13");
+    }
+
+    private static void applyCaptionParagraphStyle(XWPFParagraph paragraph, long lineTwips, long beforeTwips,
+                                                   long afterTwips, String styleId) {
         paragraph.setAlignment(ParagraphAlignment.CENTER);
         try {
-            // 题注样式：居中、1.5 倍行距、黑体。不要用样式 12（正文缩进）。
-            paragraph.setStyle("13");
+            paragraph.setStyle(styleId);
         } catch (Exception ignored) {
             // 样式不存在时仍按手动格式输出
         }
@@ -255,9 +290,12 @@ public class WordFieldUtils {
         if (ppr.isSetInd()) {
             ppr.unsetInd();
         }
+        if (ppr.isSetOutlineLvl()) {
+            ppr.unsetOutlineLvl();
+        }
         CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
-        spacing.setAfter(BigInteger.valueOf(beforeAfterTwips));
-        spacing.setBefore(BigInteger.valueOf(beforeAfterTwips));
+        spacing.setAfter(BigInteger.valueOf(afterTwips));
+        spacing.setBefore(BigInteger.valueOf(beforeTwips));
         if (spacing.isSetBeforeLines()) {
             spacing.unsetBeforeLines();
         }
@@ -355,13 +393,11 @@ public class WordFieldUtils {
             bookmarkName = "Figure_" + bookmarkCounter.getAndIncrement();
         }
 
-        // 创建图片序号域
+        // 创建图片序号域。SEQ 标识用「图」，与 Word 中文题注一致，避免英文 Figure 和正文引用对不上。
         if (chapterNumber != null) {
-            // 按章节编号
-            createChapterSequenceField(paragraph, "Figure", bookmarkName, chapterNumber);
+            createChapterSequenceField(paragraph, "图", bookmarkName, chapterNumber);
         } else {
-            // 全文档编号
-            createSequenceField(paragraph, "Figure", bookmarkName);
+            createSequenceField(paragraph, "图", bookmarkName);
         }
 
         // 添加标题文本
@@ -386,7 +422,8 @@ public class WordFieldUtils {
      * @return 生成的书签名
      */
     public static String createFigureCaptionInParagraph(XWPFParagraph paragraph, String titleText, Integer chapterNumber, String bookmarkName) {
-        return createFigureCaptionInParagraph(paragraph, titleText, chapterNumber, bookmarkName, 360, 0);
+        // 与模板图片题注一致：样式 12、居中、段前 5 磅、段后 10 磅、单倍行距
+        return createFigureCaptionInParagraph(paragraph, titleText, chapterNumber, bookmarkName, 240, 100, 200, "12");
     }
 
     /**
@@ -397,7 +434,14 @@ public class WordFieldUtils {
      */
     public static String createFigureCaptionInParagraph(XWPFParagraph paragraph, String titleText, Integer chapterNumber,
                                                        String bookmarkName, long lineTwips, long beforeAfterTwips) {
-        applyTableCaptionStyle(paragraph, lineTwips, beforeAfterTwips);
+        return createFigureCaptionInParagraph(paragraph, titleText, chapterNumber, bookmarkName,
+                lineTwips, beforeAfterTwips, beforeAfterTwips, "13");
+    }
+
+    private static String createFigureCaptionInParagraph(XWPFParagraph paragraph, String titleText, Integer chapterNumber,
+                                                        String bookmarkName, long lineTwips, long beforeTwips,
+                                                        long afterTwips, String styleId) {
+        applyCaptionParagraphStyle(paragraph, lineTwips, beforeTwips, afterTwips, styleId);
 
         // 生成或使用指定的书签名
         if (bookmarkName == null) {
@@ -414,7 +458,7 @@ public class WordFieldUtils {
         bookmarkStart.setName(bookmarkName);
         bookmarkStart.setId(BigInteger.valueOf(bookmarkCounter.get()));
 
-        // 创建图片序号域（STYLEREF + 连接符 + SEQ，显示为图x-x）
+        // 创建图片序号域（Word 题注：STYLEREF 1 \s + 连接符 + SEQ，显示为图x-x）
         if (chapterNumber != null) {
             createChapterSequenceFieldWithoutBookmark(paragraph, "图", chapterNumber);
         } else {
@@ -569,8 +613,7 @@ public class WordFieldUtils {
 
         // 创建域代码
         CTR instrCtr = paragraph.getCTP().addNewR();
-        CTText instrText = instrCtr.addNewInstrText();
-        instrText.setStringValue("SEQ " + seqName + " \\* ARABIC");
+        writeFieldInstruction(instrCtr, "SEQ " + seqName + " \\* ARABIC");
 
         // 创建域分隔符
         CTR sepCtr = paragraph.getCTP().addNewR();
@@ -590,7 +633,7 @@ public class WordFieldUtils {
             // 设置初始显示值
             CTText resultText = resultCtr.addNewT();
             resultText.setStringValue(String.valueOf(tableSequence.getAndIncrement()));
-        } else if ("Figure".equals(seqName)) {
+        } else if ("Figure".equals(seqName) || "图".equals(seqName)) {
             // 图片字体：黑体，21pt
             resultRPr.addNewRFonts().setAscii("黑体");
             resultRPr.addNewRFonts().setEastAsia("黑体");
@@ -624,24 +667,7 @@ public class WordFieldUtils {
         // 1. 创建STYLEREF域
         createStyleRefField(paragraph);
 
-        // 2. 添加连接符
-        XWPFRun connectorRun = paragraph.createRun();
-        if ("表".equals(seqName)) {
-            connectorRun.setText(".");
-        } else if ("图".equals(seqName)) {
-            connectorRun.setText("-");
-        }
-        // 设置连接符字体格式 - 使用Times New Roman
-        CTRPr connectorRPr = connectorRun.getCTR().addNewRPr();
-        connectorRPr.addNewRFonts().setAscii("Times New Roman");
-        connectorRPr.addNewRFonts().setEastAsia("Times New Roman");
-        if ("表".equals(seqName)) {
-            connectorRPr.addNewSz().setVal(BigInteger.valueOf(21));
-            connectorRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-        } else {
-            connectorRPr.addNewSz().setVal(BigInteger.valueOf(21));
-            connectorRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-        }
+        appendCaptionConnector(paragraph, seqName);
 
         // 3. 创建SEQ域
         createSimpleSEQField(paragraph, seqName, bookmarkName);
@@ -756,12 +782,11 @@ public class WordFieldUtils {
 
         CTR instrCtr = paragraph.getCTP().addNewR();
         applyFieldRunFont(instrCtr, asciiFont, eastAsiaFont, fontHalfPoints);
-        CTText instrText = instrCtr.addNewInstrText();
         String instruction = "REF " + bookmarkName + " \\h";
         if (charFormat) {
             instruction += " \\* CHARFORMAT";
         }
-        instrText.setStringValue(instruction);
+        writeFieldInstruction(instrCtr, instruction);
 
         CTR sepCtr = paragraph.getCTP().addNewR();
         applyFieldRunFont(sepCtr, asciiFont, eastAsiaFont, fontHalfPoints);
@@ -784,6 +809,7 @@ public class WordFieldUtils {
         CTFonts fonts = rpr.sizeOfRFontsArray() > 0 ? rpr.getRFontsArray(0) : rpr.addNewRFonts();
         fonts.setAscii(asciiFont);
         fonts.setHAnsi(asciiFont);
+        fonts.setCs(asciiFont);
         fonts.setEastAsia(eastAsiaFont);
         if (rpr.sizeOfSzArray() > 0) {
             rpr.getSzArray(0).setVal(BigInteger.valueOf(fontHalfPoints));
@@ -798,42 +824,58 @@ public class WordFieldUtils {
     }
 
     /**
-     * 创建STYLEREF域
-     *
-     * @param paragraph 段落
+     * 创建章节号域。
+     * <p>使用 Word 题注的 {@code STYLEREF 1 \s}。{@code \n} 是 WPS 题注写法，Microsoft Word 更新后经常取不到章节号。</p>
      */
     private static void createStyleRefField(XWPFParagraph paragraph) {
-        // 创建域开始
         CTR ctr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(ctr);
         CTFldChar fieldBegin = ctr.addNewFldChar();
         fieldBegin.setFldCharType(STFldCharType.BEGIN);
 
-        // 创建域代码
         CTR instrCtr = paragraph.getCTP().addNewR();
-        CTText instrText = instrCtr.addNewInstrText();
-        instrText.setStringValue("STYLEREF 1 \\n");
+        applyCaptionNumberFont(instrCtr);
+        writeFieldInstruction(instrCtr, "STYLEREF 1 \\s");
 
-        // 创建域分隔符
         CTR sepCtr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(sepCtr);
         CTFldChar fieldSep = sepCtr.addNewFldChar();
         fieldSep.setFldCharType(STFldCharType.SEPARATE);
 
-        // 创建域结果（显示文本）
         CTR resultCtr = paragraph.getCTP().addNewR();
-        // 设置字体格式 - 章节号使用Times New Roman
-        CTRPr resultRPr = resultCtr.addNewRPr();
-        resultRPr.addNewRFonts().setAscii("Times New Roman");
-        resultRPr.addNewRFonts().setEastAsia("Times New Roman");
-        resultRPr.addNewSz().setVal(BigInteger.valueOf(21));
-        resultRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-
+        applyCaptionNumberFont(resultCtr);
         CTText resultText = resultCtr.addNewT();
         resultText.setStringValue("3");
 
-        // 创建域结束
         CTR endCtr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(endCtr);
         CTFldChar fieldEnd = endCtr.addNewFldChar();
         fieldEnd.setFldCharType(STFldCharType.END);
+    }
+
+    /**
+     * Word 域指令必须保留首尾空格，否则 Microsoft Word 不把这段文字当成域，只剩 WPS 能更新。
+     */
+    private static void writeFieldInstruction(CTR run, String instruction) {
+        CTText instrText = run.addNewInstrText();
+        String value = instruction == null ? "" : instruction.trim();
+        instrText.setStringValue(" " + value + " ");
+        instrText.setSpace(SpaceAttribute.Space.PRESERVE);
+    }
+
+    /** 题注编号：四个字体槽都写 Times New Roman，避免 Word 更新域后把数字画成宋体。 */
+    private static void applyCaptionNumberFont(CTR ctr) {
+        applyFieldRunFont(ctr, "Times New Roman", "Times New Roman", 21);
+    }
+
+    private static void appendCaptionConnector(XWPFParagraph paragraph, String seqName) {
+        XWPFRun connectorRun = paragraph.createRun();
+        if ("表".equals(seqName)) {
+            connectorRun.setText(".");
+        } else if ("图".equals(seqName)) {
+            connectorRun.setText("-");
+        }
+        applyCaptionNumberFont(connectorRun.getCTR());
     }
 
     /**
@@ -851,33 +893,30 @@ public class WordFieldUtils {
 
         // 创建域开始
         CTR ctr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(ctr);
         CTFldChar fieldBegin = ctr.addNewFldChar();
         fieldBegin.setFldCharType(STFldCharType.BEGIN);
 
         // 创建域代码
         CTR instrCtr = paragraph.getCTP().addNewR();
-        CTText instrText = instrCtr.addNewInstrText();
-        instrText.setStringValue("SEQ " + seqName + " \\* ARABIC \\s 1");
+        applyCaptionNumberFont(instrCtr);
+        writeFieldInstruction(instrCtr, "SEQ " + seqName + " \\* ARABIC \\s 1");
 
         // 创建域分隔符
         CTR sepCtr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(sepCtr);
         CTFldChar fieldSep = sepCtr.addNewFldChar();
         fieldSep.setFldCharType(STFldCharType.SEPARATE);
 
         // 创建域结果（显示文本）
         CTR resultCtr = paragraph.getCTP().addNewR();
-        // 设置字体格式 - 序号使用Times New Roman
-        CTRPr resultRPr = resultCtr.addNewRPr();
-        resultRPr.addNewRFonts().setAscii("Times New Roman");
-        resultRPr.addNewRFonts().setEastAsia("Times New Roman");
-        resultRPr.addNewSz().setVal(BigInteger.valueOf(21));
-        resultRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-
+        applyCaptionNumberFont(resultCtr);
         CTText resultText = resultCtr.addNewT();
         resultText.setStringValue("1");
 
         // 创建域结束
         CTR endCtr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(endCtr);
         CTFldChar fieldEnd = endCtr.addNewFldChar();
         fieldEnd.setFldCharType(STFldCharType.END);
 
@@ -913,24 +952,7 @@ public class WordFieldUtils {
         // 1. 创建STYLEREF域
         createStyleRefField(paragraph);
 
-        // 2. 添加连接符
-        XWPFRun connectorRun = paragraph.createRun();
-        if ("表".equals(seqName)) {
-            connectorRun.setText(".");
-        } else if ("图".equals(seqName)) {
-            connectorRun.setText("-");
-        }
-        // 设置连接符字体格式 - 使用Times New Roman
-        CTRPr connectorRPr = connectorRun.getCTR().addNewRPr();
-        connectorRPr.addNewRFonts().setAscii("Times New Roman");
-        connectorRPr.addNewRFonts().setEastAsia("Times New Roman");
-        if ("表".equals(seqName)) {
-            connectorRPr.addNewSz().setVal(BigInteger.valueOf(21));
-            connectorRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-        } else {
-            connectorRPr.addNewSz().setVal(BigInteger.valueOf(21));
-            connectorRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-        }
+        appendCaptionConnector(paragraph, seqName);
 
         // 3. 创建SEQ域（不包含书签）
         createSimpleSEQFieldWithoutBookmark(paragraph, seqName);
@@ -943,35 +965,27 @@ public class WordFieldUtils {
      * @param seqName   序列名称
      */
     private static void createSimpleSEQFieldWithoutBookmark(XWPFParagraph paragraph, String seqName) {
-        // 创建域开始
         CTR ctr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(ctr);
         CTFldChar fieldBegin = ctr.addNewFldChar();
         fieldBegin.setFldCharType(STFldCharType.BEGIN);
 
-        // 创建域代码
         CTR instrCtr = paragraph.getCTP().addNewR();
-        CTText instrText = instrCtr.addNewInstrText();
-        instrText.setStringValue("SEQ " + seqName + " \\* ARABIC \\s 1");
+        applyCaptionNumberFont(instrCtr);
+        writeFieldInstruction(instrCtr, "SEQ " + seqName + " \\* ARABIC \\s 1");
 
-        // 创建域分隔符
         CTR sepCtr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(sepCtr);
         CTFldChar fieldSep = sepCtr.addNewFldChar();
         fieldSep.setFldCharType(STFldCharType.SEPARATE);
 
-        // 创建域结果（显示文本）
         CTR resultCtr = paragraph.getCTP().addNewR();
-        // 设置字体格式 - 序号使用Times New Roman
-        CTRPr resultRPr = resultCtr.addNewRPr();
-        resultRPr.addNewRFonts().setAscii("Times New Roman");
-        resultRPr.addNewRFonts().setEastAsia("Times New Roman");
-        resultRPr.addNewSz().setVal(BigInteger.valueOf(21));
-        resultRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
-
+        applyCaptionNumberFont(resultCtr);
         CTText resultText = resultCtr.addNewT();
         resultText.setStringValue("1");
 
-        // 创建域结束
         CTR endCtr = paragraph.getCTP().addNewR();
+        applyCaptionNumberFont(endCtr);
         CTFldChar fieldEnd = endCtr.addNewFldChar();
         fieldEnd.setFldCharType(STFldCharType.END);
     }
