@@ -62,6 +62,8 @@ import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -1427,41 +1429,14 @@ public class ReportServiceImpl implements IReportService {
      * @throws Exception 异常
      */
     private void insertBridgeImages(XWPFDocument document, Long buildingId) throws Exception {
-        // 获取桥梁图片
         List<FileMap> images = fileMapController.getImageMaps(buildingId, "newfront", "newside");
+        String[] front = slotBridgeOverviewImages(images, "newfront");
+        String[] side = slotBridgeOverviewImages(images, "newside");
 
-        // 分类存储图片
-        List<String> frontImagesList = new ArrayList<>();
-        List<String> sideImagesList = new ArrayList<>();
-
-        for (FileMap image : images) {
-            String[] parts = image.getOldName().split("_");
-            if (parts.length > 1 && "newfront".equals(parts[1])) {
-                frontImagesList.add(image.getNewName());
-            } else if (parts.length > 1 && "newside".equals(parts[1])) {
-                sideImagesList.add(image.getNewName());
-            }
-        }
-
-        // 替换左右正面照
-        if (!frontImagesList.isEmpty()) {
-            replaceImageInDocument(document, "${chapter-1-2-leftFront}", frontImagesList.get(0));
-            replaceImageInDocument(document, "${chapter-1-2-rightFront}", frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0));
-        } else {
-            // 清除占位符
-            replaceImageInDocument(document, "${chapter-1-2-leftFront}", null);
-            replaceImageInDocument(document, "${chapter-1-2-rightFront}", null);
-        }
-
-        // 替换左右立面照
-        if (!sideImagesList.isEmpty()) {
-            replaceImageInDocument(document, "${chapter-1-2-leftSide}", sideImagesList.get(0));
-            replaceImageInDocument(document, "${chapter-1-2-rightSide}", sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0));
-        } else {
-            // 清除占位符
-            replaceImageInDocument(document, "${chapter-1-2-leftSide}", null);
-            replaceImageInDocument(document, "${chapter-1-2-rightSide}", null);
-        }
+        replaceImageInDocument(document, "${chapter-1-2-leftFront}", leftOverviewImage(front));
+        replaceImageInDocument(document, "${chapter-1-2-rightFront}", rightOverviewImage(front));
+        replaceImageInDocument(document, "${chapter-1-2-leftSide}", leftOverviewImage(side));
+        replaceImageInDocument(document, "${chapter-1-2-rightSide}", rightOverviewImage(side));
     }
 
 
@@ -2907,7 +2882,7 @@ public class ReportServiceImpl implements IReportService {
         }
 
         // 结构下按 1) 2) 列出部件，正文格式与多桥外观检测一致。
-        insertLevel2AppearanceBody(document, cursor, "经检查:");
+        insertLevel2AppearanceBody(document, cursor, "经检查");
 
         log.info("开始按部件生成病害小结");
         int componentIndex = 1;
@@ -2921,7 +2896,7 @@ public class ReportServiceImpl implements IReportService {
 
             if (component.getWeight() != null && component.getWeight().compareTo(BigDecimal.ZERO) == 0) {
                 insertLevel2AppearanceBody(document, cursor,
-                        componentIndex + ") " + component.getName() + "：无此构件");
+                        formatLevel2ComponentLead(componentIndex, component.getName(), "无此构件"));
                 testConclusionService.cacheDiseaseSummary(component.getId(), TestConclusionService.NO_SUCH_COMPONENT_TEXT);
                 componentIndex++;
                 continue;
@@ -2929,10 +2904,10 @@ public class ReportServiceImpl implements IReportService {
 
             if (componentDiseases.isEmpty()) {
                 insertLevel2AppearanceBody(document, cursor,
-                        componentIndex + ") " + component.getName() + "：未见明显病害。");
+                        formatLevel2ComponentLead(componentIndex, component.getName(), "未见明显病害。"));
             } else {
-                String componentDiseaseSummary = programmaticDiseaseSummaryService.summarize(
-                        componentDiseases, component.getName());
+                String componentDiseaseSummary = stripComponentTypeColon(
+                        programmaticDiseaseSummaryService.summarize(componentDiseases, component.getName()));
                 writeLevel2ComponentSummary(document, cursor, componentIndex, component.getName(), componentDiseaseSummary);
                 testConclusionService.cacheDiseaseSummary(component.getId(), componentDiseaseSummary);
             }
@@ -3101,7 +3076,11 @@ public class ReportServiceImpl implements IReportService {
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
+                            if (!cellP.getRuns().isEmpty()) {
+                                cellP.removeRun(cellP.getRuns().size() - 1);
+                            }
+                            ReportGenerateTools.writeTextWithAreaSubscripts(cellP,
+                                    ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()), 21);
                             break;
                         case 5:
                             cellR.setText(!"0".equals(d.getParticipateAssess()) && d.getLevel() > 0
@@ -3155,7 +3134,8 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 二级单桥外观检测：部件仍用「1) 上部承重构件」这种编号。
+     * 二级单桥外观检测：部件用「1）上部承重构件：T梁梁底掉角…」这种编号。
+     * 右括号宋体；部件名后保留冒号；T梁、湿接缝这类结构名后不再跟冒号和空格。
      * 小结内容来自程序汇总；多行时第一行挂在编号后，其余行单独成段。
      */
     private void writeLevel2ComponentSummary(XWPFDocument document, XmlCursor cursor, int index,
@@ -3173,14 +3153,43 @@ public class ReportServiceImpl implements IReportService {
         }
         if (lines.size() == 1) {
             insertLevel2AppearanceBody(document, cursor,
-                    index + ") " + componentName + "：" + stripLeadingComponentName(lines.get(0), componentName));
+                    formatLevel2ComponentLead(index, componentName,
+                            stripLeadingComponentName(lines.get(0), componentName)));
             return;
         }
         String firstLine = stripLeadingComponentName(lines.get(0).replaceFirst("^\\d+[）)]\\s*", ""), componentName);
-        insertLevel2AppearanceBody(document, cursor, index + ") " + componentName + "：" + firstLine);
+        insertLevel2AppearanceBody(document, cursor, formatLevel2ComponentLead(index, componentName, firstLine));
         for (int i = 1; i < lines.size(); i++) {
             insertLevel2AppearanceBody(document, cursor, lines.get(i));
         }
+    }
+
+    /** 「1）上部承重构件：T梁梁底掉角…」，右括号用中文全角以便走宋体。 */
+    private String formatLevel2ComponentLead(int index, String componentName, String rest) {
+        String lead = index + "）" + (componentName == null ? "" : componentName) + "：";
+        if (rest == null || rest.isBlank()) {
+            return lead;
+        }
+        return lead + rest.trim();
+    }
+
+    private static final Pattern COMPONENT_TYPE_COLON = Pattern.compile(
+            "^(\\d+[）)]\\s*)?(.+?)\\s*[:：]\\s*(.*)$");
+
+    /** 去掉「T梁：」「湿接缝：」这类结构名后的冒号和空格，前面「上部承重构件：」保留。 */
+    private String stripComponentTypeColon(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        String[] lines = text.split("\\r?\\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            Matcher matcher = COMPONENT_TYPE_COLON.matcher(lines[i]);
+            if (matcher.matches()) {
+                String numbering = matcher.group(1) == null ? "" : matcher.group(1);
+                lines[i] = numbering + matcher.group(2) + matcher.group(3);
+            }
+        }
+        return String.join("\n", lines);
     }
 
     private String stripLeadingComponentName(String line, String componentName) {
@@ -3189,10 +3198,10 @@ public class ReportServiceImpl implements IReportService {
         }
         String trimmed = line.trim();
         if (componentName != null && trimmed.startsWith(componentName + "：")) {
-            return trimmed.substring(componentName.length() + 1);
+            return trimmed.substring(componentName.length() + 1).trim();
         }
         if (componentName != null && trimmed.startsWith(componentName + ":")) {
-            return trimmed.substring(componentName.length() + 1);
+            return trimmed.substring(componentName.length() + 1).trim();
         }
         return trimmed;
     }
@@ -3205,8 +3214,86 @@ public class ReportServiceImpl implements IReportService {
         } else {
             paragraph = document.createParagraph();
         }
-        paragraph.createRun().setText(text == null ? "" : text);
+        fillLevel2AppearanceRuns(paragraph, text == null ? "" : text);
         applyLevel2AppearanceBodyFormat(paragraph);
+    }
+
+    /** 「其他」病害「其中」之后的描述标红；S-1 写成 S 加下标 1。 */
+    private void fillLevel2AppearanceRuns(XWPFParagraph paragraph, String text) {
+        if (text.isEmpty()) {
+            paragraph.createRun().setText("");
+            return;
+        }
+        boolean[] red = markOtherDescriptionChars(text);
+        Matcher matcher = ReportGenerateTools.AREA_SUBSCRIPT_LABEL.matcher(text);
+        int pos = 0;
+        Integer nextStart = null;
+        Integer nextEnd = null;
+        String nextDigits = null;
+        if (matcher.find()) {
+            nextStart = matcher.start();
+            nextEnd = matcher.end();
+            nextDigits = matcher.group(1);
+        }
+        while (pos < text.length()) {
+            if (nextStart != null && nextStart == pos) {
+                addLevel2AppearanceRun(paragraph, "S", red[pos], false);
+                addLevel2AppearanceRun(paragraph, nextDigits, red[pos], true);
+                pos = nextEnd;
+                if (matcher.find()) {
+                    nextStart = matcher.start();
+                    nextEnd = matcher.end();
+                    nextDigits = matcher.group(1);
+                } else {
+                    nextStart = null;
+                }
+                continue;
+            }
+            int limit = nextStart != null ? nextStart : text.length();
+            boolean redFlag = red[pos];
+            int end = pos + 1;
+            while (end < limit && red[end] == redFlag) {
+                end++;
+            }
+            addLevel2AppearanceRun(paragraph, text.substring(pos, end), redFlag, false);
+            pos = end;
+        }
+    }
+
+    /**
+     * 「其他」病害：前面「其他（最大标度 x）n处，总面积…，其中」保持黑色，
+     * 「其中」之后的原始描述全部标红，不因描述里的分号中断。
+     */
+    private boolean[] markOtherDescriptionChars(String text) {
+        boolean[] red = new boolean[text.length()];
+        int from = 0;
+        while (from < text.length()) {
+            int marker = text.indexOf("其中", from);
+            if (marker < 0) {
+                break;
+            }
+            int start = marker + "其中".length();
+            int end = text.indexOf('。', start);
+            if (end < 0) {
+                end = text.length();
+            }
+            for (int i = start; i < end; i++) {
+                red[i] = true;
+            }
+            from = end;
+        }
+        return red;
+    }
+
+    private void addLevel2AppearanceRun(XWPFParagraph paragraph, String text, boolean red, boolean subscript) {
+        XWPFRun run = paragraph.createRun();
+        run.setText(text == null ? "" : text);
+        if (red) {
+            run.setColor("FF0000");
+        }
+        if (subscript) {
+            run.setVerticalAlignment("subscript");
+        }
     }
 
     /**
@@ -3631,8 +3718,8 @@ public class ReportServiceImpl implements IReportService {
 
                     // 统一图片大小
 //                    int imgWidth = 7 * 360000;
-                    // 单桥照片 8.41 cm × 6 cm，其余仍为 8 cm × 6 cm。
-                    int imgWidth = fixedPhotoCell ? 3027600 : 8 * 360000;
+                    // 外观检测照片 8 cm × 6 cm；单桥表格格宽仍为 8.41 cm。
+                    int imgWidth = 8 * 360000;
                     int imgHeight = 6 * 360000;
 
                     imageRun.addPicture(
@@ -6493,21 +6580,64 @@ public class ReportServiceImpl implements IReportService {
                     // 如果当前 结构 没有存放 病害小结 ， 跳过。
                     continue;
                 }
-                content.append(String.format("%d、%s：\n", structureIndex++, structureName));
                 List<Long> curObjectIdList = parentObjectName2IdList.get(structureName);
-                int pointNum = 1;
+                List<String> summaries = new ArrayList<>();
                 for (Long objectId : curObjectIdList) {
                     String diseaseSummary = summaryCache.get(objectId);
+                    if (isNoSuchComponentSummary(diseaseSummary)) {
+                        continue;
+                    }
+                    summaries.add(diseaseSummary);
+                }
+                if (summaries.isEmpty()) {
+                    continue;
+                }
+                content.append(String.format("%d、%s：\n", structureIndex++, structureName));
+                int pointNum = 1;
+                for (String diseaseSummary : summaries) {
                     content.append(String.format("%d)%s\n", pointNum++, diseaseSummary));
                 }
 
             }
-            replaceText(document, "${chapter-4-1-7-2-mainDiseases}", content.toString().trim());
+            writeSingleBridgeMainDiseases(document, content.toString().trim());
 
         } catch (Exception e) {
             log.error("生成单桥主要病害内容失败", e);
             replaceText(document, "${chapter-4-1-7-2-mainDiseases}", "【主要病害生成失败】");
         }
+    }
+
+    private void writeSingleBridgeMainDiseases(XWPFDocument document, String content) {
+        XWPFParagraph target = ReportGenerateTools.findParagraphByPlaceholder(document, "${chapter-4-1-7-2-mainDiseases}");
+        if (target == null) {
+            replaceText(document, "${chapter-4-1-7-2-mainDiseases}", content);
+            return;
+        }
+        while (!target.getRuns().isEmpty()) {
+            target.removeRun(0);
+        }
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        String[] lines = content.split("\\r?\\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                if (target.getRuns().isEmpty()) {
+                    target.createRun().addBreak();
+                } else {
+                    target.getRuns().get(target.getRuns().size() - 1).addBreak();
+                }
+            }
+            ReportGenerateTools.writeTextWithAreaSubscripts(target, lines[i], 24);
+        }
+    }
+
+    private boolean isNoSuchComponentSummary(String summary) {
+        if (summary == null) {
+            return false;
+        }
+        String trimmed = summary.trim();
+        return TestConclusionService.NO_SUCH_COMPONENT_TEXT.equals(trimmed) || trimmed.contains("无此构件");
     }
 
     /**
@@ -6812,62 +6942,68 @@ public class ReportServiceImpl implements IReportService {
     private void insertSingleBridgeImages(XWPFDocument document, Long buildingId) throws Exception {
         log.info("开始处理单桥桥梁概况照片，buildingId: {}", buildingId);
 
-        // 获取桥梁图片（与组合桥使用相同的逻辑）
         List<FileMap> images = fileMapController.getImageMaps(buildingId, "newfront", "newside");
         log.info("从数据库获取到 {} 张图片", images != null ? images.size() : 0);
+        String[] front = slotBridgeOverviewImages(images, "newfront");
+        String[] side = slotBridgeOverviewImages(images, "newside");
+        String leftFront = leftOverviewImage(front);
+        String rightFront = rightOverviewImage(front);
+        String leftSide = leftOverviewImage(side);
+        String rightSide = rightOverviewImage(side);
 
-        if (images != null) {
-            for (FileMap image : images) {
-                log.debug("图片信息: oldName={}, newName={}", image.getOldName(), image.getNewName());
-            }
-        }
-
-        // 分类存储图片
-        List<String> frontImagesList = new ArrayList<>();
-        List<String> sideImagesList = new ArrayList<>();
-
-        if (images != null) {
-            for (FileMap image : images) {
-                String[] parts = image.getOldName().split("_");
-                log.debug("解析图片名称: {} -> parts: {}", image.getOldName(), Arrays.toString(parts));
-
-                if (parts.length > 1 && "newfront".equals(parts[1])) {
-                    frontImagesList.add(image.getNewName());
-                    log.debug("添加正面照: {}", image.getNewName());
-                } else if (parts.length > 1 && "newside".equals(parts[1])) {
-                    sideImagesList.add(image.getNewName());
-                    log.debug("添加立面照: {}", image.getNewName());
-                }
-            }
-        }
-
-        log.info("图片分类结果 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
-
-        // 替换单桥模板的桥梁概况照片占位符
-        if (!frontImagesList.isEmpty()) {
-            log.info("替换正面照占位符");
-            replaceImageInDocument(document, "%{chapter-4-1-1-leftFront}", frontImagesList.get(0));
-            replaceImageInDocument(document, "%{chapter-4-1-1-rightFront}", frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0));
+        if (leftFront != null) {
+            replaceImageInDocument(document, "%{chapter-4-1-1-leftFront}", leftFront);
+            replaceImageInDocument(document, "%{chapter-4-1-1-rightFront}", rightFront);
         } else {
-            log.warn("没有找到正面照，清除占位符");
-            // 直接替换为空文本，而不是null
             replaceText(document, "%{chapter-4-1-1-leftFront}", "");
             replaceText(document, "%{chapter-4-1-1-rightFront}", "");
         }
-
-        // 替换左右立面照
-        if (!sideImagesList.isEmpty()) {
-            log.info("替换立面照占位符");
-            replaceImageInDocument(document, "%{chapter-4-1-1-leftSide}", sideImagesList.get(0));
-            replaceImageInDocument(document, "%{chapter-4-1-1-rightSide}", sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0));
+        if (leftSide != null) {
+            replaceImageInDocument(document, "%{chapter-4-1-1-leftSide}", leftSide);
+            replaceImageInDocument(document, "%{chapter-4-1-1-rightSide}", rightSide);
         } else {
-            log.warn("没有找到立面照，清除占位符");
-            // 直接替换为空文本，而不是null
             replaceText(document, "%{chapter-4-1-1-leftSide}", "");
             replaceText(document, "%{chapter-4-1-1-rightSide}", "");
         }
+        log.info("单桥桥梁概况照片处理完成 - 正面照: {}/{}, 立面照: {}/{}",
+                front[0] != null, front[1] != null, side[0] != null, side[1] != null);
+    }
 
-        log.info("单桥桥梁概况照片处理完成 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
+    /**
+     * 编辑页左槽是 0_newfront/0_newside，右槽是 1_。不能按数据库返回顺序取第一张。
+     */
+    private String[] slotBridgeOverviewImages(List<FileMap> images, String type) {
+        String[] slots = new String[2];
+        if (images == null) {
+            return slots;
+        }
+        for (FileMap image : images) {
+            if (image == null || image.getOldName() == null) {
+                continue;
+            }
+            String[] parts = image.getOldName().split("_");
+            if (parts.length < 2 || !type.equals(parts[1])) {
+                continue;
+            }
+            int index;
+            try {
+                index = Integer.parseInt(parts[0]);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (index >= 0 && index < slots.length) {
+                slots[index] = image.getNewName();
+            }
+        }
+        return slots;
+    }
+
+    private String leftOverviewImage(String[] slots) {
+        return slots[0] != null ? slots[0] : slots[1];
+    }
+
+    private String rightOverviewImage(String[] slots) {
+        return slots[1] != null ? slots[1] : slots[0];
     }
 
     /**

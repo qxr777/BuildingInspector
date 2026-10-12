@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -640,6 +642,40 @@ public class ReportGenerateTools {
             return "/";
         }
         return description.replaceAll("面积\\s*(?=S)", "");
+    }
+
+    /** S-1 / S_1 / S－1 写成 S 加下标数字。 */
+    public static final Pattern AREA_SUBSCRIPT_LABEL = Pattern.compile("(?i)S[-_－—](\\d+)");
+
+    public static void writeTextWithAreaSubscripts(XWPFParagraph paragraph, String text, int fontHalfPoints) {
+        if (paragraph == null) {
+            return;
+        }
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        Matcher matcher = AREA_SUBSCRIPT_LABEL.matcher(text);
+        int pos = 0;
+        while (matcher.find()) {
+            if (matcher.start() > pos) {
+                addAreaSubscriptRun(paragraph, text.substring(pos, matcher.start()), fontHalfPoints, false);
+            }
+            addAreaSubscriptRun(paragraph, "S", fontHalfPoints, false);
+            addAreaSubscriptRun(paragraph, matcher.group(1), fontHalfPoints, true);
+            pos = matcher.end();
+        }
+        if (pos < text.length()) {
+            addAreaSubscriptRun(paragraph, text.substring(pos), fontHalfPoints, false);
+        }
+    }
+
+    private static void addAreaSubscriptRun(XWPFParagraph paragraph, String text, int fontHalfPoints, boolean subscript) {
+        XWPFRun run = paragraph.createRun();
+        run.setText(text == null ? "" : text);
+        setMixedFontFamily(run, fontHalfPoints);
+        if (subscript) {
+            run.setVerticalAlignment("subscript");
+        }
     }
 
     /**

@@ -818,7 +818,11 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                             cellR.setText(d.getQuantity() > 0 ? String.valueOf(d.getQuantity()) : "/");
                             break;
                         case 4:
-                            cellR.setText(ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()));
+                            if (!cellP.getRuns().isEmpty()) {
+                                cellP.removeRun(cellP.getRuns().size() - 1);
+                            }
+                            ReportGenerateTools.writeTextWithAreaSubscripts(cellP,
+                                    ReportGenerateTools.formatAppearanceDiseaseDescription(d.getDescription()), 21);
                             break;
                         case 5:
                             cellR.setText(!"0".equals(d.getParticipateAssess()) && d.getLevel() > 0
@@ -1268,62 +1272,66 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
     private void insertSingleBridgeImages(XWPFDocument document, Long buildingId) throws Exception {
         log.info("开始处理单桥桥梁概况照片，buildingId: {}", buildingId);
 
-        // 获取桥梁图片（与组合桥使用相同的逻辑）
         List<FileMap> images = fileMapController.getImageMaps(buildingId, "newfront", "newside");
         log.info("从数据库获取到 {} 张图片", images != null ? images.size() : 0);
+        String[] front = slotBridgeOverviewImages(images, "newfront");
+        String[] side = slotBridgeOverviewImages(images, "newside");
+        String leftFront = leftOverviewImage(front);
+        String rightFront = rightOverviewImage(front);
+        String leftSide = leftOverviewImage(side);
+        String rightSide = rightOverviewImage(side);
 
-        if (images != null) {
-            for (FileMap image : images) {
-                log.debug("图片信息: oldName={}, newName={}", image.getOldName(), image.getNewName());
-            }
-        }
-
-        // 分类存储图片
-        List<String> frontImagesList = new ArrayList<>();
-        List<String> sideImagesList = new ArrayList<>();
-
-        if (images != null) {
-            for (FileMap image : images) {
-                String[] parts = image.getOldName().split("_");
-                log.debug("解析图片名称: {} -> parts: {}", image.getOldName(), Arrays.toString(parts));
-
-                if (parts.length > 1 && "newfront".equals(parts[1])) {
-                    frontImagesList.add(image.getNewName());
-                    log.debug("添加正面照: {}", image.getNewName());
-                } else if (parts.length > 1 && "newside".equals(parts[1])) {
-                    sideImagesList.add(image.getNewName());
-                    log.debug("添加立面照: {}", image.getNewName());
-                }
-            }
-        }
-
-        log.info("图片分类结果 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
-
-        // 替换单桥模板的桥梁概况照片占位符
-        if (!frontImagesList.isEmpty()) {
-            log.info("替换正面照占位符");
-            ReportGenerateTools.replaceImageInDocument(document, "%{leftFront}", frontImagesList.get(0), null, false);
-            ReportGenerateTools.replaceImageInDocument(document, "%{rightFront}", frontImagesList.size() > 1 ? frontImagesList.get(1) : frontImagesList.get(0), null, false);
+        if (leftFront != null) {
+            ReportGenerateTools.replaceImageInDocument(document, "%{leftFront}", leftFront, null, false);
+            ReportGenerateTools.replaceImageInDocument(document, "%{rightFront}", rightFront, null, false);
         } else {
-            log.warn("没有找到正面照，清除占位符");
-            // 直接替换为空文本，而不是null
             ReportGenerateTools.replaceText(document, "%{leftFront}", "");
             ReportGenerateTools.replaceText(document, "%{rightFront}", "");
         }
-
-        // 替换左右立面照
-        if (!sideImagesList.isEmpty()) {
-            log.info("替换立面照占位符");
-            ReportGenerateTools.replaceImageInDocument(document, "%{leftSide}", sideImagesList.get(0), null, false);
-            ReportGenerateTools.replaceImageInDocument(document, "%{rightSide}", sideImagesList.size() > 1 ? sideImagesList.get(1) : sideImagesList.get(0), null, false);
+        if (leftSide != null) {
+            ReportGenerateTools.replaceImageInDocument(document, "%{leftSide}", leftSide, null, false);
+            ReportGenerateTools.replaceImageInDocument(document, "%{rightSide}", rightSide, null, false);
         } else {
-            log.warn("没有找到立面照，清除占位符");
-            // 直接替换为空文本，而不是null
             ReportGenerateTools.replaceText(document, "%{leftSide}", "");
             ReportGenerateTools.replaceText(document, "%{rightSide}", "");
         }
+        log.info("单桥桥梁概况照片处理完成 - 正面照: {}/{}, 立面照: {}/{}",
+                front[0] != null, front[1] != null, side[0] != null, side[1] != null);
+    }
 
-        log.info("单桥桥梁概况照片处理完成 - 正面照: {}, 立面照: {}", frontImagesList.size(), sideImagesList.size());
+    /** 编辑页左槽是 0_newfront/0_newside，右槽是 1_。不能按数据库返回顺序取第一张。 */
+    private String[] slotBridgeOverviewImages(List<FileMap> images, String type) {
+        String[] slots = new String[2];
+        if (images == null) {
+            return slots;
+        }
+        for (FileMap image : images) {
+            if (image == null || image.getOldName() == null) {
+                continue;
+            }
+            String[] parts = image.getOldName().split("_");
+            if (parts.length < 2 || !type.equals(parts[1])) {
+                continue;
+            }
+            int index;
+            try {
+                index = Integer.parseInt(parts[0]);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (index >= 0 && index < slots.length) {
+                slots[index] = image.getNewName();
+            }
+        }
+        return slots;
+    }
+
+    private String leftOverviewImage(String[] slots) {
+        return slots[0] != null ? slots[0] : slots[1];
+    }
+
+    private String rightOverviewImage(String[] slots) {
+        return slots[1] != null ? slots[1] : slots[0];
     }
 
 
@@ -1667,8 +1675,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
                     // 统一图片大小
 //                    int imgWidth = 7 * 360000;
-                    // 照片 8.41 cm × 6 cm。
-                    int imgWidth = 3027600;
+                    // 外观检测照片 8 cm × 6 cm；表格格宽仍为 8.41 cm。
+                    int imgWidth = 8 * 360000;
                     int imgHeight = 6 * 360000;
 
                     imageRun.addPicture(
@@ -1915,8 +1923,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                                 .object(fileName.substring(0, 2) + "/" + fileName)
                                 .build())) {
 
-                    // 照片 8.41 cm × 6 cm。
-                    int imgWidth = 3027600;
+                    // 外观检测照片 8 cm × 6 cm；表格格宽仍为 8.41 cm。
+                    int imgWidth = 8 * 360000;
                     int imgHeight = 6 * 360000;
 
                     imageRun.addPicture(
