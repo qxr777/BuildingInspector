@@ -79,6 +79,9 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
             // 获取第二层和第三层结构
             Map<String, List<BiObject>> structureData = collectStructureData(building.getRootObjectId(), evaluation.getId());
+            if ("12".equals(captionStyleId)) {
+                omitArchUpperStructureBearing(structureData);
+            }
 
             // 使用XmlCursor在标题后插入表格
             createComplexEvaluationTableWithCursor(document, cursor, structureData, evaluation);
@@ -146,6 +149,22 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
                 structureData.get("桥面系").size());
 
         return structureData;
+    }
+
+    /** 单桥拱桥评定表上部结构不列支座。 */
+    private void omitArchUpperStructureBearing(Map<String, List<BiObject>> structureData) {
+        List<BiObject> upper = structureData.get("上部结构");
+        if (upper == null || upper.isEmpty()) {
+            return;
+        }
+        boolean arch = upper.stream().anyMatch(obj -> {
+            String name = obj.getName();
+            return name != null && (name.contains("主拱") || name.contains("拱上"));
+        });
+        if (!arch) {
+            return;
+        }
+        upper.removeIf(obj -> "支座".equals(obj.getName()));
     }
 
     /**
