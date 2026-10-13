@@ -25,6 +25,7 @@ import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import io.minio.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.poi.xwpf.usermodel.*;
+import org.apache.shiro.authz.annotation.Logical;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -627,6 +628,63 @@ public class ReportController extends BaseController {
     @ResponseBody
     public AjaxResult editSave(Report report) {
         return toAjax(reportService.updateReport(report));
+    }
+
+    /**
+     * 新增/编辑报告时提示所选桥梁缺少的生成条件，与生成报告前的校验一致，不阻止保存。
+     */
+    @RequiresPermissions(value = {"biz:report:add", "biz:report:edit"}, logical = Logical.OR)
+    @PostMapping("/checkTasks")
+    @ResponseBody
+    public AjaxResult checkTasks(@RequestParam(value = "taskIds", required = false) String taskIds) {
+        List<Long> ids = new ArrayList<>();
+        if (taskIds != null) {
+            for (String raw : taskIds.split(",")) {
+                try {
+                    if (!raw.trim().isEmpty()) ids.add(Long.parseLong(raw.trim()));
+                } catch (NumberFormatException ignored) {
+                    // 非法 ID 交给保存和生成时的校验处理
+                }
+            }
+        }
+        List<String> warnings = new ArrayList<>();
+        if (ids.isEmpty()) {
+            return AjaxResult.success(warnings);
+        }
+        Map<Long, Task> taskById = taskService.selectTaskListByIds(ids).stream()
+                .collect(Collectors.toMap(Task::getId, task -> task, (left, right) -> left));
+        for (Long id : ids) {
+            Task task = taskById.get(id);
+            if (task == null) {
+                warnings.add("任务ID " + id + " 不存在");
+                continue;
+            }
+            Building building = task.getBuilding();
+            String bridgeName = building == null || building.getName() == null
+                    ? "任务ID " + id : building.getName();
+            List<String> missing = new ArrayList<>();
+            if (!hasBridgeCard(building)) {
+                missing.add("桥梁卡片");
+            }
+            BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(id);
+            if (evaluation == null || evaluation.getSystemLevel() == null) {
+                missing.add("评定结果");
+            }
+            if (!missing.isEmpty()) {
+                warnings.add("桥梁【" + bridgeName + "】缺少" + String.join("、", missing));
+            }
+        }
+        return AjaxResult.success(warnings);
+    }
+
+    private boolean hasBridgeCard(Building building) {
+        if (building == null || building.getRootPropertyId() == null) {
+            return false;
+        }
+        Property query = new Property();
+        query.setId(building.getRootPropertyId());
+        List<Property> properties = propertyService.selectPropertyList(query);
+        return properties != null && !properties.isEmpty();
     }
 
     /**

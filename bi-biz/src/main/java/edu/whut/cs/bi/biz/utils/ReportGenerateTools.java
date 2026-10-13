@@ -21,7 +21,9 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -637,6 +639,20 @@ public class ReportGenerateTools {
     /**
      * 外观检测表「病害描述」：去掉「面积 S=」里的「面积」，只保留 S=。
      */
+    /**
+     * 评定表、附表评分：正好为 0 或 100 时不带小数，其余四舍五入保留两位。
+     */
+    public static String formatAssessmentScore(BigDecimal score) {
+        if (score == null) {
+            return "/";
+        }
+        BigDecimal rounded = score.setScale(2, RoundingMode.HALF_UP);
+        if (rounded.compareTo(BigDecimal.ZERO) == 0 || rounded.compareTo(new BigDecimal("100")) == 0) {
+            return rounded.stripTrailingZeros().toPlainString();
+        }
+        return rounded.toPlainString();
+    }
+
     public static String formatAppearanceDiseaseDescription(String description) {
         if (description == null || description.trim().isEmpty()) {
             return "/";

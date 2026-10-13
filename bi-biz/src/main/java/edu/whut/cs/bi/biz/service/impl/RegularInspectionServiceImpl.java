@@ -555,7 +555,7 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                     // 取第一个评分
                     Condition firstCondition = conditions.get(0);
                     if (firstCondition.getScore() != null) {
-                        resultMap.put(componentId, firstCondition.getScore().toString());
+                        resultMap.put(componentId, ReportGenerateTools.formatAssessmentScore(firstCondition.getScore()));
                     }
                 }
             }
@@ -872,12 +872,17 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
             if (rootObject == null) {
                 log.warn("未找到桥梁结构树: rootObjectId={}", building.getRootObjectId());
+                List<Property> levelOnly = new ArrayList<>();
+                addCurrentEvaluationLevel(levelOnly, task);
+                replacePlaceholdersInTables(document, levelOnly);
                 return;
             }
             // 多桥附表会在独立模板副本中单独生成定检表，不能再依赖后续桥梁卡片
             // 服务顺带替换表头。这里直接装载完整桥梁属性，确保路线、桩号、管养单位等
             // 基础信息与评分数据在同一次处理中全部写入。
             List<Property> properties = loadBridgeProperties(building);
+            // 第 22 项先写入，避免后面跨径、日期解析失败时把整张定检表丢掉，占位符留在附表里。
+            addCurrentEvaluationLevel(properties, task);
             addBuildingPropertyIfMissing(properties, "桥梁名称", building.getName());
             addBuildingPropertyIfMissing(properties, "桥梁编号", building.getBuildingCode());
             addBuildingPropertyIfMissing(properties, "路线编号", building.getRouteCode());
@@ -969,12 +974,14 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
                             RegularInspectionMaintenanceMatcher.match(name, diseaseTypeNames));
                 }
             }
-            // 处理 定期检查记录表特殊 的 属性。
-            processSingleBridgeRecordTableSpecialProp(properties, building);
+            // 处理 定期检查记录表特殊 的 属性。缺跨径或上次评定日期时只跳过这几项，不影响评定等级。
+            try {
+                processSingleBridgeRecordTableSpecialProp(properties, building);
+            } catch (Exception e) {
+                log.warn("定检表跨径或上次评定日期未写入: buildingId={}, error={}",
+                        building.getId(), e.getMessage());
+            }
             ReportTemplateValueUtils.addAliasProperties(properties);
-            // 第 22 项「桥梁技术状况评定等级」用的是 ${当前评定结果}。
-            // 这个值原来只在桥梁卡片里写入。多桥附表把卡片和定检表拆成两份文档分别填充，
-            // 定检表这份拿不到卡片写入的等级，占位符就会留空。
             addCurrentEvaluationLevel(properties, task);
             // 将表格中的占位符 替换。
             replacePlaceholdersInTables(document, properties);
@@ -1049,10 +1056,14 @@ public class RegularInspectionServiceImpl implements RegularInspectionService {
             return;
         }
         BiEvaluation evaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
-        if (evaluation == null || evaluation.getSystemLevel() == null) {
+        Integer level = evaluation == null ? null : evaluation.getSystemLevel();
+        if (level == null && evaluation != null) {
+            level = evaluation.getLevel();
+        }
+        if (level == null) {
             return;
         }
-        String value = evaluation.getSystemLevel() + "类";
+        String value = level + "类";
         for (Property property : properties) {
             if (property != null && "当前评定结果".equals(property.getName())) {
                 property.setValue(value);

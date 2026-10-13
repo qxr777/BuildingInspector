@@ -1,10 +1,12 @@
 package edu.whut.cs.bi.biz.service;
 
+import edu.whut.cs.bi.biz.domain.BiEvaluation;
 import edu.whut.cs.bi.biz.domain.Task;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Author:wanzheng
@@ -33,4 +35,11 @@ public interface ComparisonAnalysisService {
      */
     void generateMultiBridgeComparisonAnalysisTable(XWPFDocument document, XWPFParagraph targetParagraph,
                                                    List<Task> currentYearTasks);
+
+    /**
+     * 多桥近年对比。importedPreviousByBridgeName 为导入上年报告识别出的评定表，键为规范化桥名。
+     */
+    void generateMultiBridgeComparisonAnalysisTable(XWPFDocument document, XWPFParagraph targetParagraph,
+                                                   List<Task> currentYearTasks,
+                                                   Map<String, BiEvaluation> importedPreviousByBridgeName);
 }

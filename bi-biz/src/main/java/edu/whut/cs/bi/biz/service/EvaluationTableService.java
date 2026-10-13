@@ -25,4 +25,9 @@ public interface EvaluationTableService {
      * 生成技术状况评定表。captionStyleId 为段落样式，单桥传 12。
      */
     void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName, String captionStyleId);
+
+    /**
+     * 生成技术状况评定表。omitArchBearing 为 true 时，拱桥上部结构不列支座。
+     */
+    void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName, String captionStyleId, boolean omitArchBearing);
 }

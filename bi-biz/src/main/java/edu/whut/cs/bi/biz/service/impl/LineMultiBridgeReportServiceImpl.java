@@ -25,6 +25,7 @@ import edu.whut.cs.bi.biz.utils.WordReportPageNumberUtils;
 import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
 import edu.whut.cs.bi.biz.utils.WordImportSupport;
 import edu.whut.cs.bi.biz.utils.WordImportMerger;
+import edu.whut.cs.bi.biz.utils.LineReportWordMatcher;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
@@ -67,8 +68,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      */
     private static final ReportTemplateTypes BRIDGE_CHAPTER_TEMPLATE_TYPE = ReportTemplateTypes.LEVEL_1_BEAM_BRIDGE;
     private static final String KEY_CONCERN_DISEASES_PLACEHOLDER = "${keyConcernDiseases}";
+    private static final String KEY_CONCERN_SELECTION_KEY = "keyConcernSelection";
     private static final String CARBONIZATION_ASSESSMENT_PLACEHOLDER = "${carbonizationAssessment}";
     private static final String APPENDIX_BRIDGE_CARD_TASK_IDS_KEY = "appendixBridgeCardTaskIds";
+    private static final String APPENDIX_EVALUATION_HISTORY_KEY = "appendixEvaluationHistory";
+    private static final String APPEARANCE_IMAGE_SELECTION_KEY = "appearanceImageSelection";
     private static final String REPORT_HEADER_KEY = "line-report-header";
     private static final List<String> KEY_CONCERN_STRUCTURE_ORDER =
             List.of("上部结构", "下部结构", "桥面系", "附属设施");
@@ -248,6 +252,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             // 清掉模板中的样例桥章节，只保留锚点和前后公共内容。
             removeBodyElementsBetween(document, masterStart, masterEnd);
 
+            Map<String, BiEvaluation> importedPreviousEvaluations = loadImportedPreviousEvaluations(allReportData);
             for (LineBridgeGroup group : groups) {
                 List<Task> groupTasks = resolveGroupTasks(group, taskById);
                 if (groupTasks.isEmpty()) {
@@ -264,7 +269,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                             .collect(Collectors.toList());
 
                     applyGroupIdentity(bridgeDocument, group, groupTasks.get(0).getBuilding(), project);
-                    processGroupChapter(bridgeDocument, group, groupTasks, project, groupData, templateBytes);
+                    processGroupChapter(bridgeDocument, group, groupTasks, project, groupData, templateBytes,
+                            importedPreviousEvaluations);
 
                     WordFieldUtils.updateAllFields(bridgeDocument);
                     bridgeDocument.getSettings().setUpdateFields();
@@ -349,7 +355,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                         java.nio.file.Files.copy(input, source, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                     }
                 }
-                imports.add(new WordImportMerger.Item(WordImportSupport.marker(row), source, ref.getStart(), ref.getEnd()));
+                boolean dropElevationPhotos = "overallOverview".equals(row.getKey())
+                        && hasUploadedOverviewPhoto(rows, row.getGroupId());
+                imports.add(new WordImportMerger.Item(WordImportSupport.marker(row), source, ref.getStart(), ref.getEnd(),
+                        dropElevationPhotos));
             }
             WordImportMerger.merge(output.toPath(), imports);
         } finally {
@@ -361,7 +370,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * 处理一座大桥的章节内容，只操作传入的章节文档，不负责下载或上传。
      */
     private void processGroupChapter(XWPFDocument document, LineBridgeGroup group, List<Task> groupTasks,
-                                     Project project, List<LineReportData> groupData, byte[] templateBytes) {
+                                     Project project, List<LineReportData> groupData, byte[] templateBytes,
+                                     Map<String, BiEvaluation> importedPreviousEvaluations) {
         if (document == null || groupTasks == null || groupTasks.isEmpty()) {
             return;
         }
@@ -400,10 +410,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             WordSectionLayoutUtils.Layouts headerLayouts = WordSectionLayoutUtils.snapshot(document);
 
             boolean importedOverview = WordImportSupport.isImported(dataMap.get("overallOverview"));
-            if (importedOverview) WordImportSupport.prepare(document, dataMap.get("overallOverview"));
+            boolean replaceImportedPhotos = importedOverview && hasUploadedOverviewPhoto(dataMap);
+            if (importedOverview) WordImportSupport.prepare(document, dataMap.get("overallOverview"), replaceImportedPhotos);
             else replaceOverallOverviewInBridgeBlock(document, valueOf(dataMap, "overallOverview"));
             removeTechnicalStandardInBridgeBlock(document);
-            if (!importedOverview) insertGroupOverviewImages(document, dataMap);
+            if (!importedOverview || replaceImportedPhotos) insertGroupOverviewImages(document, dataMap);
 
             XWPFParagraph appendixHeading = findBridgeBlockHeading(document, "附表");
             XWPFParagraph blockEnd = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-end}");
@@ -413,7 +424,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
             insertHeadingBeforePlaceholder(document, "${testConclusion}", "检测结论", 4);
             insertHeadingBeforePlaceholder(document, "${technicalAdvice}", "技术建议", 4);
-            processGroupAutoGeneratedContent(document, groupName, project, groupTasks);
+            processGroupAutoGeneratedContent(document, groupName, project, groupTasks, dataMap,
+                    importedPreviousEvaluations);
             processGroupUserData(document, chapterData, groupTasks, dataMap, project);
             fillAppendixForGroup(document, groupTasks, project, templateBytes, groupData);
             WordSectionLayoutUtils.rebindHeadersByOrientation(document, headerLayouts);
@@ -1024,10 +1036,13 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * 处理大桥章节中由系统自动生成的内容
      */
     private void processGroupAutoGeneratedContent(XWPFDocument document, String groupName,
-                                                  Project project, List<Task> groupTasks) {
+                                                  Project project, List<Task> groupTasks,
+                                                  Map<String, ReportData> dataMap,
+                                                  Map<String, BiEvaluation> importedPreviousEvaluations) {
         AtomicInteger chapter3TableCounter = new AtomicInteger(1);
         try {
-            processAppearanceCheck(document, groupTasks, project.getId(), chapter3TableCounter);
+            processAppearanceCheck(document, groupTasks, project.getId(), chapter3TableCounter,
+                    parseAppearanceImageSelection(dataMap));
             log.info("外观检测结果生成完成");
         } catch (Exception e) {
             log.error("处理外观检测结果出错: error={}", e.getMessage(), e);
@@ -1051,7 +1066,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
 
         try {
-            handleComparisonAnalysis(document, "${comparativeAnalysisOfEvaluationResults}", groupTasks);
+            handleComparisonAnalysis(document, "${comparativeAnalysisOfEvaluationResults}", groupTasks,
+                    importedPreviousEvaluations);
             log.info("近年评定结果对比生成完成");
         } catch (Exception e) {
             log.error("处理近年评定结果对比出错: error={}", e.getMessage(), e);
@@ -1067,7 +1083,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
 
         try {
-            generateKeyConcernDiseases(document, groupName, groupTasks, project, chapter3TableCounter);
+            generateKeyConcernDiseases(document, groupName, groupTasks, project, chapter3TableCounter, dataMap);
             log.info("重点关注病害汇总生成完成");
         } catch (Exception e) {
             log.error("处理重点关注病害汇总出错: error={}", e.getMessage(), e);
@@ -1091,7 +1107,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * 每座子桥占这一级（3.2.1、3.2.2）；原先的上部/下部/桥面系及构件整体再降一级。</p>
      */
     private void processAppearanceCheck(XWPFDocument document, List<Task> groupTasks, Long projectId,
-                                        AtomicInteger chapter3TableCounter) throws Exception {
+                                        AtomicInteger chapter3TableCounter,
+                                        Map<Long, Set<Long>> appearanceImageSelection) throws Exception {
         XWPFParagraph placeholderParagraph = null;
         for (int i = 0; i < document.getParagraphs().size(); i++) {
             XWPFParagraph paragraph = document.getParagraphs().get(i);
@@ -1133,6 +1150,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             List<Disease> subBridgeDiseases = diseaseMapper.selectDiseaseList(queryParam);
             hydrateDiseaseDetails(subBridgeDiseases);
 
+            Set<Long> imageDiseaseIds = appearanceImageSelection == null
+                    ? null
+                    : appearanceImageSelection.getOrDefault(task.getId(), Set.of());
             List<BiObject> appearanceRoots = resolveComponentTableRoots(rootBiObject, allObjects);
             for (BiObject appearanceRoot : appearanceRoots) {
                 Map<Long, List<Disease>> bridgeDiseaseMap = new LinkedHashMap<>();
@@ -1151,12 +1171,12 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                     for (BiObject structure : structures) {
                         writeBiObjectTreeToWord(document, structure, allObjects, bridgeDiseaseMap,
                                 "3.2", 2, chapter3ImageCounter, chapter3TableCounter, cursor, 3,
-                                safeText(building.getName()));
+                                safeText(building.getName()), imageDiseaseIds);
                     }
                 } else {
                     writeBiObjectTreeToWord(document, appearanceRoot, allObjects, bridgeDiseaseMap,
                             "3.2", 1, chapter3ImageCounter, chapter3TableCounter, cursor, 4,
-                            safeText(building.getName()));
+                            safeText(building.getName()), imageDiseaseIds);
                 }
             }
         }
@@ -1358,6 +1378,29 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         return "已维修".equals(trend) || "未找到".equals(trend);
     }
 
+    private static boolean isCrackDisease(Disease disease) {
+        if (disease == null) {
+            return false;
+        }
+        String typeName = disease.getDiseaseType() != null && disease.getDiseaseType().getName() != null
+                ? disease.getDiseaseType().getName() : disease.getType();
+        return typeName != null && typeName.contains("裂缝");
+    }
+
+    private static Long longValue(Object raw) {
+        if (raw instanceof Number number) {
+            return number.longValue();
+        }
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(String.valueOf(raw).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     /** 不参与评定（participateAssess=0）的病害仍进外观检测表，评定类别列写「/」。 */
     private static boolean isNotParticipatingInAssessment(Disease disease) {
         return disease != null && "0".equals(disease.getParticipateAssess());
@@ -1379,7 +1422,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     private void writeBiObjectTreeToWord(XWPFDocument document, BiObject node, List<BiObject> allNodes,
                                          Map<Long, List<Disease>> diseaseMap, String prefix, int level,
                                          AtomicInteger chapterImageCounter, AtomicInteger chapter3TableCounter,
-                                         XmlCursor cursor, int baseHeadingLevel, String bridgeName) throws Exception {
+                                         XmlCursor cursor, int baseHeadingLevel, String bridgeName,
+                                         Set<Long> imageDiseaseIds) throws Exception {
         if (level > 3) {
             return; // 不再写标题，也不再递归写标题
         }
@@ -1449,23 +1493,30 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         for (Disease d : nodeDiseases) {
             List<String> imageBookmarks = new ArrayList<>();
             List<Map<String, Object>> images = ReportGenerateTools.getDiseaseImage(d.getId());
+            boolean crack = isCrackDisease(d);
+            int emitted = 0;
             if (images != null) {
                 for (Map<String, Object> img : images) {
-                    if (Boolean.TRUE.equals(img.get("isImage"))) {
-                        // 为每张病害图片创建书签，暂时先创建占位符
-                        // 实际的图片标题域将在插入图片时创建
-                        String componentName = "";
-                        Component component = componentService.selectComponentById(d.getComponentId());
-                        if (component != null) {
-                            componentName = component.getName();
-                        }
-                        // 照片 图注 的 描述 不需要带病害规范号。
-                        String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
-                        String imageDesc = componentName + d.getPosition() + type;
-                        // 使用第3章编号规则
-                        String bookmark = "Figure_Chapter3_" + UUID.randomUUID() + "_" + chapterImageCounter.getAndIncrement();
-                        imageBookmarks.add(bookmark + "|" + imageDesc); // 书签名和描述用|分隔
+                    if (!Boolean.TRUE.equals(img.get("isImage"))) {
+                        continue;
                     }
+                    Long attachmentId = longValue(img.get("id"));
+                    boolean selected = imageDiseaseIds == null
+                            ? emitted == 0
+                            : attachmentId != null && imageDiseaseIds.contains(attachmentId);
+                    if (!selected || (crack && emitted >= 1)) {
+                        continue;
+                    }
+                    emitted++;
+                    String componentName = "";
+                    Component component = componentService.selectComponentById(d.getComponentId());
+                    if (component != null) {
+                        componentName = component.getName();
+                    }
+                    String type = d.getType() == null ? "" : d.getType().substring(d.getType().lastIndexOf("#") + 1);
+                    String imageDesc = componentName + d.getPosition() + type;
+                    String bookmark = "Figure_Chapter3_" + UUID.randomUUID() + "_" + chapterImageCounter.getAndIncrement();
+                    imageBookmarks.add(bookmark + "|" + imageDesc + "|" + attachmentId);
                 }
             }
             diseaseImageRefs.put(d.getId(), imageBookmarks);
@@ -1768,7 +1819,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         int idx = 1;
         for (BiObject child : children) {
-            writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel, bridgeName);
+            writeBiObjectTreeToWord(document, child, allNodes, diseaseMap, prefix + "." + idx, level + 1, chapterImageCounter, chapter3TableCounter, cursor, baseHeadingLevel, bridgeName, imageDiseaseIds);
             idx++;
         }
     }
@@ -1917,7 +1968,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 Building building = task.getBuilding();
                 String bridgeName = building != null && building.getName() != null ? building.getName() : "桥梁";
                 evaluationTableService.generateEvaluationTableAfterParagraph(
-                        document, paragraph, building, evaluation, bridgeName);
+                        document, paragraph, building, evaluation, bridgeName, "13", true);
             }
             log.info("评定结果和表格处理完成");
         } catch (Exception e) {
@@ -1998,6 +2049,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 if ("overallOverview".equals(key) || LineBridgeGroup.DATA_KEY.equals(key)) {
                     continue;
                 }
+                if (key != null && (key.contains(KEY_CONCERN_SELECTION_KEY) || key.contains("focusDiseases")
+                        || key.contains(APPEARANCE_IMAGE_SELECTION_KEY))) {
+                    continue;
+                }
                 if (WordImportSupport.isImported(data)) {
                     WordImportSupport.prepare(document, data);
                     continue;
@@ -2007,31 +2062,19 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 }
 
                 if (type == 0) {
-                    if (key != null && key.contains("focusDiseases")) {
-                        try {
-                            Map<Long, Set<Long>> recordIds = FocusDiseaseSelection.parseRecordIds(value);
-                            if (recordIds != null) {
-                                generateSelectedFocusDiseases(document, recordIds, groupTasks);
-                                continue;
-                            }
-                            List<ComponentDiseaseType> combinations = parseChooseDiseaseJson(value);
-                            if (!combinations.isEmpty()) {
-                                generateGroupFocusOnDiseases(document, combinations, groupTasks, project);
-                            } else {
-                                writeFocusOnDiseases(document, "无重点关注病害");
-                            }
-                        } catch (Exception e) {
-                            log.error("处理大桥病害数据出错: key={}, value={}, error={}", key, value, e.getMessage(), e);
-                            writeFocusOnDiseases(document, "【病害数据处理失败，请联系管理员】");
-                        }
-                    } else {
-                        String placeholder = (key != null && key.startsWith("${")) ? key : "${" + key + "}";
-                        replacePlaceholderWithBodyFormat(document, placeholder, value);
-                    }
+                    String placeholder = (key != null && key.startsWith("${")) ? key : "${" + key + "}";
+                    replacePlaceholderWithBodyFormat(document, placeholder, value);
                 }
             } catch (Exception e) {
                 log.error("处理字段出错: key={}, type={}, error={}", key, type, e.getMessage(), e);
             }
+        }
+
+        try {
+            generateCauseAnalysisFromSelection(document, dataMap, groupTasks, project);
+        } catch (Exception e) {
+            log.error("处理大桥成因分析出错: error={}", e.getMessage(), e);
+            writeFocusOnDiseases(document, "【病害数据处理失败，请联系管理员】");
         }
 
         try {
@@ -2042,6 +2085,52 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             log.error("生成桥址周边环境调查内容失败: buildingId={}",
                     firstBuilding == null ? null : firstBuilding.getId(), e);
         }
+    }
+
+    /**
+     * 成因分析按填报页独立勾选生成；未保存过选择时默认 3 类及以上。
+     */
+    private void generateCauseAnalysisFromSelection(XWPFDocument document, Map<String, ReportData> dataMap,
+                                                    List<Task> groupTasks, Project project) {
+        ReportData data = findReportDataByKeyPart(dataMap, "focusDiseases");
+        String value = data == null ? null : data.getValue();
+        try {
+            Map<Long, Set<Long>> recordIds = FocusDiseaseSelection.parseRecordIds(value);
+            if (recordIds != null) {
+                generateSelectedFocusDiseases(document, recordIds, groupTasks);
+                return;
+            }
+        } catch (Exception e) {
+            log.error("解析成因分析选择失败: value={}, error={}", value, e.getMessage(), e);
+            writeFocusOnDiseases(document, "【病害数据处理失败，请联系管理员】");
+            return;
+        }
+        List<ComponentDiseaseType> combinations = parseChooseDiseaseJson(value);
+        if (!combinations.isEmpty()) {
+            generateGroupFocusOnDiseases(document, combinations, groupTasks, project);
+            return;
+        }
+        generateSelectedFocusDiseases(document, null, groupTasks);
+    }
+
+    private ReportData findReportDataByKeyPart(Map<String, ReportData> dataMap, String keyPart) {
+        if (dataMap == null || keyPart == null || keyPart.isEmpty()) {
+            return null;
+        }
+        ReportData exact = dataMap.get("${" + keyPart + "}");
+        if (exact != null) {
+            return exact;
+        }
+        exact = dataMap.get(keyPart);
+        if (exact != null) {
+            return exact;
+        }
+        for (Map.Entry<String, ReportData> entry : dataMap.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().contains(keyPart)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     /**
@@ -2390,6 +2479,13 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         XWPFTable table = document.insertNewTbl(cursor);
         cursor.toNextToken();
         fillCarbonizationAssessmentTable(table, rows);
+        String conclusion = CarbonizationAssessmentTableBuilder.conclusion(rows);
+        if (!conclusion.isEmpty()) {
+            XWPFParagraph paragraph = document.insertNewParagraph(cursor);
+            cursor.toNextToken();
+            paragraph.createRun().setText(conclusion);
+            applyBodyFormat(paragraph, true);
+        }
     }
 
     private void writeCorrosionSection(XWPFDocument document, XmlCursor cursor,
@@ -2691,12 +2787,13 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 3.10.1 重点关注病害：列出大桥全部 3 类及以上病害，并生成带域的汇总表。
+     * 3.10.1 重点关注病害：按填报页勾选生成汇总表；未保存过选择时默认 3 类及以上。
      * 模板占位符：${keyConcernDiseases}
      */
     private void generateKeyConcernDiseases(XWPFDocument document, String groupName,
                                             List<Task> groupTasks, Project project,
-                                            AtomicInteger chapter3TableCounter) {
+                                            AtomicInteger chapter3TableCounter,
+                                            Map<String, ReportData> dataMap) {
         XWPFParagraph placeholder = ReportGenerateTools.findParagraphByPlaceholder(
                 document, KEY_CONCERN_DISEASES_PLACEHOLDER);
         if (placeholder == null) {
@@ -2707,7 +2804,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             chapter3TableCounter = new AtomicInteger(1);
         }
 
-        List<Disease> diseases = collectKeyConcernDiseases(groupTasks, project);
+        Map<Long, Set<Long>> selections = parseDiseaseSelection(dataMap, KEY_CONCERN_SELECTION_KEY);
+        List<Disease> diseases = collectKeyConcernDiseases(groupTasks, project, selections);
         Map<Long, Component> componentMap = loadComponents(diseases);
         Map<Long, BiObject> objectById = loadObjectsForTasks(groupTasks);
         diseases.sort((left, right) -> compareKeyConcernDiseases(left, right, componentMap, objectById));
@@ -2718,7 +2816,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         if (diseases.isEmpty()) {
             XWPFRun run = intro.createRun();
-            run.setText("未见3类及以上病害。");
+            run.setText(selections != null ? "无重点关注病害。" : "未见3类及以上病害。");
             applyBodyFormat(intro, true);
             removeParagraph(document, placeholder);
             return;
@@ -2736,7 +2834,31 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         removeParagraph(document, placeholder);
     }
 
-    private List<Disease> collectKeyConcernDiseases(List<Task> groupTasks, Project project) {
+    private List<Disease> collectKeyConcernDiseases(List<Task> groupTasks, Project project,
+                                                    Map<Long, Set<Long>> selections) {
+        if (selections != null) {
+            return collectSelectedDiseases(groupTasks, selections);
+        }
+        return collectLevel3OrAboveDiseases(groupTasks, project);
+    }
+
+    private List<Disease> collectSelectedDiseases(List<Task> groupTasks, Map<Long, Set<Long>> selections) {
+        List<Disease> diseases = new ArrayList<>();
+        if (groupTasks == null || selections == null) {
+            return diseases;
+        }
+        for (Task task : groupTasks) {
+            if (task == null || task.getBuilding() == null
+                    || selections.getOrDefault(task.getId(), Set.of()).isEmpty()) {
+                continue;
+            }
+            diseases.addAll(FocusDiseaseSelection.selectedRecords(
+                    selections, task.getId(), queryTaskDiseases(task)));
+        }
+        return diseases;
+    }
+
+    private List<Disease> collectLevel3OrAboveDiseases(List<Task> groupTasks, Project project) {
         List<Disease> diseases = new ArrayList<>();
         if (groupTasks == null) {
             return diseases;
@@ -2754,12 +2876,68 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 continue;
             }
             for (Disease disease : taskDiseases) {
-                if (disease != null && disease.getLevel() >= 3 && !isExcludedFromInspectionResultTable(disease)) {
+                if (isLevel3OrAbove(disease)) {
                     diseases.add(disease);
                 }
             }
         }
         return diseases;
+    }
+
+    private List<Disease> queryTaskDiseases(Task task) {
+        Disease query = new Disease();
+        query.setTaskId(task.getId());
+        query.setBuildingId(task.getBuilding().getId());
+        List<Disease> records = diseaseMapper.selectDiseaseList(query);
+        return records == null ? Collections.emptyList() : records;
+    }
+
+    private static boolean isLevel3OrAbove(Disease disease) {
+        return disease != null && disease.getLevel() >= 3 && !isExcludedFromInspectionResultTable(disease);
+    }
+
+    /** 未保存返回 null，表示外观检测仍生成全部病害照片；保存后只生成勾选的病害照片。 */
+    private Map<Long, Set<Long>> parseAppearanceImageSelection(Map<String, ReportData> dataMap) {
+        ReportData data = findReportDataByKeyPart(dataMap, APPEARANCE_IMAGE_SELECTION_KEY);
+        if (data == null || data.getValue() == null || data.getValue().isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode root = new ObjectMapper().readTree(data.getValue());
+            if (root == null || !root.isObject() || root.path("version").asInt() != 3 || !root.path("tasks").isObject()) {
+                return null;
+            }
+            Map<Long, Set<Long>> result = new LinkedHashMap<>();
+            var tasks = root.get("tasks").fields();
+            while (tasks.hasNext()) {
+                var task = tasks.next();
+                long taskId = Long.parseLong(task.getKey());
+                Set<Long> ids = new LinkedHashSet<>();
+                if (task.getValue().isArray()) {
+                    for (JsonNode id : task.getValue()) {
+                        ids.add(Long.parseLong(id.asText()));
+                    }
+                }
+                result.put(taskId, ids);
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("解析外观检测图片选择失败，按默认规则生成照片: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Map<Long, Set<Long>> parseDiseaseSelection(Map<String, ReportData> dataMap, String keyPart) {
+        ReportData data = findReportDataByKeyPart(dataMap, keyPart);
+        if (data == null) {
+            return null;
+        }
+        try {
+            return FocusDiseaseSelection.parseRecordIds(data.getValue());
+        } catch (Exception e) {
+            log.warn("解析病害选择失败，回退为3类及以上: keyPart={}, error={}", keyPart, e.getMessage());
+            return null;
+        }
     }
 
     private Map<Long, Component> loadComponents(List<Disease> diseases) {
@@ -2948,19 +3126,23 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         return resolveDiseaseTypeLabel(disease);
     }
 
-    /** 新版按具体病害 ID 生成，查询限定当前子桥、本次任务。 */
+    /** 新版按具体病害 ID 生成；selections 为 null 时默认 3 类及以上。 */
     private void generateSelectedFocusDiseases(XWPFDocument document, Map<Long, Set<Long>> selections,
                                                 List<Task> groupTasks) {
+        boolean autoLevel3 = selections == null;
+        if (groupTasks == null || groupTasks.isEmpty()) {
+            writeFocusOnDiseases(document, autoLevel3 ? "未见3类及以上病害。" : "无重点关注病害");
+            return;
+        }
         StringBuilder content = new StringBuilder();
         int index = 1;
         for (Task task : groupTasks) {
-            if (task == null || task.getBuilding() == null
-                    || selections.getOrDefault(task.getId(), Set.of()).isEmpty()) continue;
-            Disease query = new Disease();
-            query.setTaskId(task.getId());
-            query.setBuildingId(task.getBuilding().getId());
-            List<Disease> selected = FocusDiseaseSelection.selectedRecords(
-                    selections, task.getId(), diseaseMapper.selectDiseaseList(query));
+            if (task == null || task.getBuilding() == null) continue;
+            if (!autoLevel3 && selections.getOrDefault(task.getId(), Set.of()).isEmpty()) continue;
+            List<Disease> records = queryTaskDiseases(task);
+            List<Disease> selected = autoLevel3
+                    ? records.stream().filter(LineMultiBridgeReportServiceImpl::isLevel3OrAbove).collect(Collectors.toList())
+                    : FocusDiseaseSelection.selectedRecords(selections, task.getId(), records);
             if (selected.isEmpty()) continue;
             if (groupTasks.size() > 1) content.append(safeText(task.getBuilding().getName())).append("\n");
             Map<Long, Component> components = new HashMap<>();
@@ -2993,7 +3175,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             }
         }
         String text = content.toString().trim();
-        writeFocusOnDiseases(document, text.isEmpty() ? "无重点关注病害" : text);
+        String emptyText = autoLevel3 ? "未见3类及以上病害。" : "无重点关注病害";
+        writeFocusOnDiseases(document, text.isEmpty() ? emptyText : text);
     }
 
     /** 兼容旧数据：按子桥分别写入勾选的构件 + 病害类型。 */
@@ -3154,8 +3337,26 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         return diseaseService.getCauseAnalysis(causeQuery);
     }
 
+    private boolean hasUploadedOverviewPhoto(Map<String, ReportData> dataMap) {
+        return resolveUploadedImageName(dataMap, "leftFront") != null
+                || resolveUploadedImageName(dataMap, "rightFront") != null
+                || resolveUploadedImageName(dataMap, "leftSide") != null
+                || resolveUploadedImageName(dataMap, "rightSide") != null;
+    }
+
+    private boolean hasUploadedOverviewPhoto(List<LineReportData> rows, String groupId) {
+        if (rows == null || groupId == null) {
+            return false;
+        }
+        return rows.stream().anyMatch(row -> groupId.equals(row.getGroupId())
+                && row.getKey() != null
+                && Set.of("leftFront", "rightFront", "leftSide", "rightSide").contains(row.getKey())
+                && !isBlank(row.getValue()));
+    }
+
     /**
      * 3.1 四张照片来自填报页上传，不再自动取桥梁卡片 newfront/newside。
+     * 整体概况若来自 Word 导入，只要本组上传了照片，就用这四张盖掉导入内容里的正立面照。
      */
     private void insertGroupOverviewImages(XWPFDocument document, Map<String, ReportData> dataMap) throws Exception {
         String leftFront = resolveUploadedImageName(dataMap, "leftFront");
@@ -3203,7 +3404,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     /**
      * 一座大桥一张近年评定对比表，行是该大桥下全部子桥。
      */
-    private void handleComparisonAnalysis(XWPFDocument document, String key, List<Task> groupTasks) {
+    private void handleComparisonAnalysis(XWPFDocument document, String key, List<Task> groupTasks,
+                                          Map<String, BiEvaluation> importedPreviousEvaluations) {
         try {
             log.info("开始处理比较分析, key: {}, 子桥数量: {}", key, groupTasks == null ? 0 : groupTasks.size());
             XWPFParagraph targetParagraph = null;
@@ -3218,12 +3420,56 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 log.warn("未找到占位符: {}", key);
                 return;
             }
-            comparisonAnalysisService.generateMultiBridgeComparisonAnalysisTable(document, targetParagraph, groupTasks);
+            comparisonAnalysisService.generateMultiBridgeComparisonAnalysisTable(
+                    document, targetParagraph, groupTasks, importedPreviousEvaluations);
             log.info("比较分析处理完成");
         } catch (Exception e) {
             log.error("处理比较分析失败: key={}, error={}", key, e.getMessage(), e);
             throw e;
         }
+    }
+
+    private Map<String, BiEvaluation> loadImportedPreviousEvaluations(List<LineReportData> allReportData) {
+        Map<String, BiEvaluation> result = new LinkedHashMap<>();
+        if (allReportData == null) {
+            return result;
+        }
+        LineReportData row = allReportData.stream()
+                .filter(data -> data != null && data.getTaskId() == null && isBlank(data.getGroupId())
+                        && LineReportWordMatcher.PREVIOUS_EVALUATION_KEY.equals(data.getKey())
+                        && data.getValue() != null && !data.getValue().isBlank())
+                .findFirst().orElse(null);
+        if (row == null) {
+            return result;
+        }
+        try {
+            List<LineReportWordMatcher.EvaluationTable> tables = new ObjectMapper().readValue(
+                    row.getValue(), new TypeReference<List<LineReportWordMatcher.EvaluationTable>>() { });
+            if (tables == null) {
+                return result;
+            }
+            for (LineReportWordMatcher.EvaluationTable table : tables) {
+                if (table == null || table.getBridgeName() == null) {
+                    continue;
+                }
+                String lookupName = table.getMatchedName() != null && !table.getMatchedName().isBlank()
+                        ? table.getMatchedName() : table.getBridgeName();
+                String key = LineReportWordMatcher.normalize(lookupName);
+                if (key.isEmpty() || result.containsKey(key)) {
+                    continue;
+                }
+                BiEvaluation evaluation = new BiEvaluation();
+                evaluation.setSuperstructureScore(table.getSuperstructureScore());
+                evaluation.setSubstructureScore(table.getSubstructureScore());
+                evaluation.setDeckSystemScore(table.getDeckSystemScore());
+                evaluation.setSystemScore(table.getSystemScore());
+                evaluation.setSystemLevel(table.getSystemLevel());
+                result.put(key, evaluation);
+            }
+        } catch (Exception e) {
+            log.warn("解析导入的上年评定表失败: {}", e.getMessage());
+        }
+        return result;
     }
 
 
@@ -3351,23 +3597,25 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
             // 获取该病害的图片书签信息
             List<String> imageRefs = diseaseImageRefs.getOrDefault(d.getId(), new ArrayList<>());
-            int refIndex = 0;
+            Map<Long, String> refByAttachment = new HashMap<>();
+            for (String ref : imageRefs) {
+                String[] parts = ref.split("\\|", 3);
+                if (parts.length >= 3) {
+                    refByAttachment.put(longValue(parts[2]), ref);
+                }
+            }
 
             for (Map<String, Object> img : images) {
                 if (Boolean.TRUE.equals(img.get("isImage"))) {
-                    // 提取图片URL和文件名
+                    String ref = refByAttachment.get(longValue(img.get("id")));
+                    if (ref == null) {
+                        continue;
+                    }
                     String url = (String) img.get("url");
                     String newName = url.substring(url.lastIndexOf("/") + 1);
-
-                    // 使用已收集的图片书签信息
-                    if (refIndex >= imageRefs.size()) {
-                        continue; // 跳过没有书签的图片
-                    }
-
-                    String[] parts = imageRefs.get(refIndex).split("\\|");
+                    String[] parts = ref.split("\\|", 3);
                     String bookmarkName = parts[0];
                     String imageDesc = parts.length > 1 ? parts[1] : "";
-                    refIndex++;
 
                     // 将图片信息添加到列表，包含书签名
                     allImages.add(Pair.of(newName, bookmarkName + "|" + imageDesc));
@@ -3895,13 +4143,15 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             return;
         }
         Set<Long> selectedCardTaskIds = selectedAppendixCardTaskIds(groupData);
+        Map<Long, JsonNode> evaluationHistory = parseAppendixEvaluationHistory(groupData);
         for (Task task : groupTasks) {
             if (shouldGenerateAppendixCard(task, selectedCardTaskIds)) {
-                insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.BRIDGE_CARD);
+                insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.BRIDGE_CARD,
+                        evaluationHistory.get(task.getId()));
             }
         }
         for (Task task : groupTasks) {
-            insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.INSPECTION_TABLE);
+            insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.INSPECTION_TABLE, null);
         }
     }
 
@@ -3946,8 +4196,34 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         return null;
     }
 
+    private Map<Long, JsonNode> parseAppendixEvaluationHistory(List<LineReportData> groupData) {
+        Map<Long, JsonNode> result = new HashMap<>();
+        String raw = firstGroupDataValue(groupData, APPENDIX_EVALUATION_HISTORY_KEY);
+        if (raw == null || raw.isBlank()) {
+            return result;
+        }
+        try {
+            JsonNode root = new ObjectMapper().readTree(raw);
+            if (root == null || !root.isObject()) {
+                return result;
+            }
+            Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                try {
+                    result.put(Long.valueOf(field.getKey()), field.getValue());
+                } catch (NumberFormatException ignored) {
+                    // 跳过无法对应子桥的历史行
+                }
+            }
+        } catch (Exception e) {
+            log.warn("解析附表评定历史失败: {}", e.getMessage());
+        }
+        return result;
+    }
+
     private void insertAppendixPart(XWPFDocument document, XWPFParagraph blockEnd, byte[] templateBytes,
-                                    Project project, Task task, AppendixPart part) {
+                                    Project project, Task task, AppendixPart part, JsonNode evaluationHistory) {
         Building building = task == null ? null : task.getBuilding();
         if (building == null) {
             return;
@@ -3965,6 +4241,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 bridgeCardService.processBridgeCardData(
                         appendixSource, building, BRIDGE_CHAPTER_TEMPLATE_TYPE,
                         evaluation == null ? null : evaluation.getSystemLevel());
+                applyAppendixEvaluationHistory(appendixSource, evaluationHistory);
             }
             insertBodyElementCopies(document, blockEnd, appendixSource,
                     copyAppendixBodyElements(appendixSource, part));
@@ -3979,6 +4256,100 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 }
             }
         }
+    }
+
+    /**
+     * 卡片「桥梁检测评定历史」表头下一行，按填报覆盖五个格子。空白项保留卡片原值。
+     */
+    private void applyAppendixEvaluationHistory(XWPFDocument document, JsonNode history) {
+        if (document == null) {
+            return;
+        }
+        boolean hasHistory = history != null && !history.isNull();
+        String date = hasHistory ? formatYearMonthDash(historyText(history, "date")) : "";
+        String category = hasHistory ? historyText(history, "category") : "";
+        String result = hasHistory ? historyText(history, "result") : "";
+        String disposal = hasHistory ? historyText(history, "disposal") : "";
+        String next = hasHistory ? formatYear(historyText(history, "next")) : "";
+        XWPFTableRow dataRow = findEvaluationHistoryDataRow(document);
+        if (dataRow == null) {
+            if (hasHistory) {
+                log.warn("未找到桥梁检测评定历史第一行，跳过填报覆盖");
+            }
+            return;
+        }
+        List<XWPFTableCell> cells = dataRow.getTableCells();
+        if (isBlank(date) && !cells.isEmpty()) {
+            String current = cells.get(0).getText();
+            String dashed = formatYearMonthDash(current);
+            if (dashed.matches("\\d{4}-\\d{2}")) {
+                date = dashed;
+            }
+        }
+        if (isBlank(date) && isBlank(category) && isBlank(result) && isBlank(disposal) && isBlank(next)) {
+            return;
+        }
+        String[] values = {date, category, result, disposal, next};
+        for (int i = 0; i < values.length && i < cells.size(); i++) {
+            if (!isBlank(values[i])) {
+                setHistoryCell(cells.get(i), values[i]);
+            }
+        }
+    }
+
+    private XWPFTableRow findEvaluationHistoryDataRow(XWPFDocument document) {
+        for (XWPFTable table : document.getTables()) {
+            List<XWPFTableRow> rows = table.getRows();
+            for (int i = 0; i < rows.size() - 1; i++) {
+                String text = rows.get(i).getTableCells().stream()
+                        .map(XWPFTableCell::getText)
+                        .collect(Collectors.joining());
+                if (text.contains("评定时间") && text.contains("检测类别") && text.contains("下次检测时间")) {
+                    return rows.get(i + 1);
+                }
+            }
+        }
+        return null;
+    }
+
+    private void setHistoryCell(XWPFTableCell cell, String text) {
+        while (cell.getParagraphs().size() > 0) {
+            cell.removeParagraph(0);
+        }
+        XWPFParagraph paragraph = cell.addParagraph();
+        paragraph.setAlignment(ParagraphAlignment.CENTER);
+        ReportGenerateTools.setParagraphMixedFontText(paragraph, text, ReportGenerateTools.TABLE_FONT_HALF_POINTS);
+    }
+
+    private String historyText(JsonNode history, String field) {
+        JsonNode node = history.get(field);
+        if (node == null || node.isNull()) {
+            return "";
+        }
+        return node.asText("").trim();
+    }
+
+    private String formatYear(String value) {
+        if (isBlank(value)) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d{4})").matcher(value);
+        return matcher.find() ? matcher.group(1) + "年" : value;
+    }
+
+    private String formatYearMonthDash(String value) {
+        if (isBlank(value)) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d{4})\\D*(\\d{1,2})").matcher(value);
+        if (!matcher.find()) {
+            return value;
+        }
+        int month = Integer.parseInt(matcher.group(2));
+        if (month < 1 || month > 12) {
+            return value;
+        }
+        return matcher.group(1) + "-" + String.format("%02d", month);
     }
 
     private List<IBodyElement> copyAppendixBodyElements(XWPFDocument document, AppendixPart part) {

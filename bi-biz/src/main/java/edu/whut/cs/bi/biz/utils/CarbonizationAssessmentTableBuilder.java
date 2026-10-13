@@ -16,8 +16,10 @@ import java.util.Map;
  *
  * <p>桥梁名称用大桥下的子桥名；构件名称取该子桥碳化深度检测记录表。
  * 各测点的 3 次碳化读数求平均后按 0.5 mm 五成双修约，再对同构件测点求平均并按同规则修约。
- * 缺少完整读数的历史记录使用已保存的均值修约；保护层厚度取该测区 10 根钢筋「均值」再平均。
- * 评定标度暂不计算。</p>
+ * 缺少完整读数的历史记录使用已保存的均值修约；保护层厚度取该测区 10 根钢筋「均值」再平均，
+ * 四舍五入保留 1 位小数。比值 Kc＝平均碳化深度／保护层厚度平均值，四舍五入保留 2 位小数。
+ * 评定标度按《公路桥梁技术状况评定标准》表 5.7.3：Kc＜0.5 为 1，[0.5,1.0) 为 2，
+ * [1.0,1.5) 为 3，[1.5,2.0) 为 4，≥2.0 为 5。表下结论按本表各标度的构件占比生成。</p>
  */
 public final class CarbonizationAssessmentTableBuilder {
 
@@ -33,13 +35,13 @@ public final class CarbonizationAssessmentTableBuilder {
         public final String scaleText;
 
         Row(String bridgeName, String componentName, String carbonAverageText,
-            String coverAverageText, String kcText) {
+            String coverAverageText, String kcText, String scaleText) {
             this.bridgeName = bridgeName;
             this.componentName = componentName;
             this.carbonAverageText = carbonAverageText;
             this.coverAverageText = coverAverageText;
             this.kcText = kcText;
-            this.scaleText = "";
+            this.scaleText = scaleText == null ? "" : scaleText;
         }
     }
 
@@ -54,16 +56,26 @@ public final class CarbonizationAssessmentTableBuilder {
                 continue;
             }
             BigDecimal cover = matchCoverAverage(entry.getKey(), covers);
-            String kc = "";
-            if (cover != null && cover.compareTo(BigDecimal.ZERO) != 0) {
-                kc = formatNumber(carbon.divide(cover, 6, RoundingMode.HALF_UP), 2, 3);
+            String coverText = "";
+            String kcText = "";
+            String scaleText = "";
+            if (cover != null) {
+                BigDecimal coverRounded = cover.setScale(1, RoundingMode.HALF_UP);
+                coverText = coverRounded.toPlainString();
+                if (coverRounded.compareTo(BigDecimal.ZERO) != 0) {
+                    BigDecimal kc = carbon.divide(coverRounded, 6, RoundingMode.HALF_UP)
+                            .setScale(2, RoundingMode.HALF_UP);
+                    kcText = kc.toPlainString();
+                    scaleText = String.valueOf(carbonizationScale(kc));
+                }
             }
             rows.add(new Row(
                     bridge,
                     entry.getKey(),
                     carbon.setScale(1, RoundingMode.UNNECESSARY).toPlainString(),
-                    cover == null ? "" : formatNumber(cover, 1, 2),
-                    kc));
+                    coverText,
+                    kcText,
+                    scaleText));
         }
         return rows;
     }
@@ -237,15 +249,125 @@ public final class CarbonizationAssessmentTableBuilder {
         return sum.divide(BigDecimal.valueOf(present.size()), 6, RoundingMode.HALF_UP);
     }
 
-    static String formatNumber(BigDecimal value, int minScale, int maxScale) {
-        if (value == null) {
+    /** 表 5.7.3：按已修约到两位小数的 Kc 取混凝土碳化评定标度。 */
+    static int carbonizationScale(BigDecimal kc) {
+        if (kc.compareTo(new BigDecimal("0.5")) < 0) {
+            return 1;
+        }
+        if (kc.compareTo(BigDecimal.ONE) < 0) {
+            return 2;
+        }
+        if (kc.compareTo(new BigDecimal("1.5")) < 0) {
+            return 3;
+        }
+        if (kc.compareTo(new BigDecimal("2.0")) < 0) {
+            return 4;
+        }
+        return 5;
+    }
+
+    /**
+     * 本张碳化评定表的结论。标度全为 1 时用固定句；出现 2 及以上时按标度分组，
+     * 占比为本表该标度行数除以已评出行数。
+     */
+    public static String conclusion(List<Row> rows) {
+        List<Row> rated = new ArrayList<>();
+        if (rows != null) {
+            for (Row row : rows) {
+                if (row != null && scaleOf(row) > 0) {
+                    rated.add(row);
+                }
+            }
+        }
+        if (rated.isEmpty()) {
             return "";
         }
-        BigDecimal rounded = value.setScale(maxScale, RoundingMode.HALF_UP).stripTrailingZeros();
-        if (rounded.scale() < minScale) {
-            rounded = rounded.setScale(minScale, RoundingMode.UNNECESSARY);
+        boolean allOne = true;
+        for (Row row : rated) {
+            if (scaleOf(row) != 1) {
+                allOne = false;
+                break;
+            }
         }
-        return rounded.toPlainString();
+        if (allOne) {
+            return "从测试结果看，所测试构件评定标度均为1，表明所测试构件的碳化深度对结构钢筋耐久性的影响不显著。";
+        }
+        boolean qualifyBridge = rated.stream().map(row -> row.bridgeName == null ? "" : row.bridgeName.trim())
+                .filter(name -> !name.isEmpty()).distinct().count() > 1;
+        Map<Integer, List<Row>> byScale = new LinkedHashMap<>();
+        for (Row row : rated) {
+            byScale.computeIfAbsent(scaleOf(row), ignored -> new ArrayList<>()).add(row);
+        }
+        StringBuilder text = new StringBuilder("从测试结果看，");
+        boolean first = true;
+        for (int scale = 2; scale <= 5; scale++) {
+            List<Row> group = byScale.get(scale);
+            if (group == null || group.isEmpty()) {
+                continue;
+            }
+            if (!first) {
+                text.append('；');
+            }
+            first = false;
+            text.append("所抽检的").append(joinComponents(group, qualifyBridge))
+                    .append("评定标度为").append(scale)
+                    .append("，占比").append(percentText(group.size(), rated.size()))
+                    .append("%，表明").append(scaleMeaning(scale));
+        }
+        List<Row> scaleOne = byScale.get(1);
+        if (scaleOne != null && !scaleOne.isEmpty()) {
+            text.append("；其余构件评定标度为1，占比")
+                    .append(percentText(scaleOne.size(), rated.size()))
+                    .append("%，表明此类测试构件碳化深度未超过混凝土保护层厚度的1/2，测试构件的碳化深度对结构钢筋耐久性的影响不显著。");
+        } else {
+            text.append('。');
+        }
+        return text.toString();
+    }
+
+    private static int scaleOf(Row row) {
+        if (row == null || row.scaleText == null || row.scaleText.isBlank()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(row.scaleText.trim());
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private static String joinComponents(List<Row> rows, boolean qualifyBridge) {
+        List<String> names = new ArrayList<>();
+        for (Row row : rows) {
+            String component = row.componentName == null ? "" : row.componentName.trim();
+            String bridge = row.bridgeName == null ? "" : row.bridgeName.trim();
+            String name;
+            if (component.isEmpty()) {
+                name = bridge.isEmpty() ? "该构件" : bridge;
+            } else if (qualifyBridge && !bridge.isEmpty() && !component.contains(bridge)) {
+                name = bridge + component;
+            } else {
+                name = component;
+            }
+            names.add(name);
+        }
+        return String.join("、", names);
+    }
+
+    private static String scaleMeaning(int scale) {
+        return switch (scale) {
+            case 2 -> "此类测试构件碳化深度超过了混凝土保护层厚度的1/2";
+            case 3 -> "此类测试构件碳化深度超过了混凝土保护层厚度";
+            case 4 -> "此类测试构件碳化深度超过了混凝土保护层厚度的1.5倍";
+            case 5 -> "此类测试构件碳化深度超过了混凝土保护层厚度的2倍";
+            default -> "此类测试构件碳化深度未超过混凝土保护层厚度的1/2";
+        };
+    }
+
+    private static String percentText(int count, int total) {
+        return BigDecimal.valueOf(count).multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP)
+                .stripTrailingZeros().toPlainString();
     }
 
     private static BigDecimal firstNumber(JSONObject object, String... keys) {

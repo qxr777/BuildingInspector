@@ -18,7 +18,11 @@ public final class WordImportMerger {
     private static final String REL = "http://schemas.openxmlformats.org/package/2006/relationships";
     private static final String CT = "http://schemas.openxmlformats.org/package/2006/content-types";
     private static final String A = "http://schemas.openxmlformats.org/drawingml/2006/main";
-    public record Item(String marker, Path source, int start, int end) { }
+    public record Item(String marker, Path source, int start, int end, boolean dropElevationPhotos) {
+        public Item(String marker, Path source, int start, int end) {
+            this(marker, source, start, end, false);
+        }
+    }
     private WordImportMerger() { }
 
     public static void merge(Path report, List<Item> items) throws Exception {
@@ -76,8 +80,13 @@ public final class WordImportMerger {
         List<Element> all = children(nodes(sourceDoc, W, "body").get(0)).stream()
                 .filter(e -> W.equals(e.getNamespaceURI())).toList();
         if (item.start() < 0 || item.end() > all.size() || item.start() >= item.end()) throw new IOException("Word 内容范围无效");
+        int end = item.dropElevationPhotos() ? elevationPhotoCut(all, item.start(), item.end()) : item.end();
+        if (item.start() >= end) {
+            anchor.getParentNode().removeChild(anchor);
+            return;
+        }
         List<Element> fragments = new ArrayList<>();
-        for (Element element : all.subList(item.start(), item.end())) {
+        for (Element element : all.subList(item.start(), end)) {
             if ("sectPr".equals(element.getLocalName())) continue;
             if (!Set.of("p", "tbl", "bookmarkStart", "bookmarkEnd", "proofErr").contains(element.getLocalName()))
                 throw new IOException("此章节含暂不支持的 Word 内容：" + element.getLocalName());
@@ -383,6 +392,30 @@ public final class WordImportMerger {
             if (existing == null) dest.appendChild(dest.getOwnerDocument().importNode(child, true));
             else copyProps(existing, child, Set.of(), overwrite);
         }
+    }
+
+    /** 整体概况末尾的正立面照表（含后面的题注）不并入导入正文，改由系统上传的照片覆盖。 */
+    static int elevationPhotoCut(List<Element> body, int start, int end) {
+        for (int i = start; i < end; i++) {
+            Element element = body.get(i);
+            if (!"tbl".equals(element.getLocalName()) || !W.equals(element.getNamespaceURI())) {
+                continue;
+            }
+            String tableText = textOf(element);
+            String following = i + 1 < end ? textOf(body.get(i + 1)) : "";
+            if (tableText.contains("正面照") || tableText.contains("立面照") || following.contains("正立面照")) {
+                return i;
+            }
+        }
+        return end;
+    }
+
+    private static String textOf(Element element) {
+        StringBuilder text = new StringBuilder();
+        for (Element node : nodes(element, W, "t")) {
+            text.append(node.getTextContent());
+        }
+        return text.toString();
     }
 
     private static String val(Element element) {
