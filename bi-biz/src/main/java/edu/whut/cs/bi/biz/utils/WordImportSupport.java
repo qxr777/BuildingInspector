@@ -54,6 +54,13 @@ public final class WordImportSupport {
 
     /** Replace the existing field region, including overview photo slots, with one late-merge anchor. */
     public static void prepare(XWPFDocument document, ReportData data) {
+        prepare(document, data, false);
+    }
+
+    /**
+     * @param keepOverviewPhotoSlot 为 true 时保留模板里的正立面照表格，供系统上传的照片覆盖导入内容。
+     */
+    public static void prepare(XWPFDocument document, ReportData data, boolean keepOverviewPhotoSlot) {
         String label = FIELDS.get(data.getKey());
         List<IBodyElement> elements = document.getBodyElements();
         XWPFParagraph heading = null;
@@ -74,11 +81,13 @@ public final class WordImportSupport {
                 end++;
             }
             if (end == elements.size()) throw new IllegalStateException("无法确定导入章节结束位置：" + label);
+            int photoAt = keepOverviewPhotoSlot ? overviewPhotoTableIndex(elements, begin, end) : -1;
+            int deleteUntil = photoAt >= 0 ? photoAt : end;
             // A section boundary also controls earlier paragraphs outside this
             // field (e.g. comparison analysis before technical advice). Preserve
             // the final boundary independently of the replaceable merge marker.
             boolean boundaryKept = false;
-            for (int i = end - 1; i >= begin; i--) {
+            for (int i = deleteUntil - 1; i >= begin; i--) {
                 IBodyElement element = document.getBodyElements().get(i);
                 if (!boundaryKept && element instanceof XWPFParagraph) {
                     XWPFParagraph paragraph = (XWPFParagraph) element;
@@ -104,6 +113,26 @@ public final class WordImportSupport {
         if (p == null) throw new IllegalStateException("模板缺少导入位置：" + label);
         for (int i = p.getRuns().size() - 1; i >= 0; i--) p.removeRun(i);
         p.createRun().setText(marker(data));
+    }
+
+    private static int overviewPhotoTableIndex(List<IBodyElement> elements, int begin, int end) {
+        for (int i = begin; i < end; i++) {
+            IBodyElement element = elements.get(i);
+            if (element instanceof XWPFTable && isTemplateOverviewPhotoTable((XWPFTable) element)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isTemplateOverviewPhotoTable(XWPFTable table) {
+        String text = table.getText();
+        if (text == null) {
+            return false;
+        }
+        return text.contains("%{leftFront}") || text.contains("%{rightFront}")
+                || text.contains("%{leftSide}") || text.contains("%{rightSide}")
+                || text.contains("${桥梁正面照}") || text.contains("${桥梁立面照}");
     }
 
     private static int headingLevel(XWPFDocument doc, XWPFParagraph p) {

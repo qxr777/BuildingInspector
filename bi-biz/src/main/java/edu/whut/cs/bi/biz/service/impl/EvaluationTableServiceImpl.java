@@ -47,6 +47,11 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
     @Override
     public void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName, String captionStyleId) {
+        generateEvaluationTableAfterParagraph(document, afterParagraph, building, evaluation, bridgeName, captionStyleId, "12".equals(captionStyleId));
+    }
+
+    @Override
+    public void generateEvaluationTableAfterParagraph(XWPFDocument document, XWPFParagraph afterParagraph, Building building, BiEvaluation evaluation, String bridgeName, String captionStyleId, boolean omitArchBearing) {
         try {
             log.info("开始在指定位置生成第八章技术状况评定表格");
 
@@ -65,6 +70,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
             XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.beginLandscapeTableBlock(
                     document, afterParagraph, layouts);
+            // 评定表横页页边距在代码里定，不跟模板横版节。
+            WordSectionLayoutUtils.applyPageMarginsCm(landscapeParagraph, 3.17, 2.51, 2.54, 2.54);
 
             // 从横向分节符段落后获取cursor位置
             XmlCursor cursor = landscapeParagraph.getCTP().newCursor();
@@ -79,7 +86,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
 
             // 获取第二层和第三层结构
             Map<String, List<BiObject>> structureData = collectStructureData(building.getRootObjectId(), evaluation.getId());
-            if ("12".equals(captionStyleId)) {
+            if (omitArchBearing) {
                 omitArchUpperStructureBearing(structureData);
             }
 
@@ -151,7 +158,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         return structureData;
     }
 
-    /** 单桥拱桥评定表上部结构不列支座。 */
+    /** 拱桥评定表上部结构不列支座；上部结构部件名带“拱”即视为拱桥。 */
     private void omitArchUpperStructureBearing(Map<String, List<BiObject>> structureData) {
         List<BiObject> upper = structureData.get("上部结构");
         if (upper == null || upper.isEmpty()) {
@@ -159,7 +166,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         }
         boolean arch = upper.stream().anyMatch(obj -> {
             String name = obj.getName();
-            return name != null && (name.contains("主拱") || name.contains("拱上"));
+            return name != null && name.contains("拱");
         });
         if (!arch) {
             return;
@@ -689,12 +696,12 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         }
 
         if (condition != null && component.getWeight().doubleValue() != 0) {
-            cellValues[5] = condition.getScore() != null ? String.format("%.1f", condition.getScore()) : "/";
+            cellValues[5] = ReportGenerateTools.formatAssessmentScore(condition.getScore());
             cellValues[6] = condition.getLevel() != null ? condition.getLevel() + "类" : "/";
 
             if (condition.getScore() != null && component.getWeight() != null) {
                 BigDecimal weightedScore = condition.getScore().multiply(component.getWeight());
-                cellValues[7] = String.format("%.1f", weightedScore);
+                cellValues[7] = ReportGenerateTools.formatAssessmentScore(weightedScore);
             } else {
                 cellValues[7] = "/";
             }
@@ -724,12 +731,12 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
         // 桥梁分部工程列（第8-12列）
         setCellContent(row.getCell(8), weight != null ? String.format("%.1f", weight) : "/");
         setCellContent(row.getCell(9), evalCode);
-        setCellContent(row.getCell(10), score != null ? String.format("%.1f", score) : "/");
+        setCellContent(row.getCell(10), ReportGenerateTools.formatAssessmentScore(score));
         setCellContent(row.getCell(11), level != null ? level + "类" : "/");
 
         if (score != null && weight != null) {
             BigDecimal weightedScore = score.multiply(weight);
-            setCellContent(row.getCell(12), String.format("%.1f", weightedScore));
+            setCellContent(row.getCell(12), ReportGenerateTools.formatAssessmentScore(weightedScore));
         } else {
             setCellContent(row.getCell(12), "/");
         }
@@ -740,8 +747,7 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
      */
     private void fillComplexBridgeOverall(XWPFTableRow row, BiEvaluation evaluation) {
         // 桥梁总体列（第13-14列）
-        setCellContent(row.getCell(13), evaluation.getSystemScore() != null ?
-                String.format("%.1f", evaluation.getSystemScore()) : "/");
+        setCellContent(row.getCell(13), ReportGenerateTools.formatAssessmentScore(evaluation.getSystemScore()));
         setCellContent(row.getCell(14), evaluation.getSystemLevel() != null ?
                 evaluation.getSystemLevel() + "类" : "/");
     }

@@ -37,6 +37,7 @@
                 <select id="taskIds" class="form-control select2-hidden-accessible" required>
                 </select>
                 <input type="hidden" name="taskIds" id="taskIdsInput" th:value="${report.taskIds}">
+                <div id="taskWarnings" class="alert alert-warning" style="display:none;margin:8px 0 0;padding:8px 12px"></div>
             </div>
         </div>
         <div class="form-group">
@@ -118,8 +119,56 @@
             } else {
                 $("#taskIdsInput").val("");
             }
+            checkTaskWarnings();
         });
     });
+
+    var taskWarningSeq = 0;
+
+    // 所选桥梁缺少桥梁卡片或评定结果时，生成报告会被拦截，这里提前提示
+    function checkTaskWarnings(callback) {
+        var seq = ++taskWarningSeq;
+        var ids = $("#taskIdsInput").val();
+        if (!ids) {
+            renderTaskWarnings([]);
+            if (callback) callback([]);
+            return;
+        }
+        $.ajax({
+            url: prefix + "/checkTasks",
+            type: "post",
+            data: {taskIds: ids},
+            dataType: "json",
+            success: function(result) {
+                if (seq !== taskWarningSeq) return;
+                var warnings = result && result.code == 0 && result.data ? result.data : [];
+                renderTaskWarnings(warnings);
+                if (callback) callback(warnings);
+            },
+            error: function() {
+                if (seq !== taskWarningSeq) return;
+                renderTaskWarnings([]);
+                if (callback) callback([]);
+            }
+        });
+    }
+
+    function renderTaskWarnings(warnings) {
+        var $box = $("#taskWarnings");
+        if (!warnings.length) {
+            $box.hide().empty();
+            return;
+        }
+        $box.empty().append($("<div>").text("以下桥梁暂时无法生成报告，请先补齐："));
+        $.each(warnings, function(i, warning) {
+            $box.append($("<div>").text("· " + warning));
+        });
+        $box.show();
+    }
+
+    function escapeTaskWarning(text) {
+        return $("<div>").text(text).html();
+    }
 
     // 加载项目列表
     function loadProjects() {
@@ -224,9 +273,20 @@
     });
 
     function submitHandler() {
-        if ($.validate.form()) {
-            $.operate.save(prefix + "/edit", $('#form-report-edit').serialize());
+        if (!$.validate.form()) {
+            return;
         }
+        checkTaskWarnings(function(warnings) {
+            var save = function() {
+                $.operate.save(prefix + "/edit", $('#form-report-edit').serialize());
+            };
+            if (!warnings.length) {
+                save();
+                return;
+            }
+            $.modal.confirm("以下桥梁暂时无法生成报告：<br>" + warnings.map(escapeTaskWarning).join("<br>")
+                + "<br>补齐后才能生成。仍要保存报告吗？", save);
+        });
     }
 </script>
 </body>

@@ -12,6 +12,7 @@ import javax.xml.XMLConstants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -24,9 +25,11 @@ import java.util.zip.ZipFile;
 /** Read-only matching of Word sections to the existing multi-bridge form keys. */
 public final class LineReportWordMatcher {
     public static final long MAX_UPLOAD_BYTES = 300L * 1024 * 1024;
+    public static final String PREVIOUS_EVALUATION_KEY = "line-previous-evaluation-scores";
     private static final String W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private static final Pattern HEADING = Pattern.compile("(?:heading|标题)\\s*([1-9])", Pattern.CASE_INSENSITIVE);
     private static final Pattern NUMBER = Pattern.compile("^\\s*\\d+(?:[.．]\\d+)*[.．、]?\\s*");
+    private static final Pattern LEVEL = Pattern.compile("(\\d+)\\s*类");
     private static final Map<String, String> ALIASES = new LinkedHashMap<>();
     private static final Map<String, String> LABELS = new LinkedHashMap<>();
     static {
@@ -50,7 +53,25 @@ public final class LineReportWordMatcher {
     public static class Result {
         private List<Section> sections = new ArrayList<>();
         private List<Target> targets = new ArrayList<>();
+        private List<EvaluationTable> evaluationTables = new ArrayList<>();
         private List<String> warnings = new ArrayList<>();
+    }
+
+    /** 从上年报告评定表识别出的一座子桥分数。 */
+    @Data
+    public static class EvaluationTable {
+        private String id;
+        /** 表题里的桥名，例如「左幅(钢混组合梁)」。 */
+        private String bridgeName;
+        /** 表题前面的大桥标题，例如「胡家台大桥」。 */
+        private String sourceBridge;
+        /** 人工选定的系统子桥名称，导入后按这个名字对应。 */
+        private String matchedName;
+        private BigDecimal superstructureScore;
+        private BigDecimal substructureScore;
+        private BigDecimal deckSystemScore;
+        private BigDecimal systemScore;
+        private Integer systemLevel;
     }
 
     @Data
@@ -214,6 +235,8 @@ public final class LineReportWordMatcher {
             }
             if (active != null) finish(active, text, body.size());
         }
+        result.setEvaluationTables(extractEvaluationTables(
+                children(child(document.getDocumentElement(), "body"), null), styles));
         for (Section section : result.getSections()) resolve(section, result.getTargets());
         Map<String, Long> counts = result.getSections().stream().filter(s -> s.getTargetId() != null && !s.isEmpty())
                 .collect(Collectors.groupingBy(Section::getTargetId, Collectors.counting()));
@@ -223,9 +246,240 @@ public final class LineReportWordMatcher {
                 section.getWarnings().add("多个来源章节匹配到同一填报项，请选择其中一项。");
             }
         }
-        if (result.getSections().isEmpty()) result.getWarnings().add("未找到支持的正文标题，请检查 Word 标题或将标题设置为标题样式。");
+        if (result.getSections().isEmpty() && result.getEvaluationTables().isEmpty()) {
+            result.getWarnings().add("未找到支持的正文标题，请检查 Word 标题或将标题设置为标题样式。");
+        }
+        if (!result.getEvaluationTables().isEmpty()) {
+            result.getWarnings().add("识别到 " + result.getEvaluationTables().size()
+                    + " 张技术状况评定表。请在下方为每张表选择系统中的子桥，未选择的不导入。");
+        }
         result.getWarnings().add("请确认目标后点击“确认导入”。预览仅核对内容，导入生成使用原 Word 的段落、表格和图片格式。");
         return result;
+    }
+
+    static List<EvaluationTable> extractEvaluationTables(List<Element> body, Map<String, Element> styles) {
+        List<EvaluationTable> tables = new ArrayList<>();
+        if (body == null) {
+            return tables;
+        }
+        String sourceBridge = null;
+        for (int i = 0; i < body.size(); i++) {
+            Element element = body.get(i);
+            if ("sdt".equals(element.getLocalName())) {
+                continue;
+            }
+            if ("p".equals(element.getLocalName()) && (styles == null || !isToc(styles, element))) {
+                String title = normalize(wordText(element));
+                int level = styles == null ? -1 : headingLevel(styles, element);
+                if (isParentBridgeHeading(title) && ((level > 0 && level <= 3) || (level < 0 && title.length() <= 24))) {
+                    sourceBridge = title;
+                }
+            }
+            if (!"tbl".equals(element.getLocalName())) {
+                continue;
+            }
+            String caption = nearbyCaption(body, i);
+            if (caption == null) {
+                continue;
+            }
+            EvaluationTable table = parseEvaluationTable(element, captionBridgeName(caption));
+            if (table == null) {
+                continue;
+            }
+            table.setId("eval-" + tables.size());
+            table.setSourceBridge(sourceBridge);
+            tables.add(table);
+        }
+        return tables;
+    }
+
+    /** 章节标题里的大桥名，不含左幅、右幅。 */
+    static boolean isParentBridgeHeading(String title) {
+        if (title == null || title.isEmpty() || title.length() > 40) {
+            return false;
+        }
+        if (title.contains("技术状况") || title.contains("评定") || title.contains("左幅")
+                || title.contains("右幅") || title.contains("幅")) {
+            return false;
+        }
+        return title.matches(".+(?:特大桥|大桥|中桥|小桥|高架桥|匝道桥)");
+    }
+
+    private static String nearbyCaption(List<Element> body, int tableIndex) {
+        for (int i = tableIndex - 1; i >= 0 && i >= tableIndex - 3; i--) {
+            Element element = body.get(i);
+            if ("tbl".equals(element.getLocalName())) {
+                break;
+            }
+            if (!"p".equals(element.getLocalName())) {
+                continue;
+            }
+            String text = wordText(element);
+            if (isEvaluationCaption(text)) {
+                return text;
+            }
+            if (!text.trim().isEmpty()) {
+                break;
+            }
+        }
+        for (int i = tableIndex + 1; i < body.size() && i <= tableIndex + 2; i++) {
+            Element element = body.get(i);
+            if ("tbl".equals(element.getLocalName())) {
+                break;
+            }
+            if (!"p".equals(element.getLocalName())) {
+                continue;
+            }
+            String text = wordText(element);
+            if (isEvaluationCaption(text)) {
+                return text;
+            }
+            if (!text.trim().isEmpty()) {
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isEvaluationCaption(String text) {
+        if (text == null) {
+            return false;
+        }
+        String compact = text.replaceAll("\\s+", "");
+        return compact.contains("技术状况评定表") && !compact.contains("对比");
+    }
+
+    static String captionBridgeName(String caption) {
+        String text = normalize(caption);
+        text = text.replaceFirst("^表(?:\\d+(?:[-—－.．]\\d+)*)?", "");
+        text = text.replaceFirst("^[-—－.．]+", "");
+        text = text.replace("桥梁技术状况评定表", "");
+        text = text.replace("技术状况评定表", "");
+        return text;
+    }
+
+    private static EvaluationTable parseEvaluationTable(Element tbl, String bridgeName) {
+        List<List<String>> rows = tableGrid(tbl);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        EvaluationTable table = new EvaluationTable();
+        table.setBridgeName(bridgeName == null || bridgeName.isEmpty() ? null : bridgeName);
+        table.setSuperstructureScore(scoreAfterLabel(rows, "SPCI"));
+        table.setSubstructureScore(scoreAfterLabel(rows, "SBCI"));
+        table.setDeckSystemScore(scoreAfterLabel(rows, "BDCI"));
+        fillOverall(rows, table);
+        if (table.getSuperstructureScore() == null && table.getSubstructureScore() == null
+                && table.getDeckSystemScore() == null && table.getSystemScore() == null
+                && table.getSystemLevel() == null) {
+            return null;
+        }
+        return table;
+    }
+
+    private static List<List<String>> tableGrid(Element tbl) {
+        List<List<String>> rows = new ArrayList<>();
+        for (Element tr : children(tbl, "tr")) {
+            List<String> row = new ArrayList<>();
+            for (Element tc : children(tr, "tc")) {
+                row.add(wordText(tc).replace('\u3000', ' ').trim());
+            }
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private static BigDecimal scoreAfterLabel(List<List<String>> rows, String label) {
+        String want = label.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+        for (List<String> row : rows) {
+            for (int i = 0; i < row.size(); i++) {
+                if (!want.equals(row.get(i).replaceAll("\\s+", "").toUpperCase(Locale.ROOT))) {
+                    continue;
+                }
+                for (int j = i + 1; j < row.size(); j++) {
+                    BigDecimal score = parseScore(row.get(j));
+                    if (score != null) {
+                        return score;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void fillOverall(List<List<String>> rows, EvaluationTable table) {
+        for (List<String> row : rows) {
+            if (row.isEmpty()) {
+                continue;
+            }
+            String joined = String.join("", row);
+            if (joined.contains("部位") || joined.contains("桥梁分项") || joined.contains("权重标准")
+                    || joined.contains("评价部件")) {
+                continue;
+            }
+            Integer level = null;
+            BigDecimal score = null;
+            for (int i = row.size() - 1; i >= 0; i--) {
+                if (level == null) {
+                    level = parseLevel(row.get(i));
+                    continue;
+                }
+                score = parseScore(row.get(i));
+                if (score != null) {
+                    break;
+                }
+            }
+            table.setSystemScore(score);
+            table.setSystemLevel(level);
+            return;
+        }
+    }
+
+    private static BigDecimal parseScore(String cell) {
+        if (cell == null) {
+            return null;
+        }
+        String text = cell.replaceAll("\\s+", "").replace(",", "");
+        if (text.isEmpty() || "/".equals(text) || text.contains("类")) {
+            return null;
+        }
+        try {
+            return new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer parseLevel(String cell) {
+        if (cell == null) {
+            return null;
+        }
+        Matcher matcher = LEVEL.matcher(cell);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : null;
+    }
+
+    public static EvaluationTable matchEvaluation(String bridgeName, List<EvaluationTable> tables) {
+        if (bridgeName == null || tables == null || tables.isEmpty()) {
+            return null;
+        }
+        String key = normalize(bridgeName);
+        if (key.isEmpty()) {
+            return null;
+        }
+        EvaluationTable exact = tables.stream()
+                .filter(table -> table != null && key.equals(normalize(table.getBridgeName())))
+                .findFirst().orElse(null);
+        if (exact != null) {
+            return exact;
+        }
+        List<EvaluationTable> contains = tables.stream()
+                .filter(table -> table != null && table.getBridgeName() != null)
+                .filter(table -> {
+                    String name = normalize(table.getBridgeName());
+                    return !name.isEmpty() && (key.contains(name) || name.contains(key));
+                })
+                .collect(Collectors.toList());
+        return contains.size() == 1 ? contains.get(0) : null;
     }
 
     private static void addTargets(Result result, List<LineBridgeGroup> groups, List<LineReportData> existing) {

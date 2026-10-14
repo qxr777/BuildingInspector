@@ -7,6 +7,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Component;
@@ -15,6 +16,7 @@ import edu.whut.cs.bi.biz.domain.LineBridgeGroup;
 import edu.whut.cs.bi.biz.domain.LineReportData;
 import edu.whut.cs.bi.biz.domain.Report;
 import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.ILineMultiBridgeReportDataService;
 import edu.whut.cs.bi.biz.service.IComponentService;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
@@ -23,6 +25,7 @@ import edu.whut.cs.bi.biz.service.IReportService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.utils.LineReportWordMatcher;
+import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordImportSupport;
 import edu.whut.cs.bi.biz.service.impl.LineReportWordImportService;
 import org.apache.commons.lang3.ObjectUtils;
@@ -59,6 +62,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/biz/line_multi_bridge_data")
 public class LineMultiBridgeReportDataController extends BaseController {
     private static final String FILL_PAGE = "biz/report_data/fill_line_multi_bridge";
+    private static final List<String> STRUCTURE_NAMES = List.of("上部结构", "下部结构", "桥面系");
 
     @Autowired
     private ILineMultiBridgeReportDataService lineReportDataService;
@@ -80,6 +84,9 @@ public class LineMultiBridgeReportDataController extends BaseController {
 
     @Autowired
     private FileMapServiceImpl fileMapService;
+
+    @Autowired
+    private AttachmentService attachmentService;
 
     @Autowired
     private MinioConfig minioConfig;
@@ -132,7 +139,8 @@ public class LineMultiBridgeReportDataController extends BaseController {
     @PostMapping("/importWord")
     @ResponseBody
     public AjaxResult importWord(@RequestParam("reportId") Long reportId, @RequestParam("file") MultipartFile file,
-                                 @RequestParam("matches") String matches) {
+                                 @RequestParam("matches") String matches,
+                                 @RequestParam(value = "evaluationMatches", required = false) String evaluationMatches) {
         if (file.isEmpty() || file.getSize() > LineReportWordMatcher.MAX_UPLOAD_BYTES
                 || file.getOriginalFilename() == null || !file.getOriginalFilename().toLowerCase(java.util.Locale.ROOT).endsWith(".docx"))
             return AjaxResult.error("请选择不超过300MB的 .docx 文件");
@@ -143,8 +151,8 @@ public class LineMultiBridgeReportDataController extends BaseController {
             LineReportWordMatcher.Result parsed = LineReportWordMatcher.match(input, groups, lineReportDataService.selectByReportId(reportId));
             List<LineReportWordImportService.Selection> selections = new com.fasterxml.jackson.databind.ObjectMapper().readValue(matches,
                     new com.fasterxml.jackson.core.type.TypeReference<List<LineReportWordImportService.Selection>>() { });
-            int count = wordImportService.apply(reportId, file, parsed, selections);
-            return AjaxResult.success("已导入 " + count + " 项，重新生成报告时将使用 Word 原格式内容");
+            int count = wordImportService.apply(reportId, file, parsed, selections, evaluationMatches);
+            return AjaxResult.success("已导入 " + count + " 项。识别到的技术状况评定表将用于近年评定对比。");
         } catch (IllegalArgumentException e) {
             return AjaxResult.error(e.getMessage());
         } catch (Exception e) {
@@ -272,7 +280,8 @@ public class LineMultiBridgeReportDataController extends BaseController {
     @ResponseBody
     public AjaxResult diseaseComponentData(@RequestParam("reportId") Long reportId,
                                           @RequestParam(value = "taskId", required = false) Long taskId,
-                                          @RequestParam(value = "groupId", required = false) String groupId) {
+                                          @RequestParam(value = "groupId", required = false) String groupId,
+                                          @RequestParam(value = "includeImages", defaultValue = "false") boolean includeImages) {
         try {
             Report report = reportService.selectReportById(reportId);
             if (report == null) {
@@ -303,7 +312,7 @@ public class LineMultiBridgeReportDataController extends BaseController {
             for (Long id : targetTaskIds) {
                 Task task = taskById.get(id);
                 if (task == null) continue;
-                ordered.put(String.valueOf(id), buildTaskDiseaseRecords(task));
+                ordered.put(String.valueOf(id), buildTaskDiseaseRecords(task, includeImages));
             }
             return AjaxResult.success("获取成功", ordered);
         } catch (Exception e) {
@@ -312,7 +321,7 @@ public class LineMultiBridgeReportDataController extends BaseController {
         }
     }
 
-    private Map<String, Object> buildTaskDiseaseRecords(Task task) {
+    private Map<String, Object> buildTaskDiseaseRecords(Task task, boolean includeImages) {
         Disease query = new Disease();
         query.setTaskId(task.getId());
         query.setBuildingId(task.getBuildingId());
@@ -323,7 +332,8 @@ public class LineMultiBridgeReportDataController extends BaseController {
         Map<Long, Component> components = componentIds.isEmpty() ? Collections.emptyMap()
                 : componentService.selectComponentsByIds(componentIds).stream()
                 .collect(Collectors.toMap(Component::getId, item -> item, (left, right) -> left));
-        Map<Long, BiObject> objects = new HashMap<>();
+        Map<Long, BiObject> objects = includeImages ? loadObjectIndex(task) : new HashMap<>();
+        Map<Long, List<Map<String, String>>> imageUrls = includeImages ? diseaseImageUrls(diseases) : Collections.emptyMap();
         List<Map<String, Object>> records = new ArrayList<>();
         for (Disease disease : diseases) {
             if (disease.getId() == null) continue;
@@ -352,6 +362,14 @@ public class LineMultiBridgeReportDataController extends BaseController {
             record.put("description", disease.getDescription());
             record.put("level", disease.getLevel());
             record.put("developmentTrend", disease.getDevelopmentTrend());
+            if (includeImages) {
+                record.put("structureName", structureName(object, objects));
+                record.put("locationName", component != null && component.getName() != null && !component.getName().isBlank()
+                        ? component.getName().trim() : (component == null || component.getCode() == null ? "" : component.getCode()));
+                record.put("defectType", reportDefectType(disease));
+                record.put("crack", isCrack(disease));
+                record.put("images", imageUrls.getOrDefault(disease.getId(), List.of()));
+            }
             records.add(record);
         }
         Map<String, Object> result = new LinkedHashMap<>();
@@ -359,6 +377,116 @@ public class LineMultiBridgeReportDataController extends BaseController {
         result.put("buildingName", displayTaskName(task));
         result.put("diseases", records);
         return result;
+    }
+
+    private Map<Long, BiObject> loadObjectIndex(Task task) {
+        Map<Long, BiObject> objects = new HashMap<>();
+        if (task == null || task.getBuilding() == null || task.getBuilding().getRootObjectId() == null) {
+            return objects;
+        }
+        BiObject root = biObjectMapper.selectBiObjectById(task.getBuilding().getRootObjectId());
+        if (root != null && root.getId() != null) {
+            objects.put(root.getId(), root);
+        }
+        List<BiObject> children = biObjectMapper.selectChildrenById(task.getBuilding().getRootObjectId());
+        if (children != null) {
+            for (BiObject child : children) {
+                if (child != null && child.getId() != null) {
+                    objects.put(child.getId(), child);
+                }
+            }
+        }
+        return objects;
+    }
+
+    private String structureName(BiObject object, Map<Long, BiObject> objects) {
+        BiObject current = object;
+        for (int guard = 0; current != null && guard < 12; guard++) {
+            String name = current.getName() == null ? "" : current.getName().trim();
+            if (STRUCTURE_NAMES.contains(name)) {
+                return name;
+            }
+            Long parentId = current.getParentId();
+            if (parentId == null) {
+                break;
+            }
+            BiObject parent = objects.get(parentId);
+            if (parent == null) {
+                parent = biObjectMapper.selectBiObjectById(parentId);
+                if (parent != null && parent.getId() != null) {
+                    objects.put(parent.getId(), parent);
+                }
+            }
+            current = parent;
+        }
+        return "其他";
+    }
+
+    private String reportDefectType(Disease disease) {
+        if (disease == null) {
+            return "未填写类型";
+        }
+        String typeName = disease.getDiseaseType() != null && disease.getDiseaseType().getName() != null
+                ? disease.getDiseaseType().getName().trim() : "";
+        if (typeName.isEmpty() && disease.getType() != null && !disease.getType().isBlank()) {
+            String type = disease.getType().trim();
+            typeName = type.substring(type.lastIndexOf('#') + 1);
+        }
+        if (typeName.contains("裂缝") && disease.getCrackType() != null && !disease.getCrackType().isBlank()) {
+            return disease.getCrackType().trim() + "裂缝";
+        }
+        return typeName.isEmpty() ? "未填写类型" : typeName;
+    }
+
+    private boolean isCrack(Disease disease) {
+        return reportDefectType(disease).contains("裂缝");
+    }
+
+    private Map<Long, List<Map<String, String>>> diseaseImageUrls(List<Disease> diseases) {
+        List<Long> diseaseIds = diseases.stream().map(Disease::getId).filter(Objects::nonNull).distinct().toList();
+        if (diseaseIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Attachment> attachments = attachmentService.getAttachmentBySubjectIds(diseaseIds);
+        if (attachments == null || attachments.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Attachment> images = attachments.stream()
+                .filter(item -> item != null && item.getSubjectId() != null && item.getName() != null
+                        && item.getName().startsWith("disease") && ReportGenerateTools.isImageFile(item.getName()))
+                .toList();
+        List<Long> fileIds = images.stream()
+                .map(item -> item.getThumbMinioId() != null ? item.getThumbMinioId() : item.getMinioId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, FileMap> files = new HashMap<>();
+        for (FileMap file : fileMapService.selectFileMapByIds(fileIds)) {
+            if (file != null && file.getId() != null) {
+                files.put(file.getId().longValue(), file);
+            }
+        }
+        Map<Long, List<Map<String, String>>> urls = new LinkedHashMap<>();
+        for (Attachment image : images) {
+            Long fileId = image.getThumbMinioId() != null ? image.getThumbMinioId() : image.getMinioId();
+            String url = fileUrl(files.get(fileId));
+            if (url == null || image.getId() == null) {
+                continue;
+            }
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("id", String.valueOf(image.getId()));
+            item.put("url", url);
+            urls.computeIfAbsent(image.getSubjectId(), ignored -> new ArrayList<>()).add(item);
+        }
+        return urls;
+    }
+
+    private String fileUrl(FileMap fileMap) {
+        if (fileMap == null || fileMap.getNewName() == null || fileMap.getNewName().length() < 2) {
+            return null;
+        }
+        return minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/"
+                + fileMap.getNewName().substring(0, 2) + "/" + fileMap.getNewName();
     }
 
     /**
@@ -417,6 +545,8 @@ public class LineMultiBridgeReportDataController extends BaseController {
             view.put("id", task.getId());
             view.put("buildingId", task.getBuildingId());
             view.put("name", displayTaskName(task));
+            view.put("bridgeName", task.getBuilding() != null && task.getBuilding().getName() != null
+                    ? task.getBuilding().getName().trim() : displayTaskName(task));
             views.add(view);
         }
         return views;

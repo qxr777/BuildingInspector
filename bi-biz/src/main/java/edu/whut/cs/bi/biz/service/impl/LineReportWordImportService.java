@@ -26,24 +26,89 @@ public class LineReportWordImportService {
 
     public int apply(Long reportId, MultipartFile file, LineReportWordMatcher.Result parsed,
                      List<Selection> selections) throws Exception {
-        List<LineReportData> rows = prepare(reportId, parsed, selections, file.getOriginalFilename());
-        validateSource(file, rows);
-        FileMap uploaded = files.handleFileUpload(file);
-        try {
-            ObjectMapper json = new ObjectMapper();
-            for (LineReportData row : rows) {
-                WordImportSupport.Reference ref = json.readValue(row.getValue(), WordImportSupport.Reference.class);
-                ref.setFileId(uploaded.getId().longValue());
-                row.setValue(json.writeValueAsString(ref));
-            }
-            Map<String, String> versions = new HashMap<>();
-            for (Selection selection : selections) versions.put(WordImportSupport.scopeKey(selection.getGroupId(), selection.getKey()), selection.getExpectedVersion());
-            dataService.saveWordImports(reportId, rows, versions);
-            return rows.size();
-        } catch (Exception e) {
-            try { files.deleteFileMapById(uploaded.getId().longValue()); } catch (Exception cleanup) { e.addSuppressed(cleanup); }
-            throw e;
+        return apply(reportId, file, parsed, selections, null);
+    }
+
+    public int apply(Long reportId, MultipartFile file, LineReportWordMatcher.Result parsed,
+                     List<Selection> selections, String evaluationMatches) throws Exception {
+        boolean hasSections = selections != null && !selections.isEmpty();
+        boolean hasEvaluations = parsed != null && parsed.getEvaluationTables() != null
+                && !parsed.getEvaluationTables().isEmpty();
+        if (!hasSections && !hasEvaluations) {
+            throw new IllegalArgumentException("请至少选择一个匹配项，或导入含技术状况评定表的上年报告");
         }
+        int count = 0;
+        if (hasSections) {
+            List<LineReportData> rows = prepare(reportId, parsed, selections, file.getOriginalFilename());
+            validateSource(file, rows);
+            FileMap uploaded = files.handleFileUpload(file);
+            try {
+                ObjectMapper json = new ObjectMapper();
+                for (LineReportData row : rows) {
+                    WordImportSupport.Reference ref = json.readValue(row.getValue(), WordImportSupport.Reference.class);
+                    ref.setFileId(uploaded.getId().longValue());
+                    row.setValue(json.writeValueAsString(ref));
+                }
+                Map<String, String> versions = new HashMap<>();
+                for (Selection selection : selections) versions.put(WordImportSupport.scopeKey(selection.getGroupId(), selection.getKey()), selection.getExpectedVersion());
+                dataService.saveWordImports(reportId, rows, versions);
+                count += rows.size();
+            } catch (Exception e) {
+                try { files.deleteFileMapById(uploaded.getId().longValue()); } catch (Exception cleanup) { e.addSuppressed(cleanup); }
+                throw e;
+            }
+        }
+        List<LineReportWordMatcher.EvaluationTable> chosen = chooseEvaluationTables(parsed, evaluationMatches);
+        if (!hasSections && chosen.isEmpty()) {
+            throw new IllegalArgumentException("请至少选择一个匹配项，或为一张评定表选择系统子桥");
+        }
+        if (!chosen.isEmpty()) {
+            LineReportData scores = new LineReportData();
+            scores.setReportId(reportId);
+            scores.setKey(LineReportWordMatcher.PREVIOUS_EVALUATION_KEY);
+            scores.setType(0);
+            scores.setValue(new ObjectMapper().writeValueAsString(chosen));
+            count += dataService.saveBatch(reportId, List.of(scores));
+        }
+        return count;
+    }
+
+    private List<LineReportWordMatcher.EvaluationTable> chooseEvaluationTables(LineReportWordMatcher.Result parsed,
+                                                                                String evaluationMatches) throws Exception {
+        List<LineReportWordMatcher.EvaluationTable> tables = parsed == null || parsed.getEvaluationTables() == null
+                ? List.of() : parsed.getEvaluationTables();
+        if (evaluationMatches == null || evaluationMatches.isBlank()) {
+            return tables;
+        }
+        List<Map<String, String>> chosen = new ObjectMapper().readValue(evaluationMatches,
+                new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, String>>>() { });
+        Map<String, LineReportWordMatcher.EvaluationTable> byId = new HashMap<>();
+        for (LineReportWordMatcher.EvaluationTable table : tables) {
+            if (table != null && table.getId() != null) {
+                byId.put(table.getId(), table);
+            }
+        }
+        List<LineReportWordMatcher.EvaluationTable> result = new ArrayList<>();
+        Set<String> used = new HashSet<>();
+        for (Map<String, String> item : chosen) {
+            if (item == null) {
+                continue;
+            }
+            String matched = item.get("matchedName");
+            if (matched == null || matched.isBlank()) {
+                continue;
+            }
+            LineReportWordMatcher.EvaluationTable table = byId.get(item.get("id"));
+            if (table == null) {
+                throw new IllegalArgumentException("评定表已变化，请重新识别");
+            }
+            if (!used.add(LineReportWordMatcher.normalize(matched))) {
+                throw new IllegalArgumentException("多张评定表选到了同一座系统子桥：" + matched);
+            }
+            table.setMatchedName(matched.trim());
+            result.add(table);
+        }
+        return result;
     }
 
     protected void validateSource(MultipartFile file, List<LineReportData> rows) throws Exception {

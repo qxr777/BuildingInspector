@@ -39,6 +39,20 @@
             margin-bottom: 15px;
         }
 
+        .overview-photo-row .image-upload-item {
+            margin-bottom: 8px;
+        }
+
+        .overview-photo-row .file-drop-zone {
+            min-height: 88px;
+            margin: 4px 8px 8px;
+        }
+
+        .overview-photo-row .file-drop-zone-title {
+            font-size: 14px;
+            padding: 20px 8px;
+        }
+
         .image-preview {
             margin-top: 5px;
             display: flex;
@@ -240,29 +254,40 @@
                                             <textarea class="form-control" data-original-key="overallOverview" rows="8"
                                                       placeholder="填写该座大桥的整体概况（位置、规模、结构型式等）"></textarea>
                                         </div>
-                                        <div class="form-group image-upload-item">
-                                            <label class="control-label">左幅正面照：</label>
-                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftFront">
-                                            <input type="hidden" class="image-value-holder" data-original-key="leftFront">
-                                            <div class="image-preview" data-original-key="leftFront"></div>
-                                        </div>
-                                        <div class="form-group image-upload-item">
-                                            <label class="control-label">右幅正面照：</label>
-                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightFront">
-                                            <input type="hidden" class="image-value-holder" data-original-key="rightFront">
-                                            <div class="image-preview" data-original-key="rightFront"></div>
-                                        </div>
-                                        <div class="form-group image-upload-item">
-                                            <label class="control-label">左幅立面照：</label>
-                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftSide">
-                                            <input type="hidden" class="image-value-holder" data-original-key="leftSide">
-                                            <div class="image-preview" data-original-key="leftSide"></div>
-                                        </div>
-                                        <div class="form-group image-upload-item">
-                                            <label class="control-label">右幅立面照：</label>
-                                            <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightSide">
-                                            <input type="hidden" class="image-value-holder" data-original-key="rightSide">
-                                            <div class="image-preview" data-original-key="rightSide"></div>
+                                        <p class="text-muted"><i class="fa fa-info-circle"></i> 整体概况如果是从上年 Word 导入的，这里上传的四张照片会盖掉导入内容里的正立面照。没上传时仍保留导入的旧照片。</p>
+                                        <div class="row overview-photo-row">
+                                            <div class="col-sm-6">
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">左幅正面照：</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftFront">
+                                                    <input type="hidden" class="image-value-holder" data-original-key="leftFront">
+                                                    <div class="image-preview" data-original-key="leftFront"></div>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">右幅正面照：</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightFront">
+                                                    <input type="hidden" class="image-value-holder" data-original-key="rightFront">
+                                                    <div class="image-preview" data-original-key="rightFront"></div>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">左幅立面照：</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="leftSide">
+                                                    <input type="hidden" class="image-value-holder" data-original-key="leftSide">
+                                                    <div class="image-preview" data-original-key="leftSide"></div>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="form-group image-upload-item">
+                                                    <label class="control-label">右幅立面照：</label>
+                                                    <input type="file" name="files" class="file-loading" accept="image/*" data-key="rightSide">
+                                                    <input type="hidden" class="image-value-holder" data-original-key="rightSide">
+                                                    <div class="image-preview" data-original-key="rightSide"></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -313,16 +338,41 @@
                             <!-- Tab2 外观检测结果 -->
                             <div class="tab-pane" id="tab_2">
                                 <div class="alert alert-success alert-custom">
-                                    <h4><i class="fa fa-check-circle"></i> 此章节由系统自动生成</h4>
+                                    <h4><i class="fa fa-check-circle"></i> 检测结果表由系统自动生成</h4>
                                     <p><strong>章节名称：</strong>2. 外观检测结果</p>
-                                    <p><strong>生成内容：</strong></p>
-                                    <ul>
-                                        <li>上部结构的检测情况和病害统计</li>
-                                        <li>下部结构的检测情况和病害统计</li>
-                                        <li>桥面系的检测情况和病害统计</li>
-                                    </ul>
-                                    <p class="text-muted"><i class="fa fa-info-circle"></i>
-                                        系统会根据病害库、构件库自动生成外观检测结果。</p>
+                                    <p>上部结构、下部结构、桥面系的病害表仍按病害库自动生成。下面只决定哪些病害的照片写入报告。</p>
+                                </div>
+                                <div class="panel panel-default">
+                                    <div class="panel-heading">
+                                        <h4 class="panel-title">病害图片</h4>
+                                    </div>
+                                    <div class="panel-body">
+                                        <p class="text-muted">按图片勾选。打开时只默认勾选每个裂缝病害的第一张，其他病害不勾。还没保存时，每个病害生成一张照片。保存后只生成勾中的图片，裂缝每个病害最多一张。</p>
+                                        <div class="form-group">
+                                            <label class="control-label">选择生成照片的病害：</label>
+                                            <div class="row">
+                                                <div class="col-md-10">
+                                                    <input type="text" class="form-control" readonly
+                                                           id="appearance-images-display"
+                                                           placeholder="未保存时，每个病害生成一张照片"
+                                                           onclick="showDiseaseSelector('appearance-images')">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button type="button" class="btn btn-primary"
+                                                            onclick="showDiseaseSelector('appearance-images')">
+                                                        <i class="fa fa-picture-o"></i> 选择图片
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" data-original-key="appearanceImageSelection"
+                                                   id="appearance-images-value">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <div class="col-sm-12 text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_2')">保存</button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -381,11 +431,11 @@
                                     <p><strong>章节名称：</strong>6. 近年评定结果对比分析</p>
                                     <p><strong>生成内容：</strong></p>
                                     <ul>
-                                        <li>自动查询历史评定数据</li>
-                                        <li>生成近年评定结果对比分析表</li>
-                                        <li>展示技术状况的变化趋势</li>
+                                        <li>优先使用系统中上年任务的评定数据</li>
+                                        <li>没有上年任务时，可用「Word 内容匹配」导入上年报告，按表名对应子桥名识别评定表</li>
+                                        <li>生成近年评定结果对比分析表；整座大桥总体等级取各子桥中最高的一类</li>
                                     </ul>
-                                    <p class="text-muted"><i class="fa fa-info-circle"></i> 系统会从历史任务中提取评定数据，自动生成对比分析。</p>
+                                    <p class="text-muted"><i class="fa fa-info-circle"></i> 导入上年报告后，表题如「通顺河2号大桥（小箱梁）左幅桥梁技术状况评定表」会对应系统中同名子桥，读取上部结构、下部结构、桥面系技术状况评分以及总分和评定等级。</p>
                                 </div>
                             </div>
 
@@ -439,30 +489,49 @@
                                     </div>
                                     <div class="panel-body">
                                         <div class="alert alert-info">
-                                            <p><i class="fa fa-info-circle"></i> 显示当前大桥下各子桥本次检测的全部病害，按构件分类。可搜索、按标度筛选，并逐条勾选重点病害，报告按所选记录生成成因分析。</p>
+                                            <p><i class="fa fa-info-circle"></i> 汇总表与成因分析分开勾选，互不影响。两个选择器都默认勾选 3 类及以上病害，可再增删。未保存过选择时，报告也按 3 类及以上自动生成。</p>
                                         </div>
 
-                                        <!-- 病害选择器 -->
                                         <div class="form-group">
-                                            <label class="control-label">选择重点关注病害:</label>
+                                            <label class="control-label">选择重点关注病害（汇总表）:</label>
                                             <div class="row">
                                                 <div class="col-md-10">
                                                     <input type="text" class="form-control" readonly
-                                                           id="single-diseases-display"
-                                                           placeholder="请选择重点关注病害"
-                                                           onclick="showDiseaseSelector('single-diseases')">
+                                                           id="key-concern-diseases-display"
+                                                           placeholder="未选择时自动列入3类及以上"
+                                                           onclick="showDiseaseSelector('key-concern-diseases')">
                                                 </div>
                                                 <div class="col-md-2">
                                                     <button type="button" class="btn btn-primary"
-                                                            onclick="showDiseaseSelector('single-diseases')">
+                                                            onclick="showDiseaseSelector('key-concern-diseases')">
                                                         <i class="fa fa-list"></i> 选择病害
                                                     </button>
                                                 </div>
                                             </div>
-                                            <!-- 隐藏字段存储JSON数据 -->
+                                            <input type="hidden" name="dataValues[${keyConcernSelection}]"
+                                                   data-original-key="${keyConcernSelection}"
+                                                   id="key-concern-diseases-value">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="control-label">选择成因分析病害:</label>
+                                            <div class="row">
+                                                <div class="col-md-10">
+                                                    <input type="text" class="form-control" readonly
+                                                           id="cause-analysis-display"
+                                                           placeholder="未选择时自动列入3类及以上"
+                                                           onclick="showDiseaseSelector('cause-analysis')">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button type="button" class="btn btn-primary"
+                                                            onclick="showDiseaseSelector('cause-analysis')">
+                                                        <i class="fa fa-list"></i> 选择病害
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <input type="hidden" name="dataValues[${focusDiseases}]"
                                                    data-original-key="${focusDiseases}"
-                                                   id="single-diseases-value">
+                                                   id="cause-analysis-value">
                                         </div>
                                     </div>
                                 </div>
@@ -597,6 +666,9 @@
                                             </label>
                                         </div>
                                         <div id="appendixBridgeCardList"></div>
+                                        <p class="text-muted" style="margin-top:16px">每座子桥单独填写卡片里「桥梁检测评定历史」的第一行。评定时间选到年月，写入附表为 2026-05 这种形式，下次检测时间只填年份，检查结果选 1 到 5 类。没填的格子仍用桥梁卡片里的原值。</p>
+                                        <input type="hidden" data-original-key="appendixEvaluationHistory" id="appendixEvaluationHistory">
+                                        <div id="appendixHistoryForms"></div>
                                         <div class="form-group text-center" style="margin-top: 20px;">
                                             <button type="button" class="btn btn-primary" onclick="saveTabData('tab_12')">保存</button>
                                         </div>
@@ -652,6 +724,7 @@
                     <button type="button" id="wordMatchStart" class="btn btn-primary" onclick="startWordMatch()">识别并匹配</button>
                 </div>
                 <p id="wordMatchMessage" role="status" aria-live="polite" style="margin-top:12px"></p>
+                <div id="wordMatchEvaluations" class="alert alert-info" style="display:none;margin-top:12px;padding:8px 12px"></div>
                 <div class="table-responsive" style="max-height:380px;overflow:auto">
                     <table class="table table-bordered table-striped">
                         <thead><tr><th>来源章节</th><th>目标填报项</th><th>状态</th><th>内容</th><th>操作</th></tr></thead>
@@ -688,6 +761,7 @@
     var currentGroupId = null;
     var currentSelectorType = ''; // 当前选择器类型
     var diseaseComponentData = {}; // {taskId: {taskId, buildingName, diseases: []}}
+    var appearanceImageData = {};
     var loadSeq = 0;
     var bridgeGroups = [];
     var groupSeq = 0;
@@ -710,6 +784,7 @@
         $('#wordMatchReplace').prop('checked', false);
         clearWordMatchRows();
         $('#wordMatchMissing').empty();
+        $('#wordMatchEvaluations').hide().empty();
         $('#wordMatchPreview').hide();
         $('#wordMatchMessage').text('正在识别 Word 正文章节，请稍候……');
         $('#wordMatchStart, #wordMatchFile').prop('disabled', true);
@@ -729,6 +804,7 @@
                 $('#wordMatchMessage').text('识别到 ' + wordMatchResult.sections.length + ' 个内容片段。'
                     + (wordMatchResult.warnings || []).join(' '));
                 renderWordMatches();
+                renderWordEvaluations();
             },
             error: function () { $('#wordMatchMessage').text('识别请求失败，请检查文件或稍后重试。'); },
             complete: function () {
@@ -837,10 +913,122 @@
         });
         var missing = result.targets.filter(function (target) { return !counts[target.id]; });
         var conflict = Object.keys(counts).some(function (id) { return counts[id] > 1; });
-        $('#wordMatchApply').prop('disabled', wordMatchSaving || !wordMatchSourceFile || conflict || !Object.keys(counts).length);
+        var hasEval = (result.evaluationTables || []).length > 0;
+        $('#wordMatchApply').prop('disabled', wordMatchSaving || !wordMatchSourceFile || conflict || (!Object.keys(counts).length && !hasEval));
         $('#wordMatchMissing').text(missing.length ? '未匹配的填报项：' + missing.map(function (target) {
             return target.groupName + ' / ' + target.label;
         }).join('；') : '所有支持的填报项均已有来源匹配。');
+    }
+
+    function formatEvalScore(value) {
+        return value == null || value === '' ? '/' : value;
+    }
+
+    function normalizeBridgeName(value) {
+        return String(value || '').replace(/\s+/g, '').replace(/（/g, '(').replace(/）/g, ')');
+    }
+
+    function suggestEvaluationBridge(table) {
+        var caption = normalizeBridgeName(table.bridgeName);
+        var parent = normalizeBridgeName(table.sourceBridge);
+        var tasks = reportTasks || [];
+        function nameOf(task) {
+            return normalizeBridgeName(task.bridgeName || task.name);
+        }
+        var side = caption.indexOf('左幅') >= 0 ? '左幅' : (caption.indexOf('右幅') >= 0 ? '右幅' : '');
+        var structureMatch = caption.match(/\(([^)]+)\)/);
+        var structure = structureMatch ? structureMatch[1] : '';
+        var namedBridge = caption.replace(/左幅|右幅/g, '').replace(/\([^)]*\)/g, '');
+        var captionNamesBridge = /(?:特大桥|大桥|中桥|小桥|高架桥|匝道桥)/.test(namedBridge);
+        var pieces = [];
+        if (captionNamesBridge) {
+            pieces.push(namedBridge);
+        } else if (parent) {
+            pieces.push(parent);
+        }
+        if (side) pieces.push(side);
+        if (structure) pieces.push(structure);
+        if (!pieces.length && caption) pieces.push(caption);
+        var hits = tasks.filter(function (task) {
+            var name = nameOf(task);
+            return pieces.every(function (piece) { return piece && name.indexOf(piece) >= 0; });
+        });
+        if (hits.length === 1) {
+            return hits[0].bridgeName || hits[0].name;
+        }
+        if (caption) {
+            var contained = tasks.filter(function (task) {
+                var name = nameOf(task);
+                return name.indexOf(caption) >= 0 || caption.indexOf(name) >= 0;
+            });
+            if (contained.length === 1) {
+                return contained[0].bridgeName || contained[0].name;
+            }
+        }
+        return '';
+    }
+
+    function renderWordEvaluations() {
+        var tables = (wordMatchResult && wordMatchResult.evaluationTables) || [];
+        var $box = $('#wordMatchEvaluations');
+        if (!tables.length) {
+            $box.hide().empty();
+            return;
+        }
+        $box.find('.word-eval-match').each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) {
+                $(this).select2('destroy');
+            }
+        });
+        $box.empty().show().append($('<div>').text('识别到 ' + tables.length
+            + ' 张技术状况评定表。最右列选择系统里的子桥，能对上的已经预选。留在「不导入」的不导入。'));
+        var $table = $('<table class="table table-bordered" style="margin-top:8px;background:#fff">');
+        $table.append('<thead><tr><th>表题桥名</th><th>文档中的大桥</th><th>分数</th><th>对应系统子桥</th></tr></thead>');
+        var $body = $('<tbody>');
+        tables.forEach(function (table) {
+            var suggested = suggestEvaluationBridge(table);
+            var $select = $('<select class="form-control word-eval-match">')
+                .attr('data-eval-id', table.id || '');
+            $select.append($('<option>').val('').text('不导入'));
+            (reportTasks || []).forEach(function (task) {
+                var value = task.bridgeName || task.name || '';
+                $select.append($('<option>').val(value).text(task.name || value));
+            });
+            $select.val(suggested);
+            $select.css({width: '100%', minWidth: '220px'});
+            var $row = $('<tr>');
+            $row.append($('<td>').text(table.bridgeName || '未识别桥名'));
+            $row.append($('<td>').text(table.sourceBridge || '未识别到大桥标题'));
+            $row.append($('<td>').text('上部 ' + formatEvalScore(table.superstructureScore)
+                + ' / 下部 ' + formatEvalScore(table.substructureScore)
+                + ' / 桥面系 ' + formatEvalScore(table.deckSystemScore)
+                + ' / 总分 ' + formatEvalScore(table.systemScore)
+                + ' / ' + (table.systemLevel == null ? '/' : table.systemLevel + '类')));
+            $row.append($('<td style="min-width:220px">').append($select));
+            $body.append($row);
+        });
+        $table.append($body);
+        $box.append($table).show();
+    }
+
+    function collectEvaluationMatches() {
+        var matches = [];
+        var seen = {};
+        var duplicated = '';
+        $('#wordMatchEvaluations .word-eval-match').each(function () {
+            var matchedName = $(this).val();
+            if (!matchedName) {
+                return;
+            }
+            var key = normalizeBridgeName(matchedName);
+            if (seen[key]) {
+                duplicated = $(this).find('option:selected').text();
+                return;
+            }
+            seen[key] = true;
+            matches.push({id: $(this).attr('data-eval-id'), matchedName: matchedName});
+        });
+        return {matches: matches, duplicated: duplicated};
     }
 
     function applyWordMatches() {
@@ -861,10 +1049,19 @@
             matches.push({sourceId: source.id, groupId: target.groupId, key: target.key,
                 expectedVersion: target.version, replaceExisting: replace});
         }
-        if (!matches.length) return;
+        var evaluationPick = collectEvaluationMatches();
+        if (evaluationPick.duplicated) {
+            $('#wordMatchMessage').text('多张评定表选到了同一座子桥：' + evaluationPick.duplicated);
+            return;
+        }
+        if (!matches.length && !evaluationPick.matches.length) {
+            $('#wordMatchMessage').text('请至少选择一个章节匹配，或为一张评定表选择系统子桥。');
+            return;
+        }
         var form = new FormData();
         form.append('reportId', reportId); form.append('file', wordMatchSourceFile);
         form.append('matches', JSON.stringify(matches));
+        form.append('evaluationMatches', JSON.stringify(evaluationPick.matches));
         wordMatchSaving = true;
         $('#wordMatchModal input, #wordMatchModal select, #wordMatchStart, #wordMatchApply').prop('disabled', true);
         $('#wordMatchMessage').text('正在验证内容完整性并保存原 Word，请稍候……');
@@ -1008,11 +1205,13 @@
         if (!currentGroupId) {
             $list.append('<p class="text-muted">请先选择大桥。</p>');
             $('#appendixBridgeCardSelectAll').prop('checked', false);
+            $('#appendixHistoryForms').empty();
             return;
         }
         if (taskIds.length === 0) {
             $list.append('<p class="text-muted">当前大桥下没有子桥。</p>');
             $('#appendixBridgeCardSelectAll').prop('checked', false);
+            $('#appendixHistoryForms').empty();
             return;
         }
         var selected = parseAppendixCardTaskIds($('#appendixBridgeCardTaskIds').val());
@@ -1028,6 +1227,105 @@
             $list.append($label);
         });
         syncAppendixCardSelectAll();
+        renderAppendixHistoryForms();
+    }
+
+    function parseAppendixHistory() {
+        var raw = $('#appendixEvaluationHistory').val();
+        if (!raw) {
+            return {};
+        }
+        try {
+            var parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function renderAppendixHistoryForms() {
+        var $box = $('#appendixHistoryForms');
+        if (!$box.length) {
+            return;
+        }
+        $box.empty();
+        var taskIds = currentGroupTaskIds();
+        if (!currentGroupId || taskIds.length === 0) {
+            return;
+        }
+        var saved = parseAppendixHistory();
+        taskIds.forEach(function (taskId) {
+            var row = saved[String(taskId)] || {};
+            var $panel = $('<div class="panel panel-default" style="margin-bottom:12px">');
+            $panel.append($('<div class="panel-heading" style="padding:8px 12px">').text(taskNameById(taskId)));
+            var $body = $('<div class="panel-body" style="padding:12px">');
+            $body.append(historyField('评定时间', historyMonth(taskId, 'date', row.date)));
+            $body.append(historyField('检测类别', historyText(taskId, 'category', row.category, '不填则仍为定期检测')));
+            $body.append(historyField('检查结果', historyLevel(taskId, row.result)));
+            $body.append(historyField('处治对策', historyText(taskId, 'disposal', row.disposal, '不填则沿用桥梁卡片')));
+            $body.append(historyField('下次检测时间', historyYear(taskId, 'next', row.next)));
+            $panel.append($body);
+            $box.append($panel);
+        });
+    }
+
+    function historyField(label, control) {
+        var $group = $('<div class="form-group" style="margin-bottom:8px">');
+        $group.append($('<label class="control-label">').text(label));
+        $group.append(control);
+        return $group;
+    }
+
+    function historyYear(taskId, field, value) {
+        var year = String(value || '').match(/\d{4}/);
+        return $('<input type="number" class="form-control appendix-history-input" min="1900" max="2100" step="1" placeholder="例如 2026">')
+            .attr('data-task-id', taskId)
+            .attr('data-history-field', field)
+            .val(year ? year[0] : '');
+    }
+
+    function historyMonth(taskId, field, value) {
+        return $('<input type="month" class="form-control appendix-history-input">')
+            .attr('data-task-id', taskId)
+            .attr('data-history-field', field)
+            .val(value || '');
+    }
+
+    function historyText(taskId, field, value, placeholder) {
+        return $('<input type="text" class="form-control appendix-history-input">')
+            .attr('data-task-id', taskId)
+            .attr('data-history-field', field)
+            .attr('placeholder', placeholder || '')
+            .val(value || '');
+    }
+
+    function historyLevel(taskId, value) {
+        var $select = $('<select class="form-control appendix-history-input">')
+            .attr('data-task-id', taskId)
+            .attr('data-history-field', 'result');
+        $select.append($('<option>').val('').text('沿用桥梁卡片'));
+        ['1类', '2类', '3类', '4类', '5类'].forEach(function (level) {
+            $select.append($('<option>').val(level).text(level));
+        });
+        $select.val(value || '');
+        return $select;
+    }
+
+    function syncAppendixHistory() {
+        var $inputs = $('#appendixHistoryForms .appendix-history-input');
+        if ($inputs.length === 0) {
+            return;
+        }
+        var saved = parseAppendixHistory();
+        $inputs.each(function () {
+            var taskId = String($(this).data('task-id'));
+            var field = $(this).data('history-field');
+            if (!saved[taskId]) {
+                saved[taskId] = {};
+            }
+            saved[taskId][field] = $(this).val() || '';
+        });
+        $('#appendixEvaluationHistory').val(JSON.stringify(saved));
     }
 
     function syncAppendixCardSelection() {
@@ -1370,6 +1668,7 @@
             }
             currentGroupId = $(this).val() || null;
             diseaseComponentData = {};
+            appearanceImageData = {};
             clearBridgeFormData();
             loadReportData();
         });
@@ -1545,13 +1844,9 @@
             }
         }
 
-        // 特殊处理病害选择器显示
-        var diseaseValue = $('input[data-original-key="${focusDiseases}"]').val();
-        console.log('加载病害数据 - diseaseValue:', diseaseValue);
-        console.log('加载病害数据 - diseaseValue type:', typeof diseaseValue);
-        if (diseaseValue) {
-            updateDiseaseDisplay('single-diseases');
-        }
+        updateDiseaseDisplay('key-concern-diseases');
+        updateDiseaseDisplay('cause-analysis');
+        updateDiseaseDisplay('appearance-images');
         renderAppendixCardChecks();
     }
 
@@ -1665,6 +1960,9 @@
             }
         });
 
+        if (tabId === 'tab_12') {
+            syncAppendixHistory();
+        }
         syncAppendixCardSelection();
         tabPane.find('input[type="hidden"][data-original-key]').each(function () {
             if ($(this).hasClass('image-value-holder')) {
@@ -1764,8 +2062,17 @@
             && Object.keys(diseaseComponentData).length > 0;
     }
 
+    function isAppearanceImageSelector() {
+        return currentSelectorType === 'appearance-images';
+    }
+
+    function activeDiseaseData() {
+        return isAppearanceImageSelector() ? appearanceImageData : diseaseComponentData;
+    }
+
     function taskDisplayName(taskId) {
-        var data = diseaseComponentData[taskId] || diseaseComponentData[String(taskId)];
+        var data = diseaseComponentData[taskId] || diseaseComponentData[String(taskId)]
+            || appearanceImageData[taskId] || appearanceImageData[String(taskId)];
         if (data && data.buildingName) {
             return data.buildingName;
         }
@@ -1839,30 +2146,51 @@
             && (!levels.length || levels.indexOf(String(disease.level || 0)) !== -1);
     }
 
+    function diseaseSelectorTitle(selectorType) {
+        if (selectorType === 'appearance-images') return '选择外观检测病害图片';
+        return selectorType === 'cause-analysis' ? '选择成因分析病害' : '选择重点关注病害';
+    }
+
+    function diseaseSelectorEmptyHint(selectorType) {
+        if (selectorType === 'appearance-images') return '未保存时，每个病害生成一张照片';
+        return selectorType === 'cause-analysis'
+            ? '未选择时自动列入3类及以上（成因分析）'
+            : '未选择时自动列入3类及以上（汇总表）';
+    }
+
+    function shouldAutoSelectLevel3(selectedData) {
+        return !selectedData || !Object.keys(selectedData).length;
+    }
+
     function showDiseaseSelector(selectorType) {
         currentSelectorType = selectorType;
-        $('#diseaseSelectModalLabel').text('选择重点关注病害');
+        $('#diseaseSelectModalLabel').text(diseaseSelectorTitle(selectorType));
         $('#confirmDiseaseSelection').prop('disabled', true);
-        if (hasDiseaseComponentData()) {
+        var ready = isAppearanceImageSelector()
+            ? appearanceImageData && Object.keys(appearanceImageData).length
+            : hasDiseaseComponentData();
+        if (ready) {
             renderDiseaseSelectionTabs();
         } else {
             $('#diseaseTaskTabs').empty();
             $('#diseaseTaskTabContent').html('<div class="text-center" style="padding: 50px;"><i class="fa fa-spinner fa-spin"></i> 正在加载数据...</div>');
-            loadDiseaseComponentDataWithCallback(renderDiseaseSelectionTabs);
+            loadDiseaseComponentDataWithCallback(renderDiseaseSelectionTabs, isAppearanceImageSelector());
         }
         $('#diseaseSelectModal').modal('show');
     }
 
-    function loadDiseaseComponentDataWithCallback(successCallback) {
+    function loadDiseaseComponentDataWithCallback(successCallback, includeImages) {
         var requestedGroupId = currentGroupId;
         var requestData = {reportId: reportId};
         if (requestedGroupId) requestData.groupId = requestedGroupId;
+        if (includeImages) requestData.includeImages = true;
         $.ajax({
             url: prefix + '/diseaseComponentData', type: 'post', data: requestData, dataType: 'json',
             success: function (result) {
                 if (currentGroupId !== requestedGroupId) return;
                 if (result.code == 0 && result.data) {
-                    diseaseComponentData = result.data;
+                    if (includeImages) appearanceImageData = result.data;
+                    else diseaseComponentData = result.data;
                     if (successCallback) successCallback();
                 } else {
                     $('#diseaseTaskTabContent').html('<div class="text-center text-danger">加载数据失败，请关闭后重新打开。</div>');
@@ -1876,58 +2204,129 @@
     }
 
     function renderDiseaseSelectionTabs() {
-        if (!hasDiseaseComponentData()) {
+        var source = activeDiseaseData();
+        if (!source || !Object.keys(source).length) {
             $('#diseaseTaskTabs').empty();
             $('#diseaseTaskTabContent').html('<div class="text-center text-muted" style="padding: 50px;">暂无数据</div>');
             return;
         }
         var selectedData = parseSelectedDiseaseData($('#' + currentSelectorType + '-value').val());
+        var autoSelectLevel3 = shouldAutoSelectLevel3(selectedData);
         var tabsHtml = '';
-        var contentHtml = selectedData.version === 2 || !Object.keys(selectedData).length ? ''
+        var contentHtml = isAppearanceImageSelector() || selectedData.version === 2 || !Object.keys(selectedData).length ? ''
             : '<p class="text-info">原选择按构件和病害类型保存，已勾选对应的全部病害记录；请核对后保留需要的具体病害。</p>';
-        Object.keys(diseaseComponentData).forEach(function (taskId, index) {
-            var data = diseaseComponentData[taskId];
+        Object.keys(source).forEach(function (taskId, index) {
+            var data = source[taskId];
             var name = data.buildingName || taskDisplayName(taskId);
             var active = index === 0 ? 'active' : '';
             tabsHtml += '<li role="presentation" class="' + active + '"><a href="#task-' + diseaseHtml(taskId)
                 + '" data-toggle="tab">' + diseaseHtml(name) + '</a></li>';
             contentHtml += '<div role="tabpanel" class="tab-pane ' + active + '" id="task-' + diseaseHtml(taskId) + '">'
-                + renderDiseaseListForTask(taskId, name, data.diseases || [], selectedData) + '</div>';
+                + renderDiseaseListForTask(taskId, name, data.diseases || [], selectedData, autoSelectLevel3) + '</div>';
         });
         $('#diseaseTaskTabs').html(tabsHtml);
         $('#diseaseTaskTabContent').html(contentHtml);
         bindDiseaseSelectionEvents();
-        Object.keys(diseaseComponentData).forEach(filterDiseaseList);
+        Object.keys(source).forEach(filterDiseaseList);
         $('#confirmDiseaseSelection').prop('disabled', false);
     }
 
-    function renderDiseaseListForTask(taskId, buildingName, diseases, selectedData) {
+    function renderDiseaseListForTask(taskId, buildingName, diseases, selectedData, autoSelectLevel3) {
+        var imageMode = isAppearanceImageSelector();
+        var rows = imageMode ? diseases.filter(function (disease) {
+            return disease.images && disease.images.length;
+        }) : diseases;
         var taskAttr = diseaseHtml(taskId);
-        var selected = selectedDiseaseIdsForTask(selectedData, taskId, diseases);
-        var html = '<div class="form-group" style="margin-top:15px"><label for="disease-search-' + taskAttr + '">搜索病害</label>'
+        var selectedImages = imageMode && selectedData && selectedData.version === 3
+            ? ((selectedData.tasks || {})[String(taskId)] || []).reduce(function (map, id) { map[String(id)] = true; return map; }, {})
+            : null;
+        var selected = imageMode ? {} : selectedDiseaseIdsForTask(selectedData, taskId, rows);
+        if (!imageMode && autoSelectLevel3) {
+            rows.forEach(function (disease) {
+                if (Number(disease.level) >= 3) selected[String(disease.diseaseId)] = true;
+            });
+        }
+        var html = '<div class="form-group" style="margin-top:15px"><label for="disease-search-' + taskAttr + '">'
+            + (imageMode ? '搜索缺损类型' : '搜索病害') + '</label>'
             + '<input id="disease-search-' + taskAttr + '" class="form-control disease-search-input" data-task-id="' + taskAttr
-            + '" placeholder="搜索构件名称、编号、病害位置、类型或描述；多个关键词用空格分隔"></div>';
-        html += '<div class="form-group disease-scale-filters" data-task-id="' + taskAttr + '"><strong>病害标度：</strong>';
-        [1, 2, 3, 4, 5, 0].forEach(function (level) {
-            html += '<label class="checkbox-inline"><input type="checkbox" class="disease-scale-filter" data-task-id="'
-                + taskAttr + '" value="' + level + '">' + (level ? level + '类' : '未标度') + '</label>';
-        });
-        html += '<span class="help-block">可多选；不勾选时显示全部标度。</span></div>';
+            + '" placeholder="' + (imageMode ? '搜索缺损类型，多个关键词用空格分隔' : '搜索构件名称、编号、病害位置、类型或描述；多个关键词用空格分隔') + '"></div>';
+        if (imageMode) {
+            html += '<div class="form-group" data-task-id="' + taskAttr + '"><strong>是否裂缝：</strong>'
+                + '<label class="radio-inline"><input type="radio" class="appearance-crack-filter" name="appearance-crack-' + taskAttr
+                + '" data-task-id="' + taskAttr + '" value="all" checked> 全部</label>'
+                + '<label class="radio-inline"><input type="radio" class="appearance-crack-filter" name="appearance-crack-' + taskAttr
+                + '" data-task-id="' + taskAttr + '" value="crack"> 裂缝</label>'
+                + '<label class="radio-inline"><input type="radio" class="appearance-crack-filter" name="appearance-crack-' + taskAttr
+                + '" data-task-id="' + taskAttr + '" value="other"> 非裂缝</label></div>';
+        }
+        if (!imageMode) {
+            html += '<div class="form-group disease-scale-filters" data-task-id="' + taskAttr + '"><strong>病害标度：</strong>';
+            [1, 2, 3, 4, 5, 0].forEach(function (level) {
+                html += '<label class="checkbox-inline"><input type="checkbox" class="disease-scale-filter" data-task-id="'
+                    + taskAttr + '" value="' + level + '">' + (level ? level + '类' : '未标度') + '</label>';
+            });
+            html += '<span class="help-block">可多选；不勾选时显示全部标度。</span></div>';
+        }
         html += '<div class="clearfix" style="margin-bottom:10px"><label class="pull-left"><input type="checkbox" class="select-all-diseases" data-task-id="'
             + taskAttr + '"> 全选当前筛选结果</label><span class="pull-right text-muted disease-selection-count" data-task-id="' + taskAttr + '" aria-live="polite"></span></div>';
         html += '<div class="disease-selection-list" data-task-id="' + taskAttr + '" style="max-height:450px;overflow-y:auto">';
         var groups = {};
-        diseases.forEach(function (disease) {
-            var key = disease.componentId == null ? 'name:' + disease.componentName : 'id:' + disease.componentId;
-            if (!groups[key]) groups[key] = {name: disease.componentName || '未分类构件', diseases: []};
+        var groupOrder = [];
+        rows.forEach(function (disease) {
+            var key = imageMode
+                ? 'structure:' + (disease.structureName || '其他')
+                : (disease.componentId == null ? 'name:' + disease.componentName : 'id:' + disease.componentId);
+            if (!groups[key]) {
+                groups[key] = {name: imageMode ? (disease.structureName || '其他') : (disease.componentName || '未分类构件'), diseases: []};
+                groupOrder.push(key);
+            }
             groups[key].diseases.push(disease);
         });
-        Object.keys(groups).forEach(function (key) {
+        if (imageMode) {
+            var structureOrder = ['上部结构', '下部结构', '桥面系'];
+            groupOrder.sort(function (left, right) {
+                var leftIndex = structureOrder.indexOf(groups[left].name);
+                var rightIndex = structureOrder.indexOf(groups[right].name);
+                return (leftIndex < 0 ? 99 : leftIndex) - (rightIndex < 0 ? 99 : rightIndex);
+            });
+        }
+        var seenCrack = {};
+        groupOrder.forEach(function (key, groupIndex) {
             var group = groups[key];
-            html += '<div class="component-group"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px">'
-                + diseaseHtml(group.name) + ' <small>（' + group.diseases.length + '条）</small></h5><div class="table-responsive">'
-                + '<table class="table table-bordered table-hover"><thead><tr><th>选择</th><th>构件编号 / 病害位置</th><th>病害类型</th><th>病害描述</th><th>标度</th></tr></thead><tbody>';
+            var imageCount = imageMode ? group.diseases.reduce(function (total, disease) {
+                return total + ((disease.images || []).length);
+            }, 0) : group.diseases.length;
+            var collapseId = 'appearance-structure-' + taskAttr + '-' + groupIndex;
+            if (imageMode) {
+                html += '<div class="component-group"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px;cursor:pointer" data-toggle="collapse" data-target="#'
+                    + collapseId + '"><i class="fa fa-chevron-down"></i> '
+                    + diseaseHtml(group.name) + ' <small>（' + imageCount + '张）</small></h5><div id="' + collapseId + '" class="collapse in"><div class="table-responsive">';
+            } else {
+                html += '<div class="component-group"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px">'
+                    + diseaseHtml(group.name) + ' <small>（' + group.diseases.length + '条）</small></h5><div class="table-responsive">';
+            }
+            html += '<table class="table table-bordered table-hover"><thead><tr><th>选择</th>'
+                + (imageMode ? '<th>缺损位置</th><th>缺损类型</th><th>病害图片预览</th>' : '<th>构件编号 / 病害位置</th><th>病害类型</th><th>病害描述</th><th>标度</th>')
+                + '</tr></thead><tbody>';
             group.diseases.forEach(function (disease) {
+                if (imageMode) {
+                    (disease.images || []).forEach(function (image) {
+                        var imageId = String(image.id || '');
+                        var checked = selectedImages
+                            ? !!selectedImages[imageId]
+                            : (disease.crack && !seenCrack[disease.diseaseId]);
+                        if (disease.crack) seenCrack[disease.diseaseId] = true;
+                        html += '<tr class="disease-record" data-image-id="' + diseaseHtml(imageId)
+                            + '" data-crack="' + (disease.crack ? '1' : '0')
+                            + '" data-defect-type="' + diseaseHtml(disease.defectType || '') + '" data-matched="true">'
+                            + '<td><input type="checkbox" class="disease-checkbox" data-image-id="' + diseaseHtml(imageId)
+                            + '" aria-label="选择图片 ' + diseaseHtml(imageId) + '"' + (checked ? ' checked' : '') + '></td>'
+                            + '<td>' + diseaseHtml(disease.locationName || '—') + '</td>'
+                            + '<td>' + diseaseHtml(disease.defectType || '未填写类型') + '</td>'
+                            + '<td><img src="' + diseaseHtml(image.url || '') + '" alt="病害图片" style="max-width:140px;max-height:90px"></td></tr>';
+                    });
+                    return;
+                }
                 html += '<tr class="disease-record" data-disease-id="' + diseaseHtml(disease.diseaseId) + '" data-matched="true">'
                     + '<td><input type="checkbox" class="disease-checkbox" data-disease-id="' + diseaseHtml(disease.diseaseId)
                     + '" aria-label="选择病害 ' + diseaseHtml(disease.diseaseId) + '"' + (selected[String(disease.diseaseId)] ? ' checked' : '') + '></td>'
@@ -1937,10 +2336,10 @@
                     + '<td style="min-width:200px;white-space:pre-wrap;overflow-wrap:anywhere">' + diseaseHtml(disease.description || '未填写描述') + '</td>'
                     + '<td style="white-space:nowrap">' + (disease.level ? diseaseHtml(disease.level) + '类' : '未标度') + '</td></tr>';
             });
-            html += '</tbody></table></div></div>';
+            html += '</tbody></table></div>' + (imageMode ? '</div>' : '') + '</div>';
         });
         html += '<p class="text-center text-muted disease-no-matches" style="padding:30px;display:none">'
-            + (diseases.length ? '没有符合搜索和标度条件的病害' : '该子桥暂无病害数据') + '</p></div>';
+            + (rows.length ? '没有符合搜索条件的病害' : (imageMode ? '该子桥暂无带图片的病害' : '该子桥暂无病害数据')) + '</p></div>';
         return html;
     }
 
@@ -1949,10 +2348,22 @@
         var $pane = $('#task-' + taskId);
         var keyword = $pane.find('.disease-search-input').val() || '';
         var levels = $pane.find('.disease-scale-filter:checked').map(function () { return this.value; }).get();
+        var source = activeDiseaseData();
         var recordById = {};
-        (diseaseComponentData[taskId].diseases || []).forEach(function (record) { recordById[String(record.diseaseId)] = record; });
+        ((source[taskId] && source[taskId].diseases) || []).forEach(function (record) { recordById[String(record.diseaseId)] = record; });
         $pane.find('.disease-record').each(function () {
-            var matched = matchesDiseaseFilters(recordById[$(this).attr('data-disease-id')], keyword, levels);
+            var matched;
+            if ($(this).attr('data-image-id') != null) {
+                var defectType = String($(this).attr('data-defect-type') || '').toLowerCase();
+                var words = String(keyword || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+                var crackFilter = $pane.find('.appearance-crack-filter:checked').val() || 'all';
+                matched = words.every(function (word) { return defectType.indexOf(word) !== -1; })
+                    && (crackFilter === 'all'
+                        || (crackFilter === 'crack' && $(this).attr('data-crack') === '1')
+                        || (crackFilter === 'other' && $(this).attr('data-crack') !== '1'));
+            } else {
+                matched = matchesDiseaseFilters(recordById[$(this).attr('data-disease-id')], keyword, levels);
+            }
             $(this).attr('data-matched', String(matched)).toggle(matched);
         });
         $pane.find('.component-group').each(function () {
@@ -1970,11 +2381,13 @@
         var checked = $matched.filter(':checked').length;
         $pane.find('.select-all-diseases').prop('checked', $matched.length > 0 && checked === $matched.length)
             .prop('indeterminate', checked > 0 && checked < $matched.length).prop('disabled', !$matched.length);
-        $pane.find('.disease-selection-count').text('共 ' + $pane.find('.disease-record').length + ' 条 · 匹配 ' + $matched.length + ' 条 · 已选 ' + selected + ' 条');
+        var unit = $pane.find('.disease-record[data-image-id]').length ? '张' : '条';
+        $pane.find('.disease-selection-count').text('共 ' + $pane.find('.disease-record').length + ' ' + unit + ' · 匹配 ' + $matched.length + ' ' + unit + ' · 已选 ' + selected + ' ' + unit);
     }
 
     function bindDiseaseSelectionEvents() {
         $('.disease-search-input').off('input').on('input', function () { filterDiseaseList($(this).attr('data-task-id')); });
+        $('.appearance-crack-filter').off('change').on('change', function () { filterDiseaseList($(this).attr('data-task-id')); });
         $('.disease-scale-filter').off('change').on('change', function () { filterDiseaseList($(this).attr('data-task-id')); });
         $('.select-all-diseases').off('change').on('change', function () {
             var taskId = $(this).attr('data-task-id');
@@ -1988,10 +2401,13 @@
     }
 
     function confirmDiseaseSelection() {
-        var selections = {version: 2, tasks: {}};
+        var imageMode = currentSelectorType === 'appearance-images';
+        var selections = {version: imageMode ? 3 : 2, tasks: {}};
         $('.disease-selection-list').each(function () {
             var taskId = $(this).attr('data-task-id');
-            var ids = $(this).find('.disease-checkbox:checked').map(function () { return $(this).attr('data-disease-id'); }).get();
+            var ids = $(this).find('.disease-checkbox:checked').map(function () {
+                return imageMode ? $(this).attr('data-image-id') : $(this).attr('data-disease-id');
+            }).get();
             if (ids.length) selections.tasks[taskId] = ids;
         });
         $('#' + currentSelectorType + '-value').val(JSON.stringify(selections));
@@ -2002,10 +2418,11 @@
     function updateDiseaseDisplay(selectorType) {
         var data = parseSelectedDiseaseData($('#' + selectorType + '-value').val());
         var parts = [];
-        if (data.version === 2) {
+        if (data.version === 2 || data.version === 3) {
+            var unit = data.version === 3 ? '张' : '条';
             Object.keys(data.tasks || {}).forEach(function (taskId) {
                 var count = data.tasks[taskId].length;
-                if (count) parts.push(taskDisplayName(taskId) + ' ' + count + '条');
+                if (count) parts.push(taskDisplayName(taskId) + ' ' + count + unit);
             });
         } else if (Array.isArray(data)) {
             var count = countDiseaseItems(data);
@@ -2016,7 +2433,11 @@
                 if (count) parts.push(taskDisplayName(taskId) + ' ' + count + '项（待核对具体病害）');
             });
         }
-        $('#' + selectorType + '-display').val(parts.length ? '已选择：' + parts.join('、') : '请选择重点关注病害');
+        if (selectorType === 'appearance-images' && data.version === 3 && !parts.length) {
+            $('#' + selectorType + '-display').val('已保存：不生成病害照片');
+            return;
+        }
+        $('#' + selectorType + '-display').val(parts.length ? '已选择：' + parts.join('、') : diseaseSelectorEmptyHint(selectorType));
     }
 </script>
 </body>

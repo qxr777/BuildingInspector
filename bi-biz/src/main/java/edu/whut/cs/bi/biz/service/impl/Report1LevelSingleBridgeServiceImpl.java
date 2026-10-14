@@ -835,20 +835,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                             if (!refs.isEmpty()) {
                                 // 清除现有内容
                                 cellP.removeRun(cellP.getRuns().size() - 1);
-
-                                for (int j = 0; j < refs.size(); j++) {
-                                    String[] parts = refs.get(j).split("\\|");
-                                    String bookmarkName = parts[0];
-
-                                    if (j > 0) {
-                                        XWPFRun commaRun = cellP.createRun();
-                                        commaRun.setText(",");
-                                        ReportGenerateTools.setMixedFontFamily(commaRun, 21);  // 10.5pt
-                                    }
-
-                                    // 创建章节格式的图片引用域，添加"图"字前缀
-                                    WordFieldUtils.createChapterFigureReference(cellP, bookmarkName, "图", "");
-                                }
+                                WordFieldUtils.createChapterFigureReferenceRange(cellP, refs);
                             } else {
                                 cellR.setText("/");
                             }

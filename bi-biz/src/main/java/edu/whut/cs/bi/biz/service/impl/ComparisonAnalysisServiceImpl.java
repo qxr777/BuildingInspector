@@ -6,6 +6,7 @@ import edu.whut.cs.bi.biz.domain.Property;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.LineReportWordMatcher;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -545,6 +547,13 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
     @Override
     public void generateMultiBridgeComparisonAnalysisTable(XWPFDocument document, XWPFParagraph targetParagraph,
                                                           List<Task> currentYearTasks) {
+        generateMultiBridgeComparisonAnalysisTable(document, targetParagraph, currentYearTasks, null);
+    }
+
+    @Override
+    public void generateMultiBridgeComparisonAnalysisTable(XWPFDocument document, XWPFParagraph targetParagraph,
+                                                          List<Task> currentYearTasks,
+                                                          Map<String, BiEvaluation> importedPreviousByBridgeName) {
         try {
             log.info("开始生成多桥比较分析表格，任务数量: {}", currentYearTasks.size());
 
@@ -586,13 +595,17 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
                 // 获取当前年评定数据
                 BiEvaluation currentEvaluation = biEvaluationService.selectBiEvaluationByTaskId(currentTask.getId());
 
-                // 获取前一年评定数据
+                // 获取前一年评定数据：系统任务 → 导入上年报告评定表 → 桥梁卡片
                 BiEvaluation previousEvaluation = null;
                 if (previousTask != null) {
                     previousEvaluation = biEvaluationService.selectBiEvaluationByTaskId(previousTask.getId());
                 }
-
-                // 如果前一年没有评定数据，尝试从桥梁卡片 Excel 属性兜底。
+                if (!hasNumericScores(previousEvaluation)) {
+                    BiEvaluation imported = findImportedPrevious(importedPreviousByBridgeName, bridgeName);
+                    if (imported != null) {
+                        previousEvaluation = imported;
+                    }
+                }
                 if (previousEvaluation == null) {
                     PreviousEvaluationSnapshot snapshot = loadPreviousEvaluationFromBridgeCard(buildingId);
                     if (snapshot != null) {
@@ -848,6 +861,35 @@ public class ComparisonAnalysisServiceImpl implements ComparisonAnalysisService 
         for (XWPFRun run : paragraph.getRuns()) {
             ReportGenerateTools.setMixedFontFamily(run, 24);
         }
+    }
+
+    private boolean hasNumericScores(BiEvaluation evaluation) {
+        return evaluation != null && (evaluation.getSuperstructureScore() != null
+                || evaluation.getSubstructureScore() != null
+                || evaluation.getDeckSystemScore() != null
+                || evaluation.getSystemScore() != null);
+    }
+
+    private BiEvaluation findImportedPrevious(Map<String, BiEvaluation> imported, String bridgeName) {
+        if (imported == null || imported.isEmpty() || bridgeName == null) {
+            return null;
+        }
+        String key = LineReportWordMatcher.normalize(bridgeName);
+        if (key.isEmpty()) {
+            return null;
+        }
+        BiEvaluation exact = imported.get(key);
+        if (exact != null) {
+            return exact;
+        }
+        List<BiEvaluation> contains = new ArrayList<>();
+        for (Map.Entry<String, BiEvaluation> entry : imported.entrySet()) {
+            String name = entry.getKey();
+            if (name != null && !name.isEmpty() && (key.contains(name) || name.contains(key))) {
+                contains.add(entry.getValue());
+            }
+        }
+        return contains.size() == 1 ? contains.get(0) : null;
     }
 
     /**

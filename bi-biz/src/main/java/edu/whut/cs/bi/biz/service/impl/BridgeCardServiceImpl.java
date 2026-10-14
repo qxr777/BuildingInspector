@@ -435,56 +435,67 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     }
 
     /**
-     * 处理图片附件
+     * 处理图片附件。编辑页左槽是 0_newfront/0_newside，右槽是 1_。
+     * 单桥卡片只有 ${桥梁正面照}/${桥梁立面照}，必须用左槽，避免右图按返回顺序盖掉。
      */
     private void processImageAttachments(XWPFDocument document, Long buildingId, ReportTemplateTypes templateType) {
-        if (ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
-            // 1. 预先拆分成两个列表
-            List<FileMap> newFrontList = new ArrayList<>();
-            List<FileMap> newSideList = new ArrayList<>();
-            attachmentService.getAttachmentList(buildingId).stream()
-                    .map(att -> {
-                        FileMap fm = fileMapService.selectFileMapById(att.getMinioId());
-                        if (fm != null) {
-                            fm.setOldName(att.getName());   // 把原始文件名带下来
-                        }
-                        return fm;
-                    })
-                    .filter(Objects::nonNull)
-                    .forEach(fm -> {
-                        String[] parts = fm.getOldName().split("_");
-                        if (parts.length >= 2) {
-                            String type = parts[1].toLowerCase();
-                            if ("newfront".equals(type)) {
-                                newFrontList.add(fm);
-                            } else if ("newside".equals(type)) {
-                                newSideList.add(fm);
-                            }
-                        }
-                    });
-
-            for (int i = 0; i < newFrontList.size(); i++) {
-                insertImageIntoTables(document, fileMapService.handleFileDownloadByNewName(newFrontList.get(i).getNewName()), "${桥梁正面照" + i + "}");
+        String[] front = new String[2];
+        String[] side = new String[2];
+        List<Attachment> attachments = attachmentService.getAttachmentList(buildingId);
+        if (attachments != null) {
+            for (Attachment attachment : attachments) {
+                if (attachment == null || attachment.getName() == null || attachment.getMinioId() == null) {
+                    continue;
+                }
+                String[] parts = attachment.getName().split("_");
+                if (parts.length < 2) {
+                    continue;
+                }
+                int index;
+                try {
+                    index = Integer.parseInt(parts[0]);
+                } catch (NumberFormatException e) {
+                    continue;
+                }
+                if (index < 0 || index > 1) {
+                    continue;
+                }
+                FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
+                if (fileMap == null || fileMap.getNewName() == null) {
+                    continue;
+                }
+                String type = parts[1].toLowerCase(Locale.ROOT);
+                if ("newfront".equals(type) || "front".equals(type)) {
+                    front[index] = fileMap.getNewName();
+                } else if ("newside".equals(type) || "side".equals(type)) {
+                    side[index] = fileMap.getNewName();
+                }
             }
-            for (int i = 0; i < newSideList.size(); i++) {
-                insertImageIntoTables(document, fileMapService.handleFileDownloadByNewName(newSideList.get(i).getNewName()), "${桥梁立面照" + i + "}");
-            }
-        } else {
-            attachmentService.getAttachmentList(buildingId).stream()
-                    .map(attachment -> {
-                        FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
-                        if (fileMap != null) {
-                            fileMap.setOldName(attachment.getName());
-                        }
-                        return fileMap;
-                    })
-                    .forEach(fileMap -> {
-                        if (fileMap != null) {
-                            byte[] file = fileMapService.handleFileDownloadByNewName(fileMap.getNewName());
-                            insertImageIntoTables(document, file, fileMap.getOldName(), templateType);
-                        }
-                    });
         }
+        String leftFront = front[0] != null ? front[0] : front[1];
+        String rightFront = front[1] != null ? front[1] : front[0];
+        String leftSide = side[0] != null ? side[0] : side[1];
+        String rightSide = side[1] != null ? side[1] : side[0];
+
+        insertCardImage(document, leftFront, "${桥梁正面照}");
+        insertCardImage(document, leftSide, "${桥梁立面照}");
+        insertCardImage(document, rightFront, "${桥梁正面照1}");
+        insertCardImage(document, rightSide, "${桥梁立面照1}");
+        if (templateType != null && ReportTemplateTypes.is1LevelSigleBridge(templateType.getType())) {
+            insertCardImage(document, leftFront, "${桥梁正面照0}");
+            insertCardImage(document, leftSide, "${桥梁立面照0}");
+        }
+    }
+
+    private void insertCardImage(XWPFDocument document, String fileName, String placeholder) {
+        if (document == null || fileName == null || fileName.isBlank()) {
+            return;
+        }
+        byte[] imageData = fileMapService.handleFileDownloadByNewName(fileName);
+        if (imageData == null || imageData.length == 0) {
+            return;
+        }
+        insertImageIntoTables(document, imageData, placeholder);
     }
 
     /**
