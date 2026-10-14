@@ -300,20 +300,25 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
                     }
                     cur += 22;
 
-                    // 构造桥牌信息
+                    // 构造桥牌信息：表头有到哪一列就读到哪一列
                     property.setId(null);
                     property.setOrderNum(num++);
                     property.setName("桥牌信息");
                     propertyMapper.insertProperty(property);
-                    // 填补第三层节点
-                    for (int k = 0;k < 13;k++) {
+                    int lastCol = lastNonEmptyHeaderCol(title);
+                    int fieldCount = Math.max(0, lastCol - cur + 1);
+                    int order = 1;
+                    for (int k = 0; k < fieldCount; k++) {
                         String key = getCellValueAsString(title.getCell(cur + k));
+                        if (key.isEmpty()) {
+                            continue;
+                        }
                         String value = getCellValueAsString(row.getCell(cur + k));
                         Property child = new Property();
                         child.setName(key);
                         child.setValue(value);
                         child.setParentId(property.getId());
-                        child.setOrderNum(k + 1);
+                        child.setOrderNum(order++);
                         child.setAncestors(property.getAncestors() + "," + property.getId());
                         child.setCreateBy(ShiroUtils.getLoginName());
                         child.setCreateTime(DateUtils.getNowDate());
@@ -456,21 +461,16 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
             bd.setRootPropertyId(rootProperty.getId());
             buildingMapper.updateBuilding(bd);
 
-            // 7. 构造子节点（抽取通用方法，减少重复代码）
-            int curCol = 3; // 起始列
+            // 7. 构造子节点。前面五组列数固定；桥牌信息按第一行表头读到最后一列。
+            int curCol = 3;
             int curOrder = 1;
-            // 基础数据（12个字段）
             curCol = createPropertyNode(rootProperty, titleRow, row, curCol, curOrder++, "基础数据", 12);
-            // 行政识别（50个字段）
             curCol = createPropertyNode(rootProperty, titleRow, row, curCol, curOrder++, "行政识别", 50);
-            // 技术指标（30个字段）
             curCol = createPropertyNode(rootProperty, titleRow, row, curCol, curOrder++, "技术指标", 30);
-            // 结构信息（12个字段）
             curCol = createPropertyNode(rootProperty, titleRow, row, curCol, curOrder++, "结构信息", 12);
-            // 其他数据（22个字段）
             curCol = createPropertyNode(rootProperty, titleRow, row, curCol, curOrder++, "其他数据", 22);
-            // 桥牌信息（13个字段）
-            createPropertyNode(rootProperty, titleRow, row, curCol, curOrder, "桥牌信息", 13);
+            int remaining = Math.max(0, lastNonEmptyHeaderCol(titleRow) - curCol + 1);
+            createPropertyNode(rootProperty, titleRow, row, curCol, curOrder, "桥牌信息", remaining);
 
         } catch (Exception e) {
             // 记录异常日志
@@ -505,17 +505,21 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
         secondNode.setName(nodeName);
         propertyMapper.insertProperty(secondNode);
 
-        // 创建三级节点（字段节点）
+        // 创建三级节点（字段节点），空表头列跳过
+        int order = 1;
         for (int k = 0; k < fieldCount; k++) {
             int colIndex = startCol + k;
             String key = getCellValueAsString(titleRow.getCell(colIndex));
+            if (key.isEmpty()) {
+                continue;
+            }
             String value = getCellValueAsString(dataRow.getCell(colIndex));
 
             Property thirdNode = new Property();
             thirdNode.setName(key);
             thirdNode.setValue(value);
             thirdNode.setParentId(secondNode.getId());
-            thirdNode.setOrderNum(k + 1);
+            thirdNode.setOrderNum(order++);
             thirdNode.setAncestors(secondNode.getAncestors() + "," + secondNode.getId());
             thirdNode.setCreateBy(ShiroUtils.getLoginName());
             thirdNode.setCreateTime(DateUtils.getNowDate());
@@ -526,6 +530,17 @@ public class PropertyIndexServiceImpl implements IPropertyIndexService {
         return startCol + fieldCount;
     }
 
+    /** 第一行最后一个非空表头列（0 起始）。 */
+    private int lastNonEmptyHeaderCol(Row titleRow) {
+        if (titleRow == null) {
+            return -1;
+        }
+        int last = titleRow.getLastCellNum() - 1;
+        while (last >= 3 && getCellValueAsString(titleRow.getCell(last)).isEmpty()) {
+            last--;
+        }
+        return last;
+    }
 
     /**
      * 获取单元格值

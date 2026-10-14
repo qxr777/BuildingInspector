@@ -34,6 +34,8 @@ public final class WordSectionLayoutUtils {
     private static final BigInteger PORTRAIT_HEIGHT = BigInteger.valueOf(16838);
     private static final BigInteger LANDSCAPE_WIDTH = BigInteger.valueOf(16838);
     private static final BigInteger LANDSCAPE_HEIGHT = BigInteger.valueOf(11906);
+    /** Word 页边距单位：1 cm = 567 twips。 */
+    private static final double TWIPS_PER_CM = 567d;
 
     private WordSectionLayoutUtils() {
     }
@@ -155,6 +157,30 @@ public final class WordSectionLayoutUtils {
         }
         ensureSectionType(sectPr, STSectionMark.NEXT_PAGE);
         return paragraph;
+    }
+
+    /**
+     * 给分节结束段落上的 sectPr 设置页边距（厘米）。只改上/下/左/右，页眉页脚距页边距离保持原样。
+     */
+    public static void applyPageMarginsCm(XWPFParagraph sectionEnd,
+                                          double topCm, double bottomCm, double leftCm, double rightCm) {
+        if (sectionEnd == null || sectionEnd.getCTP() == null) {
+            return;
+        }
+        CTPPr pPr = sectionEnd.getCTP().getPPr();
+        if (pPr == null || !pPr.isSetSectPr()) {
+            return;
+        }
+        CTSectPr sectPr = pPr.getSectPr();
+        CTPageMar margin = sectPr.isSetPgMar() ? sectPr.getPgMar() : sectPr.addNewPgMar();
+        margin.setTop(cmToTwips(topCm));
+        margin.setBottom(cmToTwips(bottomCm));
+        margin.setLeft(cmToTwips(leftCm));
+        margin.setRight(cmToTwips(rightCm));
+    }
+
+    private static BigInteger cmToTwips(double cm) {
+        return BigInteger.valueOf(Math.round(cm * TWIPS_PER_CM));
     }
 
     /**

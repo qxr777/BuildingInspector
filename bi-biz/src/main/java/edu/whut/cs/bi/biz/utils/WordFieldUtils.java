@@ -6,6 +6,8 @@ import org.apache.xmlbeans.impl.xb.xmlschema.SpaceAttribute;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -590,6 +592,48 @@ public class WordFieldUtils {
             suffixRPr.addNewSz().setVal(BigInteger.valueOf(21));
             suffixRPr.addNewSzCs().setVal(BigInteger.valueOf(21));
         }
+    }
+
+    /**
+     * 单桥病害汇总表照片列：不超过 3 张逐个列出，超过 3 张只写首尾并用 ～ 连接。
+     * refs 元素为「书签名|描述」。
+     */
+    public static void createChapterFigureReferenceRange(XWPFParagraph paragraph, List<String> refs) {
+        if (paragraph == null || refs == null || refs.isEmpty()) {
+            return;
+        }
+        List<String> bookmarks = new ArrayList<>();
+        for (String ref : refs) {
+            if (ref == null || ref.isEmpty()) {
+                continue;
+            }
+            bookmarks.add(ref.split("\\|", 2)[0]);
+        }
+        if (bookmarks.isEmpty()) {
+            return;
+        }
+        if (bookmarks.size() > 3) {
+            createChapterFigureReference(paragraph, bookmarks.get(0), "图", "");
+            addFigureReferenceSeparator(paragraph, "～");
+            createChapterFigureReference(paragraph, bookmarks.get(bookmarks.size() - 1), "图", "");
+            return;
+        }
+        for (int i = 0; i < bookmarks.size(); i++) {
+            if (i > 0) {
+                addFigureReferenceSeparator(paragraph, ",");
+            }
+            createChapterFigureReference(paragraph, bookmarks.get(i), "图", "");
+        }
+    }
+
+    private static void addFigureReferenceSeparator(XWPFParagraph paragraph, String text) {
+        XWPFRun run = paragraph.createRun();
+        run.setText(text);
+        CTRPr rPr = run.getCTR().addNewRPr();
+        rPr.addNewRFonts().setAscii("宋体");
+        rPr.addNewRFonts().setEastAsia("宋体");
+        rPr.addNewSz().setVal(BigInteger.valueOf(21));
+        rPr.addNewSzCs().setVal(BigInteger.valueOf(21));
     }
 
     /**

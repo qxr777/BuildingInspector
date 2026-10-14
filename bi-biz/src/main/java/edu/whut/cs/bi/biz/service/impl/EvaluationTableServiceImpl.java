@@ -70,6 +70,8 @@ public class EvaluationTableServiceImpl implements EvaluationTableService {
             WordSectionLayoutUtils.Layouts layouts = WordSectionLayoutUtils.snapshot(document);
             XWPFParagraph landscapeParagraph = WordSectionLayoutUtils.beginLandscapeTableBlock(
                     document, afterParagraph, layouts);
+            // 评定表横页页边距在代码里定，不跟模板横版节。
+            WordSectionLayoutUtils.applyPageMarginsCm(landscapeParagraph, 3.17, 2.51, 2.54, 2.54);
 
             // 从横向分节符段落后获取cursor位置
             XmlCursor cursor = landscapeParagraph.getCTP().newCursor();
