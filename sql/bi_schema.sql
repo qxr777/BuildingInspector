@@ -199,10 +199,12 @@ CREATE TABLE `bi_disease` (
   `task_Id` bigint DEFAULT NULL COMMENT '关联任务ID',
   `img_no_exp` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '照片编号',
   `offline_uuid` varchar(64) DEFAULT NULL COMMENT '离线记录唯一标识(UUID)',
+  `building_uuid` varchar(64) DEFAULT NULL COMMENT '关联桥梁的offline_uuid(离线包出包链使用)',
   `object_uuid` varchar(64) DEFAULT NULL COMMENT '关联结构物(部件)的offline_uuid',
   `component_uuid` varchar(64) DEFAULT NULL COMMENT '关联构件的offline_uuid',
   `is_offline_data` tinyint(1) DEFAULT NULL COMMENT '0=云端,1=离线生成',
   `offline_deleted` tinyint(1) DEFAULT NULL COMMENT '0=正常,1=已删除',
+  `element_uuid` varchar(64) DEFAULT NULL COMMENT '关联构件(新链bi_element)的offline_uuid',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `idx_project_id` (`project_id`) USING BTREE,
   KEY `idx_bi_object_id` (`bi_object_id`) USING BTREE,
@@ -832,10 +834,28 @@ CREATE TABLE `bi_user_sqlite` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
   `user_id` bigint DEFAULT NULL COMMENT '用户ID',
   `minio_id` bigint DEFAULT NULL COMMENT 'SQLite文件MinIO ID',
+  `package_time` datetime DEFAULT NULL COMMENT '打包时间',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  `package_size` varchar(32) DEFAULT NULL COMMENT '包大小(展示文本,如128 KB)',
+  `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标志(0存在 2删除)',
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   PRIMARY KEY (`id`),
-  KEY `idx_user` (`user_id`)
+  UNIQUE KEY `uk_user_sqlite_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户SQLite文件引用';
+
+-- ----------------------------
+-- Table structure for bi_building_package
+-- ----------------------------
+DROP TABLE IF EXISTS `bi_building_package`;
+CREATE TABLE `bi_building_package` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `building_id` bigint DEFAULT NULL COMMENT '桥梁ID',
+  `minio_id` bigint DEFAULT NULL COMMENT 'ZIP文件MinIO ID(bi_file_map.id)',
+  `package_time` datetime DEFAULT NULL COMMENT '打包时间',
+  `package_size` varchar(32) DEFAULT NULL COMMENT '包大小(展示文本,如0.5MB)',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_building_package_building_id` (`building_id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='单桥病害附件包引用';
 
 -- ----------------------------
 -- Table structure for bi_user_title

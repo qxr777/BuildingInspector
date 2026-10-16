@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.SpanElementPartMapper">
+
+    <resultMap type="SpanElementPart" id="SpanElementPartResult">
+        <result property="id"             column="id"            />
+        <result property="elementId"      column="element_id"    />
+        <result property="spanId"         column="span_id"       />
+        <result property="partId"         column="part_id"       />
+        <result property="elementUuid"    column="element_uuid"  />
+        <result property="spanUuid"       column="span_uuid"     />
+        <result property="partUuid"       column="part_uuid"     />
+        <result property="isShared"       column="is_shared"     />
+        <result property="offlineUuid"    column="offline_uuid"  />
+        <result property="isOfflineData"  column="is_offline_data" />
+        <result property="offlineDeleted" column="offline_deleted" />
+        <result property="createBy"       column="create_by"     />
+        <result property="createTime"     column="create_time"   />
+        <result property="updateBy"       column="update_by"     />
+        <result property="updateTime"     column="update_time"   />
+        <result property="remark"         column="remark"        />
+    </resultMap>
+
+    <sql id="selectSpanElementPartVo">
+        select id, element_id, span_id, part_id, element_uuid, span_uuid, part_uuid,
+               is_shared, offline_uuid, is_offline_data, offline_deleted,
+               create_by, create_time, update_by, update_time, remark
+        from bi_span_element_part
+    </sql>
+
+    <select id="selectSpanElementPartList" parameterType="SpanElementPart" resultMap="SpanElementPartResult">
+        <include refid="selectSpanElementPartVo"/>
+        <where>
+            <if test="elementId != null"> and element_id = #{elementId}</if>
+            <if test="spanId != null"> and span_id = #{spanId}</if>
+            <if test="partId != null"> and part_id = #{partId}</if>
+            <if test="isShared != null"> and is_shared = #{isShared}</if>
+            <if test="offlineUuid != null and offlineUuid != ''"> and offline_uuid = #{offlineUuid}</if>
+        </where>
+        order by id
+    </select>
+
+    <select id="selectBySpanIds" resultMap="SpanElementPartResult">
+        <include refid="selectSpanElementPartVo"/>
+        where span_id in
+        <foreach collection="spanIds" item="spanId" open="(" separator="," close=")">
+            #{spanId}
+        </foreach>
+        order by id
+    </select>
+
+</mapper>

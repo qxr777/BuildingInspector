@@ -41,6 +41,7 @@
         <result property="buildingUuid" column="building_uuid"/>
         <result property="objectUuid" column="object_uuid"/>
         <result property="componentUuid" column="component_uuid"/>
+        <result property="elementUuid" column="element_uuid"/>
         <result property="isOfflineData" column="is_offline_data"/>
 
         <!-- diseaseType object -->
@@ -97,7 +98,7 @@
                d.offline_uuid,
                d.building_uuid,
                d.object_uuid,
-               d.component_uuid,
+               d.element_uuid,
                d.is_offline_data,
                bp.year            as bp_year,
                dt.id              as dt_id,
@@ -112,7 +113,7 @@
         from bi_disease d
                  left join bi_disease_type dt on d.disease_type_id = dt.id
                  left join bi_component c on d.component_id = c.id
-                 left join bi.bi_project bp on d.project_id = bp.id
+                 left join bi_project bp on d.project_id = bp.id
     </sql>
 
     <select id="selectDiseaseList" parameterType="Disease" resultMap="DiseaseResult">
@@ -623,7 +624,7 @@
                d.cause, d.repair_recommendation, d.crack_type,
                d.development_trend, d.detection_method, d.attachment_count,
                d.create_by, d.create_time, d.update_by, d.update_time, d.task_id,
-               d.offline_uuid, d.building_uuid, d.object_uuid, d.component_uuid, d.is_offline_data
+               d.offline_uuid, d.building_uuid, d.object_uuid, d.element_uuid, d.is_offline_data
         from bi_disease d
         where d.building_id in
         <foreach collection="buildingIds" item="buildingId" open="(" separator="," close=")">

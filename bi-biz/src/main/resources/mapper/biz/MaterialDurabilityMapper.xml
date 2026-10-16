@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.MaterialDurabilityMapper">
+
+    <resultMap type="MaterialDurability" id="MaterialDurabilityResult">
+        <result property="id"         column="id"          />
+        <result property="code"       column="code"        />
+        <result property="name"       column="name"        />
+        <result property="orderNum"   column="order_num"   />
+        <result property="stdVersion" column="std_version" />
+        <result property="status"     column="status"      />
+        <result property="delFlag"    column="del_flag"    />
+        <result property="createBy"   column="create_by"   />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy"   column="update_by"   />
+        <result property="updateTime" column="update_time" />
+        <result property="remark"     column="remark"      />
+    </resultMap>
+
+    <sql id="selectMaterialDurabilityVo">
+        select id, code, name, order_num, std_version, status, del_flag,
+               create_by, create_time, update_by, update_time, remark
+        from bi_material_durability
+    </sql>
+
+    <select id="selectMaterialDurabilityList" parameterType="MaterialDurability" resultMap="MaterialDurabilityResult">
+        <include refid="selectMaterialDurabilityVo"/>
+        <where>
+            <if test="code != null and code != ''"> and code = #{code}</if>
+            <if test="name != null and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="stdVersion != null and stdVersion != ''"> and std_version = #{stdVersion}</if>
+            <if test="status != null and status != ''"> and status = #{status}</if>
+            <if test="delFlag != null and delFlag != ''"> and del_flag = #{delFlag}</if>
+        </where>
+        order by order_num, id
+    </select>
+
+</mapper>

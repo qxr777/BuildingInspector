@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.MdDiseaseTypeMapper">
+
+    <resultMap type="MdDiseaseType" id="MdDiseaseTypeResult">
+        <result property="id"                     column="id"                      />
+        <result property="materialDurabilityId"   column="material_durability_id"  />
+        <result property="diseaseTypeId"          column="disease_type_id"         />
+        <result property="createTime"             column="create_time"             />
+    </resultMap>
+
+    <sql id="selectMdDiseaseTypeVo">
+        select id, material_durability_id, disease_type_id, create_time
+        from bi_md_disease_type
+    </sql>
+
+    <select id="selectMdDiseaseTypeList" parameterType="MdDiseaseType" resultMap="MdDiseaseTypeResult">
+        <include refid="selectMdDiseaseTypeVo"/>
+        <where>
+            <if test="materialDurabilityId != null"> and material_durability_id = #{materialDurabilityId}</if>
+            <if test="diseaseTypeId != null"> and disease_type_id = #{diseaseTypeId}</if>
+        </where>
+        order by id
+    </select>
+
+</mapper>

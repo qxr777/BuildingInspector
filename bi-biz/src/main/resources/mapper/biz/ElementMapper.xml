@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.ElementMapper">
+
+    <resultMap type="Element" id="ElementResult">
+        <result property="id"                   column="id"                    />
+        <result property="code"                 column="code"                  />
+        <result property="name"                 column="name"                  />
+        <result property="biObjectId"           column="bi_object_id"          />
+        <result property="materialDurabilityId" column="material_durability_id"/>
+        <result property="status"               column="status"                />
+        <result property="delFlag"              column="del_flag"              />
+        <result property="offlineUuid"          column="offline_uuid"          />
+        <result property="objectUuid"           column="object_uuid"           />
+        <result property="isOfflineData"        column="is_offline_data"       />
+        <result property="offlineDeleted"       column="offline_deleted"       />
+        <result property="createBy"             column="create_by"             />
+        <result property="createTime"           column="create_time"           />
+        <result property="updateBy"             column="update_by"             />
+        <result property="updateTime"           column="update_time"           />
+        <result property="remark"               column="remark"                />
+    </resultMap>
+
+    <sql id="selectElementVo">
+        select id, code, name, bi_object_id, material_durability_id, status, del_flag,
+               offline_uuid, object_uuid, is_offline_data, offline_deleted,
+               create_by, create_time, update_by, update_time, remark
+        from bi_element
+    </sql>
+
+    <select id="selectElementList" parameterType="Element" resultMap="ElementResult">
+        <include refid="selectElementVo"/>
+        <where>
+            <if test="code != null and code != ''"> and code = #{code}</if>
+            <if test="name != null and name != ''"> and name like concat('%', #{name}, '%')</if>
+            <if test="biObjectId != null"> and bi_object_id = #{biObjectId}</if>
+            <if test="materialDurabilityId != null"> and material_durability_id = #{materialDurabilityId}</if>
+            <if test="status != null and status != ''"> and status = #{status}</if>
+            <if test="delFlag != null and delFlag != ''"> and del_flag = #{delFlag}</if>
+            <if test="offlineUuid != null and offlineUuid != ''"> and offline_uuid = #{offlineUuid}</if>
+        </where>
+        order by id
+    </select>
+
+    <select id="selectElementsByBiObjectIds" resultMap="ElementResult">
+        <include refid="selectElementVo"/>
+        where del_flag = '0'
+        and bi_object_id in
+        <foreach collection="biObjectIds" item="biObjectId" open="(" separator="," close=")">
+            #{biObjectId}
+        </foreach>
+        order by id
+    </select>
+
+</mapper>

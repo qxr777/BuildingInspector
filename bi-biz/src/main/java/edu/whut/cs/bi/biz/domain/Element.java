@@ -1,0 +1,56 @@
+package edu.whut.cs.bi.biz.domain;
+
+import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import javax.validation.constraints.NotBlank;
+
+/**
+ * 构件对象 bi_element（JTG/T 5230—2026 新标采集链，与旧 {@link Component} 并存、旧表冻结）
+ *
+ * @author QiXin
+ * @date 2026/10/15
+ */
+@EqualsAndHashCode(callSuper = true)
+@ToString
+@Data
+public class Element extends BaseEntity {
+    private static final long serialVersionUID = 1L;
+
+    /** 构件id */
+    private Long id;
+
+    /** 构件编号 */
+    @NotBlank(message = "构件编号不能为空")
+    private String code;
+
+    /** 构件名称 */
+    @NotBlank(message = "构件名称不能为空")
+    private String name;
+
+    /** 关联部件对象ID（bi_object.id，node_type=PART） */
+    private Long biObjectId;
+
+    /** 材料耐久性分类ID（bi_material_durability.id，标准第4章 EDDI 按材料分类评定） */
+    private Long materialDurabilityId;
+
+    /** 构件状态（0正常 1停用） */
+    private String status;
+
+    /** 删除标志（0代表存在 2代表删除） */
+    private String delFlag;
+
+    /** 离线记录唯一标识(UUID) */
+    private String offlineUuid;
+
+    /** 所属部件节点离线UUID */
+    private String objectUuid;
+
+    /** 是否为离线同步数据 (0:否, 1:是) */
+    private Integer isOfflineData;
+
+    /** 是否被App离线删除标记 (0:否, 1:是) */
+    private Integer offlineDeleted;
+}

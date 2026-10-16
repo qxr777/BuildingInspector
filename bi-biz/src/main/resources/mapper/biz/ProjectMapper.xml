@@ -21,7 +21,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
-        <result property="sqliteMinioId"    column="sqlite_minio_id"    />
         <result property="stdVersion"    column="std_version"    />
     </resultMap>
 
@@ -42,7 +41,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                create_time,
                update_by,
                update_time,
-               sqlite_minio_id,
                std_version
         from bi_project
     </sql>
@@ -162,7 +160,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
-            <if test="sqliteMinioId != null">sqlite_minio_id = #{sqliteMinioId},</if>
         </trim>
         where id = #{id} and del_flag = '0'
     </update>
@@ -171,7 +168,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         UPDATE bi_project bp
             INNER JOIN (
                 SELECT project_id
-                FROM bi.bi_task bt
+                FROM bi_task bt
                 where bt.building_id = #{buildingId}
             ) AS subquery
             ON bp.id = subquery.project_id
@@ -180,7 +177,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </update>
 
     <update id="updateProjectTimeByProjectId">
-        UPDATE bi.bi_project set update_time = NOW() where id = #{projectId}
+        UPDATE bi_project set update_time = NOW() where id = #{projectId}
     </update>
 
 

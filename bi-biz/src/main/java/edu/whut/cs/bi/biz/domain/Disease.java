@@ -210,8 +210,11 @@ public class Disease extends BaseEntity {
     /** 所属节点离线UUID */
     private String objectUuid;
 
-    /** 所属部件离线UUID */
+    /** 所属部件离线UUID（旧链 bi_component；新链离线包已改用 elementUuid） */
     private String componentUuid;
+
+    /** 所属构件离线UUID（新链 bi_element.offline_uuid，JTG/T 5230 新规范出包使用） */
+    private String elementUuid;
 
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;

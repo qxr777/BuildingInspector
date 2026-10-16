@@ -54,6 +54,8 @@
 --       bi_element 加 material_durability_id 列；bi_disease_type 加 scale_type(EDI/EFI/EAI,缺省EDI)
 --   [9] 5230 评定引擎（2026-10-14 整包下线）：bi_span_evaluation 覆盖留痕5列+uk_task_span 冻结保留；
 --       DROP 引擎六表（bi_v2_* 五表 + bi_bridge_evaluation），使跑过旧版脚本的库收敛
+--   [10] bi_user_sqlite 收敛为运行期结构（2026-10-15）：补 package_time/update_time/
+--       package_size/del_flag 4 列，idx_user 升级为 uk_user_sqlite_user_id 唯一键
 --
 -- 幂等性：所有 ADD COLUMN / CREATE TABLE 均用存储过程探测存在性；
 --         种子数据用 WHERE NOT EXISTS 按 id 判重。可重复执行。
@@ -158,10 +160,22 @@ CALL P_AddColumnIfNotExists(@db, 'bi_object', 'is_offline_data', 'TINYINT(1) NUL
 CALL P_AddColumnIfNotExists(@db, 'bi_object', 'offline_deleted', 'TINYINT(1) NULL COMMENT ''0=正常,1=已删除(可空走INSTANT)''');
 
 -- 【2】bi_element 为全新构件表（与旧 bi_component 并存），离线四列已并入第五·五部分建表语句，此处不再 ALTER。
+--   旧表 bi_component 虽冻结，但 SyncUploadServiceImpl 上传链仍写离线四列；20260413/20261005
+--   系列脚本未执行的库会缺列，此处幂等补齐（与基线 bi_schema CREATE 列定义一致）。
+CALL P_AddColumnIfNotExists(@db, 'bi_component', 'offline_uuid', 'VARCHAR(64) NULL COMMENT ''离线记录唯一标识(UUID)''');
+CALL P_AddColumnIfNotExists(@db, 'bi_component', 'object_uuid', 'VARCHAR(64) NULL COMMENT ''关联结构物(部件)的offline_uuid''');
+CALL P_AddColumnIfNotExists(@db, 'bi_component', 'is_offline_data', 'TINYINT(1) NULL COMMENT ''0=云端,1=离线生成''');
+CALL P_AddColumnIfNotExists(@db, 'bi_component', 'offline_deleted', 'TINYINT(1) NULL COMMENT ''0=正常,1=已删除''');
 
 -- 【3】bi_disease（采集生成；挂载字段分两类：整数直通下发数据 + UUID 指向采集数据）
+--   2026-10-15 修订：building_uuid 改为要加——DiseaseMapper 选择/插入列与离线 user.db
+--   出包链均已使用（2026-10-05「整数 id 直通、不加 building_uuid」决策随之失效）。
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'offline_uuid', 'VARCHAR(64) NULL COMMENT ''离线记录唯一标识(UUID)''');
+CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'building_uuid', 'VARCHAR(64) NULL COMMENT ''关联桥梁的offline_uuid(离线包出包链使用)''');
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'object_uuid', 'VARCHAR(64) NULL COMMENT ''关联结构物(部件)的offline_uuid''');
+-- 注意：bi_disease.component_uuid 不补。新规范已用 bi_element 取代 bi_component，
+-- 出包链（selectDiseasesByBuildingIds/离线包）2026-10-16 起改读 element_uuid；
+-- component_uuid 仅基线存量列，供 Web/旧上传链使用，缺列的滞后库无需补齐。
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'element_uuid', 'VARCHAR(64) NULL COMMENT ''关联构件的offline_uuid''');
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'is_offline_data', 'TINYINT(1) NULL COMMENT ''0=云端,1=离线生成''');
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'offline_deleted', 'TINYINT(1) NULL COMMENT ''0=正常,1=已删除''');
@@ -229,13 +243,20 @@ CREATE TABLE IF NOT EXISTS `bi_span_evaluation` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='桥跨技术状况评定(新标准JTG/T 5230-2026)';
 
 -- 5.3 用户 SQLite 文件引用（离线同步基础设施）
+--   2026-10-15：一次建齐 SqliteService 运行期写入的全部列（package_time/update_time/
+--   package_size/del_flag），user_id 改唯一键（每用户至多一条引用），避免全新环境首次
+--   出包即 Unknown column；旧库由第八·七部分幂等收敛。
 CREATE TABLE IF NOT EXISTS `bi_user_sqlite` (
   `id`            BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `user_id`       BIGINT NULL COMMENT '用户ID',
   `minio_id`      BIGINT NULL COMMENT 'SQLite文件MinIO ID',
+  `package_time`  DATETIME NULL COMMENT '打包时间',
+  `update_time`   DATETIME NULL COMMENT '更新时间',
+  `package_size`  VARCHAR(32) NULL COMMENT '包大小(展示文本,如128 KB)',
+  `del_flag`      CHAR(1) NOT NULL DEFAULT '0' COMMENT '删除标志(0存在 2删除)',
   `create_time`   DATETIME NULL COMMENT '创建时间',
   PRIMARY KEY (`id`),
-  KEY `idx_user` (`user_id`)
+  UNIQUE KEY `uk_user_sqlite_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户SQLite文件引用';
 
 -- ================================================================================
@@ -615,6 +636,50 @@ DROP TABLE IF EXISTS `bi_v2_span_part_detail`;
 DROP TABLE IF EXISTS `bi_bridge_evaluation`;
 
 -- ================================================================================
+-- 第八·七部分：bi_user_sqlite 收敛到运行期结构（2026-10-15）
+--   旧表仅 id/user_id/minio_id/create_time + idx_user 普通索引，而 SqliteService
+--   出包时写 package_time/update_time/package_size/del_flag 且按 user_id 单行 upsert。
+--   全新库由 5.3 CREATE TABLE 直接得到新结构；本段幂等收敛跑过旧脚本的库：
+--     1) 先对历史重复 user_id 去重（保留最小 id），再加唯一键，避免 1062；
+--     2) 补齐 4 列（可空走 INSTANT），del_flag 存量行回填 '0'；
+--     3) idx_user 升级为 uk_user_sqlite_user_id 唯一键。
+-- ================================================================================
+DELETE t1 FROM `bi_user_sqlite` t1
+JOIN `bi_user_sqlite` t2
+  ON t1.`user_id` = t2.`user_id`
+ AND t1.`id` > t2.`id`;
+
+CALL P_AddColumnIfNotExists(@db, 'bi_user_sqlite', 'package_time',
+    'DATETIME NULL COMMENT ''打包时间''');
+CALL P_AddColumnIfNotExists(@db, 'bi_user_sqlite', 'update_time',
+    'DATETIME NULL COMMENT ''更新时间''');
+CALL P_AddColumnIfNotExists(@db, 'bi_user_sqlite', 'package_size',
+    'VARCHAR(32) NULL COMMENT ''包大小(展示文本,如128 KB)''');
+CALL P_AddColumnIfNotExists(@db, 'bi_user_sqlite', 'del_flag',
+    'CHAR(1) NOT NULL DEFAULT ''0'' COMMENT ''删除标志(0存在 2删除)''');
+UPDATE `bi_user_sqlite` SET `del_flag` = '0' WHERE `del_flag` IS NULL;
+
+CALL P_DropIndexIfExists(@db, 'bi_user_sqlite', 'idx_user');
+CALL P_AddKeyIfNotExists(@db, 'bi_user_sqlite', 'uk_user_sqlite_user_id',
+    '`user_id`', 'UNIQUE');
+
+-- ================================================================================
+-- 第八·八部分：bi_building_package 缺表补建（2026-10-15）
+--   BuildingPackageMapper 的单桥病害附件 ZIP 历史表；基线脚本长期漏建，
+--   POST /api/v2/building/{id}/package 出包后写历史即 Table doesn't exist。
+--   每桥按 service 逻辑仅维护一行（重打包更新 minio_id/package_time）。
+-- ================================================================================
+CREATE TABLE IF NOT EXISTS `bi_building_package` (
+  `id`            BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `building_id`   BIGINT NULL COMMENT '桥梁ID',
+  `minio_id`      BIGINT NULL COMMENT 'ZIP文件MinIO ID(bi_file_map.id)',
+  `package_time`  DATETIME NULL COMMENT '打包时间',
+  `package_size`  VARCHAR(32) NULL COMMENT '包大小(展示文本,如0.5MB)',
+  PRIMARY KEY (`id`),
+  KEY `idx_building_package_building_id` (`building_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='单桥病害附件包引用';
+
+-- ================================================================================
 -- 第九部分：清理存储过程
 -- ================================================================================
 DROP PROCEDURE IF EXISTS `P_AddColumnIfNotExists`;
@@ -697,19 +762,18 @@ DROP PROCEDURE IF EXISTS `P_AddKeyIfNotExists`;
 --  WHERE std_version='5230-2026' GROUP BY node_type ORDER BY node_type;
 -- SELECT is_main_component, COUNT(*) FROM bi_template_object
 --  WHERE std_version='5230-2026' AND node_type='PART' GROUP BY is_main_component;
--- 12) 种子第 11 节 B01 演示树（bi_object，offline_uuid 前缀 std5230demo-b01-）：
---    UNIT=1/SPAN=2/LAYER=8/PART=22；每跨 4 层 γ 合计 1.0000；每层 PART 的 ω 合计 100；
---    PART 的 template_object_id / leaf_object_id 全部非空，SPAN 无模板节点
--- SELECT node_type, COUNT(*) FROM bi_object
---  WHERE offline_uuid LIKE 'std5230demo-b01-%%' GROUP BY node_type ORDER BY node_type;
--- SELECT span_no, SUM(gamma) FROM bi_object
---  WHERE offline_uuid LIKE 'std5230demo-b01-%%' AND node_type='LAYER'
---  GROUP BY span_no;
--- SELECT span_no, SUBSTRING_INDEX(parent_uuid,'-',-1) AS layer_key, SUM(omega)
---  FROM bi_object WHERE offline_uuid LIKE 'std5230demo-b01-%%' AND node_type='PART'
---  GROUP BY span_no, parent_uuid ORDER BY span_no, parent_uuid;
--- SELECT COUNT(*) FROM bi_object
---  WHERE offline_uuid LIKE 'std5230demo-b01-%%' AND node_type='PART'
---    AND (template_object_id IS NULL OR leaf_object_id IS NULL);
+-- 12) 种子第 11 节 B01 演示树（bi_object，offline_uuid=std5230demo-b01-unit）：
+--    仅 1 条 UNIT 根节点（parent_id=0、node_type='UNIT'、bridge_type='B01'）
+-- SELECT node_type, bridge_type, COUNT(*) FROM bi_object
+--  WHERE offline_uuid LIKE 'std5230demo-b01-%%' GROUP BY node_type, bridge_type;
+-- 13) bi_user_sqlite 收敛为运行期结构（第一个查询应返回 package_time/update_time/
+--    package_size/del_flag 4 行；第二个查询应返回 uk_user_sqlite_user_id；idx_user 不存在）
+-- SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+--  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bi_user_sqlite'
+--    AND COLUMN_NAME IN ('package_time','update_time','package_size','del_flag')
+--  ORDER BY COLUMN_NAME;
+-- SELECT INDEX_NAME, NON_UNIQUE FROM INFORMATION_SCHEMA.STATISTICS
+--  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bi_user_sqlite'
+--    AND INDEX_NAME IN ('uk_user_sqlite_user_id','idx_user');
 
 -- ============================== 全量脚本结束 ==============================
