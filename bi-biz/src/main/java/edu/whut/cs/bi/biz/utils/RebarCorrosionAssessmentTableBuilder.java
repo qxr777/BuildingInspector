@@ -14,11 +14,16 @@ import java.util.List;
  *
  * <p>桥梁名称用大桥下的子桥名；测区位置取该子桥锈蚀表「构件名称」；
  * 20 个测点电位和温度也取自该表。最小值取 20 个有效测值中的最小者。
- * 修正值、修正后最小值、评定标度暂不计算。</p>
+ * 温度修正系数 k 固定为 0.9 mV/℃。T≥27℃ 时修正值 = 0.9×(T−27)，
+ * T≤17℃ 时修正值 = 0.9×(T−17)，其间修正值为 0。修正后最小值 = 最小值 + 修正值。
+ * 评定标度暂不计算。</p>
  */
 public final class RebarCorrosionAssessmentTableBuilder {
 
     public static final int VALUE_COUNT = 20;
+    private static final BigDecimal CORRECTION_COEFFICIENT = new BigDecimal("0.9");
+    private static final BigDecimal HOT_THRESHOLD = new BigDecimal("27");
+    private static final BigDecimal COLD_THRESHOLD = new BigDecimal("17");
     public static final int VALUE_COLUMNS = 5;
     public static final int VALUE_ROWS = 4;
 
@@ -36,14 +41,14 @@ public final class RebarCorrosionAssessmentTableBuilder {
         public final String scaleText;
 
         Row(String bridgeName, String location, List<String> values,
-            String minText, String temperatureText) {
+            String minText, String temperatureText, String correctionText, String correctedMinText) {
             this.bridgeName = bridgeName;
             this.location = location;
             this.values = values;
             this.minText = minText;
             this.temperatureText = temperatureText;
-            this.correctionText = "";
-            this.correctedMinText = "";
+            this.correctionText = correctionText;
+            this.correctedMinText = correctedMinText;
             this.scaleText = "";
         }
     }
@@ -72,7 +77,9 @@ public final class RebarCorrosionAssessmentTableBuilder {
             if (isBlankName(temperature)) {
                 temperature = "";
             }
-            rows.add(new Row(bridge, location, values, formatNumber(min), temperature));
+            String[] correction = correctMinimum(min, temperature);
+            rows.add(new Row(bridge, location, values, formatNumber(min), temperature,
+                    correction[0], correction[1]));
         }
         return rows;
     }
@@ -115,6 +122,38 @@ public final class RebarCorrosionAssessmentTableBuilder {
                 records.add(record);
             }
         }
+    }
+
+    /**
+     * 按 7.3.8 计算。没有温度时两列留空；17℃ 与 27℃ 之间修正值为 0。
+     */
+    static String[] correctMinimum(BigDecimal minimum, String temperatureText) {
+        BigDecimal temperature = parseTemperature(temperatureText);
+        if (minimum == null || temperature == null) {
+            return new String[]{"", ""};
+        }
+        BigDecimal delta;
+        if (temperature.compareTo(HOT_THRESHOLD) >= 0) {
+            delta = CORRECTION_COEFFICIENT.multiply(temperature.subtract(HOT_THRESHOLD));
+        } else if (temperature.compareTo(COLD_THRESHOLD) <= 0) {
+            delta = CORRECTION_COEFFICIENT.multiply(temperature.subtract(COLD_THRESHOLD));
+        } else {
+            delta = BigDecimal.ZERO;
+        }
+        return new String[]{formatNumber(delta), formatNumber(minimum.add(delta))};
+    }
+
+    private static BigDecimal parseTemperature(String text) {
+        if (text == null) {
+            return null;
+        }
+        String normalized = text.trim()
+                .replace("℃", "")
+                .replace("°C", "")
+                .replace("°c", "")
+                .replace("C", "")
+                .replace("c", "");
+        return parseNumber(normalized);
     }
 
     private static String formatNumber(BigDecimal value) {

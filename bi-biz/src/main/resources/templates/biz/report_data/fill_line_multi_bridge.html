@@ -458,6 +458,13 @@
                                     </div>
                                     <div class="panel-body">
                                         <div class="form-group">
+                                            <label class="checkbox-inline">
+                                                <input type="checkbox" data-original-key="includePierTiltChapter">
+                                                生成第八章（墩台倾斜度、桥面高程）
+                                            </label>
+                                            <p class="text-muted">默认不生成。勾选并保存后，这座大桥才保留模板里从「墩台倾斜度」到下一节之前的内容，包括桥面高程。</p>
+                                        </div>
+                                        <div class="form-group">
                                             <label class="control-label">墩台倾斜度：</label>
                                             <textarea class="form-control" data-original-key="pierTilt" rows="8"
                                                       placeholder="填写各墩台倾斜度检测位置、检测数据及评价"></textarea>
@@ -1711,6 +1718,7 @@
         $bridgePanes.find(
             'textarea[data-original-key], input[type="text"][data-original-key], input[type="hidden"][data-original-key], .image-value-holder'
         ).val('');
+        $bridgePanes.find('input[type="checkbox"][data-original-key]').prop('checked', false);
         $bridgePanes.find('textarea[data-word-imported]').prop('readonly', false).removeAttr('data-word-imported');
         $bridgePanes.find('.word-import-notice').remove();
         $bridgePanes.find('[id$="-display"]').val('请选择');
@@ -1814,6 +1822,7 @@
                 $('textarea[data-original-key="' + key + '"]').val(value);
                 $('input[type="text"][data-original-key="' + key + '"]').val(value);
                 $('input[type="hidden"][data-original-key="' + key + '"]').val(value);
+                $('input[type="checkbox"][data-original-key="' + key + '"]').prop('checked', value === '1' || value === 'true');
                 if (key === 'line-project-overview') {
                     $('textarea[data-original-key="line-route-overview"]').val(value);
                 }
@@ -1964,6 +1973,16 @@
             syncAppendixHistory();
         }
         syncAppendixCardSelection();
+        tabPane.find('input[type="checkbox"][data-original-key]').each(function () {
+            var key = $(this).data('original-key');
+            if (!key) {
+                return;
+            }
+            formData.append("dataKeys", key);
+            formData.append("dataValues", $(this).prop('checked') ? '1' : '0');
+            formData.append("dataTypes", "0");
+        });
+
         tabPane.find('input[type="hidden"][data-original-key]').each(function () {
             if ($(this).hasClass('image-value-holder')) {
                 return;
