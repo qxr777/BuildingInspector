@@ -414,6 +414,10 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             if (importedOverview) WordImportSupport.prepare(document, dataMap.get("overallOverview"), replaceImportedPhotos);
             else replaceOverallOverviewInBridgeBlock(document, valueOf(dataMap, "overallOverview"));
             removeTechnicalStandardInBridgeBlock(document);
+            if (!isEnabledFlag(valueOf(dataMap, "includePierTiltChapter"))) {
+                removeHeadingSection(document, "空间变位检测结果");
+                removeHeadingSection(document, "墩台倾斜度");
+            }
             if (!importedOverview || replaceImportedPhotos) insertGroupOverviewImages(document, dataMap);
 
             XWPFParagraph appendixHeading = findBridgeBlockHeading(document, "附表");
@@ -552,6 +556,79 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             removeParagraph(document, heading);
         }
         replaceText(document, "${standard}", "");
+    }
+
+    /**
+     * 删掉桥梁章节里某个标题及其下级内容，直到同级或更高级标题。
+     */
+    private void removeHeadingSection(XWPFDocument document, String headingText) {
+        XWPFParagraph heading = findBridgeBlockSectionHeading(document, headingText);
+        if (heading == null) {
+            return;
+        }
+        int start = document.getPosOfParagraph(heading);
+        if (start < 0) {
+            return;
+        }
+        int level = resolveHeadingLevel(heading);
+        List<IBodyElement> elements = document.getBodyElements();
+        int end = elements.size();
+        for (int i = start + 1; i < elements.size(); i++) {
+            IBodyElement element = elements.get(i);
+            if (!(element instanceof XWPFParagraph paragraph)) {
+                continue;
+            }
+            String text = safeParagraphText(paragraph);
+            if (text.contains("${line.bridge-block-end}")) {
+                end = i;
+                break;
+            }
+            int nextLevel = resolveHeadingLevel(paragraph);
+            if (nextLevel > 0 && (level <= 0 || nextLevel <= level) && !text.isEmpty()) {
+                end = i;
+                break;
+            }
+        }
+        for (int i = end - 1; i >= start; i--) {
+            document.removeBodyElement(i);
+        }
+    }
+
+    private boolean isEnabledFlag(String value) {
+        if (isBlank(value)) {
+            return false;
+        }
+        String normalized = value.trim();
+        return "1".equals(normalized) || "true".equalsIgnoreCase(normalized) || "是".equals(normalized);
+    }
+
+    private XWPFParagraph findBridgeBlockSectionHeading(XWPFDocument document, String headingText) {
+        boolean inBridgeBlock = false;
+        for (XWPFParagraph paragraph : document.getParagraphs()) {
+            String text = safeParagraphText(paragraph);
+            if (text.contains("${line.bridge-block-start}")) {
+                inBridgeBlock = true;
+                continue;
+            }
+            if (text.contains("${line.bridge-block-end}")) {
+                break;
+            }
+            if (inBridgeBlock && resolveHeadingLevel(paragraph) > 0 && matchesSectionTitle(text, headingText)) {
+                return paragraph;
+            }
+        }
+        return null;
+    }
+
+    private boolean matchesSectionTitle(String text, String headingText) {
+        if (text.equals(headingText)) {
+            return true;
+        }
+        if (!text.startsWith(headingText)) {
+            return false;
+        }
+        String rest = text.substring(headingText.length()).trim();
+        return rest.isEmpty() || rest.startsWith("（") || rest.startsWith("(");
     }
 
     private XWPFParagraph findBridgeBlockHeading(XWPFDocument document, String headingText) {
@@ -2046,7 +2123,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                         key.contains("leftSide") || key.contains("rightSide"))) {
                     continue;
                 }
-                if ("overallOverview".equals(key) || LineBridgeGroup.DATA_KEY.equals(key)) {
+                if ("overallOverview".equals(key) || LineBridgeGroup.DATA_KEY.equals(key)
+                        || "includePierTiltChapter".equals(key)) {
                     continue;
                 }
                 if (key != null && (key.contains(KEY_CONCERN_SELECTION_KEY) || key.contains("focusDiseases")

@@ -7,6 +7,7 @@ import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
+import edu.whut.cs.bi.biz.domain.vo.DiseaseCauseMatch;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import io.minio.GetObjectArgs;
@@ -261,6 +262,94 @@ public class ReportGenerateTools {
      * @param run  XWPFRun对象
      * @param text 要设置的文本（可能包含换行符）
      */
+    /** 报告正文片段；highlight 为 true 时标红，提示人工补充。 */
+    public record TextSegment(String text, boolean highlight) {
+    }
+
+    /**
+     * 「成因分析：…」「处治建议：…」两段；未匹配或原文为空时写红字占位。
+     */
+    public static List<TextSegment> causeMatchSegments(DiseaseCauseMatch match) {
+        List<TextSegment> segments = new ArrayList<>();
+        segments.add(new TextSegment("成因分析：\n", false));
+        addTextOrPlaceholder(segments, match == null ? null : match.getCause(), DiseaseCauseMatch.CAUSE_PLACEHOLDER);
+        segments.add(new TextSegment("\n处治建议：\n", false));
+        addTextOrPlaceholder(segments, match == null ? null : match.getSuggestion(), DiseaseCauseMatch.SUGGESTION_PLACEHOLDER);
+        return segments;
+    }
+
+    private static void addTextOrPlaceholder(List<TextSegment> segments, String text, String placeholder) {
+        boolean missing = text == null || text.isBlank();
+        segments.add(new TextSegment(missing ? placeholder : text.trim(), missing));
+    }
+
+    /**
+     * 用多段文字替换正文及表格中的占位符：沿用占位符所在 run 的格式，换行写为段内换行，highlight 片段标红。
+     */
+    public static void replaceTextWithSegments(XWPFDocument document, String placeholder, List<TextSegment> segments) {
+        List<XWPFParagraph> paragraphs = new ArrayList<>(document.getParagraphs());
+        collectTableParagraphs(document.getTables(), paragraphs);
+        for (XWPFParagraph paragraph : paragraphs) {
+            String text = paragraph.getText();
+            int index = text == null ? -1 : text.indexOf(placeholder);
+            if (index < 0) {
+                continue;
+            }
+            CTRPr baseRPr = null;
+            for (XWPFRun run : paragraph.getRuns()) {
+                String runText = run.getText(0);
+                if (runText != null && runText.contains("${")) {
+                    baseRPr = run.getCTR().isSetRPr() ? (CTRPr) run.getCTR().getRPr().copy() : null;
+                    break;
+                }
+            }
+            List<TextSegment> all = new ArrayList<>();
+            all.add(new TextSegment(text.substring(0, index), false));
+            all.addAll(segments);
+            all.add(new TextSegment(text.substring(index + placeholder.length()), false));
+            clearParagraph(paragraph);
+            XWPFRun last = null;
+            for (TextSegment segment : all) {
+                String[] lines = segment.text() == null ? new String[0]
+                        : segment.text().replace("\r", "").split("\n", -1);
+                for (int i = 0; i < lines.length; i++) {
+                    if (i > 0) {
+                        if (last == null) {
+                            last = createStyledRun(paragraph, baseRPr, false);
+                        }
+                        last.addBreak();
+                    }
+                    if (!lines[i].isEmpty()) {
+                        last = createStyledRun(paragraph, baseRPr, segment.highlight());
+                        last.setText(lines[i]);
+                    }
+                }
+            }
+        }
+    }
+
+    private static XWPFRun createStyledRun(XWPFParagraph paragraph, CTRPr baseRPr, boolean highlight) {
+        XWPFRun run = paragraph.createRun();
+        if (baseRPr != null) {
+            run.getCTR().setRPr((CTRPr) baseRPr.copy());
+        }
+        if (highlight) {
+            run.setColor("FF0000");
+        }
+        return run;
+    }
+
+    private static void collectTableParagraphs(List<XWPFTable> tables, List<XWPFParagraph> paragraphs) {
+        for (XWPFTable table : tables) {
+            for (XWPFTableRow row : table.getRows()) {
+                for (XWPFTableCell cell : row.getTableCells()) {
+                    paragraphs.addAll(cell.getParagraphs());
+                    collectTableParagraphs(cell.getTables(), paragraphs);
+                }
+            }
+        }
+    }
+
     private static void setTextWithLineBreaks(XWPFRun run, String text) {
         if (text == null || text.isEmpty()) {
             run.setText("", 0);

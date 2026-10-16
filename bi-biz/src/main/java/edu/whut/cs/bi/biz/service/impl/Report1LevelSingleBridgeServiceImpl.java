@@ -10,6 +10,7 @@ import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseType;
 import edu.whut.cs.bi.biz.domain.vo.Disease2ReportSummaryAiVO;
+import edu.whut.cs.bi.biz.domain.vo.DiseaseCauseMatch;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseTypeMapper;
@@ -90,6 +91,9 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
 
     @Resource
     private IDiseaseService diseaseService;
+
+    @Resource
+    private IDiseaseCauseMatchService diseaseCauseMatchService;
 
 
     @Value("${springAi_Rag.endpoint}")
@@ -1151,6 +1155,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                             List<ComponentDiseaseType> combinations = parseChooseDiseaseJson(value);
                             if (!combinations.isEmpty()) {
                                 // 生成重点关注病害内容（包含文字和成因分析）
+                                // TODO Springai-Rag 部署 /api-ai/disease/cause-match 后改为调用 generateSingleBridgeFocusOnDiseasesWithCauseMatch
                                 generateSingleBridgeFocusOnDiseases(document, combinations, building, project, biObject);
                                 log.info("单桥病害分析生成完成");
                             } else {
@@ -1247,6 +1252,65 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
         causeQuery.setPosition(disease.getPosition());
         causeQuery.setType(disease.getType());
         return diseaseService.getCauseAnalysis(causeQuery);
+    }
+
+    /**
+     * 生成单桥重点关注病害内容：按《桥梁病害成因分析与处治建议》知识库匹配成因和处治建议，未匹配写红字。
+     * 依赖 Springai-Rag 的 /api-ai/disease/cause-match，部署前暂不启用。
+     */
+    private void generateSingleBridgeFocusOnDiseasesWithCauseMatch(XWPFDocument document, List<ComponentDiseaseType> combinations,
+                                                                   Building building, Project project, BiObject biObject) {
+        try {
+            List<ReportGenerateTools.TextSegment> segments = new ArrayList<>();
+
+            // 1. 得到病害
+            // 提取所有构件ID
+            List<Long> componentIds = combinations.stream()
+                    .map(ComponentDiseaseType::getComponentId)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 批量查询病害数据
+            List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
+                    componentIds, building.getId(), project.getYear());
+
+            // 2. 生成主要病害的描述、成因分析和处治建议
+            // 按照biObjectId 分类 ， 同时按照 diseaseTypeId 分组。
+            // 分组逻辑
+            Map<Long, Map<Long, List<Disease>>> groupedMap = allDiseases.stream()
+                    .collect(Collectors.groupingBy(
+                            Disease::getBiObjectId,
+                            Collectors.groupingBy(Disease::getDiseaseTypeId)
+                    ));
+            List<String> titles = new ArrayList<>();
+            List<Disease> representatives = new ArrayList<>();
+            List<Integer> levels = new ArrayList<>();
+            for (Long biObjectId : groupedMap.keySet()) {
+                Map<Long, List<Disease>> diseaseMap = groupedMap.get(biObjectId);
+                BiObject tempBiObject = biObjectMapper.selectBiObjectById(biObjectId);
+                for (Long diseaseTypeId : diseaseMap.keySet()) {
+                    List<Disease> diseases = diseaseMap.get(diseaseTypeId);
+                    Disease disease = diseases.get(0);
+                    titles.add(tempBiObject.getName() + disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
+                    representatives.add(disease);
+                    // 同组取最高标度截取处治建议。
+                    levels.add(diseases.stream().map(Disease::getLevel).max(Integer::compare).orElse(null));
+                }
+            }
+            List<DiseaseCauseMatch> matches = diseaseCauseMatchService.matchAll(representatives, levels);
+            for (int i = 0; i < titles.size(); i++) {
+                segments.add(new ReportGenerateTools.TextSegment(
+                        (i == 0 ? "" : "\n") + (i + 1) + ")" + titles.get(i) + "\n", false));
+                segments.addAll(ReportGenerateTools.causeMatchSegments(matches.get(i)));
+            }
+
+            // 替换占位符
+            ReportGenerateTools.replaceTextWithSegments(document, "${focusOnDiseases}", segments);
+
+        } catch (Exception e) {
+            log.error("生成单桥重点关注病害内容失败", e);
+            ReportGenerateTools.replaceText(document, "${focusOnDiseases}", "【病害分析生成失败】");
+        }
     }
 
     /**
