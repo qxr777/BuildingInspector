@@ -65,6 +65,68 @@
             margin-bottom: 10px;
         }
 
+        .appearance-photo {
+            position: relative;
+            display: inline-block;
+            width: 140px;
+            margin: 0 8px 8px 0;
+            cursor: pointer;
+            vertical-align: top;
+            text-align: center;
+        }
+
+        .appearance-image-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .appearance-image-table th:nth-child(1),
+        .appearance-image-table td:nth-child(1) {
+            width: 180px;
+            white-space: nowrap;
+        }
+
+        .appearance-image-table th:nth-child(2),
+        .appearance-image-table td:nth-child(2) {
+            width: 220px;
+        }
+
+        .appearance-photo input {
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+        }
+
+        .appearance-photo img {
+            display: block;
+            max-width: 140px;
+            max-height: 90px;
+            border: 2px solid transparent;
+        }
+
+        .appearance-photo-mark {
+            display: none;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #00a65a;
+            color: #fff;
+            text-align: center;
+            line-height: 22px;
+        }
+
+        .appearance-photo input:checked + img {
+            border-color: #00a65a;
+        }
+
+        .appearance-photo input:checked ~ .appearance-photo-mark {
+            display: block;
+        }
+
         .image-actions {
             position: absolute;
             top: 5px;
@@ -347,7 +409,7 @@
                                         <h4 class="panel-title">病害图片</h4>
                                     </div>
                                     <div class="panel-body">
-                                        <p class="text-muted">按图片勾选。打开时只默认勾选每个裂缝病害的第一张，其他病害不勾。还没保存时，每个病害生成一张照片。保存后只生成勾中的图片，裂缝每个病害最多一张。</p>
+                                        <p class="text-muted">同一条病害放一行。这条病害拍了几张，照片就并排在这一行里。点击照片打勾，勾中的才写入报告。打开时只默认勾选每个裂缝病害的第一张。保存后只生成勾中的图片，裂缝每个病害最多一张。</p>
                                         <div class="form-group">
                                             <label class="control-label">选择生成照片的病害：</label>
                                             <div class="row">
@@ -443,11 +505,7 @@
                                 <div class="alert alert-warning alert-custom">
                                     <h4><i class="fa fa-info-circle"></i> 此章节功能可根据需求进一步开发</h4>
                                     <p><strong>章节名称：</strong>7. 空间变位检测结果</p>
-                                    <p><strong>当前处理方式：</strong></p>
-                                    <ul>
-                                        <li>Word模板中会保留此章节的标题</li>
-                                        <li>生成报告后，请下载Word文档，手工填写检测数据</li>
-                                    </ul>
+                                    <p>是否生成和「8. 墩台倾斜度」共用同一个勾选。默认不生成 3.7 空间变位检测结果和 3.8 墩台倾斜度。勾选并在第 8 节保存后，这两节一起保留。</p>
                                 </div>
                             </div>
 
@@ -460,14 +518,9 @@
                                         <div class="form-group">
                                             <label class="checkbox-inline">
                                                 <input type="checkbox" data-original-key="includePierTiltChapter">
-                                                生成第八章（墩台倾斜度、桥面高程）
+                                                生成 3.7 空间变位检测结果和 3.8 墩台倾斜度
                                             </label>
-                                            <p class="text-muted">默认不生成。勾选并保存后，这座大桥才保留模板里从「墩台倾斜度」到下一节之前的内容，包括桥面高程。</p>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="control-label">墩台倾斜度：</label>
-                                            <textarea class="form-control" data-original-key="pierTilt" rows="8"
-                                                      placeholder="填写各墩台倾斜度检测位置、检测数据及评价"></textarea>
+                                            <p class="text-muted">默认不生成。勾选并保存后，这座大桥才保留模板里的 3.7（含桥面高程）和 3.8。</p>
                                         </div>
                                     </div>
                                 </div>
@@ -2324,26 +2377,32 @@
                 html += '<div class="component-group"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px">'
                     + diseaseHtml(group.name) + ' <small>（' + group.diseases.length + '条）</small></h5><div class="table-responsive">';
             }
-            html += '<table class="table table-bordered table-hover"><thead><tr><th>选择</th>'
+            html += '<table class="table table-bordered table-hover' + (imageMode ? ' appearance-image-table' : '') + '"><thead><tr>'
+                + (imageMode ? '' : '<th>选择</th>')
                 + (imageMode ? '<th>缺损位置</th><th>缺损类型</th><th>病害图片预览</th>' : '<th>构件编号 / 病害位置</th><th>病害类型</th><th>病害描述</th><th>标度</th>')
                 + '</tr></thead><tbody>';
             group.diseases.forEach(function (disease) {
                 if (imageMode) {
+                    var photos = '';
                     (disease.images || []).forEach(function (image) {
                         var imageId = String(image.id || '');
                         var checked = selectedImages
                             ? !!selectedImages[imageId]
                             : (disease.crack && !seenCrack[disease.diseaseId]);
                         if (disease.crack) seenCrack[disease.diseaseId] = true;
-                        html += '<tr class="disease-record" data-image-id="' + diseaseHtml(imageId)
-                            + '" data-crack="' + (disease.crack ? '1' : '0')
-                            + '" data-defect-type="' + diseaseHtml(disease.defectType || '') + '" data-matched="true">'
-                            + '<td><input type="checkbox" class="disease-checkbox" data-image-id="' + diseaseHtml(imageId)
-                            + '" aria-label="选择图片 ' + diseaseHtml(imageId) + '"' + (checked ? ' checked' : '') + '></td>'
-                            + '<td>' + diseaseHtml(disease.locationName || '—') + '</td>'
-                            + '<td>' + diseaseHtml(disease.defectType || '未填写类型') + '</td>'
-                            + '<td><img src="' + diseaseHtml(image.url || '') + '" alt="病害图片" style="max-width:140px;max-height:90px"></td></tr>';
+                        photos += '<label class="appearance-photo">'
+                            + '<input type="checkbox" class="disease-checkbox" data-image-id="' + diseaseHtml(imageId)
+                            + '" data-disease-id="' + diseaseHtml(disease.diseaseId)
+                            + '" aria-label="选择图片 ' + diseaseHtml(imageId) + '"' + (checked ? ' checked' : '') + '>'
+                            + '<img src="' + diseaseHtml(image.url || '') + '" alt="病害图片">'
+                            + '<span class="appearance-photo-mark"><i class="fa fa-check"></i></span></label>';
                     });
+                    html += '<tr class="disease-record" data-appearance="1" data-disease-id="' + diseaseHtml(disease.diseaseId)
+                        + '" data-crack="' + (disease.crack ? '1' : '0')
+                        + '" data-defect-type="' + diseaseHtml(disease.defectType || '') + '" data-matched="true">'
+                        + '<td>' + diseaseHtml(disease.locationName || '—') + '</td>'
+                        + '<td>' + diseaseHtml(disease.defectType || '未填写类型') + '</td>'
+                        + '<td>' + photos + '</td></tr>';
                     return;
                 }
                 html += '<tr class="disease-record" data-disease-id="' + diseaseHtml(disease.diseaseId) + '" data-matched="true">'
@@ -2372,7 +2431,7 @@
         ((source[taskId] && source[taskId].diseases) || []).forEach(function (record) { recordById[String(record.diseaseId)] = record; });
         $pane.find('.disease-record').each(function () {
             var matched;
-            if ($(this).attr('data-image-id') != null) {
+            if ($(this).attr('data-appearance') === '1') {
                 var defectType = String($(this).attr('data-defect-type') || '').toLowerCase();
                 var words = String(keyword || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
                 var crackFilter = $pane.find('.appearance-crack-filter:checked').val() || 'all';
@@ -2396,12 +2455,15 @@
     function updateDiseaseSelectionCount(taskId) {
         var $pane = $('#task-' + taskId);
         var $matched = $pane.find('.disease-record[data-matched="true"] .disease-checkbox');
+        var imageMode = $pane.find('.appearance-photo').length > 0;
         var selected = $pane.find('.disease-checkbox:checked').length;
         var checked = $matched.filter(':checked').length;
         $pane.find('.select-all-diseases').prop('checked', $matched.length > 0 && checked === $matched.length)
             .prop('indeterminate', checked > 0 && checked < $matched.length).prop('disabled', !$matched.length);
-        var unit = $pane.find('.disease-record[data-image-id]').length ? '张' : '条';
-        $pane.find('.disease-selection-count').text('共 ' + $pane.find('.disease-record').length + ' ' + unit + ' · 匹配 ' + $matched.length + ' ' + unit + ' · 已选 ' + selected + ' ' + unit);
+        var unit = imageMode ? '张' : '条';
+        var total = imageMode ? $pane.find('.disease-checkbox').length : $pane.find('.disease-record').length;
+        var matchedCount = imageMode ? $matched.length : $pane.find('.disease-record[data-matched="true"]').length;
+        $pane.find('.disease-selection-count').text('共 ' + total + ' ' + unit + ' · 匹配 ' + matchedCount + ' ' + unit + ' · 已选 ' + selected + ' ' + unit);
     }
 
     function bindDiseaseSelectionEvents() {
@@ -2410,10 +2472,29 @@
         $('.disease-scale-filter').off('change').on('change', function () { filterDiseaseList($(this).attr('data-task-id')); });
         $('.select-all-diseases').off('change').on('change', function () {
             var taskId = $(this).attr('data-task-id');
-            $('#task-' + taskId).find('.disease-record[data-matched="true"] .disease-checkbox').prop('checked', this.checked);
+            var $pane = $('#task-' + taskId);
+            $pane.find('.disease-record[data-matched="true"] .disease-checkbox').prop('checked', this.checked);
+            if (this.checked) {
+                $pane.find('.disease-record[data-appearance="1"][data-crack="1"][data-matched="true"]').each(function () {
+                    var seenDisease = {};
+                    $(this).find('.disease-checkbox').each(function () {
+                        var diseaseId = $(this).attr('data-disease-id');
+                        if (seenDisease[diseaseId]) {
+                            $(this).prop('checked', false);
+                        } else {
+                            seenDisease[diseaseId] = true;
+                        }
+                    });
+                });
+            }
             updateDiseaseSelectionCount(taskId);
         });
         $('.disease-checkbox').off('change').on('change', function () {
+            var $row = $(this).closest('.disease-record');
+            if (this.checked && $row.attr('data-crack') === '1') {
+                var diseaseId = $(this).attr('data-disease-id');
+                $row.find('.disease-checkbox[data-disease-id="' + diseaseId + '"]').not(this).prop('checked', false);
+            }
             updateDiseaseSelectionCount($(this).closest('.disease-selection-list').attr('data-task-id'));
         });
         $('#confirmDiseaseSelection').off('click').on('click', confirmDiseaseSelection);

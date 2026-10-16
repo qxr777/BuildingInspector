@@ -415,6 +415,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             else replaceOverallOverviewInBridgeBlock(document, valueOf(dataMap, "overallOverview"));
             removeTechnicalStandardInBridgeBlock(document);
             if (!isEnabledFlag(valueOf(dataMap, "includePierTiltChapter"))) {
+                removeHeadingSection(document, "空间变位检测结果");
                 removeHeadingSection(document, "墩台倾斜度");
             }
             if (!importedOverview || replaceImportedPhotos) insertGroupOverviewImages(document, dataMap);
@@ -561,7 +562,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * 删掉桥梁章节里某个标题及其下级内容，直到同级或更高级标题。
      */
     private void removeHeadingSection(XWPFDocument document, String headingText) {
-        XWPFParagraph heading = findBridgeBlockHeading(document, headingText);
+        XWPFParagraph heading = findBridgeBlockSectionHeading(document, headingText);
         if (heading == null) {
             return;
         }
@@ -599,6 +600,35 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         String normalized = value.trim();
         return "1".equals(normalized) || "true".equalsIgnoreCase(normalized) || "是".equals(normalized);
+    }
+
+    private XWPFParagraph findBridgeBlockSectionHeading(XWPFDocument document, String headingText) {
+        boolean inBridgeBlock = false;
+        for (XWPFParagraph paragraph : document.getParagraphs()) {
+            String text = safeParagraphText(paragraph);
+            if (text.contains("${line.bridge-block-start}")) {
+                inBridgeBlock = true;
+                continue;
+            }
+            if (text.contains("${line.bridge-block-end}")) {
+                break;
+            }
+            if (inBridgeBlock && resolveHeadingLevel(paragraph) > 0 && matchesSectionTitle(text, headingText)) {
+                return paragraph;
+            }
+        }
+        return null;
+    }
+
+    private boolean matchesSectionTitle(String text, String headingText) {
+        if (text.equals(headingText)) {
+            return true;
+        }
+        if (!text.startsWith(headingText)) {
+            return false;
+        }
+        String rest = text.substring(headingText.length()).trim();
+        return rest.isEmpty() || rest.startsWith("（") || rest.startsWith("(");
     }
 
     private XWPFParagraph findBridgeBlockHeading(XWPFDocument document, String headingText) {

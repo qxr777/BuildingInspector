@@ -211,6 +211,13 @@
                 <version>${fastjson.version}</version>
             </dependency>
 
+            <!-- JDK 21 下 1.18.20 会报 JCImport.qualid，导致 @Data 类整批编译失败 -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.38</version>
+            </dependency>
+
             <!-- 强制所有依赖使用 OkHttp 4.11.0 -->
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>

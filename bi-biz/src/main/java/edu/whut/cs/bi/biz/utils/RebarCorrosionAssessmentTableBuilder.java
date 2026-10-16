@@ -16,7 +16,7 @@ import java.util.List;
  * 20 个测点电位和温度也取自该表。最小值取 20 个有效测值中的最小者。
  * 温度修正系数 k 固定为 0.9 mV/℃。T≥27℃ 时修正值 = 0.9×(T−27)，
  * T≤17℃ 时修正值 = 0.9×(T−17)，其间修正值为 0。修正后最小值 = 最小值 + 修正值。
- * 评定标度暂不计算。</p>
+ * 评定标度按表 5.4.3，取修正后最小值；没有温度时取最小值。</p>
  */
 public final class RebarCorrosionAssessmentTableBuilder {
 
@@ -41,7 +41,8 @@ public final class RebarCorrosionAssessmentTableBuilder {
         public final String scaleText;
 
         Row(String bridgeName, String location, List<String> values,
-            String minText, String temperatureText, String correctionText, String correctedMinText) {
+            String minText, String temperatureText, String correctionText, String correctedMinText,
+            String scaleText) {
             this.bridgeName = bridgeName;
             this.location = location;
             this.values = values;
@@ -49,7 +50,7 @@ public final class RebarCorrosionAssessmentTableBuilder {
             this.temperatureText = temperatureText;
             this.correctionText = correctionText;
             this.correctedMinText = correctedMinText;
-            this.scaleText = "";
+            this.scaleText = scaleText;
         }
     }
 
@@ -78,8 +79,9 @@ public final class RebarCorrosionAssessmentTableBuilder {
                 temperature = "";
             }
             String[] correction = correctMinimum(min, temperature);
+            BigDecimal rated = correction[1].isEmpty() ? min : new BigDecimal(correction[1]);
             rows.add(new Row(bridge, location, values, formatNumber(min), temperature,
-                    correction[0], correction[1]));
+                    correction[0], correction[1], String.valueOf(corrosionScale(rated))));
         }
         return rows;
     }
@@ -141,6 +143,27 @@ public final class RebarCorrosionAssessmentTableBuilder {
             delta = BigDecimal.ZERO;
         }
         return new String[]{formatNumber(delta), formatNumber(minimum.add(delta))};
+    }
+
+    /**
+     * 表 5.4.3：按测区最低电位取评定标度。≥−200 为 1，(−200, −300] 为 2，
+     * (−300, −400] 为 3，(−400, −500] 为 4，&lt;−500 为 5。
+     */
+    static int corrosionScale(BigDecimal potential) {
+        BigDecimal rated = potential.setScale(1, RoundingMode.HALF_UP);
+        if (rated.compareTo(new BigDecimal("-200")) >= 0) {
+            return 1;
+        }
+        if (rated.compareTo(new BigDecimal("-300")) >= 0) {
+            return 2;
+        }
+        if (rated.compareTo(new BigDecimal("-400")) >= 0) {
+            return 3;
+        }
+        if (rated.compareTo(new BigDecimal("-500")) >= 0) {
+            return 4;
+        }
+        return 5;
     }
 
     private static BigDecimal parseTemperature(String text) {
