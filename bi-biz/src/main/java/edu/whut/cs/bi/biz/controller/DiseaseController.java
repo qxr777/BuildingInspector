@@ -17,6 +17,7 @@ import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.domain.dto.CauseMatchQuery;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
 import edu.whut.cs.bi.biz.domain.enums.AreaIdentifierEnums;
 import edu.whut.cs.bi.biz.mapper.AttachmentMapper;
@@ -84,6 +85,9 @@ public class DiseaseController extends BaseController {
 
     @Resource
     private IDiseaseService diseaseService;
+
+    @Resource
+    private IDiseaseCauseMatchService diseaseCauseMatchService;
 
     @Resource
     private ITaskService taskService;
@@ -1154,6 +1158,18 @@ public class DiseaseController extends BaseController {
             }
         }
         return AjaxResult.success(diseaseService.getCauseAnalysis(causeQuery));
+    }
+
+    /**
+     * 按《桥梁病害成因分析与处治建议》知识库匹配成因和处治建议，返回 Excel 原文。
+     */
+    @PostMapping("/causeMatch")
+    @ResponseBody
+    public AjaxResult causeMatch(@RequestBody CauseMatchQuery query) {
+        if (query.getDiseaseId() == null && (query.getBiObjectId() == null || StrUtil.isBlank(query.getType()))) {
+            return AjaxResult.error("diseaseId 或 biObjectId + type 必须提供");
+        }
+        return AjaxResult.success(diseaseCauseMatchService.match(query));
     }
 
     @RequiresPermissions("biz:disease:add")
