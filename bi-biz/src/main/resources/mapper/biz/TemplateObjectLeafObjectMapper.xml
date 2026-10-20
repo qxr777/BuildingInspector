@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.TemplateObjectLeafObjectMapper">
+
+    <resultMap type="TemplateObjectLeafObject" id="TemplateObjectLeafObjectResult">
+        <result property="id"               column="id"                 />
+        <result property="templateObjectId" column="template_object_id" />
+        <result property="leafObjectId"     column="leaf_object_id"     />
+        <result property="createTime"       column="create_time"        />
+    </resultMap>
+
+    <!-- 与其它绑定表(bi_lo_disease_type 等)一致，仅 create_time，无审计四列 -->
+    <sql id="selectTemplateObjectLeafObjectVo">
+        select id, template_object_id, leaf_object_id, create_time
+        from bi_template_object_leaf_object
+    </sql>
+
+    <select id="selectTemplateObjectLeafObjectList" parameterType="TemplateObjectLeafObject" resultMap="TemplateObjectLeafObjectResult">
+        <include refid="selectTemplateObjectLeafObjectVo"/>
+        <where>
+            <if test="templateObjectId != null"> and template_object_id = #{templateObjectId}</if>
+            <if test="leafObjectId != null"> and leaf_object_id = #{leafObjectId}</if>
+        </where>
+        order by template_object_id, id
+    </select>
+
+    <select id="selectByTemplateObjectIds" resultMap="TemplateObjectLeafObjectResult">
+        <include refid="selectTemplateObjectLeafObjectVo"/>
+        where template_object_id in
+        <foreach collection="templateObjectIds" item="templateObjectId" open="(" separator="," close=")">
+            #{templateObjectId}
+        </foreach>
+        order by id
+    </select>
+
+</mapper>

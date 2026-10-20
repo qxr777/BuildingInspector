@@ -162,6 +162,9 @@ public class BiObject extends TreeEntity {
     /** 跨号(1, 2, 3...) */
     private Integer spanNo;
 
+    /** 是否主要构件（1=主要, 0=次要；仅 PART 有效，标准 3.3.3 按桥型区分） */
+    private Integer isMainComponent;
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
@@ -195,6 +198,7 @@ public class BiObject extends TreeEntity {
                 .append("omega", getOmega())
                 .append("propsJson", getPropsJson())
                 .append("spanNo", getSpanNo())
+                .append("isMainComponent", getIsMainComponent())
                 .toString();
     }
 }

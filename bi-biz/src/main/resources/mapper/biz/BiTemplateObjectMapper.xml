@@ -25,6 +25,8 @@
         <result property="parentName" column="parent_name"/>
         <result property="stdVersion" column="std_version"/>
         <result property="nodeCode" column="node_code"/>
+        <result property="nodeType" column="node_type"/>
+        <result property="isMainComponent" column="is_main_component"/>
         <collection property="children" ofType="BiTemplateObject">
             <id property="id" column="child_id"/>
             <result property="name" column="child_name"/>
@@ -49,14 +51,14 @@
     </resultMap>
 
     <sql id="selectBiTemplateObjectVo">
-        select id, name, parent_id, ancestors, order_num, status, del_flag, weight, omega, gamma, category_i, props, remark, create_by, create_time, update_by, update_time, std_version, node_code from bi_template_object
+        select id, name, parent_id, ancestors, order_num, status, del_flag, weight, omega, gamma, category_i, props, remark, create_by, create_time, update_by, update_time, std_version, node_code, node_type, is_main_component from bi_template_object
     </sql>
 
     <select id="selectBiTemplateObjectList" parameterType="BiTemplateObject" resultMap="BiTemplateObjectResult">
         SELECT
         t.id, t.name, t.parent_id, t.ancestors, t.order_num, t.status, t.del_flag,
         t.weight, t.omega, t.gamma, t.category_i, t.props, t.remark, t.create_by, t.create_time, t.update_by, t.update_time,
-        t.std_version, t.node_code
+        t.std_version, t.node_code, t.node_type, t.is_main_component
         FROM bi_template_object t
         <where>
             <if test="status != null and status != ''">

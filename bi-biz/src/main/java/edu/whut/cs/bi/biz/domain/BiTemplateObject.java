@@ -86,6 +86,12 @@ public class BiTemplateObject extends TreeEntity {
      */
     private String nodeCode;
 
+    /** 节点类型: ROOT(桥型模板根)/LAYER(结构层)/PART(部件)，与 bi_object.node_type 同词汇 */
+    private String nodeType;
+
+    /** 是否主要构件（1=主要, 0=次要；仅 PART 有效，标准 3.3.3 按桥型区分） */
+    private Integer isMainComponent;
+
     /**
      * 子模板对象
      */
@@ -123,6 +129,22 @@ public class BiTemplateObject extends TreeEntity {
 
     public void setNodeCode(String nodeCode) {
         this.nodeCode = nodeCode;
+    }
+
+    public String getNodeType() {
+        return nodeType;
+    }
+
+    public void setNodeType(String nodeType) {
+        this.nodeType = nodeType;
+    }
+
+    public Integer getIsMainComponent() {
+        return isMainComponent;
+    }
+
+    public void setIsMainComponent(Integer isMainComponent) {
+        this.isMainComponent = isMainComponent;
     }
 
     public List<BiTemplateObject> getChildren() {

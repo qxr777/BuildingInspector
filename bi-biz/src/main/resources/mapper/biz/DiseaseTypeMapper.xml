@@ -20,6 +20,7 @@
         <result property="threshold" column="threshold"/>
         <result property="groupName" column="group_name"/>
         <result property="stdVersion" column="std_version"/>
+        <result property="scaleType" column="scale_type"/>
     </resultMap>
 
     <resultMap type="TemplateDiseaseTypeVO" id="TemplateDiseaseTypeVOResult" extends="DiseaseTypeResult">
@@ -41,7 +42,8 @@
                select_column,
                threshold,
                group_name,
-               std_version
+               std_version,
+               scale_type
         from bi_disease_type
     </sql>
 
@@ -149,6 +151,7 @@
             <if test="threshold != null">threshold = #{threshold},</if>
             <if test="groupName != null and groupName != ''">group_name = #{groupName},</if>
             <if test="stdVersion != null and stdVersion != ''">std_version = #{stdVersion},</if>
+            <if test="scaleType != null and scaleType != ''">scale_type = #{scaleType},</if>
             update_time = sysdate()
         </set>
         where id = #{id}
@@ -174,6 +177,7 @@
             <if test="threshold != null">threshold,</if>
             <if test="groupName != null and groupName != ''">group_name,</if>
             <if test="stdVersion != null and stdVersion != ''">std_version,</if>
+            <if test="scaleType != null and scaleType != ''">scale_type,</if>
             create_time
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -188,6 +192,7 @@
             <if test="threshold != null">#{threshold},</if>
             <if test="groupName != null and groupName != ''">#{groupName},</if>
             <if test="stdVersion != null and stdVersion != ''">#{stdVersion},</if>
+            <if test="scaleType != null and scaleType != ''">#{scaleType},</if>
             sysdate()
         </trim>
     </insert>

@@ -70,6 +70,11 @@ public class DiseaseType extends BaseEntity {
      */
     private String stdVersion;
 
+    /**
+     * 指数类型：EDI(构件状况指数)/EFI(耐久性)/EAI(适应性)；缺省 EDI（5230 新规范）
+     */
+    private String scaleType;
+
     // 关联的病害标度
     private List<DiseaseScale> diseaseScales;
 

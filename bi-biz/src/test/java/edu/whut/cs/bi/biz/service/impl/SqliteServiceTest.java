@@ -22,6 +22,7 @@ import edu.whut.cs.bi.biz.domain.RepairStrengtheningStructure;
 import edu.whut.cs.bi.biz.domain.RssDiseaseType;
 import edu.whut.cs.bi.biz.domain.SpanElementPart;
 import edu.whut.cs.bi.biz.domain.Task;
+import edu.whut.cs.bi.biz.domain.TemplateObjectLeafObject;
 import edu.whut.cs.bi.biz.domain.UserSqlite;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
@@ -44,6 +45,7 @@ import edu.whut.cs.bi.biz.mapper.RepairStrengtheningStructureMapper;
 import edu.whut.cs.bi.biz.mapper.RssDiseaseTypeMapper;
 import edu.whut.cs.bi.biz.mapper.SpanElementPartMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
+import edu.whut.cs.bi.biz.mapper.TemplateObjectLeafObjectMapper;
 import edu.whut.cs.bi.biz.mapper.UserSqliteMapper;
 import edu.whut.cs.bi.biz.service.AttachmentService;
 import io.minio.MinioClient;
@@ -73,6 +75,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -136,6 +139,8 @@ class SqliteServiceTest {
     private MdDiseaseTypeMapper mdDiseaseTypeMapper;
     @Mock
     private RssDiseaseTypeMapper rssDiseaseTypeMapper;
+    @Mock
+    private TemplateObjectLeafObjectMapper templateObjectLeafObjectMapper;
 
     private final List<File> generatedFiles = new ArrayList<>();
 
@@ -183,6 +188,7 @@ class SqliteServiceTest {
         disease.setBiObjectId(101L);
         disease.setComponentId(201L);
         disease.setElementUuid("elem-uuid-201");
+        disease.setLeafObjectId(901L);
         disease.setLevel(1);
         disease.setQuantity(1);
 
@@ -246,10 +252,14 @@ class SqliteServiceTest {
                     "select count(1) from pragma_table_info('bi_disease') where name='element_uuid'"));
             assertEquals(0, queryCount(statement,
                     "select count(1) from pragma_table_info('bi_disease') where name='component_uuid'"));
+            // leaf_object_id 随包下发：PART 多叶子时病害的显式归属
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from pragma_table_info('bi_disease') where name='leaf_object_id'"));
             try (ResultSet rs = statement.executeQuery(
-                    "select element_uuid from bi_disease where server_id = 301")) {
+                    "select element_uuid, leaf_object_id from bi_disease where server_id = 301")) {
                 assertTrue(rs.next());
                 assertEquals("elem-uuid-201", rs.getString(1));
+                assertEquals(901L, rs.getLong(2));
             }
         }
     }
@@ -431,18 +441,23 @@ class SqliteServiceTest {
 
     /**
      * 测试场景：通用基础包 SQLite 文件内容（私有 doGenerateCommonBaseSqlite 直调）。
-     * 预期结果：恰为 10 张目标表；每表 1 行；旧 bi_template_object_disease_type 表不存在。
+     * 预期结果：恰为 11 张目标表（含模板 PART-叶子多对多绑定表）；每表 1 行；
+     * 旧 bi_template_object_disease_type 表不存在；模板带 node_type/is_main_component、
+     * 病害类型带 scale_type；6 张版本字典查询条件均为 std_version=5230-2026。
      */
     @Test
-    void testDoGenerateCommonBaseSqlite_ExactlyTenTables() throws Exception {
+    void testDoGenerateCommonBaseSqlite_ExactlyElevenTables() throws Exception {
         BiTemplateObject templateObject = new BiTemplateObject();
         templateObject.setId(1L);
+        templateObject.setNodeType("PART");
+        templateObject.setIsMainComponent(1);
         LeafObject leafObject = new LeafObject();
         leafObject.setId(2L);
         LoDiseaseType loDiseaseType = new LoDiseaseType();
         loDiseaseType.setId(3L);
         DiseaseType diseaseType = new DiseaseType();
         diseaseType.setId(4L);
+        diseaseType.setScaleType("EDI");
         DiseaseScale diseaseScale = new DiseaseScale();
         diseaseScale.setId(5L);
         LoDiseasePosition loDiseasePosition = new LoDiseasePosition();
@@ -455,6 +470,10 @@ class SqliteServiceTest {
         mdDiseaseType.setId(9L);
         RssDiseaseType rssDiseaseType = new RssDiseaseType();
         rssDiseaseType.setId(10L);
+        TemplateObjectLeafObject templateLeaf = new TemplateObjectLeafObject();
+        templateLeaf.setId(12L);
+        templateLeaf.setTemplateObjectId(1L);
+        templateLeaf.setLeafObjectId(2L);
 
         doReturn(Collections.singletonList(templateObject)).when(biTemplateObjectMapper)
                 .selectBiTemplateObjectList(any(BiTemplateObject.class));
@@ -476,19 +495,36 @@ class SqliteServiceTest {
                 .selectMdDiseaseTypeList(any(MdDiseaseType.class));
         doReturn(Collections.singletonList(rssDiseaseType)).when(rssDiseaseTypeMapper)
                 .selectRssDiseaseTypeList(any(RssDiseaseType.class));
+        doReturn(Collections.singletonList(templateLeaf)).when(templateObjectLeafObjectMapper)
+                .selectTemplateObjectLeafObjectList(any(TemplateObjectLeafObject.class));
 
         File result = (File) invokePrivate("doGenerateCommonBaseSqlite", new Class<?>[0]);
         generatedFiles.add(result);
         assertNotNull(result);
 
+        // 6 张带版本的字典只下发 5230-2026（4 张绑定表无版本列，全量即 5230）
+        verify(biTemplateObjectMapper).selectBiTemplateObjectList(argThat(
+                q -> "5230-2026".equals(q.getStdVersion())));
+        verify(leafObjectMapper).selectLeafObjectList(argThat(
+                q -> "5230-2026".equals(q.getStdVersion())));
+        verify(diseaseTypeMapper).selectDiseaseTypeList(argThat(
+                q -> "5230-2026".equals(q.getStdVersion())));
+        verify(diseaseScaleMapper).selectDiseaseScaleList(argThat(
+                q -> "5230-2026".equals(q.getStdVersion())));
+        verify(materialDurabilityMapper).selectMaterialDurabilityList(argThat(
+                q -> "5230-2026".equals(q.getStdVersion())));
+        verify(repairStrengtheningStructureMapper).selectRepairStrengtheningStructureList(argThat(
+                q -> "5230-2026".equals(q.getStdVersion())));
+
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + result.getAbsolutePath());
              Statement statement = conn.createStatement()) {
-            assertEquals(10, queryCount(statement,
+            assertEquals(11, queryCount(statement,
                     "select count(1) from sqlite_master where type='table' and name not like 'sqlite_%'"));
             assertEquals(0, queryCount(statement,
                     "select count(1) from sqlite_master where type='table' "
                             + "and name='bi_template_object_disease_type'"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_template_object"));
+            assertEquals(1, queryCount(statement, "select count(1) from bi_template_object_leaf_object"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_leaf_object"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_lo_disease_type"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_disease_type"));
@@ -498,6 +534,21 @@ class SqliteServiceTest {
             assertEquals(1, queryCount(statement, "select count(1) from bi_repair_strengthening_structure"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_md_disease_type"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_rss_disease_type"));
+            // 新列存在性
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from pragma_table_info('bi_template_object') where name='node_type'"));
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from pragma_table_info('bi_template_object') where name='is_main_component'"));
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from pragma_table_info('bi_disease_type') where name='scale_type'"));
+            // 新列值
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from bi_template_object where node_type='PART' and is_main_component=1"));
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from bi_disease_type where scale_type='EDI'"));
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from bi_template_object_leaf_object "
+                            + "where template_object_id=1 and leaf_object_id=2"));
         }
     }
 
@@ -573,6 +624,14 @@ class SqliteServiceTest {
             assertEquals(0, queryCount(statement,
                     "select count(1) from sqlite_master where type='table' "
                             + "and name in ('bi_component','bi_span_component_part')"));
+            // bi_object 带主要构件标识列（评定 3.3.3 用），但不下发已冻结的单值 leaf_object_id
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from pragma_table_info('bi_object') where name='is_main_component'"));
+            assertEquals(0, queryCount(statement,
+                    "select count(1) from pragma_table_info('bi_object') where name='leaf_object_id'"));
+            // bi_disease 携带 leaf_object_id（病害显式归属叶子），与 bi_object 冻结列互不影响
+            assertEquals(1, queryCount(statement,
+                    "select count(1) from pragma_table_info('bi_disease') where name='leaf_object_id'"));
         }
     }
 

@@ -216,6 +216,9 @@ public class Disease extends BaseEntity {
     /** 所属构件离线UUID（新链 bi_element.offline_uuid，JTG/T 5230 新规范出包使用） */
     private String elementUuid;
 
+    /** 所属叶子部件字典ID（bi_leaf_object.id；PART 多叶子时记录病害具体归属叶子，可空=旧链/未指定） */
+    private Long leafObjectId;
+
     /** 是否为离线同步数据 (0:否, 1:是) */
     private Integer isOfflineData;
 

@@ -42,6 +42,7 @@
         <result property="objectUuid" column="object_uuid"/>
         <result property="componentUuid" column="component_uuid"/>
         <result property="elementUuid" column="element_uuid"/>
+        <result property="leafObjectId" column="leaf_object_id"/>
         <result property="isOfflineData" column="is_offline_data"/>
 
         <!-- diseaseType object -->
@@ -99,6 +100,7 @@
                d.building_uuid,
                d.object_uuid,
                d.element_uuid,
+               d.leaf_object_id,
                d.is_offline_data,
                bp.year            as bp_year,
                dt.id              as dt_id,
@@ -248,6 +250,7 @@
             <if test="buildingUuid != null">building_uuid,</if>
             <if test="objectUuid != null">object_uuid,</if>
             <if test="componentUuid != null">component_uuid,</if>
+            <if test="leafObjectId != null">leaf_object_id,</if>
             <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -286,6 +289,7 @@
             <if test="buildingUuid != null">#{buildingUuid},</if>
             <if test="objectUuid != null">#{objectUuid},</if>
             <if test="componentUuid != null">#{componentUuid},</if>
+            <if test="leafObjectId != null">#{leafObjectId},</if>
             <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
     </insert>
@@ -351,6 +355,7 @@
             <if test="buildingUuid != null">building_uuid = #{buildingUuid},</if>
             <if test="objectUuid != null">object_uuid = #{objectUuid},</if>
             <if test="componentUuid != null">component_uuid = #{componentUuid},</if>
+            <if test="leafObjectId != null">leaf_object_id = #{leafObjectId},</if>
             <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>
         where id = #{id}
@@ -624,7 +629,7 @@
                d.cause, d.repair_recommendation, d.crack_type,
                d.development_trend, d.detection_method, d.attachment_count,
                d.create_by, d.create_time, d.update_by, d.update_time, d.task_id,
-               d.offline_uuid, d.building_uuid, d.object_uuid, d.element_uuid, d.is_offline_data
+               d.offline_uuid, d.building_uuid, d.object_uuid, d.element_uuid, d.leaf_object_id, d.is_offline_data
         from bi_disease d
         where d.building_id in
         <foreach collection="buildingIds" item="buildingId" open="(" separator="," close=")">

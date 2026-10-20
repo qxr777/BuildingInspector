@@ -49,7 +49,8 @@
 --   [5] bi_building 补 offline_uuid
 --   [6] 种子数据：21 桥型顶层 + B01 完整树
 --   [7] 版本隔离字典列 + 复合唯一索引（bi_disease_type / bi_disease_scale / bi_template_object）
---   [8] 5230 叶子部件/构件字典：bi_element + 3 字典表 + 4 绑定表（8 张新表；病害位置不建字典，
+--   [8] 5230 叶子部件/构件字典：bi_element + 3 字典表 + 5 绑定表（9 张新表；2026-10-16 增
+--       bi_template_object_leaf_object 桥型模板PART-叶子多对多绑定；病害位置不建字典，
 --       位置字符串直接存 bi_lo_disease_position.position；旧空表 bi_disease_position DROP），bi_object 加 2 列；
 --       bi_element 加 material_durability_id 列；bi_disease_type 加 scale_type(EDI/EFI/EAI,缺省EDI)
 --   [9] 5230 评定引擎（2026-10-14 整包下线）：bi_span_evaluation 覆盖留痕5列+uk_task_span 冻结保留；
@@ -177,6 +178,8 @@ CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'object_uuid', 'VARCHAR(64) NULL 
 -- 出包链（selectDiseasesByBuildingIds/离线包）2026-10-16 起改读 element_uuid；
 -- component_uuid 仅基线存量列，供 Web/旧上传链使用，缺列的滞后库无需补齐。
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'element_uuid', 'VARCHAR(64) NULL COMMENT ''关联构件的offline_uuid''');
+-- leaf_object_id：PART 多叶子时病害显式归属的叶子部件字典ID(bi_leaf_object.id)，旧链/未指定可空
+CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'leaf_object_id', 'BIGINT NULL COMMENT ''病害归属叶子部件ID(bi_leaf_object.id;PART多叶子时显式指定,旧链可空)''');
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'is_offline_data', 'TINYINT(1) NULL COMMENT ''0=云端,1=离线生成''');
 CALL P_AddColumnIfNotExists(@db, 'bi_disease', 'offline_deleted', 'TINYINT(1) NULL COMMENT ''0=正常,1=已删除''');
 
@@ -271,6 +274,7 @@ CREATE TABLE IF NOT EXISTS `bi_user_sqlite` (
 --     5.5.6 bi_lo_disease_position            叶子部件-病害位置（position 位置字符串 + 参考面1/2候选 ref1/ref2）
 --     5.5.7 bi_rss_disease_type               维修加固结构-病害类型绑定
 --     5.5.8 bi_md_disease_type                材料耐久性-病害类型绑定
+--     5.5.9 bi_template_object_leaf_object    桥型模板PART节点-叶子部件多对多绑定（2026-10-16，随common.db下发）
 --   约定：字典表由 Java 种子接口 POST /biz/stdSeed/run 写入，std_version 版本隔离，
 --         不带离线同步列；全库不建 FOREIGN KEY，关联只靠列 + 索引。
 -- ================================================================================
@@ -317,7 +321,7 @@ CREATE TABLE IF NOT EXISTS `bi_leaf_object` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_leaf_object_code_ver` (`code`, `std_version`),
   KEY `idx_structure_layer` (`structure_layer`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='叶子部件字典(附录B末端部件,跨桥型;bi_object.leaf_object_id引用)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='叶子部件字典(附录B末端部件,跨桥型;桥型模板PART节点经5.5.9多对多表引用,旧bi_object.leaf_object_id单值列冻结)';
 
 -- 5.5.2 病害位置字典：已取消（2026-10-14）
 --   位置不再做独立字典，直接以字符串存于 5.5.6 bi_lo_disease_position.position；
@@ -416,6 +420,20 @@ CREATE TABLE IF NOT EXISTS `bi_md_disease_type` (
   UNIQUE KEY `uk_md_disease_type` (`material_durability_id`, `disease_type_id`),
   KEY `idx_disease_type_id` (`disease_type_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='材料耐久性-病害类型关联表';
+
+-- 5.5.9 桥型模板 PART 节点-叶子部件多对多绑定（2026-10-16）
+--   一个模板 PART 可对应多个附录B 叶子部件；App 录入路径：实例部件节点.template_object_id
+--   → bi_template_object PART → 本表 → bi_leaf_object 多叶子 → 各叶子病害类型/位置/材料绑定。
+--   随 common.db 下发；首批 82 行由 5230 seed 第 13 节按 node_code 后缀(leaf code)幂等回填。
+CREATE TABLE IF NOT EXISTS `bi_template_object_leaf_object` (
+  `id`                 BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `template_object_id` BIGINT NOT NULL COMMENT '模板PART节点ID(bi_template_object.id,node_type=PART)',
+  `leaf_object_id`     BIGINT NOT NULL COMMENT '叶子部件ID(bi_leaf_object.id)',
+  `create_time`        DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_template_leaf` (`template_object_id`, `leaf_object_id`),
+  KEY `idx_leaf_object_id` (`leaf_object_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='桥型模板PART节点-叶子部件多对多绑定(随common.db下发)';
 
 -- ================================================================================
 -- 第六部分：bi_template_object 补齐历史演进列 + 新标列
@@ -714,14 +732,15 @@ DROP PROCEDURE IF EXISTS `P_AddKeyIfNotExists`;
 --    AND ((TABLE_NAME IN ('bi_project','bi_task') AND COLUMN_NAME='std_version')
 --      OR (TABLE_NAME='bi_building' AND COLUMN_NAME='new_root_object_id'))
 --  ORDER BY TABLE_NAME, COLUMN_NAME;
--- 6) 5230 叶子部件/构件字典 8 张新表均应存在（应返回 8 行），旧 bi_component 保持不动；
+-- 6) 5230 叶子部件/构件字典 9 张新表均应存在（应返回 9 行），旧 bi_component 保持不动；
 --    bi_disease_position 不应存在（第二个查询应返回 0）
 -- SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
 --  WHERE TABLE_SCHEMA = DATABASE()
 --    AND TABLE_NAME IN ('bi_element','bi_leaf_object',
 --      'bi_repair_strengthening_structure','bi_material_durability',
 --      'bi_lo_disease_type','bi_lo_disease_position',
---      'bi_rss_disease_type','bi_md_disease_type')
+--      'bi_rss_disease_type','bi_md_disease_type',
+--      'bi_template_object_leaf_object')
 --  ORDER BY TABLE_NAME;
 -- SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
 --  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bi_disease_position';
@@ -775,5 +794,9 @@ DROP PROCEDURE IF EXISTS `P_AddKeyIfNotExists`;
 -- SELECT INDEX_NAME, NON_UNIQUE FROM INFORMATION_SCHEMA.STATISTICS
 --  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bi_user_sqlite'
 --    AND INDEX_NAME IN ('uk_user_sqlite_user_id','idx_user');
+-- 14) bi_disease.leaf_object_id 列存在且可空（IS_NULLABLE=YES；存量行值为 NULL，第二个查询应返回 0 非空）
+-- SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+--  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bi_disease' AND COLUMN_NAME='leaf_object_id';
+-- SELECT COUNT(*) FROM bi_disease WHERE leaf_object_id IS NOT NULL;
 
 -- ============================== 全量脚本结束 ==============================
