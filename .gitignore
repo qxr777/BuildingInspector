@@ -59,3 +59,9 @@ u95.db-wal
 
 doc/
 .workbuddy/
+/app-end/common.db
+/app-end/common.db-shm
+/app-end/common.db-wal
+/app-end/user.db
+/app-end/user.db-shm
+/app-end/user.db-wal
