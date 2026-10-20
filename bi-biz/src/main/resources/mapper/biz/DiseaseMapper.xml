@@ -647,4 +647,16 @@
             #{id}
         </foreach>
     </update>
+
+    <!-- 离线附件同步后按 bi_attachment 实际行数重算 attachment_count -->
+    <update id="recountAttachmentCount">
+        UPDATE bi_disease d
+        SET d.attachment_count = (
+            SELECT COUNT(1) FROM bi_attachment a WHERE a.subject_id = d.id
+        )
+        WHERE d.id IN
+        <foreach collection="diseaseIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
 </mapper>

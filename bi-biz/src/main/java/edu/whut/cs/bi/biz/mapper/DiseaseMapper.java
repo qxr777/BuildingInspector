@@ -149,4 +149,12 @@ public interface DiseaseMapper {
     public Disease selectByOfflineUuid(String offlineUuid);
 
     int fillLocalIdWithId(@Param("list") List<Long> ids);
+
+    /**
+     * 按 bi_attachment 实际行数重算指定病害的 attachment_count（离线附件同步后校准）。
+     *
+     * @param diseaseIds 受影响的病害服务端 ID
+     * @return 更新行数
+     */
+    int recountAttachmentCount(@Param("diseaseIds") List<Long> diseaseIds);
 }

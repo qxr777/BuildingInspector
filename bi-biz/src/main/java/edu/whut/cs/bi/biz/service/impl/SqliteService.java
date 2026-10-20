@@ -361,8 +361,14 @@ public class SqliteService {
                 : spanElementPartMapper.selectBySpanIds(oIds);
 
         if (!buildingIds.isEmpty()) {
+            // 桥梁正/侧立面照片(type=6)按 building_id 挂载，与病害附件(subject=病害id)空间隔离
             attachments.addAll(attachmentService.getAttachmentBySubjectIds(buildingIds).stream()
                     .filter(a -> Integer.valueOf(6).equals(a.getType())).collect(Collectors.toList()));
+        }
+        if (!oIds.isEmpty()) {
+            // 部件当前照片(type=8)挂载在 PART 节点(bi_object)上，通道A上传后需能随包回读
+            attachments.addAll(attachmentService.getAttachmentBySubjectIds(oIds).stream()
+                    .filter(a -> Integer.valueOf(8).equals(a.getType())).collect(Collectors.toList()));
         }
 
         // 搜集所有关联的文件 ID (原图和缩略图)

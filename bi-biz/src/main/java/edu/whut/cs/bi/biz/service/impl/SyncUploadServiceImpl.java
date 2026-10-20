@@ -57,6 +57,11 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private static final String ENTITY_SPAN_COMPONENT_PART = "SpanComponentPart";
     private static final String ENTITY_SPAN_ELEMENT_PART = "SpanElementPart";
 
+    /** bi_attachment.type：1 普通病害照片（缺省兜底），6 桥梁正/侧立面照片，8 部件当前照片 */
+    private static final int ATTACHMENT_TYPE_DISEASE = 1;
+    private static final int ATTACHMENT_TYPE_BUILDING = 6;
+    private static final int ATTACHMENT_TYPE_PART = 8;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SyncResultVo syncUpload(Map<String, Object> dataMap) {
@@ -397,27 +402,125 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         }
     }
 
+    /**
+     * 通道A附件：App 先逐文件调 /api/v2/sync/attachment 预上传拿到 minioId，
+     * 再在同步 JSON 的 attachments[] 中提交元数据。
+     * 按 type 路由挂载主体（1/7/null 病害照片→病害，6 正/侧立面→桥梁，8 部件当前照片→PART），
+     * 本批映射优先、未命中回查云端；按附件自身 offline_uuid 幂等 upsert；
+     * offlineDeleted=1 物理删除（表无 del_flag）；minioId 缺失或主体反查失败计入逐行错误。
+     * 同步完成后按 bi_attachment 实际行数重算受影响病害的 attachment_count。
+     */
     private void processAttachments(Object data, String syncUuid, Map<String, Long> uuidMap, SyncResultVo result,
             String loginName) {
+        if (data == null)
+            return;
         List<Attachment> list = parseList(data, Attachment.class);
+        Set<Long> touchedDiseaseIds = new HashSet<>();
         for (Attachment item : list) {
             try {
-                if (item.getOfflineSubjectUuid() != null)
-                    item.setSubjectId(uuidMap.get(item.getOfflineSubjectUuid()));
+                Attachment existing = item.getOfflineUuid() != null
+                        ? attachmentMapper.selectByOfflineUuid(item.getOfflineUuid())
+                        : null;
+
+                // 删除优先：附件表为物理删除，按自身 UUID 命中即删，无需再解析挂载主体
                 if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
-                    // For attachments, we skip or we can delete if it already exists, assuming offline_deleted implies we skip insertion if it's new.
-                    // If we need true deletion for attachments we should check if they exist first. For now skip insertion.
+                    if (existing != null) {
+                        if (isDiseaseAttachment(existing.getType()) && existing.getSubjectId() != null) {
+                            touchedDiseaseIds.add(existing.getSubjectId());
+                        }
+                        attachmentMapper.deleteById(existing.getId());
+                    }
+                    // 删除不存在的记录视为幂等成功（与其他实体删除分支一致，不计 successCount）
                     continue;
                 }
-                item.setIsOfflineData(1);
-                item.setCreateBy(loginName);
-                item.setCreateTime(DateUtils.getNowDate());
-                attachmentMapper.insert(item);
+
+                // 挂载主体路由：本批 uuidMap → 云端回查
+                Long subjectId = resolveAttachmentSubject(item, uuidMap);
+                if (subjectId == null) {
+                    result.addError(ENTITY_ATTACHMENT, item.getOfflineUuid(),
+                            "挂载主体反查失败(offlineSubjectUuid=" + item.getOfflineSubjectUuid()
+                                    + ",type=" + item.getType() + ")，附件未落库");
+                    continue;
+                }
+                item.setSubjectId(subjectId);
+
+                // minio_id 为 NOT NULL：App 必须先预上传；缺失直接判错，避免底层 SQL 异常
+                if (item.getMinioId() == null) {
+                    result.addError(ENTITY_ATTACHMENT, item.getOfflineUuid(),
+                            "缺少 minioId（文件未预上传或预上传失败），附件未落库");
+                    continue;
+                }
+                // name/type 列均 NOT NULL，旧版 App 可能省略，按普通病害照片兜底
+                if (item.getName() == null || item.getName().isEmpty()) {
+                    item.setName("disease_" + item.getMinioId() + ".jpg");
+                }
+                if (item.getType() == null) {
+                    item.setType(ATTACHMENT_TYPE_DISEASE);
+                }
+
+                if (existing != null) {
+                    // 主体类型/归属发生变化时，旧主体若是病害也要重算
+                    if (isDiseaseAttachment(existing.getType()) && existing.getSubjectId() != null) {
+                        touchedDiseaseIds.add(existing.getSubjectId());
+                    }
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    attachmentMapper.update(item);
+                } else {
+                    item.setIsOfflineData(1);
+                    item.setOfflineDeleted(0);
+                    item.setCreateBy(loginName);
+                    item.setCreateTime(DateUtils.getNowDate());
+                    attachmentMapper.insert(item);
+                }
+                if (isDiseaseAttachment(item.getType())) {
+                    touchedDiseaseIds.add(subjectId);
+                }
                 result.setSuccessCount(result.getSuccessCount() + 1);
             } catch (Exception e) {
                 result.addError(ENTITY_ATTACHMENT, item.getOfflineUuid(), e.getMessage());
             }
         }
+        if (!touchedDiseaseIds.isEmpty()) {
+            diseaseMapper.recountAttachmentCount(new ArrayList<>(touchedDiseaseIds));
+        }
+    }
+
+    /**
+     * 附件挂载主体路由：type=6 桥梁(正/侧立面照片)、8 部件(PART 当前照片)，
+     * 其余(null/1/7 病害照片)走病害。解析顺序同其他实体：本批 uuidMap 优先，未命中回查云端。
+     * offlineSubjectUuid 缺失时兼容直接携带服务端 subject_id 的载荷。
+     */
+    private Long resolveAttachmentSubject(Attachment item, Map<String, Long> uuidMap) {
+        String subjectUuid = item.getOfflineSubjectUuid();
+        if (subjectUuid == null || subjectUuid.isEmpty()) {
+            return item.getSubjectId();
+        }
+        Integer type = item.getType();
+        if (type != null) {
+            if (type == ATTACHMENT_TYPE_BUILDING) {
+                return resolveBuildingId(subjectUuid, uuidMap);
+            }
+            if (type == ATTACHMENT_TYPE_PART) {
+                return resolveBiObjectId(subjectUuid, uuidMap);
+            }
+        }
+        Long id = uuidMap.get(subjectUuid);
+        if (id != null) {
+            return id;
+        }
+        Disease disease = diseaseMapper.selectByOfflineUuid(subjectUuid);
+        if (disease != null) {
+            uuidMap.put(subjectUuid, disease.getId());
+            return disease.getId();
+        }
+        return null;
+    }
+
+    /** 病害类附件：普通病害图片(1)、病害ad图片(7)及旧版缺省(null)。 */
+    private boolean isDiseaseAttachment(Integer type) {
+        return type == null || type == 1 || type == 7;
     }
 
     private void processBuildingsRootIds(Object data, Map<String, Long> uuidMap) {

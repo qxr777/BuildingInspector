@@ -19,10 +19,11 @@
         <result property="offlineUuid" column="offline_uuid"/>
         <result property="offlineSubjectUuid" column="offline_subject_uuid"/>
         <result property="isOfflineData" column="is_offline_data"/>
+        <result property="offlineDeleted" column="offline_deleted"/>
     </resultMap>
 
     <sql id="selectAttachmentVo">
-        select id, name, type, minio_id, thumb_minio_id, subject_id, remark, create_by, create_time, update_by, update_time, offline_uuid, offline_subject_uuid, is_offline_data from bi_attachment
+        select id, name, type, minio_id, thumb_minio_id, subject_id, remark, create_by, create_time, update_by, update_time, offline_uuid, offline_subject_uuid, is_offline_data, offline_deleted from bi_attachment
     </sql>
 
     <select id="selectAll" resultMap="AttachmentResult">
@@ -93,6 +94,7 @@
             <if test="offlineUuid != null">offline_uuid,</if>
             <if test="offlineSubjectUuid != null">offline_subject_uuid,</if>
             <if test="isOfflineData != null">is_offline_data,</if>
+            <if test="offlineDeleted != null">offline_deleted,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="name != null and name != ''">#{name},</if>
@@ -106,6 +108,7 @@
             <if test="offlineUuid != null">#{offlineUuid},</if>
             <if test="offlineSubjectUuid != null">#{offlineSubjectUuid},</if>
             <if test="isOfflineData != null">#{isOfflineData},</if>
+            <if test="offlineDeleted != null">#{offlineDeleted},</if>
         </trim>
     </insert>
 
@@ -125,6 +128,7 @@
             <if test="offlineUuid != null">offline_uuid = #{offlineUuid},</if>
             <if test="offlineSubjectUuid != null">offline_subject_uuid = #{offlineSubjectUuid},</if>
             <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
+            <if test="offlineDeleted != null">offline_deleted = #{offlineDeleted},</if>
         </trim>
         where id = #{id}
     </update>

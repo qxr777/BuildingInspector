@@ -704,6 +704,22 @@ CREATE TABLE IF NOT EXISTS `bi_building_package` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='单桥病害附件包引用';
 
 -- ================================================================================
+-- 第八·九部分：bi_attachment.offline_uuid 唯一键（通道A同步幂等，2026-10-20）
+--   通道A（/api/v2/sync/attachment 预上传 + sync/upload 的 attachments[]）改为按
+--   offline_uuid upsert 前，历史库可能已被旧版「无条件 insert」逻辑写入重复行。
+--   先按 offline_uuid 去重（保留最小 id；NULL 不参与，云端老附件无 UUID 不受影响），
+--   再加唯一键兜底（MySQL 唯一索引允许多个 NULL）。全新库执行亦幂等。
+-- ================================================================================
+DELETE t1 FROM `bi_attachment` t1
+JOIN `bi_attachment` t2
+  ON t1.`offline_uuid` = t2.`offline_uuid`
+ AND t1.`offline_uuid` IS NOT NULL
+ AND t1.`id` > t2.`id`;
+
+CALL P_AddKeyIfNotExists(@db, 'bi_attachment', 'uk_attachment_offline_uuid',
+    '`offline_uuid`', 'UNIQUE');
+
+-- ================================================================================
 -- 第九部分：清理存储过程
 -- ================================================================================
 DROP PROCEDURE IF EXISTS `P_AddColumnIfNotExists`;
