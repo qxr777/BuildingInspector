@@ -250,6 +250,7 @@
             <if test="buildingUuid != null">building_uuid,</if>
             <if test="objectUuid != null">object_uuid,</if>
             <if test="componentUuid != null">component_uuid,</if>
+            <if test="elementUuid != null">element_uuid,</if>
             <if test="leafObjectId != null">leaf_object_id,</if>
             <if test="isOfflineData != null">is_offline_data,</if>
         </trim>
@@ -289,6 +290,7 @@
             <if test="buildingUuid != null">#{buildingUuid},</if>
             <if test="objectUuid != null">#{objectUuid},</if>
             <if test="componentUuid != null">#{componentUuid},</if>
+            <if test="elementUuid != null">#{elementUuid},</if>
             <if test="leafObjectId != null">#{leafObjectId},</if>
             <if test="isOfflineData != null">#{isOfflineData},</if>
         </trim>
@@ -355,6 +357,7 @@
             <if test="buildingUuid != null">building_uuid = #{buildingUuid},</if>
             <if test="objectUuid != null">object_uuid = #{objectUuid},</if>
             <if test="componentUuid != null">component_uuid = #{componentUuid},</if>
+            <if test="elementUuid != null">element_uuid = #{elementUuid},</if>
             <if test="leafObjectId != null">leaf_object_id = #{leafObjectId},</if>
             <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
         </trim>

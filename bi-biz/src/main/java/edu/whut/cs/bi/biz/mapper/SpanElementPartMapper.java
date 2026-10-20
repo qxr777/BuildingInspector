@@ -18,4 +18,24 @@ public interface SpanElementPartMapper {
      * 按桥跨节点 ID 集合批量查询锚定关系（不按 offline_deleted 过滤，云端表本身无此数据）
      */
     public List<SpanElementPart> selectBySpanIds(@Param("spanIds") List<Long> spanIds);
+
+    /**
+     * 按离线 UUID 查询锚定关系（离线同步去重）
+     */
+    public SpanElementPart selectByOfflineUuid(String offlineUuid);
+
+    /**
+     * 新增锚定关系（离线同步）
+     */
+    public int insertSpanElementPart(SpanElementPart spanElementPart);
+
+    /**
+     * 更新锚定关系（离线同步）
+     */
+    public int updateSpanElementPart(SpanElementPart spanElementPart);
+
+    /**
+     * 物理删除锚定关系（表无 del_flag 列）
+     */
+    public int deleteSpanElementPartById(Long id);
 }

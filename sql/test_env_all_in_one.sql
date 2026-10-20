@@ -100,10 +100,16 @@ CREATE TABLE IF NOT EXISTS `bi_id_mapping` (
   `table_name` varchar(64) NOT NULL COMMENT '数据流经实体映射的基础表名',
   `offline_uuid` varchar(64) NOT NULL COMMENT '移动端或中间层分配的离线主键UUID',
   `server_id` bigint(20) NOT NULL COMMENT '服务端入库后的真实物理主键ID',
+  `sync_uuid` varchar(64) DEFAULT NULL COMMENT '同步批次UUID(bi_sync_log.sync_uuid)',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '该映射关系的绑定时间',
   PRIMARY KEY (`table_name`, `offline_uuid`),
-  KEY `idx_server_id` (`server_id`)
+  KEY `idx_server_id` (`server_id`),
+  KEY `idx_idm_sync_uuid` (`sync_uuid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='离线数据上行树状拓扑重解 ID 映射图';
+-- 旧库收敛：IdMappingMapper 的 insert/selectBySyncUuid 一直读写 sync_uuid，
+-- 早期建表脚本漏列（2026-10-20 新链 SyncUpload E2E 暴露 Unknown column）。
+CALL P_AddColumnIfNotExists(@db, 'bi_id_mapping', 'sync_uuid',
+    'VARCHAR(64) NULL COMMENT ''同步批次UUID(bi_sync_log.sync_uuid)''');
 
 CREATE TABLE IF NOT EXISTS `bi_sync_log` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '审计账本ID',

@@ -18,4 +18,24 @@ public interface ElementMapper {
      * 按所属部件节点 ID 集合批量查询未删除构件
      */
     public List<Element> selectElementsByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds);
+
+    /**
+     * 按离线 UUID 查询未删除构件（离线同步去重）
+     */
+    public Element selectByOfflineUuid(String offlineUuid);
+
+    /**
+     * 新增构件（离线同步）
+     */
+    public int insertElement(Element element);
+
+    /**
+     * 更新构件（离线同步）
+     */
+    public int updateElement(Element element);
+
+    /**
+     * 逻辑删除构件（del_flag='2'）
+     */
+    public int deleteElementById(Long id);
 }

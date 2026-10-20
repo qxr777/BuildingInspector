@@ -42,14 +42,20 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private SyncLogMapper syncLogMapper;
     @Autowired
     private SpanComponentPartMapper spanComponentPartMapper;
+    @Autowired
+    private ElementMapper elementMapper;
+    @Autowired
+    private SpanElementPartMapper spanElementPartMapper;
 
     private static final String ENTITY_BUILDING = "Building";
     private static final String ENTITY_OBJECT = "BiObject";
     private static final String ENTITY_COMPONENT = "Component";
+    private static final String ENTITY_ELEMENT = "Element";
     private static final String ENTITY_DISEASE = "Disease";
     private static final String ENTITY_DISEASE_DETAIL = "DiseaseDetail";
     private static final String ENTITY_ATTACHMENT = "Attachment";
     private static final String ENTITY_SPAN_COMPONENT_PART = "SpanComponentPart";
+    private static final String ENTITY_SPAN_ELEMENT_PART = "SpanElementPart";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -102,6 +108,9 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
             log.info("处理 Component...");
             processComponents(dataMap.get("components"), syncUuid, uuidMap, result, loginName);
 
+            log.info("处理 Element...");
+            processElements(dataMap.get("elements"), syncUuid, uuidMap, result, loginName);
+
             log.info("处理 Disease...");
             processDiseases(dataMap.get("diseases"), syncUuid, uuidMap, result, loginName);
 
@@ -113,6 +122,9 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
 
             log.info("处理 SpanComponentPart...");
             processSpanComponentParts(dataMap.get("spanComponentParts"), syncUuid, uuidMap, result, loginName);
+
+            log.info("处理 SpanElementPart...");
+            processSpanElementParts(dataMap.get("spanElementParts"), syncUuid, uuidMap, result, loginName);
 
             syncLogMapper.updateStatus(syncUuid, 1, "同步成功");
 
@@ -172,7 +184,7 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 Long parentId = 0L;
                 if (item.getParentUuid() != null && !item.getParentUuid().isEmpty()
                         && !"0".equals(item.getParentUuid())) {
-                    parentId = uuidMap.get(item.getParentUuid());
+                    parentId = resolveBiObjectId(item.getParentUuid(), uuidMap);
                     if (parentId == null)
                         continue;
                 }
@@ -264,17 +276,70 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
         }
     }
 
+    /**
+     * 新链构件（bi_element）：object_uuid 反查部件节点(PART)服务端 ID。
+     * 构件不绑服务端 element_id 到病害——病害侧只存 element_uuid 字符串。
+     */
+    private void processElements(Object data, String syncUuid, Map<String, Long> uuidMap, SyncResultVo result,
+            String loginName) {
+        if (data == null)
+            return;
+        List<Element> list = parseList(data, Element.class);
+        for (Element item : list) {
+            try {
+                if (item.getObjectUuid() != null)
+                    item.setBiObjectId(resolveBiObjectId(item.getObjectUuid(), uuidMap));
+                Element existing = item.getOfflineUuid() != null
+                        ? elementMapper.selectByOfflineUuid(item.getOfflineUuid())
+                        : null;
+                if (existing != null) {
+                    uuidMap.put(item.getOfflineUuid(), existing.getId());
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        elementMapper.deleteElementById(item.getId());
+                        continue;
+                    }
+                    elementMapper.updateElement(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+                item.setDelFlag("0");
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                elementMapper.insertElement(item);
+                saveMapping(ENTITY_ELEMENT, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
+            } catch (Exception e) {
+                result.addError(ENTITY_ELEMENT, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
     private void processDiseases(Object data, String syncUuid, Map<String, Long> uuidMap, SyncResultVo result,
             String loginName) {
         List<Disease> list = parseList(data, Disease.class);
         for (Disease item : list) {
             try {
                 if (item.getBuildingUuid() != null)
-                    item.setBuildingId(uuidMap.get(item.getBuildingUuid()));
+                    item.setBuildingId(resolveBuildingId(item.getBuildingUuid(), uuidMap));
                 if (item.getObjectUuid() != null)
-                    item.setBiObjectId(uuidMap.get(item.getObjectUuid()));
-                if (item.getComponentUuid() != null)
-                    item.setComponentId(uuidMap.get(item.getComponentUuid()));
+                    item.setBiObjectId(resolveBiObjectId(item.getObjectUuid(), uuidMap));
+                if (item.getComponentUuid() != null) {
+                    Long componentId = uuidMap.get(item.getComponentUuid());
+                    if (componentId == null) {
+                        Component existingComponent = componentMapper.selectByOfflineUuid(item.getComponentUuid());
+                        if (existingComponent != null) {
+                            componentId = existingComponent.getId();
+                            uuidMap.put(item.getComponentUuid(), componentId);
+                        }
+                    }
+                    item.setComponentId(componentId);
+                }
                 Disease existing = diseaseMapper.selectByOfflineUuid(item.getOfflineUuid());
                 if (existing != null) {
                     uuidMap.put(item.getOfflineUuid(), existing.getId());
@@ -419,6 +484,115 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 result.addError(ENTITY_SPAN_COMPONENT_PART, item.getOfflineUuid(), e.getMessage());
             }
         }
+    }
+
+    /**
+     * 新链锚定（bi_span_element_part）：element/span(SPAN)/part(PART) 三 UUID 反查服务端 ID，
+     * 三者都已同步才落库；表无 del_flag 列，删除为物理删除。自然唯一键 (element,span,part)。
+     */
+    private void processSpanElementParts(Object data, String syncUuid, Map<String, Long> uuidMap, SyncResultVo result,
+            String loginName) {
+        if (data == null)
+            return;
+        List<SpanElementPart> list = parseList(data, SpanElementPart.class);
+        for (SpanElementPart item : list) {
+            try {
+                if (item.getElementUuid() != null)
+                    item.setElementId(resolveElementId(item.getElementUuid(), uuidMap));
+                if (item.getSpanUuid() != null)
+                    item.setSpanId(resolveBiObjectId(item.getSpanUuid(), uuidMap));
+                if (item.getPartUuid() != null)
+                    item.setPartId(resolveBiObjectId(item.getPartUuid(), uuidMap));
+
+                SpanElementPart existing = item.getOfflineUuid() != null
+                        ? spanElementPartMapper.selectByOfflineUuid(item.getOfflineUuid())
+                        : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        spanElementPartMapper.deleteSpanElementPartById(item.getId());
+                        continue;
+                    }
+                    spanElementPartMapper.updateSpanElementPart(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+
+                // 锚定三要素缺失则不落库（构件/桥跨/部件必须都已同步）
+                if (item.getElementId() == null || item.getSpanId() == null || item.getPartId() == null) {
+                    result.addError(ENTITY_SPAN_ELEMENT_PART, item.getOfflineUuid(),
+                            "element/span/part 反查失败，存在未同步实体");
+                    continue;
+                }
+
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                spanElementPartMapper.insertSpanElementPart(item);
+                saveMapping(ENTITY_SPAN_ELEMENT_PART, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
+            } catch (Exception e) {
+                result.addError(ENTITY_SPAN_ELEMENT_PART, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * bi_object UUID 反查：本批映射优先；未命中回查云端既有节点。
+     * App 在下载到的 UNIT 下增量建跨时不会重传 UNIT，父节点可能只存在于云端。
+     */
+    private Long resolveBiObjectId(String uuid, Map<String, Long> uuidMap) {
+        if (uuid == null || uuid.isEmpty()) {
+            return null;
+        }
+        Long id = uuidMap.get(uuid);
+        if (id != null) {
+            return id;
+        }
+        BiObject existing = biObjectMapper.selectByOfflineUuid(uuid);
+        if (existing != null) {
+            uuidMap.put(uuid, existing.getId());
+            return existing.getId();
+        }
+        return null;
+    }
+
+    /** building UUID 反查，语义同 {@link #resolveBiObjectId}。 */
+    private Long resolveBuildingId(String uuid, Map<String, Long> uuidMap) {
+        if (uuid == null || uuid.isEmpty()) {
+            return null;
+        }
+        Long id = uuidMap.get(uuid);
+        if (id != null) {
+            return id;
+        }
+        Building existing = buildingMapper.selectByOfflineUuid(uuid);
+        if (existing != null) {
+            uuidMap.put(uuid, existing.getId());
+            return existing.getId();
+        }
+        return null;
+    }
+
+    /** element UUID 反查（bi_element 为新链表，del_flag='0' 才命中）。 */
+    private Long resolveElementId(String uuid, Map<String, Long> uuidMap) {
+        if (uuid == null || uuid.isEmpty()) {
+            return null;
+        }
+        Long id = uuidMap.get(uuid);
+        if (id != null) {
+            return id;
+        }
+        Element existing = elementMapper.selectByOfflineUuid(uuid);
+        if (existing != null) {
+            uuidMap.put(uuid, existing.getId());
+            return existing.getId();
+        }
+        return null;
     }
 
     private <T> List<T> parseList(Object data, Class<T> clazz) {
