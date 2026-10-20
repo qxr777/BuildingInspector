@@ -2,7 +2,12 @@
 code: B07
 gamma: {deck: 0.10, superstructure: 0.50, substructure: 0.35, ancillary: 0.05}
 superstructureParts:
-  - {key: steelMainGirder, name: 主梁, omega: 45}
-  - {key: deckSlab, name: 桥面板, omega: 25}
+  # leaves 缺省为 [key]；下列两个 PART 按正式稿表 6.2.15/6.2.16 绑多个叶子：
+  # - 表 6.2.16 牛腿病害 STL-COR-* 的 parts=[mainGirder, slab]，App 录入时需在
+  #   钢主梁 PART 下能选到 mainGirder 叶子、桥面板 PART 下能选到 slab 叶子；
+  # - 表 6.2.15 钢-混凝土组合梁连接部 STL-CONN-* 的 parts=[steelMainGirder, deckSlab]，
+  #   两个 PART 各自叶子已天然可达。
+  - {key: steelMainGirder, name: 主梁, omega: 45, leaves: [steelMainGirder, mainGirder]}
+  - {key: deckSlab, name: 桥面板, omega: 25, leaves: [deckSlab, slab]}
   - {key: lateralBracing, name: 横向联系, omega: 10}
   - {key: bearing, name: 支座, omega: 20}

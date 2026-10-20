@@ -19,9 +19,9 @@
 --   演示账号 znjc_demo（口令 admin123，dept 105，普通角色）/2027 年度项目 P2027-DEMO-B01/
 --   inspector 入项/演示桥 bi_building（new_root_object_id→第 11 节 UNIT）/项目桥梁关联/
 --   未提交检测任务，用于真实生成 user.db 个人离线包；
---   第 13 节 bi_template_object_leaf_object 模板 PART-叶子部件多对多绑定 82 行
---   （node_code 末段=叶子 code，生成器 sql/tools/gen_template_leaf_bindings.py，
---   随 common.db 第 11 张表下发）。
+--   第 13 节 bi_template_object_leaf_object 模板 PART-叶子部件多对多绑定 84 行
+--   （YAML 驱动：part.leaves 缺省=同名叶子；B07 钢主梁/桥面板两个 PART 各双绑，
+--   生成器 sql/tools/gen_template_leaf_bindings.py，随 common.db 第 11 张表下发）。
 -- ==============================================================================
 
 SET NAMES utf8mb4;
@@ -2444,22 +2444,111 @@ SELECT (SELECT `id` FROM `bi_building` WHERE `offline_uuid`='std5230demo-b01-bui
 WHERE NOT EXISTS (SELECT 1 FROM `bi_task` t
    WHERE t.`project_id`=(SELECT `id` FROM `bi_project` WHERE `code`='P2027-DEMO-B01') AND t.`building_id`=(SELECT `id` FROM `bi_building` WHERE `offline_uuid`='std5230demo-b01-building'));
 
--- ---------- 13. 桥型模板 PART 节点-叶子部件多对多绑定（82 行；手工维护节，
---     生成器 sql/tools/gen_template_leaf_bindings.py，零 YAML 依赖） ----------
--- 规则：5230 模板 PART 的 node_code 形如 'B01.part.paving'，末段即叶子部件 code；
--- 一个 PART 可绑定多个叶子（当前每 PART 一个，后续多叶子直接加行即可）。
--- 随 common.db 的 bi_template_object_leaf_object 表下发，App 据此取部件全部叶子的
--- 病害类型/位置/材料/加固绑定。自然键 (template_object_id, leaf_object_id) 幂等。
+-- ---------- 13. 桥型模板 PART 节点-叶子部件多对多绑定（84 行；手工维护节，
+--     生成器 sql/tools/gen_template_leaf_bindings.py，YAML 驱动） ----------
+-- 规则：每个 PART 绑定 Bxx.yml 中 part.leaves（缺省 1:1 绑同名叶子 code）；
+-- 一个 PART 可绑多个叶子，App 在该 PART 下录入病害时按 bi_disease.leaf_object_id
+-- 显式区分归属叶子。当前多叶子 PART（正式稿表 6.2.15 组合梁连接部 STL-CONN-*、
+-- 表 6.2.16 牛腿 STL-COR-* 的 parts 跨叶子）：
+--   B07.part.deckSlab -> deckSlab, slab
+--   B07.part.steelMainGirder -> steelMainGirder, mainGirder
+-- 随 common.db 的 bi_template_object_leaf_object 表下发。
+-- 自然键 (template_object_id, leaf_object_id) 幂等，重跑只补缺不删除。
 INSERT INTO `bi_template_object_leaf_object` (`template_object_id`,`leaf_object_id`,`create_time`)
 SELECT t.`id`, l.`id`, NOW()
-FROM `bi_template_object` t
+FROM (
+  SELECT 'B01.part.bearing' AS node_code, 'bearing' AS leaf_code UNION ALL
+  SELECT 'B01.part.drainage' AS node_code, 'drainage' AS leaf_code UNION ALL
+  SELECT 'B01.part.expansionJoint' AS node_code, 'expansionJoint' AS leaf_code UNION ALL
+  SELECT 'B01.part.foundation' AS node_code, 'foundation' AS leaf_code UNION ALL
+  SELECT 'B01.part.otherAncillary' AS node_code, 'otherAncillary' AS leaf_code UNION ALL
+  SELECT 'B01.part.paving' AS node_code, 'paving' AS leaf_code UNION ALL
+  SELECT 'B01.part.pierAbutment' AS node_code, 'pierAbutment' AS leaf_code UNION ALL
+  SELECT 'B01.part.railing' AS node_code, 'railing' AS leaf_code UNION ALL
+  SELECT 'B01.part.revetment' AS node_code, 'revetment' AS leaf_code UNION ALL
+  SELECT 'B01.part.riverbed' AS node_code, 'riverbed' AS leaf_code UNION ALL
+  SELECT 'B01.part.slab' AS node_code, 'slab' AS leaf_code UNION ALL
+  SELECT 'B02.part.bearing' AS node_code, 'bearing' AS leaf_code UNION ALL
+  SELECT 'B02.part.drainage' AS node_code, 'drainage' AS leaf_code UNION ALL
+  SELECT 'B02.part.expansionJoint' AS node_code, 'expansionJoint' AS leaf_code UNION ALL
+  SELECT 'B02.part.foundation' AS node_code, 'foundation' AS leaf_code UNION ALL
+  SELECT 'B02.part.hinge' AS node_code, 'hinge' AS leaf_code UNION ALL
+  SELECT 'B02.part.otherAncillary' AS node_code, 'otherAncillary' AS leaf_code UNION ALL
+  SELECT 'B02.part.paving' AS node_code, 'paving' AS leaf_code UNION ALL
+  SELECT 'B02.part.pierAbutment' AS node_code, 'pierAbutment' AS leaf_code UNION ALL
+  SELECT 'B02.part.railing' AS node_code, 'railing' AS leaf_code UNION ALL
+  SELECT 'B02.part.revetment' AS node_code, 'revetment' AS leaf_code UNION ALL
+  SELECT 'B02.part.riverbed' AS node_code, 'riverbed' AS leaf_code UNION ALL
+  SELECT 'B02.part.slab' AS node_code, 'slab' AS leaf_code UNION ALL
+  SELECT 'B03.part.bearing' AS node_code, 'bearing' AS leaf_code UNION ALL
+  SELECT 'B03.part.diaphragm' AS node_code, 'diaphragm' AS leaf_code UNION ALL
+  SELECT 'B03.part.drainage' AS node_code, 'drainage' AS leaf_code UNION ALL
+  SELECT 'B03.part.expansionJoint' AS node_code, 'expansionJoint' AS leaf_code UNION ALL
+  SELECT 'B03.part.foundation' AS node_code, 'foundation' AS leaf_code UNION ALL
+  SELECT 'B03.part.mainGirder' AS node_code, 'mainGirder' AS leaf_code UNION ALL
+  SELECT 'B03.part.otherAncillary' AS node_code, 'otherAncillary' AS leaf_code UNION ALL
+  SELECT 'B03.part.paving' AS node_code, 'paving' AS leaf_code UNION ALL
+  SELECT 'B03.part.pierAbutment' AS node_code, 'pierAbutment' AS leaf_code UNION ALL
+  SELECT 'B03.part.railing' AS node_code, 'railing' AS leaf_code UNION ALL
+  SELECT 'B03.part.revetment' AS node_code, 'revetment' AS leaf_code UNION ALL
+  SELECT 'B03.part.riverbed' AS node_code, 'riverbed' AS leaf_code UNION ALL
+  SELECT 'B04.part.bearing' AS node_code, 'bearing' AS leaf_code UNION ALL
+  SELECT 'B04.part.diaphragm' AS node_code, 'diaphragm' AS leaf_code UNION ALL
+  SELECT 'B04.part.drainage' AS node_code, 'drainage' AS leaf_code UNION ALL
+  SELECT 'B04.part.expansionJoint' AS node_code, 'expansionJoint' AS leaf_code UNION ALL
+  SELECT 'B04.part.foundation' AS node_code, 'foundation' AS leaf_code UNION ALL
+  SELECT 'B04.part.mainGirder' AS node_code, 'mainGirder' AS leaf_code UNION ALL
+  SELECT 'B04.part.otherAncillary' AS node_code, 'otherAncillary' AS leaf_code UNION ALL
+  SELECT 'B04.part.paving' AS node_code, 'paving' AS leaf_code UNION ALL
+  SELECT 'B04.part.pierAbutment' AS node_code, 'pierAbutment' AS leaf_code UNION ALL
+  SELECT 'B04.part.railing' AS node_code, 'railing' AS leaf_code UNION ALL
+  SELECT 'B04.part.revetment' AS node_code, 'revetment' AS leaf_code UNION ALL
+  SELECT 'B04.part.riverbed' AS node_code, 'riverbed' AS leaf_code UNION ALL
+  SELECT 'B05.part.bearing' AS node_code, 'bearing' AS leaf_code UNION ALL
+  SELECT 'B05.part.boxGirder' AS node_code, 'boxGirder' AS leaf_code UNION ALL
+  SELECT 'B05.part.drainage' AS node_code, 'drainage' AS leaf_code UNION ALL
+  SELECT 'B05.part.expansionJoint' AS node_code, 'expansionJoint' AS leaf_code UNION ALL
+  SELECT 'B05.part.foundation' AS node_code, 'foundation' AS leaf_code UNION ALL
+  SELECT 'B05.part.otherAncillary' AS node_code, 'otherAncillary' AS leaf_code UNION ALL
+  SELECT 'B05.part.paving' AS node_code, 'paving' AS leaf_code UNION ALL
+  SELECT 'B05.part.pierAbutment' AS node_code, 'pierAbutment' AS leaf_code UNION ALL
+  SELECT 'B05.part.railing' AS node_code, 'railing' AS leaf_code UNION ALL
+  SELECT 'B05.part.revetment' AS node_code, 'revetment' AS leaf_code UNION ALL
+  SELECT 'B05.part.riverbed' AS node_code, 'riverbed' AS leaf_code UNION ALL
+  SELECT 'B06.part.bearing' AS node_code, 'bearing' AS leaf_code UNION ALL
+  SELECT 'B06.part.boxGirder' AS node_code, 'boxGirder' AS leaf_code UNION ALL
+  SELECT 'B06.part.drainage' AS node_code, 'drainage' AS leaf_code UNION ALL
+  SELECT 'B06.part.expansionJoint' AS node_code, 'expansionJoint' AS leaf_code UNION ALL
+  SELECT 'B06.part.foundation' AS node_code, 'foundation' AS leaf_code UNION ALL
+  SELECT 'B06.part.otherAncillary' AS node_code, 'otherAncillary' AS leaf_code UNION ALL
+  SELECT 'B06.part.paving' AS node_code, 'paving' AS leaf_code UNION ALL
+  SELECT 'B06.part.pierAbutment' AS node_code, 'pierAbutment' AS leaf_code UNION ALL
+  SELECT 'B06.part.railing' AS node_code, 'railing' AS leaf_code UNION ALL
+  SELECT 'B06.part.revetment' AS node_code, 'revetment' AS leaf_code UNION ALL
+  SELECT 'B06.part.riverbed' AS node_code, 'riverbed' AS leaf_code UNION ALL
+  SELECT 'B07.part.bearing' AS node_code, 'bearing' AS leaf_code UNION ALL
+  SELECT 'B07.part.deckSlab' AS node_code, 'deckSlab' AS leaf_code UNION ALL
+  SELECT 'B07.part.deckSlab' AS node_code, 'slab' AS leaf_code UNION ALL
+  SELECT 'B07.part.drainage' AS node_code, 'drainage' AS leaf_code UNION ALL
+  SELECT 'B07.part.expansionJoint' AS node_code, 'expansionJoint' AS leaf_code UNION ALL
+  SELECT 'B07.part.foundation' AS node_code, 'foundation' AS leaf_code UNION ALL
+  SELECT 'B07.part.lateralBracing' AS node_code, 'lateralBracing' AS leaf_code UNION ALL
+  SELECT 'B07.part.otherAncillary' AS node_code, 'otherAncillary' AS leaf_code UNION ALL
+  SELECT 'B07.part.paving' AS node_code, 'paving' AS leaf_code UNION ALL
+  SELECT 'B07.part.pierAbutment' AS node_code, 'pierAbutment' AS leaf_code UNION ALL
+  SELECT 'B07.part.railing' AS node_code, 'railing' AS leaf_code UNION ALL
+  SELECT 'B07.part.revetment' AS node_code, 'revetment' AS leaf_code UNION ALL
+  SELECT 'B07.part.riverbed' AS node_code, 'riverbed' AS leaf_code UNION ALL
+  SELECT 'B07.part.steelMainGirder' AS node_code, 'mainGirder' AS leaf_code UNION ALL
+  SELECT 'B07.part.steelMainGirder' AS node_code, 'steelMainGirder' AS leaf_code
+) m
+JOIN `bi_template_object` t
+  ON t.`node_code` = m.node_code AND t.`std_version` = '5230-2026'
 JOIN `bi_leaf_object` l
-  ON l.`code` = SUBSTRING_INDEX(t.`node_code`, '.', -1)
- AND l.`std_version` = '5230-2026'
-WHERE t.`std_version` = '5230-2026'
-  AND t.`node_code` LIKE '%.part.%'
-  AND NOT EXISTS (
-    SELECT 1 FROM `bi_template_object_leaf_object` b
-    WHERE b.`template_object_id` = t.`id` AND b.`leaf_object_id` = l.`id`);
+  ON l.`code` = m.leaf_code AND l.`std_version` = '5230-2026'
+WHERE NOT EXISTS (
+  SELECT 1 FROM `bi_template_object_leaf_object` b
+  WHERE b.`template_object_id` = t.`id`
+    AND b.`leaf_object_id` = l.`id`);
 
 -- ============================== 5230 种子结束 ==============================

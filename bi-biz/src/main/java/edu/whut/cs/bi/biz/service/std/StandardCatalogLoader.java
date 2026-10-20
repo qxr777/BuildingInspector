@@ -158,6 +158,7 @@ public class StandardCatalogLoader {
         part.setKey(str(partRow.get("key")));
         part.setName(str(partRow.get("name")));
         part.setOmega(intVal(partRow.get("omega")));
+        part.setLeaves(stringList(partRow.get("leaves")));
         return part;
     }
 
@@ -264,7 +265,7 @@ public class StandardCatalogLoader {
                     partNode.setOmega(partDef.getOmega());
                     partNode.setStatus("0");
                     partNode.setProps(layerProps(catalog.getStdVersion(), b, layerKey, partDef.getKey()));
-                    partNode.setDiseaseTypeCodes(resolveDiseaseCodes(catalog, partDef.getKey()));
+                    partNode.setDiseaseTypeCodes(resolveDiseaseCodes(catalog, partDef));
                     catalog.getNodes().add(partNode);
                     partOrder++;
                 }
@@ -273,10 +274,16 @@ public class StandardCatalogLoader {
         }
     }
 
-    private List<String> resolveDiseaseCodes(StdCatalog catalog, String partKey) {
+    /**
+     * 一个 PART 可绑多个叶子（part.leaves，缺省 [key]）；
+     * 节点病害集合 = 其所有叶子下病害类型的并集（叶子↔病害为 bi_lo_disease_type 多对多）。
+     */
+    private List<String> resolveDiseaseCodes(StdCatalog catalog, StdPartDef partDef) {
+        List<String> leafCodes = partDef.effectiveLeafCodes();
         List<String> codes = new ArrayList<>();
         for (StdDiseaseType type : catalog.getDiseaseTypes()) {
-            if (type.getParts() != null && type.getParts().contains(partKey)) {
+            if (type.getParts() != null
+                    && leafCodes.stream().anyMatch(type.getParts()::contains)) {
                 codes.add(type.getCode());
             }
         }

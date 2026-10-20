@@ -4,6 +4,7 @@ import edu.whut.cs.bi.biz.service.std.model.StdBridgeType;
 import edu.whut.cs.bi.biz.service.std.model.StdCatalog;
 import edu.whut.cs.bi.biz.service.std.model.StdDiseaseScale;
 import edu.whut.cs.bi.biz.service.std.model.StdDiseaseType;
+import edu.whut.cs.bi.biz.service.std.model.StdPartDef;
 import edu.whut.cs.bi.biz.service.std.model.StdTemplateNode;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -175,6 +177,49 @@ class StandardCatalogIntegrityTest {
         for (String code : diseaseCodes) {
             assertTrue(used.contains(code), "病害未被任何部件节点使用: " + code);
         }
+    }
+
+    @Test
+    @DisplayName("PART 可绑多叶子：leaves 键合法，B07 两个 PART 双绑（表 6.2.15/6.2.16）")
+    void testPartLeaves() {
+        List<StdPartDef> allParts = new ArrayList<>();
+        catalog.getSharedLayers().forEach(layer -> allParts.addAll(layer.getParts()));
+        catalog.getBridgeTemplates().values()
+                .forEach(tpl -> allParts.addAll(tpl.getSuperstructureParts()));
+        for (StdPartDef part : allParts) {
+            for (String leaf : part.getLeaves()) {
+                assertTrue(KNOWN_PART_KEYS.contains(leaf),
+                        "部件 " + part.getKey() + " 的 leaves 引用未知叶子: " + leaf);
+            }
+            assertEquals(!part.getLeaves().isEmpty() ? part.getLeaves()
+                            : Collections.singletonList(part.getKey()),
+                    part.effectiveLeafCodes(), part.getKey() + " 生效叶子解析错误");
+        }
+        StdPartDef steelGirder = catalog.getBridgeTemplates().get("B07")
+                .getSuperstructureParts().stream()
+                .filter(p -> "steelMainGirder".equals(p.getKey())).findFirst()
+                .orElseThrow(() -> new AssertionError("B07 缺 steelMainGirder"));
+        assertEquals(Arrays.asList("steelMainGirder", "mainGirder"), steelGirder.getLeaves());
+        StdPartDef deckSlab = catalog.getBridgeTemplates().get("B07")
+                .getSuperstructureParts().stream()
+                .filter(p -> "deckSlab".equals(p.getKey())).findFirst()
+                .orElseThrow(() -> new AssertionError("B07 缺 deckSlab"));
+        assertEquals(Arrays.asList("deckSlab", "slab"), deckSlab.getLeaves());
+    }
+
+    @Test
+    @DisplayName("多叶子 PART 的节点病害集合=各叶子病害并集（B07 可达牛腿/连接部/板梁类型）")
+    void testMultiLeafDiseaseReach() {
+        Map<String, StdTemplateNode> byCode = nodes.stream()
+                .collect(Collectors.toMap(StdTemplateNode::getNodeCode, n -> n, (a, b) -> a));
+        List<String> steelGirderDiseases = byCode.get("B07.part.steelMainGirder").getDiseaseTypeCodes();
+        assertTrue(steelGirderDiseases.contains("STL-COR-01"), "牛腿病害应经 mainGirder 叶子可达");
+        assertTrue(steelGirderDiseases.contains("RIB-RC-01"), "主梁叶子既有病害应可达");
+        assertTrue(steelGirderDiseases.contains("STL-CONN-01"), "组合梁连接部病害应可达");
+        List<String> deckSlabDiseases = byCode.get("B07.part.deckSlab").getDiseaseTypeCodes();
+        assertTrue(deckSlabDiseases.contains("STL-COR-01"), "牛腿病害应经 slab 叶子可达");
+        assertTrue(deckSlabDiseases.contains("SLB-I-01"), "板叶子既有病害应可达");
+        assertTrue(deckSlabDiseases.contains("STL-CONN-01"), "组合梁连接部病害应可达");
     }
 
     @Nested
