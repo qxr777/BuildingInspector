@@ -576,9 +576,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
                         if (component != null) {
                             componentName = component.getName();
                         }
-                        // 照片 图注 的 描述 不需要带病害规范号。
-                        String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
-                        String imageDesc = componentName + d.getPosition() + type;
+                        String imageDesc = ReportGenerateTools.diseasePhotoCaption(d, componentName);
                         // 使用第3章编号规则
                         String bookmark = "Figure_Chapter3_" + UUID.randomUUID() + "_" + chapterImageCounter.getAndIncrement();
                         imageBookmarks.add(bookmark + "|" + imageDesc); // 书签名和描述用|分隔
@@ -851,7 +849,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             // 病害照和现状照合成一张表：现状照先补空位，只在最后一行剩一张时居中。
             List<Pair<String, String>> photos = new ArrayList<>();
             photos.addAll(collectDiseaseImagePairs(nodeDiseases, diseaseImageRefs));
-            photos.addAll(collectStatusImagePairs(node, chapterImageCounter));
+            photos.addAll(collectStatusImagePairs(node, allNodes, chapterImageCounter));
             if (!photos.isEmpty()) {
                 insertPhotoImageTable(document, photos, cursor);
             }
@@ -875,7 +873,7 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             noDiseaseRun.setFontSize(12);
 
             try {
-                insertPhotoImageTable(document, collectStatusImagePairs(node, chapterImageCounter), cursor);
+                insertPhotoImageTable(document, collectStatusImagePairs(node, allNodes, chapterImageCounter), cursor);
             } catch (Exception e) {
                 log.error("插入BiObject现状照片失败", e);
             }
@@ -1541,6 +1539,11 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
     }
 
     private List<Pair<String, String>> collectStatusImagePairs(BiObject biObject, AtomicInteger chapterImageCounter) {
+        return collectStatusImagePairs(biObject, null, chapterImageCounter);
+    }
+
+    private List<Pair<String, String>> collectStatusImagePairs(BiObject biObject, List<BiObject> allNodes,
+                                                               AtomicInteger chapterImageCounter) {
         List<Pair<String, String>> allImages = new ArrayList<>();
         if (biObject == null) {
             return allImages;
@@ -1550,12 +1553,18 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             if (photoList == null || photoList.isEmpty()) {
                 return allImages;
             }
-            for (FileMap fileMap : photoList) {
+            Map<Long, BiObject> nodeMap = allNodes == null ? Collections.emptyMap()
+                    : allNodes.stream()
+                    .filter(obj -> obj.getId() != null)
+                    .collect(Collectors.toMap(BiObject::getId, obj -> obj, (a, b) -> a));
+            List<FileMap> photos = new ArrayList<>(photoList);
+            photos.sort(Comparator
+                    .comparingInt((FileMap fileMap) -> ReportGenerateTools.statusPhotoCaptionOrder(fileMap, biObject, nodeMap))
+                    .thenComparingInt(fileMap -> fileMap.getId() == null ? 0 : fileMap.getId()));
+            for (FileMap fileMap : photos) {
                 String newName = fileMap.getNewName();
                 String bookmarkName = "fig_status_" + chapterImageCounter.getAndIncrement();
-                String imageDesc = fileMap.getAttachmentRemark() != null && !fileMap.getAttachmentRemark().isEmpty()
-                        ? fileMap.getAttachmentRemark()
-                        : biObject.getName() + "现状照片";
+                String imageDesc = ReportGenerateTools.statusPhotoCaption(fileMap, biObject, nodeMap);
                 allImages.add(Pair.of(newName, bookmarkName + "|" + imageDesc));
             }
         } catch (Exception e) {

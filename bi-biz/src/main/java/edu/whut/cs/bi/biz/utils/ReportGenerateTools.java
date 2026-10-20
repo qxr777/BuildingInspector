@@ -4,6 +4,7 @@ import cn.hutool.core.util.ObjectUtil;
 import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.Attachment;
+import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.FileMap;
 import edu.whut.cs.bi.biz.domain.constants.ReportConstants;
@@ -799,6 +800,24 @@ public class ReportGenerateTools {
     }
 
     /**
+     * 病害照片题注：表格构件名 + 部位 + 表格缺损类型（裂缝用横向/纵向裂缝）。
+     */
+    public static String diseasePhotoCaption(Disease disease, String componentName) {
+        String name = componentName != null ? componentName : "";
+        String position = disease != null && disease.getPosition() != null ? disease.getPosition() : "";
+        String typeName = "";
+        if (disease != null) {
+            typeName = reportDiseaseTypeNameIfCrack(disease);
+            if (typeName == null) {
+                typeName = "";
+            } else if (typeName.contains("#")) {
+                typeName = typeName.substring(typeName.lastIndexOf("#") + 1);
+            }
+        }
+        return name + position + typeName;
+    }
+
+    /**
      * 表格默认小五（9 磅 = 18 half-points）。
      */
     public static final int TABLE_FONT_HALF_POINTS = 18;
@@ -927,6 +946,63 @@ public class ReportGenerateTools {
             setMixedFontFamily(run, fontHalfPoints, chineseFont);
         }
         chunk.setLength(0);
+    }
+
+    /**
+     * 现状照题注：有备注用备注；否则用挂接节点相对当前章节再下一级的名称，
+     * 例如桥面系下的排水系统、人行道。
+     */
+    public static String statusPhotoCaption(FileMap fileMap, BiObject sectionNode, Map<Long, BiObject> nodeMap) {
+        if (fileMap != null && StringUtils.isNotEmpty(fileMap.getAttachmentRemark())) {
+            return fileMap.getAttachmentRemark();
+        }
+        BiObject captionNode = statusPhotoCaptionNode(
+                fileMap != null ? fileMap.getSubjectId() : null, sectionNode, nodeMap);
+        String name = captionNode != null && StringUtils.isNotEmpty(captionNode.getName())
+                ? captionNode.getName()
+                : (sectionNode != null ? sectionNode.getName() : "");
+        return (name == null ? "" : name) + "现状照片";
+    }
+
+    public static int statusPhotoCaptionOrder(FileMap fileMap, BiObject sectionNode, Map<Long, BiObject> nodeMap) {
+        BiObject captionNode = statusPhotoCaptionNode(
+                fileMap != null ? fileMap.getSubjectId() : null, sectionNode, nodeMap);
+        if (captionNode == null) {
+            return Integer.MAX_VALUE;
+        }
+        if (sectionNode != null && sectionNode.getId() != null && sectionNode.getId().equals(captionNode.getId())) {
+            return -1;
+        }
+        return captionNode.getOrderNum() != null ? captionNode.getOrderNum() : Integer.MAX_VALUE;
+    }
+
+    /** 从照片挂接节点向上走到当前章节的直接子节点，例如桥面系 → 排水系统。 */
+    static BiObject statusPhotoCaptionNode(Long subjectId, BiObject sectionNode, Map<Long, BiObject> nodeMap) {
+        if (sectionNode == null) {
+            return null;
+        }
+        if (subjectId == null || nodeMap == null || nodeMap.isEmpty()) {
+            return sectionNode;
+        }
+        BiObject current = nodeMap.get(subjectId);
+        if (current == null) {
+            return sectionNode;
+        }
+        Long sectionId = sectionNode.getId();
+        if (sectionId != null && sectionId.equals(current.getId())) {
+            return sectionNode;
+        }
+        int guard = 0;
+        while (current != null && current.getParentId() != null && guard++ < 32) {
+            if (sectionId != null && sectionId.equals(current.getParentId())) {
+                return current;
+            }
+            current = nodeMap.get(current.getParentId());
+            if (current != null && sectionId != null && sectionId.equals(current.getId())) {
+                return sectionNode;
+            }
+        }
+        return current != null ? current : sectionNode;
     }
 
     /**

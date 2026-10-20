@@ -2768,7 +2768,8 @@ public class ReportServiceImpl implements IReportService {
     private void writeBiObjectTreeToWordForSingleBridge(XWPFDocument document, BiObject node, List<BiObject> allNodes,
                                                         Map<Long, List<Disease>> diseaseMap, int level,
                                                         AtomicInteger chapterImageCounter, AtomicInteger chapter3TableCounter,
-                                                        XmlCursor cursor, int baseHeadingLevel) throws Exception {
+                                                        XmlCursor cursor, int baseHeadingLevel,
+                                                        boolean omitArchUpperBearing) throws Exception {
         // 转换为 Map<id, BiObject>
         Map<Long, BiObject> nodeMap = allNodes.stream()
                 .collect(Collectors.toMap(
@@ -2805,13 +2806,22 @@ public class ReportServiceImpl implements IReportService {
         // 获取当前节点的所有第三层子节点（部件）
         List<BiObject> childComponents = allNodes.stream()
                 .filter(obj -> node.getId().equals(obj.getParentId()))
-                .sorted(Comparator.comparing(BiObject::getOrderNum))
+                .sorted(Comparator.comparing(BiObject::getOrderNum, Comparator.nullsLast(Integer::compareTo)))
                 .collect(Collectors.toList());
+
+        Set<Long> omittedSubtreeIds = omittedArchUpperBearingIds(node, childComponents, allNodes, omitArchUpperBearing);
+        if (!omittedSubtreeIds.isEmpty()) {
+            childComponents.removeIf(component -> omittedSubtreeIds.contains(component.getId()));
+        }
 
         // 收集该节点下所有子节点的病害。已维修、未找到不进小结和检测结果表。
         List<Disease> allNodeDiseases = new ArrayList<>();
         collectAllDiseases(node, allNodes, diseaseMap, allNodeDiseases);
         allNodeDiseases.removeIf(ReportServiceImpl::isExcludedFromInspectionResultTable);
+        if (!omittedSubtreeIds.isEmpty()) {
+            allNodeDiseases.removeIf(disease -> disease.getBiObjectId() != null
+                    && omittedSubtreeIds.contains(disease.getBiObjectId()));
+        }
 
         // 提前收集所有病害的图片书签信息
         Map<Long, List<String>> diseaseImageRefs = new HashMap<>(); // key: 病害ID, value: 图片书签列表
@@ -2873,9 +2883,7 @@ public class ReportServiceImpl implements IReportService {
                         if (component != null) {
                             componentName = component.getName();
                         }
-                        // 照片图注的描述不需要带病害规范号
-                        String type = d.getType().substring(d.getType().lastIndexOf("#") + 1);
-                        String imageDesc = componentName + d.getPosition() + type;
+                        String imageDesc = ReportGenerateTools.diseasePhotoCaption(d, componentName);
                         // 使用第3章编号规则
                         String bookmark = "Figure_Chapter3_" + UUID.randomUUID() + "_" + chapterImageCounter.getAndIncrement();
                         imageBookmarks.add(bookmark + "|" + imageDesc); // 书签名和描述用|分隔
@@ -3111,13 +3119,15 @@ public class ReportServiceImpl implements IReportService {
             if (!allNodeDiseases.isEmpty()) {
                 photos.addAll(collectDiseaseImagePairs(allNodeDiseases, diseaseImageRefs));
             }
-            photos.addAll(collectStatusImagePairs(node, chapterImageCounter));
+            photos.addAll(collectStatusImagePairs(node, allNodes, chapterImageCounter, omittedSubtreeIds));
             if (!photos.isEmpty()) {
                 insertPhotoImageTable(document, photos, cursor, true);
             }
         } else {
             try {
-                insertBiObjectStatusImages(document, node, chapterImageCounter, cursor, true);
+                insertPhotoImageTable(document,
+                        collectStatusImagePairs(node, allNodes, chapterImageCounter, omittedSubtreeIds),
+                        cursor, true);
             } catch (Exception e) {
                 log.error("插入BiObject现状照片失败", e);
             }
@@ -3402,6 +3412,33 @@ public class ReportServiceImpl implements IReportService {
         }
     }
 
+    /** 拱桥模板上部结构不列支座，连同其下病害和现状照一并略过。 */
+    private Set<Long> omittedArchUpperBearingIds(BiObject structureNode, List<BiObject> childComponents,
+                                                 List<BiObject> allNodes, boolean omitArchUpperBearing) {
+        if (!omitArchUpperBearing || structureNode == null || structureNode.getName() == null
+                || !structureNode.getName().contains("上部") || childComponents == null) {
+            return Set.of();
+        }
+        Set<Long> omitted = new HashSet<>();
+        for (BiObject child : childComponents) {
+            if (child != null && "支座".equals(child.getName())) {
+                collectSubtreeIds(child, allNodes, omitted);
+            }
+        }
+        return omitted;
+    }
+
+    private void collectSubtreeIds(BiObject node, List<BiObject> allNodes, Set<Long> ids) {
+        if (node == null || node.getId() == null || !ids.add(node.getId()) || allNodes == null) {
+            return;
+        }
+        for (BiObject child : allNodes) {
+            if (node.getId().equals(child.getParentId())) {
+                collectSubtreeIds(child, allNodes, ids);
+            }
+        }
+    }
+
     /**
      * 插入BiObject的现状照片（type=8）
      *
@@ -3419,7 +3456,14 @@ public class ReportServiceImpl implements IReportService {
     private void insertBiObjectStatusImages(XWPFDocument document, BiObject biObject,
                                             AtomicInteger chapterImageCounter, XmlCursor cursor,
                                             boolean fixedPhotoCell) throws Exception {
-        insertPhotoImageTable(document, collectStatusImagePairs(biObject, chapterImageCounter), cursor, fixedPhotoCell);
+        insertBiObjectStatusImages(document, biObject, chapterImageCounter, cursor, fixedPhotoCell, null);
+    }
+
+    private void insertBiObjectStatusImages(XWPFDocument document, BiObject biObject,
+                                            AtomicInteger chapterImageCounter, XmlCursor cursor,
+                                            boolean fixedPhotoCell, List<BiObject> allNodes) throws Exception {
+        insertPhotoImageTable(document, collectStatusImagePairs(biObject, allNodes, chapterImageCounter),
+                cursor, fixedPhotoCell);
     }
 
     /** 把照片行两列合成一格，段落居中后单张照片位于行中间。 */
@@ -3511,6 +3555,17 @@ public class ReportServiceImpl implements IReportService {
     }
 
     private List<Pair<String, String>> collectStatusImagePairs(BiObject biObject, AtomicInteger chapterImageCounter) {
+        return collectStatusImagePairs(biObject, null, chapterImageCounter, null);
+    }
+
+    private List<Pair<String, String>> collectStatusImagePairs(BiObject biObject, List<BiObject> allNodes,
+                                                               AtomicInteger chapterImageCounter) {
+        return collectStatusImagePairs(biObject, allNodes, chapterImageCounter, null);
+    }
+
+    private List<Pair<String, String>> collectStatusImagePairs(BiObject biObject, List<BiObject> allNodes,
+                                                               AtomicInteger chapterImageCounter,
+                                                               Set<Long> skipSubjectIds) {
         List<Pair<String, String>> allImages = new ArrayList<>();
         if (biObject == null) {
             return allImages;
@@ -3520,12 +3575,22 @@ public class ReportServiceImpl implements IReportService {
             if (photoList == null || photoList.isEmpty()) {
                 return allImages;
             }
-            for (FileMap fileMap : photoList) {
+            Map<Long, BiObject> nodeMap = allNodes == null ? Collections.emptyMap()
+                    : allNodes.stream()
+                    .filter(obj -> obj.getId() != null)
+                    .collect(Collectors.toMap(BiObject::getId, obj -> obj, (a, b) -> a));
+            List<FileMap> photos = new ArrayList<>(photoList);
+            photos.sort(Comparator
+                    .comparingInt((FileMap fileMap) -> ReportGenerateTools.statusPhotoCaptionOrder(fileMap, biObject, nodeMap))
+                    .thenComparingInt(fileMap -> fileMap.getId() == null ? 0 : fileMap.getId()));
+            for (FileMap fileMap : photos) {
+                if (skipSubjectIds != null && !skipSubjectIds.isEmpty()
+                        && fileMap.getSubjectId() != null && skipSubjectIds.contains(fileMap.getSubjectId())) {
+                    continue;
+                }
                 String newName = fileMap.getNewName();
                 String bookmarkName = "fig_status_" + chapterImageCounter.getAndIncrement();
-                String imageDesc = fileMap.getAttachmentRemark() != null && !fileMap.getAttachmentRemark().isEmpty()
-                        ? fileMap.getAttachmentRemark()
-                        : biObject.getName() + "现状照片";
+                String imageDesc = ReportGenerateTools.statusPhotoCaption(fileMap, biObject, nodeMap);
                 allImages.add(Pair.of(newName, bookmarkName + "|" + imageDesc));
             }
         } catch (Exception e) {
@@ -6131,7 +6196,7 @@ public class ReportServiceImpl implements IReportService {
 
 
             // 5. 先处理自动生成的章节内容（包括从数据库自动获取的照片）
-            processSingleBridgeAutoGeneratedContent(document, building, project, task, biObject, dataMap);
+            processSingleBridgeAutoGeneratedContent(document, building, project, task, biObject, dataMap, templateType);
 
             // 6. 再处理用户填写的简单数据
             processSingleBridgeUserData(document, reportDataList, building, dataMap, project, biObject);
@@ -6438,7 +6503,7 @@ public class ReportServiceImpl implements IReportService {
      */
     private void processSingleBridgeAutoGeneratedContent(XWPFDocument document, Building building,
                                                          Project project, Task task, BiObject biObject,
-                                                         Map<String, ReportData> dataMap) {
+                                                         Map<String, ReportData> dataMap, ReportTemplateTypes templateType) {
         // 0. 处理桥梁概况照片（从数据库自动获取，与组合桥同步）
         try {
             insertSingleBridgeImages(document, building.getId());
@@ -6450,7 +6515,9 @@ public class ReportServiceImpl implements IReportService {
 
         // 1. 处理第4.1.2章 - 外观检测结果（从数据库自动生成）
         try {
-            processSingleBridgeAppearanceInspection(document, biObject, building, project.getId(), "${chapter-4-1-2-appearanceInspectionResults}");
+            processSingleBridgeAppearanceInspection(document, biObject, building, project.getId(),
+                    "${chapter-4-1-2-appearanceInspectionResults}",
+                    templateType == ReportTemplateTypes.LEVEL_2_ARCH_BRIDGE);
             log.info("第4.1.2章外观检测结果生成完成");
         } catch (Exception e) {
             log.error("处理第4.1.2章外观检测结果出错: error={}", e.getMessage(), e);
@@ -6827,7 +6894,8 @@ public class ReportServiceImpl implements IReportService {
      * 处理单桥模板的外观检测结果（跳过桥名层级，直接生成结构内容）
      */
     private void processSingleBridgeAppearanceInspection(XWPFDocument document, BiObject biObject,
-                                                         Building building, Long projectId, String placeholder) throws Exception {
+                                                         Building building, Long projectId, String placeholder,
+                                                         boolean omitArchUpperBearing) throws Exception {
         // 获取所有子部件
         List<BiObject> allObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
 
@@ -6897,7 +6965,7 @@ public class ReportServiceImpl implements IReportService {
 
             // 生成结构内容，从第2层开始（跳过桥名层级）
             writeBiObjectTreeToWordForSingleBridge(document, structureNode, allObjects, bridgeDiseaseMap, 2
-                    , imageCounter, tableCounter, cursor, 2);
+                    , imageCounter, tableCounter, cursor, 2, omitArchUpperBearing);
         }
     }
 
