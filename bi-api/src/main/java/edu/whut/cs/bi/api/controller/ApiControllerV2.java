@@ -102,11 +102,9 @@ public class ApiControllerV2 {
         if (buildingId == null) {
             return AjaxResult.error("参数错误，buildingId不能为空");
         }
-        edu.whut.cs.bi.biz.domain.BuildingPackage query = new edu.whut.cs.bi.biz.domain.BuildingPackage();
-        query.setBuildingId(buildingId);
-        List<edu.whut.cs.bi.biz.domain.BuildingPackage> list = buildingService.selectBuildingPackageList(query);
-        if (list != null && !list.isEmpty()) {
-            return AjaxResult.success("查询成功", list.get(0));
+        edu.whut.cs.bi.biz.domain.BuildingPackage latest = buildingService.selectLatestBuildingPackage(buildingId);
+        if (latest != null) {
+            return AjaxResult.success("查询成功", latest);
         }
         return AjaxResult.error("该建筑物暂未生成数据包");
     }

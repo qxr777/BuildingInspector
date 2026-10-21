@@ -15,6 +15,7 @@ import edu.whut.cs.bi.biz.domain.Building;
 import edu.whut.cs.bi.biz.domain.Project;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.vo.ProjectBuildingVO;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
@@ -96,6 +97,9 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Autowired
     private BuildingPackageMapper buildingPackageMapper;
+
+    @Autowired
+    private BiObjectMapper biObjectMapper;
 
     @Autowired
     private SqliteService sqliteService;
@@ -1258,7 +1262,8 @@ public class BuildingServiceImpl implements IBuildingService {
             try (FileOutputStream fos = new FileOutputStream(tempFile);
                  ZipOutputStream zipOut = new ZipOutputStream(fos)) {
 
-                // 收集所有关联的 ID (建筑物 ID + 病害 ID)
+                // 收集所有附件主体 ID：建筑物 ID(type=6 正/侧立面照) + 病害 ID(type=1/7)
+                // + 结构树节点 ID(type=8 部件当前照片，挂在 PART 节点上)
                 List<Long> subjectIds = new ArrayList<>();
                 subjectIds.add(buildingId);
 
@@ -1272,10 +1277,29 @@ public class BuildingServiceImpl implements IBuildingService {
                     }
                 }
 
-                // 2. 添加所有关联 ID 的附件到 ZIP
-                addBuildingAttachments(zipOut, subjectIds);
+                // 2. 收集双结构树（旧链 rootObjectId + 新链 newRootObjectId）全部节点，
+                //    部件当前照片(type=8)的 subject 是 PART 等 bi_object 节点
+                List<Long> rootObjectIds = new ArrayList<>();
+                if (building.getRootObjectId() != null) {
+                    rootObjectIds.add(building.getRootObjectId());
+                }
+                if (building.getNewRootObjectId() != null) {
+                    rootObjectIds.add(building.getNewRootObjectId());
+                }
+                for (Long rootObjectId : rootObjectIds) {
+                    subjectIds.add(rootObjectId);
+                    List<BiObject> children = biObjectMapper.selectChildrenById(rootObjectId);
+                    if (children != null) {
+                        for (BiObject child : children) {
+                            subjectIds.add(child.getId());
+                        }
+                    }
+                }
 
-                // 3. 同时生成并添加 SQLite 数据库文件 (data.db)
+                // 3. 添加所有关联 ID 的附件到 ZIP
+                addBuildingAttachments(zipOut, subjectIds.stream().distinct().collect(Collectors.toList()));
+
+                // 4. 同时生成并添加 SQLite 数据库文件 (data.db)
                 File sqliteFile = null;
                 try {
                     sqliteFile = sqliteService.doGenerateBuildingSqlite(buildingId);
@@ -1343,7 +1367,12 @@ public class BuildingServiceImpl implements IBuildingService {
                     buildingPackageMapper.insertBuildingPackage(buildingPackage);
                 }
 
-                return AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size", zipSize);
+                String packageUrl = buildMinioUrl(fileMap.getNewName());
+                AjaxResult ok = AjaxResult.success("数据包已生成", Long.valueOf(fileMap.getId())).put("size", zipSize);
+                if (packageUrl != null) {
+                    ok.put("url", packageUrl);
+                }
+                return ok;
             } catch (Exception e) {
                 log.error("上传建筑物病害附件包到MinIO失败", e);
                 return AjaxResult.error("上传建筑物病害附件包到MinIO失败");
@@ -1448,12 +1477,41 @@ public class BuildingServiceImpl implements IBuildingService {
     @Override
     public edu.whut.cs.bi.biz.domain.BuildingPackage selectBuildingPackageById(Long id)
     {
-        edu.whut.cs.bi.biz.domain.BuildingPackage bp = buildingPackageMapper.selectBuildingPackageById(id);
+        return decoratePackageUrl(buildingPackageMapper.selectBuildingPackageById(id));
+    }
+
+    @Override
+    public edu.whut.cs.bi.biz.domain.BuildingPackage selectLatestBuildingPackage(Long buildingId)
+    {
+        if (buildingId == null) {
+            return null;
+        }
+        edu.whut.cs.bi.biz.domain.BuildingPackage query = new edu.whut.cs.bi.biz.domain.BuildingPackage();
+        query.setBuildingId(buildingId);
+        List<edu.whut.cs.bi.biz.domain.BuildingPackage> list = buildingPackageMapper.selectBuildingPackageList(query);
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+        return decoratePackageUrl(list.get(0));
+    }
+
+    /** 补全 MinIO 下载地址：bucket 内对象按 newName 前两位分目录。 */
+    private edu.whut.cs.bi.biz.domain.BuildingPackage decoratePackageUrl(
+            edu.whut.cs.bi.biz.domain.BuildingPackage bp) {
         if (bp != null && bp.getNewName() != null) {
             String prefix = bp.getNewName().substring(0, 2);
             bp.setUrl(minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + prefix + "/" + bp.getNewName());
         }
         return bp;
+    }
+
+    /** 按 FileMap.newName 拼 MinIO 地址（生成包后立即返回下载链接用）。 */
+    private String buildMinioUrl(String newName) {
+        if (newName == null || newName.length() < 2) {
+            return null;
+        }
+        String prefix = newName.substring(0, 2);
+        return minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/" + prefix + "/" + newName;
     }
 
     /**

@@ -40,6 +40,8 @@ nbdist/
 # Others
 .DS_Store
 *.log
+# 各模块运行时日志目录（含滚动压缩包，如 sys-normal-zips/*.zip）
+logs/
 *.xml.versionsBackup
 *.swp
 

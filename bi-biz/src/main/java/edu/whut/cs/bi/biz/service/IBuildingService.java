@@ -160,6 +160,14 @@ public interface IBuildingService {
     public edu.whut.cs.bi.biz.domain.BuildingPackage selectBuildingPackageById(Long id);
 
     /**
+     * 查询某建筑物最近一次病害离线包（带 MinIO 下载地址）
+     *
+     * @param buildingId 建筑物ID
+     * @return 最近一次离线包（含 url）；该建筑从未打包时返回 null
+     */
+    public edu.whut.cs.bi.biz.domain.BuildingPackage selectLatestBuildingPackage(Long buildingId);
+
+    /**
      * 查询建筑物病害离线包列表
      *
      * @param buildingPackage 建筑物病害离线包

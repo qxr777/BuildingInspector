@@ -82,7 +82,12 @@
 |----|------|---------|
 | common.db（字典包，11 张表） | 桥型模板、叶子部件、病害类型/标度等 5230 字典 | `POST /api/v2/common/sqlite`，随标准升级更新 |
 | user.db（用户数据包，11 张表） | 本用户项目下桥梁/结构树/新链构件/病害/照片元数据 | 同步成功响应里直接带 URL，或 `GET/POST /api/v2/user/{id}/sqlite` |
-| 单桥 ZIP（7 张表） | 单座桥的检查数据与照片 | `POST /api/v2/building/{id}/package` |
+| 单桥 ZIP（7 张表） | 单座桥检查数据（内含 `data.db`）+ 照片文件本体 | `POST /api/v2/building/{id}/package` |
+
+单桥 ZIP 为**交付/归档包**（与同步闭环无关）：内含该桥 7 表的 `data.db`，并把照片文件本体
+（优先缩略图）扁平化打进 ZIP——type=1/7 病害照片、type=6 桥梁正/侧立面照、
+**type=8 部件当前照片（v1.3 起补齐，按双结构树 PART 节点收集）**。一座桥只保留最新一个包，
+重新打包即覆盖；查最近一次包信息用 `GET /api/v2/building/{id}/package`。
 
 病害载荷中的 `leafObjectId`、`diseaseTypeId` 均为 **common.db 字典整数 ID 原样透传**，不做 UUID 映射。
 
@@ -878,8 +883,9 @@ interface Attachment {
 4. **主体可在更早的批次同步**：如"先传病害、后补照片"，服务端本批未命中会回查云端，无需重传病害。
 5. **主体反查失败按行报错**：`offlineSubjectUuid` 在本批和云端都找不到对应类型实体时，该附件不落库，
    同批其他附件不受影响。
-6. **回读**：病害照片、type=6 桥梁照片、type=8 PART 照片都会随 user.db / 单桥 ZIP 回传
-   （元数据在 `bi_attachment`，文件本体由 `minio_id → bi_file_map` 指向 MinIO）。
+6. **回读**：三类照片的元数据都随 user.db / 单桥包 `data.db` 回传（`bi_attachment` 行 +
+   `minio_id → bi_file_map` 指向 MinIO）；其中**单桥 ZIP 还会把三类照片的文件本体打进包内**，
+   user.db 只含指针、看图仍需访问 MinIO。
 
 ---
 

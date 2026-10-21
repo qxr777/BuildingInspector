@@ -88,7 +88,7 @@ class ApiControllerV2Test {
         item.setBuildingId(8L);
         item.setFileName("pkg.zip");
 
-        doReturn(Collections.singletonList(item)).when(buildingService).selectBuildingPackageList(org.mockito.ArgumentMatchers.any(BuildingPackage.class));
+        doReturn(item).when(buildingService).selectLatestBuildingPackage(8L);
 
         AjaxResult result = apiControllerV2.getBuildingPackage(8L);
 
@@ -101,7 +101,7 @@ class ApiControllerV2Test {
 
     @Test
     void testGetBuildingPackage_Empty() {
-        doReturn(Collections.emptyList()).when(buildingService).selectBuildingPackageList(org.mockito.ArgumentMatchers.any(BuildingPackage.class));
+        doReturn(null).when(buildingService).selectLatestBuildingPackage(9L);
 
         AjaxResult result = apiControllerV2.getBuildingPackage(9L);
 

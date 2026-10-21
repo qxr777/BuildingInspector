@@ -3,21 +3,31 @@ package edu.whut.cs.bi.biz.service.impl;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
 import edu.whut.cs.bi.biz.domain.Building;
+import edu.whut.cs.bi.biz.domain.Disease;
+import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
+import edu.whut.cs.bi.biz.mapper.BuildingPackageMapper;
+import edu.whut.cs.bi.biz.service.IDiseaseService;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IBiTemplateObjectService;
+import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.ITaskService;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.system.mapper.SysDictDataMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -25,6 +35,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -70,6 +81,24 @@ class BuildingServiceImplTest {
 
     @Mock
     private SysDictDataMapper sysDictDataMapper;
+
+    @Mock
+    private IDiseaseService diseaseService;
+
+    @Mock
+    private AttachmentService attachmentService;
+
+    @Mock
+    private IFileMapService fileMapServiceImpl;
+
+    @Mock
+    private BuildingPackageMapper buildingPackageMapper;
+
+    @Mock
+    private BiObjectMapper biObjectMapper;
+
+    @Mock
+    private SqliteService sqliteService;
 
     /**
      * 测试场景：新增组合桥（无父桥）时，正常创建根节点并保存建筑。
@@ -474,6 +503,56 @@ class BuildingServiceImplTest {
 
         List<Long> result2 = buildingService.selectChildBuildingIds(2L);
         assertEquals(0, result2.size());
+    }
+
+    /**
+     * 测试场景：生成单桥 ZIP 时，附件主体必须包含双结构树全部节点，
+     * 挂在 PART 节点上的部件当前照片(type=8)才能随包导出。
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void testGenerateBuildingPackage_PartPhotosSubjectIdsIncluded() {
+        Building building = new Building();
+        building.setId(1L);
+        building.setName("部件照片入包测试桥");
+        building.setRootObjectId(100L);   // 旧链树根
+        building.setNewRootObjectId(200L); // 5230 新链 UNIT
+
+        Disease disease = new Disease();
+        disease.setId(300L);
+
+        BiObject oldChild = new BiObject();
+        oldChild.setId(101L);
+        BiObject newPart = new BiObject();
+        newPart.setId(201L);
+
+        when(buildingMapper.selectBuildingById(1L)).thenReturn(building);
+        when(diseaseService.selectDiseaseList(any(Disease.class)))
+                .thenReturn(Collections.singletonList(disease));
+        when(biObjectMapper.selectChildrenById(100L)).thenReturn(Collections.singletonList(oldChild));
+        when(biObjectMapper.selectChildrenById(200L)).thenReturn(Collections.singletonList(newPart));
+        when(attachmentService.getAttachmentBySubjectIds(any(List.class))).thenReturn(Collections.emptyList());
+
+        FileMap fileMap = new FileMap();
+        fileMap.setId(999);
+        when(fileMapServiceImpl.handleFileUploadFromFile(any(File.class), anyString(), anyString()))
+                .thenReturn(fileMap);
+        when(buildingPackageMapper.selectBuildingPackageList(any())).thenReturn(Collections.emptyList());
+        // sqliteService 默认返回 null（data.db 缺省时 ZIP 仍继续）
+
+        AjaxResult result = buildingService.generateBuildingPackage(1L);
+
+        assertEquals(0, ((Number) result.get(AjaxResult.CODE_TAG)).intValue());
+
+        ArgumentCaptor<List<Long>> subjectCaptor = ArgumentCaptor.forClass(List.class);
+        verify(attachmentService).getAttachmentBySubjectIds(subjectCaptor.capture());
+        List<Long> subjectIds = subjectCaptor.getValue();
+        // 桥梁(type=6) + 病害(type=1/7) + 双树根节点 + 子孙节点(PART 等，承载 type=8)
+        assertTrue(subjectIds.containsAll(Arrays.asList(1L, 300L, 100L, 101L, 200L, 201L)),
+                "附件主体缺少结构树节点，部件照片无法入包: " + subjectIds);
+        verify(biObjectMapper, times(1)).selectChildrenById(100L);
+        verify(biObjectMapper, times(1)).selectChildrenById(200L);
+        verify(buildingPackageMapper, times(1)).insertBuildingPackage(any());
     }
 }
 
