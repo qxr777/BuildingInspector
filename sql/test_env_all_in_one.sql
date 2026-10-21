@@ -57,6 +57,8 @@
 --       DROP 引擎六表（bi_v2_* 五表 + bi_bridge_evaluation），使跑过旧版脚本的库收敛
 --   [10] bi_user_sqlite 收敛为运行期结构（2026-10-15）：补 package_time/update_time/
 --       package_size/del_flag 4 列，idx_user 升级为 uk_user_sqlite_user_id 唯一键
+--   [11] 通道A 预上传幂等登记表 bi_file_upload_registry（2026-10-21）：
+--       upload_uuid → 原图/缩略图 bi_file_map.id；响应丢失重传零流量，并作未来孤儿 GC 依据
 --
 -- 幂等性：所有 ADD COLUMN / CREATE TABLE 均用存储过程探测存在性；
 --         种子数据用 WHERE NOT EXISTS 按 id 判重。可重复执行。
@@ -718,6 +720,33 @@ JOIN `bi_attachment` t2
 
 CALL P_AddKeyIfNotExists(@db, 'bi_attachment', 'uk_attachment_offline_uuid',
     '`offline_uuid`', 'UNIQUE');
+
+-- ================================================================================
+-- 第八·十部分：通道A 预上传幂等登记表 bi_file_upload_registry（2026-10-21）
+--   App 为"每次文件产出"生成 uploadUuid（拍照产出时生成；重拍换新 uploadUuid 但
+--   附件 offlineUuid 不变；超时/响应丢失重试复用）。带 uploadUuid 的预上传先查此表：
+--   命中即返回既有 minioId，不重复 putObject、不重复写 bi_file_map（零流量重传）。
+--   仅新增表，不改百万级老表 bi_file_map，无回填、无大表 DDL；CREATE TABLE IF NOT
+--   EXISTS 幂等，全新库/旧库均可重复执行。thumb_file_map_id 可空：缩略图失败为 NULL
+--   （与通道B一致，原图成功即成功）。create_time + file_map_id 索引同时作为未来孤儿
+--   GC 的依据（登记了但 bi_attachment 长期无引用的 bi_file_map）。
+-- ================================================================================
+CREATE TABLE IF NOT EXISTS `bi_file_upload_registry` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `upload_uuid` VARCHAR(64) NOT NULL COMMENT '客户端为每次文件产出生成的幂等键(UUID,去横线32位)',
+  `file_map_id` BIGINT NOT NULL COMMENT '原图 bi_file_map.id',
+  `thumb_file_map_id` BIGINT DEFAULT NULL COMMENT '缩略图 bi_file_map.id(生成失败为NULL)',
+  `original_name` VARCHAR(255) DEFAULT NULL COMMENT '客户端原始文件名',
+  `file_size` BIGINT DEFAULT NULL COMMENT '原图字节数',
+  `content_type` VARCHAR(100) DEFAULT NULL COMMENT 'MIME 类型',
+  `user_id` BIGINT DEFAULT NULL COMMENT '上传用户ID',
+  `create_by` VARCHAR(64) DEFAULT NULL COMMENT '上传账号',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '登记时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_file_upload_registry_upload_uuid` (`upload_uuid`),
+  KEY `idx_file_upload_registry_file_map_id` (`file_map_id`),
+  KEY `idx_file_upload_registry_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通道A预上传幂等登记表(uploadUuid→minioId)';
 
 -- ================================================================================
 -- 第九部分：清理存储过程
