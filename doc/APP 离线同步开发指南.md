@@ -1,15 +1,25 @@
 # App 离线同步开发指南
 
-> 文档版本：v1.3  
-> 最后更新：2026-10-20  
+> 文档版本：v1.4  
+> 最后更新：2026-10-21  
 > 适用对象：App 端开发人员 (Vue.js + Capacitor/Cordova)
 >
-> **更新说明（v1.3，2026-10-20）：**
-> 1. **附件通道（通道A）加固**：`attachments[]` 按 `type` 路由挂载主体、按附件自身 `offlineUuid` 幂等更新（重传不重复）、`offlineDeleted=1` 物理删除已生效（旧版仅跳过插入）、缺 `minioId`/主体反查失败按行报错；病害照片落库后服务端自动重算 `bi_disease.attachment_count`。
-> 2. **补齐 JTG/T 5230—2026 新链实体**：载荷新增 `elements`（构件 bi_element）与 `spanElementParts`（构件-桥跨-部件锚定）；病害新增 `elementUuid`、`leafObjectId`、`diseaseTypeId`。旧 `components` 链冻结保留，新规范开发请走新链。
-> 3. **父节点支持云端回查**：App 在下发的评定单元（UNIT）下增量建模时，无需重传 UNIT；服务端先查本批、未命中回查云端。
+> **更新说明（v1.4，2026-10-21）：通道A 附件预上传提速（渐进式增强，新旧 App 可共存）**
+> 1. **预上传幂等化**：新增客户端幂等键 `uploadUuid`（拍照产出时生成、持久化、重试复用，重拍才换新）。
+>    同 uuid 重放返回 `status=exists` 与既有 `minioId/thumbMinioId`，**零重复流量**，响应丢失/超时可安全重试。
+> 2. **新增批量与回查接口**：`POST /sync/attachment/batch`（一批多文件，逐项容错）与
+>    `POST /sync/attachment/query`（同步前/响应丢失后回查已传清单）。推荐流程：先 query 跳过已传 →
+>    分批 batch（建议 ≤8 张/批或 ≤10MB，批间并发 ≤3）。
+> 3. **缩略图改由服务端自动生成**：图片预上传成功即同步返回 `thumbMinioId`，App 无需自行上传缩略图；
+>    非图片或生成失败时为 `null`。
+> 4. **拍照压缩要求明确**：长边 ≤2000px、JPEG 质量 ≈0.8、目标单张 ≤1MB（服务端硬上限 20MB/张、
+>    20 张/批仅兜底）；服务端原样存储，不二次重编码。
+> 5. **旧接口完全保留**：`POST /sync/attachment` 不带 `uploadUuid` 时响应仍是裸 `minioId`，
+>    旧版 App 不改代码可继续工作（但不享受幂等/缩略图/批量能力）。
 >
-> **历史更新：** v1.2 新增离线删除机制和离线更新机制详细说明
+> **历史更新：**
+> - v1.3（2026-10-20）：附件通道（通道A）加固——`attachments[]` 按 `type` 路由挂载主体、按附件自身 `offlineUuid` 幂等更新、`offlineDeleted=1` 物理删除生效、缺 `minioId`/主体反查失败按行报错、病害照片落库后自动重算 `bi_disease.attachment_count`；补齐 JTG/T 5230—2026 新链实体（`elements`/`spanElementParts`，病害新增 `elementUuid`/`leafObjectId`/`diseaseTypeId`）；父节点支持云端回查。
+> - v1.2：新增离线删除机制和离线更新机制详细说明。
 
 **技术栈说明：** 本 App 采用 Vue.js 框架开发，使用 Capacitor/Cordova 访问原生 SQLite 能力。
 
@@ -43,6 +53,8 @@
 - 通过 `offlineDeleted=1` 表达删除；各实体删除方式不同（建筑/对象为逻辑删，病害/附件等为物理删，见 §7.3）
 - 通过 `is_offline_data` 标识数据来源于离线端
 - **逐行容错**：单条数据非法（如附件缺 minioId、主体不存在）只拒绝该行，不影响同批其他数据
+- **附件预上传幂等 + 批量**（v1.4）：照片以 `uploadUuid` 幂等预上传（同 uuid 重放零重复流量），
+  支持批量上传与回查，缩略图由服务端自动生成；旧版裸 minioId 单文件接口永久保留
 - **同步后立即重建 SQLite**：服务端返回全新数据库，App 覆盖本地实现强一致性
 
 ### 1.2 数据变更类型支持
@@ -122,62 +134,113 @@
 │  App 端   │         │  MinIO  │         │  服务端  │
 └────┬────┘         └────┬────┘         └────┬────┘
      │                   │                   │
-     │ 1. 循环上传附件    │                   │
-     │──────────────────>│                   │
+     │ 1. 拍照即压缩(长边≤2000/q0.8)，生成并持久化 uploadUuid
      │                   │                   │
-     │ 2. 返回 serverId   │                   │
-     │<──────────────────│                   │
+     │ 2. POST /sync/attachment/query        │  同步前回查已传清单
+     │──────────────────────────────────────>│
+     │ 3. 返回各项 uploaded/minioId（跳过已传）│
+     │<──────────────────────────────────────│
      │                   │                   │
-     │ 3. 构造 JSON 载荷   │                   │
+     │ 4. 分批 POST /sync/attachment/batch    │  未传项分批上传(建议≤8张/批)
+     │    files[] + uploadUuids[]（交错对齐） │  批间并发≤3
+     │──────────────────────────────────────>│
+     │                   │                   │ 服务端存原图+自动生成缩略图
+     │ 5. 返回逐项 minioId/thumbMinioId       │
+     │<──────────────────────────────────────│
      │                   │                   │
-     │ 4. POST /sync/upload                  │
+     │ 6. 构造 JSON 载荷（两个 id 回填到 attachments[]）
+     │                   │                   │
+     │ 7. POST /sync/upload                  │
      │──────────────────────────────────────>│
      │                   │                   │
-     │ 5. 处理并落库      │                   │
-     │ 6. 重建用户 SQLite │                   │
-     │ 7. 上传至 MinIO    │                   │
+     │ 8. 处理并落库      │                   │
+     │ 9. 重建用户 SQLite │                   │
+     │ 10. 上传至 MinIO   │                   │
      │                   │                   │
-     │ 8. 返回下载地址    │                   │
+     │ 11. 返回下载地址   │                   │
      │<──────────────────────────────────────│
      │   { url, timestamp, size }            │
      │                   │                   │
-     │ 9. 后台下载新.db   │                   │
+     │ 12. 后台下载新.db  │                   │
      │──────────────────>│                   │
      │                   │                   │
-     │ 10. 替换本地文件   │                   │
+     │ 13. 替换本地文件   │                   │
      │                   │                   │
 ```
+
+> 旧版 App（不带 `uploadUuid`，逐张调 `/sync/attachment`）的时序仍是第 4、5 步的单文件版本，
+> 服务端永久兼容；步骤 2、3 的回查与批量是 v1.4 新增能力，建议新版 App 采用。
 
 ### 2.2 步骤说明
 
-**步骤 1：附件预上传**
+**步骤 1：拍照压缩并生成 uploadUuid（v1.4 推荐）**
 
-在提交同步前，先遍历所有 `is_offline_data = 1` 的附件记录，逐个上传到 MinIO：
+照片在拍摄/保存时即完成端侧压缩——**长边 ≤2000px、JPEG 质量 ≈0.8、目标单张 ≤1MB**
+（服务端原样存储、不二次重编码；20MB 为服务端硬上限，仅作兜底不要贴着用）。
+同时为**这一次文件产出**生成 `uploadUuid`（32 位去横线 UUID，与附件 `offlineUuid` 相互独立）并持久化：
+
+- 上传失败/响应丢失/超时重试：**复用同一个 uploadUuid**，服务端幂等返回既有结果，不产生重复文件；
+- 用户**重拍或更换照片文件**：生成**新的 uploadUuid**，附件 `offlineUuid` 保持不变；
+- 建议本地 `bi_attachment` 增加 `upload_uuid TEXT` 列保存（见 §5.3）。
+
+**步骤 2：回查已传清单，跳过已完成项**
+
+同步前（或上次同步中途失败后）先批量回查，只上传服务端还没有的文件：
 
 ```
-POST /api/v2/sync/attachment
+POST /api/v2/sync/attachment/query
+Content-Type: application/json
+
+{ "uploadUuids": ["uuid1", "uuid2", "..."] }   // 单次 ≤500 个
+```
+
+对返回中 `uploaded=true` 的项，直接把 `minioId/thumbMinioId` 写回本地，不再上传。
+
+**步骤 3：分批预上传未完成项**
+
+将剩余文件按 **≤8 张/批或整批 ≤10MB** 分组（服务端硬上限 20 张/批），**批间并发 ≤3**，
+批内由服务端顺序处理。`FormData` 中 `files` 与 `uploadUuids` 必须按下标对齐，建议交错 append：
+
+```
+POST /api/v2/sync/attachment/batch
 Content-Type: multipart/form-data
-
-file: [图片二进制]
 ```
 
-响应：
+逐项结果在 `data.items[]` 中返回（HTTP 200/code=0 也可能包含失败项，必须逐项判断 `status`）：
+
 ```json
 {
   "code": 0,
-  "data": 12345  // serverId，即 minioId
+  "msg": "批量预上传完成",
+  "data": {
+    "total": 2, "successCount": 1, "existsCount": 0, "failureCount": 1,
+    "items": [
+      { "uploadUuid": "uuid1", "status": "success",
+        "minioId": 12345, "thumbMinioId": 12346 },
+      { "uploadUuid": "uuid2", "status": "failed", "error": "文件为空" }
+    ]
+  }
 }
 ```
 
-**步骤 2：更新本地附件记录**
+- `status`：`success`（本次新传）/ `exists`（幂等命中，未重复上传）/ `failed`（看 `error`）；
+- **缩略图由服务端自动生成**，图片类型会同时返回 `thumbMinioId`，无需 App 另行上传；
+  非图片或缩略图生成失败时为 `null`，原图仍算成功；
+- 失败项保留 `upload_uuid` 与离线标记，下次同步先 query 再补传，**不要换 uuid**。
 
-将返回的 `serverId` 写入本地 `bi_attachment.minio_id` 字段。
+单张上传也可继续使用增强模式单文件接口 `POST /sync/attachment`（带 `uploadUuid` form 字段，
+`data` 为单个 item 对象）；**不带 `uploadUuid` 时是旧版兼容模式**，`data` 为裸 minioId。
 
-**步骤 3：构造同步载荷**
+**步骤 4：更新本地附件记录**
+
+将返回的 `minioId`、`thumbMinioId` 分别写入本地 `bi_attachment.minio_id`、
+`bi_attachment.thumb_minio_id`，随后在 `attachments[]` 中一并提交（见 §4.2）。
+
+**步骤 5：构造同步载荷**
 
 提取所有 `is_offline_data = 1` 且未同步的业务数据，构造 JSON（详见第 4 节）。
 
-**步骤 4：提交同步**
+**步骤 6：提交同步**
 
 ```
 POST /api/v2/sync/upload
@@ -187,7 +250,7 @@ Content-Type: application/json
 { ...payload... }
 ```
 
-**步骤 5-7：服务端处理（自动）**
+**步骤 7-9：服务端处理（自动）**
 
 服务端自动完成：
 1. 解析 JSON 并落库
@@ -195,11 +258,11 @@ Content-Type: application/json
 3. **重建用户专属 SQLite**（包含所有最新数据）
 4. 上传至 MinIO
 
-**步骤 8：返回下载地址**
+**步骤 10：返回下载地址**
 
 响应中包含完整 SQLite 的下载 URL。
 
-**步骤 9-10：App 下载并替换**
+**步骤 11-13：App 下载并替换**
 
 App 在后台下载新 `.db` 文件，原子替换本地旧数据库（见 §10.6），随后：
 
@@ -339,37 +402,128 @@ export default service
 
 ---
 
-### 3.1 附件预上传
+### 3.1 附件预上传（共三种形态 + 回查）
 
-| 属性 | 值 |
-|------|-----|
-| 路径 | `/api/v2/sync/attachment` |
-| 方法 | POST |
-| 认证 | 需要 (JWT Token) |
-| 类型 | `multipart/form-data` |
+通道 A 提供四个端点，认证均需要 JWT：
 
-**请求：**
+| 端点 | 形态 | 响应 `data` | 幂等 | 缩略图 |
+|------|------|------------|------|--------|
+| `POST /sync/attachment`（不带 `uploadUuid`） | **旧版兼容** | 裸 `minioId`（Integer） | 否 | 不生成 |
+| `POST /sync/attachment`（带 `uploadUuid`） | 增强单文件 | item 对象 | 是 | 自动生成 |
+| `POST /sync/attachment/batch` | **推荐**：批量 | `{total,...,items[]}` | 是 | 自动生成 |
+| `POST /sync/attachment/query` | 回查已传 | status 列表 | — | — |
+
+通用约束：单文件硬上限 **20MB**、单批文件数硬上限 **20**（建议 App 侧 ≤8 张/批或 ≤10MB）；
+`uploadUuid` 为 32 位十六进制（UUID 去横线，大小写/横线服务端会归一化，但建议统一小写无横线）。
+
+#### 3.1.1 增强模式：单文件预上传
+
 ```http
 POST /api/v2/sync/attachment
-Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+Content-Type: multipart/form-data
 
 file: [binary]
+uploadUuid: 4f8a5d2c9b7e4f1a8c3d6e5b0a2947d1
 ```
 
-**响应：**
+**响应（成功 / 幂等命中）：**
 ```json
 {
   "code": 0,
   "msg": "上传成功",
-  "data": 288  // 文件记录 ID，即 bi_file_map.id，作为附件的 minioId
+  "data": {
+    "uploadUuid": "4f8a5d2c9b7e4f1a8c3d6e5b0a2947d1",
+    "status": "success",          // success=本次新传；exists=幂等命中（未重复上传）
+    "minioId": 288,               // 原图 bi_file_map.id
+    "thumbMinioId": 289,          // 缩略图 id；非图片或生成失败为 null
+    "error": null
+  }
 }
 ```
 
+单项失败时 HTTP 信封为 `code=500`，`msg` 含失败原因（如 `文件为空`、`超出单文件大小限制`、
+`uploadUuid 非法（需为32位UUID）`、`服务端登记状态不一致，请联系管理员`）。
+
+#### 3.1.2 批量预上传（推荐）
+
+```http
+POST /api/v2/sync/attachment/batch
+Content-Type: multipart/form-data
+```
+
+| part 名 | 类型 | 说明 |
+|---------|------|------|
+| `files` | file，可重复 | 1..20 个文件 part |
+| `uploadUuids` | text，可重复 | 与 `files` **等长、按下标对齐**；建议交错 append 防错位 |
+
+**请求级错误**（整请求 `code=500`，没有任何文件被处理）：`files` 为空、
+`uploadUuids` 与 `files` 数量不一致、文件数超过 20。
+
+**逐项成败收敛在 `data.items[]`**：HTTP 200/`code=0` 也可能包含失败项，App 必须逐项看 `status`；
+单项失败不影响同批其他文件。`items[]` 顺序与请求下标一致，计数含
+`total/successCount/existsCount/failureCount`。单项 `status` 同 3.1.1（success/exists/failed），
+失败项的典型 `error`：`文件为空`、`超出单文件大小限制`、`uploadUuid 非法（需为32位UUID）`、
+`批内 uploadUuid 重复`（同批出现两个相同 uuid，只有第一项会被处理）。
+
+FormData 组包示例（交错 append）：
+
+```javascript
+const form = new FormData()
+for (const att of pending) {
+  form.append('files', att.file, att.name)
+  form.append('uploadUuids', att.uploadUuid)
+}
+const res = await axios.post('/api/v2/sync/attachment/batch', form, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+})
+```
+
+#### 3.1.3 回查已传附件
+
+同步开始前或上传响应丢失后，用回查代替盲目重传：
+
+```http
+POST /api/v2/sync/attachment/query
+Content-Type: application/json
+
+{ "uploadUuids": ["4f8a...", "9c2b..."] }
+```
+
+- 请求体为空 / `uploadUuids` 为空 / 单次超过 500 个 → `code=500`；
+- 响应 `data` 为数组，**顺序与请求一致**（含重复/非法 uuid，非法项按 `uploaded=false` 返回）：
+
+```json
+{
+  "code": 0,
+  "msg": "查询成功",
+  "data": [
+    { "uploadUuid": "4f8a...", "uploaded": true,  "minioId": 288, "thumbMinioId": 289 },
+    { "uploadUuid": "9c2b...", "uploaded": false, "minioId": null, "thumbMinioId": null }
+  ]
+}
+```
+
+#### 3.1.4 旧版兼容模式（不带 uploadUuid）
+
+不带 `uploadUuid` form 字段（或空串）时，行为与历史版本**完全一致**：服务端不登记、不生成缩略图，
+每次调用都产生一条新的 `bi_file_map`，响应 `data` 为裸整数：
+
+```json
+{ "code": 0, "msg": "上传成功", "data": 288 }
+```
+
+旧版 App 可不升级继续使用；新版 App 不应再走该模式（无法幂等重试、无缩略图）。
+
 **重要约定：**
 
-1. **预上传接口本身不幂等**——每调用一次就会在 MinIO 和 `bi_file_map` 产生一条新文件记录。App 必须在本地缓存返回的 `minioId`（写入 `bi_attachment.minio_id`）；同步重试时**只重发 `attachments[]` 元数据，不要重复上传文件**。
-2. 同一张照片更换文件（如重拍）后再次预上传会得到新的 `minioId`，带着相同附件 `offlineUuid` 提交即可，服务端按 `offlineUuid` 更新为新文件，不会产生重复附件行。
-3. 缩略图由通道A的元数据字段 `thumbMinioId` 携带（可选），需要时同样先预上传再填 ID。
+1. **uploadUuid 标识"一次文件产出"，不是附件身份**：附件身份仍是附件自身的 `offlineUuid`。
+   上传/同步任何阶段失败重试都复用同一 `uploadUuid`；只有用户重拍、替换文件才换新 uuid。
+2. `exists` 与 `success` 对 App 完全等价——拿到的 `minioId` 都可直接使用，不要因为 exists 而重传。
+3. 重拍照片：用**新 uploadUuid** 预上传得到新 `minioId`，带着**相同附件 `offlineUuid`** 提交
+   `attachments[]`，服务端按 `offlineUuid` 更新为新文件，不产生重复附件行。
+4. 缩略图**不需要 App 自行上传**：图片类文件服务端自动生成并返回 `thumbMinioId`；
+   `null` 表示非图片或本次生成失败（原图仍成功），按无缩略图处理即可。
 
 ### 3.2 数据同步提交
 
@@ -485,34 +639,78 @@ export default {
       }
     },
     
+    // v1.4：query 回查 → 分批 batch 上传（≤8 张/批，批间并发 ≤3）→ 双 id 回写本地
     async uploadAttachments() {
       const db = await openDB('BridgeInspector', 1, true, false)
       // 删除行（offline_deleted=1）不携带文件，只需随 attachments[] 同步删除标记
       const result = await db.query(
         "SELECT * FROM bi_attachment WHERE is_offline_data = 1 AND offline_deleted = 0")
+      let rows = result.values || []
 
-      for (const att of (result.values || [])) {
-        // 预上传不幂等：已有 minio_id 的行（上次已传成功）直接复用，不要重传，
-        // 否则会产生孤儿 bi_file_map 且服务端按 offline_uuid 更新为新文件。
-        // 仅当用户重拍（local_path 变化）时才清空 minio_id 重新预上传。
-        if (att.minio_id) continue
-
-        const fileData = await this.getLocalFile(att.local_path)
-        const formData = new FormData()
-        formData.append('file', fileData)
-
-        const res = await axios.post('/api/v2/sync/attachment', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
-
-        if (res.data.code === 0) {
-          await db.run('UPDATE bi_attachment SET minio_id = ? WHERE id = ?',
-            [res.data.data, att.id])
-        } else {
-          // 预上传失败的行不要继续提交 sync（服务端会逐行报错且不落库）
-          throw new Error('照片预上传失败：' + att.offline_uuid)
+      // ① 回查：已在服务端登记的（上次响应丢失/同步中断）直接取回双 id，零流量
+      const haveUuid = rows.filter(r => r.upload_uuid)
+      if (haveUuid.length) {
+        const known = await this.queryUploaded(haveUuid.map(r => r.upload_uuid))
+        for (const st of known) {
+          if (st.uploaded) {
+            await db.run(
+              'UPDATE bi_attachment SET minio_id = ?, thumb_minio_id = ? WHERE upload_uuid = ?',
+              [st.minioId, st.thumbMinioId, st.uploadUuid])
+          }
         }
       }
+
+      // ② 仅上传本地仍缺 minio_id 的文件；重拍时拍照流程应已换新 upload_uuid
+      const pending = []
+      for (const r of rows) {
+        if (!r.minio_id) {
+          if (!r.upload_uuid) throw new Error('附件缺少 upload_uuid：' + r.offline_uuid)
+          pending.push({ row: r, file: await this.getLocalFile(r.local_path) })
+        }
+      }
+
+      // ③ 分批：≤8 张/批，批间并发 ≤3（可用简易 p-limit 池）
+      const BATCH = 8
+      for (let i = 0; i < pending.length; i += BATCH) {
+        const group = pending.slice(i, i + BATCH)
+        const form = new FormData()
+        for (const p of group) {
+          form.append('files', p.file, p.row.name || 'photo.jpg')
+          form.append('uploadUuids', p.row.upload_uuid)   // 交错 append，与 files 下标对齐
+        }
+        const res = await axios.post('/api/v2/sync/attachment/batch', form, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        if (res.data.code !== 0) {
+          // 请求级错误（空批/数量错位/超限）：本批一张都没传，整轮中止等下次
+          throw new Error('照片批量预上传失败：' + res.data.msg)
+        }
+        const items = res.data.data.items
+        for (let idx = 0; idx < items.length; idx++) {
+          const item = items[idx]
+          if (item.status === 'failed') {
+            // 逐项失败：保留 upload_uuid 与离线标记，下次 query 后补传，不要换新 uuid
+            console.warn('照片预上传失败：', group[idx].row.offline_uuid, item.error)
+            continue
+          }
+          await db.run(
+            'UPDATE bi_attachment SET minio_id = ?, thumb_minio_id = ? WHERE id = ?',
+            [item.minioId, item.thumbMinioId, group[idx].row.id])
+        }
+      }
+
+      // ④ 仍有失败项则不进入 sync/upload（缺 minioId 的行会被服务端逐行拒绝）
+      const left = await db.query(
+        "SELECT COUNT(1) AS c FROM bi_attachment WHERE is_offline_data = 1 " +
+        "AND offline_deleted = 0 AND minio_id IS NULL")
+      if (left.values[0].c > 0) throw new Error('仍有照片未预上传成功，已保留待下次同步')
+    },
+
+    async queryUploaded(uploadUuids) {
+      // 单次 ≤500；现场量很小，这里从略分片
+      const res = await axios.post('/api/v2/sync/attachment/query', { uploadUuids })
+      if (res.data.code !== 0) throw new Error('附件回查失败：' + res.data.msg)
+      return res.data.data
     },
 
     async buildSyncPayload() {
@@ -643,7 +841,7 @@ export default {
 
 1. **请求大小限制**：建议单次请求 ≤ 5MB，超大数据请分批
 2. **超时设置**：建议 ≥ 60 秒，照片很多时可到 120 秒
-3. **幂等性**：幂等以各实体自身的 `offlineUuid` 为判定依据——同 UUID 重发走更新；照片同附件 UUID 重发只更新 minioId/名称，不产生重复行
+3. **幂等性**：业务幂等以各实体自身的 `offlineUuid` 为判定依据——同 UUID 重发走更新；照片同附件 UUID 重发只更新 minioId/名称，不产生重复行。**文件预上传另有独立幂等键 `uploadUuid`**（v1.4，见 §3.1）：同 uuid 重放零重复流量，两套键互不替代
 4. **逐行容错（非全有或全无）**：所有实体在同一事务内**逐行 try/catch**，某一行失败（如附件缺 minioId、主体反查不到）只记入服务端错误清单，其他行照常落库；只有未预期的致命异常才回滚整个请求
 5. **HTTP 响应不含逐行错误**：`code:0` 只表示请求被接受且 user.db 已重打；逐行错误目前只在服务端 `bi_sync_log`/日志的 `SyncResultVo.errors` 中（后续版本计划放进 HTTP 响应）
 6. **批次号 `syncUuid`**：仅用于日志和 `bi_id_mapping` 留痕，不参与幂等判定
@@ -855,8 +1053,9 @@ interface Attachment {
   offlineSubjectUuid: string;   // 挂载主体的 offlineUuid，按 type 解释（见下表）
   name?: string;                // 文件名；缺省时服务端兜底 disease_{minioId}.jpg
   type?: number;                // 附件类型（见下表），缺省按 1 病害照片
-  minioId: number;              // 【非删除行必需】预上传 /sync/attachment 返回的文件 ID
-  thumbMinioId?: number;        // 缩略图文件 ID（可选，先预上传再填）
+  minioId: number;              // 【非删除行必需】预上传返回的原图文件 ID（bi_file_map.id）
+  thumbMinioId?: number;        // 缩略图 ID：v1.4 起由服务端预上传时自动生成并返回，App 直接回填；
+                                // null/缺省=非图片或服务端本次生成失败，不影响原图落库
 }
 ```
 
@@ -873,10 +1072,13 @@ interface Attachment {
 
 **通道A附件同步规则（务必遵守）：**
 
-1. **先预上传、后提交元数据**：每个文件先调 `POST /api/v2/sync/attachment` 拿 `minioId`，再写入
-   `attachments[]`；`minioId` 缺失的非删除行**按行报错、不落库**（数据库 `minio_id` 为 NOT NULL）。
-2. **幂等键是附件自身的 `offlineUuid`**：同 UUID 重传执行更新（可改文件/名称/主体），不会产生重复行；
-   一张照片从拍摄到重拍始终用同一个 UUID。
+1. **先预上传、后提交元数据**：每个文件先经 `POST /api/v2/sync/attachment/batch`
+   （或增强模式单文件接口）拿到 `minioId`/`thumbMinioId`，再写入 `attachments[]`；
+   `minioId` 缺失的非删除行**按行报错、不落库**（数据库 `minio_id` 为 NOT NULL）。
+   预上传以 `uploadUuid` 幂等（见 §3.1），同步前可先 query 回查跳过已传项。
+2. **两类 UUID 各司其职**：附件的业务身份是附件自身的 `offlineUuid`（同 UUID 重传执行更新，
+   可改文件/名称/主体，不产生重复行；一张照片从拍摄到重拍始终用同一个 `offlineUuid`）；
+   `uploadUuid` 只标识"一次文件产出"，用于预上传幂等——重试复用、重拍换新。
 3. **删除照片**：提交 `{offlineUuid, offlineDeleted:1}` 即可，无需再带 minioId/主体；
    服务端物理删除既有行（该表无软删除标记），删一条不存在的记录不报错；病害照片删除后
    `attachment_count` 自动重算归零。
@@ -1006,11 +1208,18 @@ CREATE TABLE bi_attachment (
     name TEXT NOT NULL,
     type INTEGER,
     minio_id INTEGER,                -- 预上传成功后才允许同步
-    thumb_minio_id INTEGER,
+    thumb_minio_id INTEGER,          -- 服务端自动生成，随批量/增强响应回填
+    upload_uuid TEXT,                -- v1.4：本次文件产出的幂等键（32位hex），拍照时生成、重试复用、重拍换新
     is_offline_data INTEGER DEFAULT 0,
     offline_deleted INTEGER DEFAULT 0
 );
 ```
+
+> **`upload_uuid` 生命周期（v1.4）：**
+> ① 拍照/选择文件并压缩保存时生成，与附件行一起持久化；
+> ② 预上传、query 回查、任何失败重试全程**复用同一个值**，服务端据此保证零重复流量；
+> ③ 用户**重拍或替换文件**时生成新 uuid（附件 `offline_uuid` 不变），旧 uuid 自然废弃；
+> ④ 该列只在 App 本地使用、不参与 `/sync/upload` 载荷（服务端登记表只认预上传时的 form 字段）。
 
 ---
 
@@ -1406,7 +1615,7 @@ async function syncWithRetry(payload: SyncPayload): Promise<SyncResult> {
 
 1. 成功出现的记录：更新本地 `is_offline_data = 0`（以新包内容为准做覆盖）
 2. 怀疑失败时（如新包中找不到某条记录）：保留待同步标记，下批重试；重试整体幂等
-3. 附件类失败多为可自愈问题（预上传失败导致缺 minioId、病害本身尚未同步成功），补做预上传/调整顺序后重发即可
+3. 附件类失败多为可自愈问题（预上传失败导致缺 minioId、病害本身尚未同步成功）：v1.4 起先 query 回查（响应可能只是丢了），再补做缺失项的预上传，调整顺序后重发即可
 
 ---
 
@@ -1487,7 +1696,9 @@ const uuid = generateUuid()
 
 - 建议每 **50-100 条记录** 分批同步
 - 单次请求 JSON 大小建议不超过 **5MB**
-- 附件上传建议并发数 ≤ 3
+- 附件批量预上传：**每批 ≤8 张或整批 ≤10MB**（服务端硬上限 20 张/批、20MB/张），
+  批间并发数 **≤3**，批内由服务端顺序处理
+- 每轮同步先调一次 `/sync/attachment/query` 回查，服务端已有的照片直接跳过（零流量）
 
 ### 10.3 本地状态管理
 
@@ -1503,8 +1714,11 @@ const uuid = generateUuid()
 ### 10.4 网络优化
 
 - 使用 **WiFi 优先** 策略
-- 图片上传前进行 **压缩** (建议 ≤ 500KB)
-- 弱网环境下降低并发数
+- 图片在**拍照保存时即压缩**：长边 **≤2000px**、JPEG 质量 **≈0.8**、目标单张 **≤1MB**；
+  服务端原样存储不二次重编码，20MB 仅为兜底硬上限
+- 用 query 回查 + `uploadUuid` 幂等重试消灭重复上传（响应丢失、超时、401 刷新后重试都安全）
+- 弱网环境下降低批间并发数（3 → 1），批大小不变（失败重试粒度更细）
+- 缩略图由服务端生成，App 不要自行制作/上传缩略图，省一倍上传量
 
 ### 10.5 日志记录
 
@@ -1639,21 +1853,38 @@ const handleSyncResponse = async (response) => {
 App 在下发的 UNIT 下增量建 SPAN/LAYER/PART 时直接引用 UNIT 的 `offline_uuid` 即可，无需重传整棵树。
 若 5 轮后父节点仍不存在（UUID 拼写错误或父节点从未成功同步），该节点计入逐行错误不落库，修正 UUID 后重发。
 
-### Q3: 图片上传成功但同步失败
+### Q3: 图片上传成功但同步失败 / 预上传响应丢失怎么办？
 
-**原因：** 附件预上传与数据同步是两个独立步骤，文件已在 MinIO/`bi_file_map`，但附件元数据未落库。
+**原因：** 附件预上传与数据同步是两个独立步骤，文件可能已在服务端但附件元数据未落库；
+弱网下批量响应也可能丢失，App 不知道哪些照片已传成功。
 
-**解决：**
-- 预上传返回的 `minioId` 已缓存在本地时，**不要重新上传文件**，带着相同附件 `offlineUuid`+`minioId` 重发 `attachments[]` 即可（幂等）。
-- 若错误原因为"挂载主体反查失败"，先确保病害/桥梁/PART 已同步成功，再重发附件（服务端会回查云端，不要求同批）。
-- 若错误原因为"缺少 minioId"，说明本地未记录预上传结果，需要重新预上传该照片。
-- 孤立的 `bi_file_map` 记录不影响业务；服务端暂无清理接口。
+**解决（v1.4 增强模式）：**
+- **首选 query 回查**：用本地保存的 `uploadUuid` 调 `/sync/attachment/query`，
+  `uploaded=true` 的项直接取回 `minioId/thumbMinioId`，不会产生任何重复流量。
+- 也可以**带相同 `uploadUuid` 重放** batch/单文件请求：服务端返回 `status=exists` 与既有双 id，
+  不会重复存储文件。
+- 拿到 id 后带相同附件 `offlineUuid` 重发 `attachments[]` 即可（按 offlineUuid 幂等更新）。
+- 若错误为"挂载主体反查失败"，先确保病害/桥梁/PART 已同步成功再重发附件（服务端回查云端，不要求同批）。
+- 返回"服务端登记状态不一致，请联系管理员"说明服务端登记表与文件表被人为破坏，**不要换 uuid 硬传**，
+  交后端排查。
+
+**旧版兼容模式（未带 uploadUuid）：** 预上传不幂等，已缓存 `minioId` 时**不要重新上传文件**，
+直接重发 `attachments[]`；本地未记录到结果（"缺少 minioId"）时只能重新预上传，会留下一条
+孤立 `bi_file_map`（不影响业务，服务端后续按登记表/时间做 GC）。
 
 ### Q3b: 重拍/更换病害照片怎么处理？
 
-对同一张逻辑照片**复用附件 `offlineUuid`**：预上传新文件拿到新 `minioId`，再提交一次
-`attachments[]`（同 offlineUuid、新 minioId），服务端更新既有行，`attachment_count` 不翻倍。
-删除旧照片则提交 `offlineDeleted:1`（物理删除、count 自动重算）。
+附件 `offlineUuid` 保持不变，**为新文件生成新的 `uploadUuid`** 重新预上传，拿到新
+`minioId/thumbMinioId` 后提交一次 `attachments[]`（同 offlineUuid、新 id），服务端更新既有行，
+`attachment_count` 不翻倍。删除旧照片则提交 `offlineDeleted:1`（物理删除、count 自动重算）。
+
+### Q3c: 新旧 App / 新旧服务端如何共存？
+
+- 新 App + 新服务端：完整增强模式（幂等 + 批量 + 回查 + 服务端缩略图）。
+- 旧 App + 新服务端：不带 `uploadUuid` 自动走旧路径，响应仍是裸 `minioId`，行为与升级前完全一致。
+- 新 App + 旧服务端：旧服务端不认识 batch/query 端点（404），也会忽略单文件请求里的
+  `uploadUuid` 字段并返回裸整数——**App 应把"端点 404 / 响应 data 是整数"作为旧服务端探测信号，
+  自动回退到串行单文件 + 本地 minioId 缓存的旧逻辑**，升级服务端后再启用增强模式。
 
 ### Q4: 如何查看同步日志？
 

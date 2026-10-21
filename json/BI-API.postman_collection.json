@@ -908,6 +908,193 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "V2-通道A附件预上传(v1.2 幂等/批量/回查)",
+      "item": [
+        {
+          "name": "附件预上传-增强单文件(带uploadUuid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://{{host}}:{{port}}/api/v2/sync/attachment",
+              "protocol": "http",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v2",
+                "sync",
+                "attachment"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "选择本地文件（原图，建议端侧压缩后 ≤1MB）"
+                },
+                {
+                  "key": "uploadUuid",
+                  "value": "4f8a5d2c9b7e4f1a8c3d6e5b0a2947d1",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "附件预上传-批量(files+uploadUuids对齐≤20)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://{{host}}:{{port}}/api/v2/sync/attachment/batch",
+              "protocol": "http",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v2",
+                "sync",
+                "attachment",
+                "batch"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [],
+                  "description": "选择本地文件（第1张）"
+                },
+                {
+                  "key": "uploadUuids",
+                  "value": "4f8a5d2c9b7e4f1a8c3d6e5b0a2947d1",
+                  "type": "text"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [],
+                  "description": "选择本地文件（第2张）"
+                },
+                {
+                  "key": "uploadUuids",
+                  "value": "9c2b71e0ad4f8c63b52e9f170a83c46e",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "附件预上传-按uploadUuid回查(≤500)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://{{host}}:{{port}}/api/v2/sync/attachment/query",
+              "protocol": "http",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v2",
+                "sync",
+                "attachment",
+                "query"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uploadUuids\": [\n    \"4f8a5d2c9b7e4f1a8c3d6e5b0a2947d1\",\n    \"9c2b71e0ad4f8c63b52e9f170a83c46e\",\n    \"ffffffffffffffffffffffffffffffff\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "附件预上传-旧版兼容(裸minioId,不带uuid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://{{host}}:{{port}}/api/v2/sync/attachment",
+              "protocol": "http",
+              "host": [
+                "{{host}}"
+              ],
+              "port": "{{port}}",
+              "path": [
+                "api",
+                "v2",
+                "sync",
+                "attachment"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "选择本地文件（旧版 App 路径：不登记、不生成缩略图）"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [
