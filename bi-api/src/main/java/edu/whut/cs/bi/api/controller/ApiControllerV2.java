@@ -1,10 +1,13 @@
 package edu.whut.cs.bi.api.controller;
 
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.utils.StringUtils;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
+import edu.whut.cs.bi.biz.domain.vo.UploadItemResultVo;
 import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.impl.SqliteService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
+import edu.whut.cs.bi.biz.service.ISyncAttachmentService;
 import edu.whut.cs.bi.api.util.OssBridgeUploadUtil;
 import org.springframework.web.multipart.MultipartFile;
 import edu.whut.cs.bi.biz.domain.FileMap;
@@ -12,6 +15,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +45,9 @@ public class ApiControllerV2 {
 
     @Resource
     private IFileMapService fileMapService;
+
+    @Resource
+    private ISyncAttachmentService syncAttachmentService;
 
     @Autowired
     private OssBridgeUploadUtil ossBridgeUploadUtil;
@@ -163,19 +170,32 @@ public class ApiControllerV2 {
     }
 
     /**
-     * 离线图片/附件预上传
-     * App端在同步JSON前，先循环上传所有图片，获取对应的 serverId (minioId)
+     * 离线图片/附件预上传（兼容双模式）
+     * App端在同步JSON前，先上传所有图片，获取对应的 serverId (minioId)。
+     *
+     * <p>不带 uploadUuid：旧版兼容模式，响应 data 为裸 minioId(Integer)，不登记、不生成缩略图。</p>
+     * <p>带 uploadUuid：幂等增强模式，同 uuid 重传返回既有结果（status=exists，零重复流量），
+     * 服务端同步生成缩略图，响应 data 为 {@link UploadItemResultVo}。</p>
      */
     @PostMapping("/sync/attachment")
     @ResponseBody
     @ApiOperation("离线附件预上传")
-    public AjaxResult uploadSyncAttachment(@RequestParam("file") MultipartFile file) {
+    public AjaxResult uploadSyncAttachment(@RequestParam("file") MultipartFile file,
+                                           @RequestParam(value = "uploadUuid", required = false) String uploadUuid) {
         try {
-            FileMap fileMap = fileMapService.handleFileUpload(file);
-            if (fileMap != null) {
-                return AjaxResult.success("上传成功", fileMap.getId());
+            if (StringUtils.isEmpty(uploadUuid)) {
+                // 旧版 App 兼容路径：行为与历史完全一致
+                FileMap fileMap = fileMapService.handleFileUpload(file);
+                if (fileMap != null) {
+                    return AjaxResult.success("上传成功", fileMap.getId());
+                }
+                return AjaxResult.error("上传失败，未获取到文件记录");
             }
-            return AjaxResult.error("上传失败，未获取到文件记录");
+            UploadItemResultVo item = syncAttachmentService.preUpload(uploadUuid, file);
+            if (UploadItemResultVo.STATUS_FAILED.equals(item.getStatus())) {
+                return AjaxResult.error("附件上传失败: " + item.getError());
+            }
+            return AjaxResult.success("上传成功", item);
         } catch (Exception e) {
             log.error("同步附件上传失败", e);
             return AjaxResult.error("附件上传异常: " + e.getMessage());

@@ -161,6 +161,18 @@ public interface IFileMapService {
     public FileMap handleFileUploadFromFile(File file, String originalFilename, String loginName) ;
 
     /**
+     * 从本地文件落 MinIO 并登记 bi_file_map（供通道A幂等预上传/缩略图复用）。
+     * 与 {@link #handleFileUploadFromFile} 的区别：bi_file_map 插入失败时 best-effort
+     * 删除已 putObject 的 MinIO 对象后再抛出，避免产生无 DB 引用的孤儿对象。
+     *
+     * @param file 本地文件
+     * @param originalFilename 原始文件名（决定扩展名与 contentType）
+     * @param loginName 上传账号
+     * @return 含新生成 id/newName 的文件记录
+     */
+    public FileMap storeFromFile(File file, String originalFilename, String loginName);
+
+    /**
      * 处理采集照片 ZIP 包（App 端批量打包后直传 OSS，后端拉取解压）。
      * 包内为纯图片文件，文件名约定：{category}_{entityOfflineUuid}_{attachmentOfflineUuid}.{ext}。
      * category ∈ disease(病害图)/component(构件现状照)/front(正立面照)/side(侧立面照)。

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.FileUploadRegistryMapper">
+
+    <!-- 全局 mapUnderscoreToCamelCase 未启用，必须显式映射 -->
+    <resultMap type="edu.whut.cs.bi.biz.domain.FileUploadRegistry" id="FileUploadRegistryResult">
+        <id property="id" column="id"/>
+        <result property="uploadUuid" column="upload_uuid"/>
+        <result property="fileMapId" column="file_map_id"/>
+        <result property="thumbFileMapId" column="thumb_file_map_id"/>
+        <result property="originalName" column="original_name"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="contentType" column="content_type"/>
+        <result property="userId" column="user_id"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectRegistryVo">
+        select id, upload_uuid, file_map_id, thumb_file_map_id, original_name, file_size,
+               content_type, user_id, create_by, create_time
+        from bi_file_upload_registry
+    </sql>
+
+    <select id="selectByUploadUuid" parameterType="String" resultMap="FileUploadRegistryResult">
+        <include refid="selectRegistryVo"/>
+        where upload_uuid = #{uploadUuid}
+        limit 1
+    </select>
+
+    <select id="selectByUploadUuids" resultMap="FileUploadRegistryResult">
+        <include refid="selectRegistryVo"/>
+        where upload_uuid in
+        <foreach item="uploadUuid" collection="list" open="(" separator="," close=")">
+            #{uploadUuid}
+        </foreach>
+    </select>
+
+    <insert id="insertFileUploadRegistry"
+            parameterType="edu.whut.cs.bi.biz.domain.FileUploadRegistry"
+            useGeneratedKeys="true" keyProperty="id">
+        insert into bi_file_upload_registry
+        (upload_uuid, file_map_id, thumb_file_map_id, original_name, file_size,
+         content_type, user_id, create_by, create_time)
+        values
+        (#{uploadUuid}, #{fileMapId}, #{thumbFileMapId}, #{originalName}, #{fileSize},
+         #{contentType}, #{userId}, #{createBy}, #{createTime})
+    </insert>
+
+</mapper>

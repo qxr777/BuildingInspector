@@ -180,3 +180,11 @@ springAi_Rag:
   #  springai 项目地址， 后端连接时可用 , 如有改动 ，需和 index 页面的地址同步。
   endpoint: http://59.110.81.142:8081
 #  endpoint: http://localhost:8081   # 测试用
+
+# 通道A（/api/v2/sync/attachment*）附件预上传防护参数
+bi:
+  sync:
+    attachment:
+      max-file-bytes: 20971520     # 单文件硬上限 20MB（App 端压缩目标 ≤1MB，服务端仅兜底）
+      max-batch-size: 20          # 批量预上传单批文件数硬上限（App 建议 ≤8）
+      thumbnail-enabled: true     # 服务端缩略图开关，紧急情况可关闭

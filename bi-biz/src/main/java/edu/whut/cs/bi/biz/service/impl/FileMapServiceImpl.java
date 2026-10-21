@@ -298,6 +298,51 @@ public class FileMapServiceImpl implements IFileMapService {
         return results;
     }
 
+    /**
+     * 从本地文件落 MinIO 并登记 bi_file_map；DB 插入失败时补偿删除已上传对象。
+     * 供通道A幂等预上传（原图与服务端缩略图）复用。
+     */
+    @Override
+    public FileMap storeFromFile(File file, String originalFilename, String loginName) {
+        String extension = FilenameUtils.getExtension(originalFilename);
+        String uuid = UUID.randomUUID().toString().replace("-", "");
+        String objectName = uuid + "." + extension;
+        String objectKey = objectName.substring(0, 2) + "/" + objectName;
+
+        try (FileInputStream fileInputStream = new FileInputStream(file)) {
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(minioConfig.getBucketName())
+                    .object(objectKey)
+                    .stream(fileInputStream, file.length(), -1)
+                    .contentType(MimeTypeUtils.getContentType(extension))
+                    .build());
+        } catch (Exception e) {
+            log.error("上传到MinIO失败: {}", originalFilename, e);
+            throw new RuntimeException("文件上传失败", e);
+        }
+
+        FileMap fileMap = new FileMap();
+        fileMap.setOldName(originalFilename);
+        fileMap.setNewName(objectName);
+        fileMap.setCreateTime(DateUtils.getNowDate());
+        fileMap.setCreateBy(loginName);
+        try {
+            fileMapMapper.insertFileMap(fileMap);
+        } catch (Exception sqlEx) {
+            // putObject 已成功但 DB 登记失败：补偿删除 MinIO 对象，避免无引用孤儿；删除失败仅告警
+            try {
+                minioClient.removeObject(RemoveObjectArgs.builder()
+                        .bucket(minioConfig.getBucketName())
+                        .object(objectKey)
+                        .build());
+            } catch (Exception removeEx) {
+                log.error("补偿删除MinIO对象失败，可能产生孤儿对象: {}", objectKey, removeEx);
+            }
+            throw new RuntimeException("文件登记失败", sqlEx);
+        }
+        return fileMap;
+    }
+
     @Override
     public byte[] handleFileDownload(Long id) {
         try {
