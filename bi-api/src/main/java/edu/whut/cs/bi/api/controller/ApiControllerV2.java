@@ -2,6 +2,7 @@ package edu.whut.cs.bi.api.controller;
 
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.utils.StringUtils;
+import edu.whut.cs.bi.biz.domain.dto.UploadQueryDto;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
 import edu.whut.cs.bi.biz.domain.vo.UploadItemResultVo;
 import edu.whut.cs.bi.biz.service.IBuildingService;
@@ -48,6 +49,9 @@ public class ApiControllerV2 {
 
     @Resource
     private ISyncAttachmentService syncAttachmentService;
+
+    @Value("${bi.sync.attachment.max-batch-size:20}")
+    private int maxBatchSize;
 
     @Autowired
     private OssBridgeUploadUtil ossBridgeUploadUtil;
@@ -199,6 +203,58 @@ public class ApiControllerV2 {
         } catch (Exception e) {
             log.error("同步附件上传失败", e);
             return AjaxResult.error("附件上传异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 离线附件批量幂等预上传（推荐新版 App 使用）。
+     *
+     * <p>multipart/form-data：{@code files} 1..maxBatchSize 个文件 part，{@code uploadUuids}
+     * 与 files 等长、按下标对齐（建议 App 交错 append）。请求级错误（files 为空、两数组数量
+     * 不等、超限）整请求返回错误；逐文件成败收敛在 data.items[]，单项失败不影响同批其他项。</p>
+     */
+    @PostMapping("/sync/attachment/batch")
+    @ResponseBody
+    @ApiOperation("离线附件批量幂等预上传")
+    public AjaxResult uploadSyncAttachments(@RequestParam("files") MultipartFile[] files,
+                                            @RequestParam(value = "uploadUuids", required = false) String[] uploadUuids) {
+        if (files == null || files.length == 0) {
+            return AjaxResult.error("files 不能为空");
+        }
+        if (uploadUuids == null || uploadUuids.length != files.length) {
+            return AjaxResult.error("uploadUuids 必须与 files 数量一致并按下标对齐");
+        }
+        if (files.length > maxBatchSize) {
+            return AjaxResult.error("单批文件数超过上限: " + maxBatchSize);
+        }
+        try {
+            return AjaxResult.success("批量预上传完成",
+                    syncAttachmentService.preUploadBatch(uploadUuids, files));
+        } catch (Exception e) {
+            log.error("同步附件批量上传失败", e);
+            return AjaxResult.error("附件批量上传异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 按 uploadUuid 批量回查已传附件（同步前跳过已传 / 上传响应丢失后零流量恢复）。
+     * 请求体：{"uploadUuids":["..."]}，单次 ≤500；未登记的键返回 uploaded=false。
+     */
+    @PostMapping("/sync/attachment/query")
+    @ResponseBody
+    @ApiOperation("按uploadUuid批量回查已传附件")
+    public AjaxResult querySyncAttachments(@RequestBody(required = false) UploadQueryDto query) {
+        if (query == null || query.getUploadUuids() == null || query.getUploadUuids().isEmpty()) {
+            return AjaxResult.error("uploadUuids 不能为空");
+        }
+        if (query.getUploadUuids().size() > 500) {
+            return AjaxResult.error("单次查询不能超过500个");
+        }
+        try {
+            return AjaxResult.success("查询成功", syncAttachmentService.queryUploaded(query.getUploadUuids()));
+        } catch (Exception e) {
+            log.error("同步附件回查失败", e);
+            return AjaxResult.error("附件回查异常: " + e.getMessage());
         }
     }
 

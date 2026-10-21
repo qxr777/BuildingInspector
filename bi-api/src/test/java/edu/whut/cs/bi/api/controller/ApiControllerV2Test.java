@@ -3,20 +3,28 @@ package edu.whut.cs.bi.api.controller;
 import com.ruoyi.common.core.domain.AjaxResult;
 import edu.whut.cs.bi.biz.domain.BuildingPackage;
 import edu.whut.cs.bi.biz.domain.FileMap;
+import edu.whut.cs.bi.biz.domain.dto.UploadQueryDto;
+import edu.whut.cs.bi.biz.domain.vo.BatchUploadResultVo;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
 import edu.whut.cs.bi.biz.domain.vo.UploadItemResultVo;
+import edu.whut.cs.bi.biz.domain.vo.UploadStatusVo;
 import edu.whut.cs.bi.biz.service.IBuildingService;
 import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.ISyncAttachmentService;
 import edu.whut.cs.bi.biz.service.impl.SqliteService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -46,6 +54,12 @@ class ApiControllerV2Test {
 
     @Mock
     private ISyncAttachmentService syncAttachmentService;
+
+    @BeforeEach
+    void setUp() {
+        // @Value 字段在单测中无 Spring 注入，显式设置批量上限
+        ReflectionTestUtils.setField(apiControllerV2, "maxBatchSize", 20);
+    }
 
     @Test
     void testGetUserSqliteUrl_Success() {
@@ -219,5 +233,78 @@ class ApiControllerV2Test {
 
         assertEquals(500, result.get(AjaxResult.CODE_TAG));
         assertTrue(String.valueOf(result.get(AjaxResult.MSG_TAG)).contains("文件为空"));
+    }
+
+    @Test
+    void testBatchUpload_EmptyFiles() {
+        AjaxResult result = apiControllerV2.uploadSyncAttachments(new MockMultipartFile[0], new String[0]);
+        assertEquals(500, result.get(AjaxResult.CODE_TAG));
+        assertTrue(String.valueOf(result.get(AjaxResult.MSG_TAG)).contains("files 不能为空"));
+    }
+
+    @Test
+    void testBatchUpload_LengthMismatch() {
+        MockMultipartFile[] files = {jpeg("a.jpg"), jpeg("b.jpg")};
+        AjaxResult result = apiControllerV2.uploadSyncAttachments(files, new String[]{"u1"});
+        assertEquals(500, result.get(AjaxResult.CODE_TAG));
+        assertTrue(String.valueOf(result.get(AjaxResult.MSG_TAG)).contains("数量一致"));
+    }
+
+    @Test
+    void testBatchUpload_OverLimit() {
+        ReflectionTestUtils.setField(apiControllerV2, "maxBatchSize", 1);
+        MockMultipartFile[] files = {jpeg("a.jpg"), jpeg("b.jpg")};
+        String[] uuids = {"0123456789abcdef0123456789abcdef", "0123456789abcdef0123456789abcde0"};
+
+        AjaxResult result = apiControllerV2.uploadSyncAttachments(files, uuids);
+
+        assertEquals(500, result.get(AjaxResult.CODE_TAG));
+        assertTrue(String.valueOf(result.get(AjaxResult.MSG_TAG)).contains("超过上限"));
+    }
+
+    @Test
+    void testBatchUpload_Success() {
+        MockMultipartFile[] files = {jpeg("a.jpg"), jpeg("b.jpg")};
+        String[] uuids = {"0123456789abcdef0123456789abcdef", "0123456789abcdef0123456789abcde0"};
+        BatchUploadResultVo vo = new BatchUploadResultVo();
+        when(syncAttachmentService.preUploadBatch(uuids, files)).thenReturn(vo);
+
+        AjaxResult result = apiControllerV2.uploadSyncAttachments(files, uuids);
+
+        assertEquals(0, result.get(AjaxResult.CODE_TAG));
+        assertSame(vo, result.get(AjaxResult.DATA_TAG));
+    }
+
+    @Test
+    void testQueryAttachments_NullBody() {
+        assertEquals(500, apiControllerV2.querySyncAttachments(null).get(AjaxResult.CODE_TAG));
+    }
+
+    @Test
+    void testQueryAttachments_Empty() {
+        UploadQueryDto dto = new UploadQueryDto();
+        dto.setUploadUuids(Collections.emptyList());
+        assertEquals(500, apiControllerV2.querySyncAttachments(dto).get(AjaxResult.CODE_TAG));
+    }
+
+    @Test
+    void testQueryAttachments_TooMany() {
+        UploadQueryDto dto = new UploadQueryDto();
+        dto.setUploadUuids(Arrays.asList(new String[501]));
+        assertEquals(500, apiControllerV2.querySyncAttachments(dto).get(AjaxResult.CODE_TAG));
+    }
+
+    @Test
+    void testQueryAttachments_Success() {
+        List<String> uuids = Collections.singletonList("0123456789abcdef0123456789abcdef");
+        List<UploadStatusVo> statuses = Collections.singletonList(new UploadStatusVo());
+        when(syncAttachmentService.queryUploaded(uuids)).thenReturn(statuses);
+
+        UploadQueryDto dto = new UploadQueryDto();
+        dto.setUploadUuids(uuids);
+        AjaxResult result = apiControllerV2.querySyncAttachments(dto);
+
+        assertEquals(0, result.get(AjaxResult.CODE_TAG));
+        assertSame(statuses, result.get(AjaxResult.DATA_TAG));
     }
 }
