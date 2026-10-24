@@ -16,6 +16,7 @@ import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.*;
+import org.apache.xmlbeans.XmlCursor;
 import org.jetbrains.annotations.NotNull;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +29,10 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -267,21 +270,108 @@ public class ReportGenerateTools {
     public record TextSegment(String text, boolean highlight) {
     }
 
+    /** 小四 = 12 磅 = 24 half-points。 */
+    public static final int BODY_FONT_HALF_POINTS = 24;
+
+    private static final Pattern CAUSE_POINT_PREFIX = Pattern.compile("^[（(]?\\d+[）).、．]\\s*");
+
     /**
-     * 「成因分析：…」「处治建议：…」两段；未匹配或原文为空时写红字占位。
+     * 重点关注病害中的一条成因。单条写成「成因分析：1）…」，多条先单独写「成因分析：」再逐条编号。
+     * 知识库里已有的 1) / 1） 编号会去掉后重排，右括号用全角，以便符号走宋体、数字走 Times New Roman。
      */
-    public static List<TextSegment> causeMatchSegments(DiseaseCauseMatch match) {
-        List<TextSegment> segments = new ArrayList<>();
-        segments.add(new TextSegment("成因分析：\n", false));
-        addTextOrPlaceholder(segments, match == null ? null : match.getCause(), DiseaseCauseMatch.CAUSE_PLACEHOLDER);
-        segments.add(new TextSegment("\n处治建议：\n", false));
-        addTextOrPlaceholder(segments, match == null ? null : match.getSuggestion(), DiseaseCauseMatch.SUGGESTION_PLACEHOLDER);
-        return segments;
+    public static List<List<TextSegment>> causeAnalysisParagraphs(int index, String title, String cause) {
+        List<List<TextSegment>> paragraphs = new ArrayList<>();
+        paragraphs.add(List.of(new TextSegment("（" + index + "）" + (title == null ? "" : title), false)));
+        if (cause == null || cause.isBlank()) {
+            paragraphs.add(List.of(
+                    new TextSegment("成因分析：", false),
+                    new TextSegment(DiseaseCauseMatch.CAUSE_PLACEHOLDER, true)));
+            return paragraphs;
+        }
+        List<String> points = splitCausePoints(cause);
+        if (points.size() <= 1) {
+            String text = points.isEmpty() ? "" : withEnding(points.get(0), "。");
+            paragraphs.add(List.of(new TextSegment("成因分析：1）" + text, false)));
+            return paragraphs;
+        }
+        paragraphs.add(List.of(new TextSegment("成因分析：", false)));
+        for (int i = 0; i < points.size(); i++) {
+            String ending = i == points.size() - 1 ? "。" : "；";
+            paragraphs.add(List.of(new TextSegment((i + 1) + "）" + withEnding(points.get(i), ending), false)));
+        }
+        return paragraphs;
     }
 
-    private static void addTextOrPlaceholder(List<TextSegment> segments, String text, String placeholder) {
-        boolean missing = text == null || text.isBlank();
-        segments.add(new TextSegment(missing ? placeholder : text.trim(), missing));
+    /**
+     * 技术建议：每条处治建议一行，编号 1）2）。正文相同（忽略空白和句末标点）的合并成一条，保留先出现的一条。
+     * 未匹配时写红字「需补充处治建议（病害名称）」，每条病害单独保留。
+     */
+    public static List<List<TextSegment>> technicalAdviceParagraphs(List<String> suggestions, List<String> diseases) {
+        List<String> texts = new ArrayList<>();
+        List<Boolean> missingFlags = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        if (suggestions != null) {
+            for (int i = 0; i < suggestions.size(); i++) {
+                String raw = suggestions.get(i);
+                boolean missing = raw == null || raw.isBlank()
+                        || DiseaseCauseMatch.SUGGESTION_PLACEHOLDER.equals(raw.trim());
+                if (missing) {
+                    String disease = diseases != null && i < diseases.size() ? diseases.get(i) : null;
+                    texts.add(missingAdvice(disease));
+                    missingFlags.add(true);
+                    continue;
+                }
+                String text = flattenAdvice(raw);
+                if (!seen.add(adviceKey(text))) {
+                    continue;
+                }
+                texts.add(text);
+                missingFlags.add(false);
+            }
+        }
+        List<List<TextSegment>> paragraphs = new ArrayList<>();
+        for (int i = 0; i < texts.size(); i++) {
+            String ending = i == texts.size() - 1 ? "。" : "；";
+            paragraphs.add(List.of(
+                    new TextSegment((i + 1) + "）", false),
+                    new TextSegment(withEnding(texts.get(i), ending), missingFlags.get(i))));
+        }
+        return paragraphs;
+    }
+
+    static List<String> splitCausePoints(String cause) {
+        List<String> points = new ArrayList<>();
+        for (String raw : cause.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+            String line = raw == null ? "" : raw.trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            line = CAUSE_POINT_PREFIX.matcher(line).replaceFirst("").trim();
+            if (!line.isEmpty()) {
+                points.add(line);
+            }
+        }
+        return points;
+    }
+
+    private static String missingAdvice(String disease) {
+        if (disease == null || disease.isBlank()) {
+            return DiseaseCauseMatch.SUGGESTION_PLACEHOLDER;
+        }
+        return DiseaseCauseMatch.SUGGESTION_PLACEHOLDER + "（" + disease.trim() + "）";
+    }
+
+    private static String flattenAdvice(String text) {
+        return text.replace("\r\n", "").replace("\n", "").replace("\r", "").trim();
+    }
+
+    private static String adviceKey(String text) {
+        return text.replaceAll("\\s+", "").replaceAll("[。；;，,、.]+$", "");
+    }
+
+    static String withEnding(String text, String ending) {
+        String trimmed = text == null ? "" : text.trim().replaceAll("[。；;]+$", "");
+        return trimmed + ending;
     }
 
     /**
@@ -338,6 +428,95 @@ public class ReportGenerateTools {
             run.setColor("FF0000");
         }
         return run;
+    }
+
+    /**
+     * 用正文段落替换占位符。每段宋体小四、两端对齐、1.5 倍行距、首行缩进 2 字符；
+     * 数字和英文 Times New Roman，中文和全角符号宋体。highlight 片段标红。
+     */
+    public static void writeBodyParagraphs(XWPFDocument document, String placeholder,
+                                           List<List<TextSegment>> paragraphs) {
+        XWPFParagraph first = findParagraphByPlaceholder(document, placeholder);
+        if (first == null) {
+            log.warn("未找到占位符: {}", placeholder);
+            return;
+        }
+        clearParagraph(first);
+        if (paragraphs == null || paragraphs.isEmpty()) {
+            return;
+        }
+        fillBodyParagraph(first, paragraphs.get(0));
+        XmlCursor cursor = null;
+        try {
+            for (int i = 1; i < paragraphs.size(); i++) {
+                if (cursor == null) {
+                    cursor = first.getCTP().newCursor();
+                    if (!cursor.toNextSibling()) {
+                        cursor.toEndToken();
+                        cursor.toNextToken();
+                    }
+                }
+                XWPFParagraph paragraph = document.insertNewParagraph(cursor);
+                if (paragraph == null) {
+                    log.warn("无法在占位符后插入段落: {}", placeholder);
+                    return;
+                }
+                cursor.toNextToken();
+                fillBodyParagraph(paragraph, paragraphs.get(i));
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.dispose();
+            }
+        }
+    }
+
+    private static void fillBodyParagraph(XWPFParagraph paragraph, List<TextSegment> runs) {
+        if (runs != null) {
+            for (TextSegment segment : runs) {
+                if (segment == null || segment.text() == null || segment.text().isEmpty()) {
+                    continue;
+                }
+                int before = paragraph.getRuns().size();
+                appendMixedFontRuns(paragraph, segment.text(), BODY_FONT_HALF_POINTS, false, "宋体");
+                if (segment.highlight()) {
+                    List<XWPFRun> written = paragraph.getRuns();
+                    for (int i = before; i < written.size(); i++) {
+                        written.get(i).setColor("FF0000");
+                    }
+                }
+            }
+        }
+        applyReportBodyFormat(paragraph);
+    }
+
+    /** 正文：两端对齐、首行缩进 2 字符、1.5 倍行距。字体由调用方按中西文分别写入。 */
+    static void applyReportBodyFormat(XWPFParagraph paragraph) {
+        if (paragraph == null) {
+            return;
+        }
+        String style = paragraph.getStyle();
+        if (style != null && style.trim().matches("[1-9]")) {
+            paragraph.setStyle(null);
+        }
+        paragraph.setAlignment(ParagraphAlignment.BOTH);
+        CTPPr ppr = paragraph.getCTP().isSetPPr() ? paragraph.getCTP().getPPr() : paragraph.getCTP().addNewPPr();
+        if (ppr.isSetOutlineLvl()) {
+            ppr.unsetOutlineLvl();
+        }
+        if (ppr.isSetNumPr()) {
+            ppr.unsetNumPr();
+        }
+        CTJc jc = ppr.isSetJc() ? ppr.getJc() : ppr.addNewJc();
+        jc.setVal(STJc.BOTH);
+        CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
+        if (ind.isSetFirstLineChars()) {
+            ind.unsetFirstLineChars();
+        }
+        ind.setFirstLine(BigInteger.valueOf(480));
+        CTSpacing spacing = ppr.isSetSpacing() ? ppr.getSpacing() : ppr.addNewSpacing();
+        spacing.setLine(BigInteger.valueOf(360));
+        spacing.setLineRule(STLineSpacingRule.AUTO);
     }
 
     private static void collectTableParagraphs(List<XWPFTable> tables, List<XWPFParagraph> paragraphs) {
