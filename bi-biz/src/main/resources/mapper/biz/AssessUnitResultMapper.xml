@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.AssessUnitResultMapper">
+
+    <resultMap type="AssessUnitResult" id="AssessUnitResultResult">
+        <result property="id"          column="id"/>
+        <result property="taskId"      column="task_id"/>
+        <result property="unitId"      column="unit_id"/>
+        <result property="bridgeType"  column="bridge_type"/>
+        <result property="bci"         column="bci"/>
+        <result property="bcl"         column="bcl"/>
+        <result property="combineMode" column="combine_mode"/>
+        <result property="bsciMin"     column="bsci_min"/>
+        <result property="bsciMax"     column="bsci_max"/>
+        <result property="bsciAvg"     column="bsci_avg"/>
+        <result property="bsciLim"     column="bsci_lim"/>
+        <result property="spanCount"   column="span_count"/>
+        <result property="createBy"    column="create_by"/>
+        <result property="createTime"  column="create_time"/>
+    </resultMap>
+
+    <sql id="selectAssessUnitResultVo">
+        select id, task_id, unit_id, bridge_type, bci, bcl, combine_mode,
+               bsci_min, bsci_max, bsci_avg, bsci_lim, span_count, create_by, create_time
+        from bi_assess_unit_result
+    </sql>
+
+    <delete id="deleteByTaskId">
+        delete from bi_assess_unit_result where task_id = #{taskId}
+    </delete>
+
+    <insert id="insertAssessUnitResult" parameterType="AssessUnitResult" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_assess_unit_result
+            (task_id, unit_id, bridge_type, bci, bcl, combine_mode,
+             bsci_min, bsci_max, bsci_avg, bsci_lim, span_count, create_by, create_time)
+        values
+            (#{taskId}, #{unitId}, #{bridgeType}, #{bci}, #{bcl}, #{combineMode},
+             #{bsciMin}, #{bsciMax}, #{bsciAvg}, #{bsciLim}, #{spanCount}, #{createBy}, now())
+    </insert>
+
+    <select id="selectByTaskId" resultMap="AssessUnitResultResult">
+        <include refid="selectAssessUnitResultVo"/>
+        where task_id = #{taskId}
+        order by unit_id
+    </select>
+</mapper>

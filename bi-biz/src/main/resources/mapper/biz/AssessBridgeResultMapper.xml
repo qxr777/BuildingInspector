@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.AssessBridgeResultMapper">
+
+    <resultMap type="AssessBridgeResult" id="AssessBridgeResultResult">
+        <result property="id"                column="id"/>
+        <result property="taskId"            column="task_id"/>
+        <result property="rootObjectId"      column="root_object_id"/>
+        <result property="bci"               column="bci"/>
+        <result property="bcl"               column="bcl"/>
+        <result property="combineMode"       column="combine_mode"/>
+        <result property="worstUnitId"       column="worst_unit_id"/>
+        <result property="layeredBci"        column="layered_bci"/>
+        <result property="layeredBcl"        column="layered_bcl"/>
+        <result property="singleControlHits" column="single_control_hits"/>
+        <result property="stdVersion"        column="std_version"/>
+        <result property="createBy"          column="create_by"/>
+        <result property="createTime"        column="create_time"/>
+        <result property="updateBy"          column="update_by"/>
+        <result property="updateTime"        column="update_time"/>
+    </resultMap>
+
+    <sql id="selectAssessBridgeResultVo">
+        select id, task_id, root_object_id, bci, bcl, combine_mode, worst_unit_id,
+               layered_bci, layered_bcl, single_control_hits, std_version,
+               create_by, create_time, update_by, update_time
+        from bi_assess_bridge_result
+    </sql>
+
+    <delete id="deleteByTaskId">
+        delete from bi_assess_bridge_result where task_id = #{taskId}
+    </delete>
+
+    <insert id="insertAssessBridgeResult" parameterType="AssessBridgeResult" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_assess_bridge_result
+            (task_id, root_object_id, bci, bcl, combine_mode, worst_unit_id,
+             layered_bci, layered_bcl, single_control_hits, std_version,
+             create_by, create_time, update_by, update_time)
+        values
+            (#{taskId}, #{rootObjectId}, #{bci}, #{bcl}, #{combineMode}, #{worstUnitId},
+             #{layeredBci}, #{layeredBcl}, #{singleControlHits}, #{stdVersion},
+             #{createBy}, now(), #{updateBy}, now())
+    </insert>
+
+    <select id="selectByTaskId" resultMap="AssessBridgeResultResult">
+        <include refid="selectAssessBridgeResultVo"/>
+        where task_id = #{taskId}
+        limit 1
+    </select>
+</mapper>

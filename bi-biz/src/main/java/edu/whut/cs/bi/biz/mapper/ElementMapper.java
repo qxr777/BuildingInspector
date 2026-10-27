@@ -20,6 +20,11 @@ public interface ElementMapper {
     public List<Element> selectElementsByBiObjectIds(@Param("biObjectIds") List<Long> biObjectIds);
 
     /**
+     * 按构件 ID 集合批量查询未删除构件（5230 评定锚定装载用）
+     */
+    public List<Element> selectByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 按离线 UUID 查询未删除构件（离线同步去重）
      */
     public Element selectByOfflineUuid(String offlineUuid);

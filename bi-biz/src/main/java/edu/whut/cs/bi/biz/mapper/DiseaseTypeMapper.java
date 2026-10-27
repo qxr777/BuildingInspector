@@ -38,8 +38,13 @@ public interface DiseaseTypeMapper
     public DiseaseType selectDiseaseTypeById(Long id);
 
     /**
+     * 按病害类型 ID 集合批量查询（5230 评定装配 ESDI 时取 std_version/scale_type 用）
+     */
+    public List<DiseaseType> selectByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 根据病害类型查询信息
-     * 
+     *
      * @param code 病害类型编码
      * @return 病害类型
      */

@@ -93,6 +93,14 @@
             CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(CONCAT(REPLACE(COALESCE(code, '0'), '-', '.'), '.0.0.0.0'), '.', 5), '.', -1) AS UNSIGNED)
     </select>
 
+    <select id="selectByIds" resultMap="DiseaseTypeResult">
+        <include refid="selectDiseaseTypeVo"/>
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
     <select id="selectDiseaseTypeByCode" parameterType="String" resultMap="DiseaseTypeResult">
         <include refid="selectDiseaseTypeVo"/>
         where code = #{code}

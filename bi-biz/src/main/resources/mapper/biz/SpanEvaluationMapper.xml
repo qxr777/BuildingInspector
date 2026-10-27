@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.SpanEvaluationMapper">
+
+    <resultMap type="SpanEvaluation" id="SpanEvaluationResult">
+        <result property="id"               column="id"/>
+        <result property="spanId"           column="span_id"/>
+        <result property="taskId"           column="task_id"/>
+        <result property="unitId"           column="unit_id"/>
+        <result property="bridgeType"       column="bridge_type"/>
+        <result property="bsci"             column="bsci"/>
+        <result property="spanLevel"        column="span_level"/>
+        <result property="ediScore"         column="edi_score"/>
+        <result property="efiScore"         column="efi_score"/>
+        <result property="eaiScore"         column="eai_score"/>
+        <result property="stdVersion"       column="std_version"/>
+        <result property="bsciRaw"          column="bsci_raw"/>
+        <result property="rawLevel"         column="raw_level"/>
+        <result property="overrideFlag"     column="override_flag"/>
+        <result property="overrideLevel"    column="override_level"/>
+        <result property="overrideTrigger"  column="override_trigger"/>
+        <result property="createBy"         column="create_by"/>
+        <result property="createTime"       column="create_time"/>
+        <result property="updateBy"         column="update_by"/>
+        <result property="updateTime"       column="update_time"/>
+        <result property="remark"           column="remark"/>
+    </resultMap>
+
+    <sql id="selectSpanEvaluationVo">
+        select id, span_id, task_id, unit_id, bridge_type, bsci, span_level,
+               edi_score, efi_score, eai_score, std_version,
+               bsci_raw, raw_level, override_flag, override_level, override_trigger,
+               create_by, create_time, update_by, update_time, remark
+        from bi_span_evaluation
+    </sql>
+
+    <delete id="deleteByTaskId">
+        delete from bi_span_evaluation where task_id = #{taskId}
+    </delete>
+
+    <insert id="insertSpanEvaluation" parameterType="SpanEvaluation" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_span_evaluation
+            (span_id, task_id, unit_id, bridge_type, bsci, span_level,
+             edi_score, efi_score, eai_score, std_version,
+             bsci_raw, raw_level, override_flag, override_level, override_trigger,
+             create_by, create_time)
+        values
+            (#{spanId}, #{taskId}, #{unitId}, #{bridgeType}, #{bsci}, #{spanLevel},
+             #{ediScore}, #{efiScore}, #{eaiScore}, #{stdVersion},
+             #{bsciRaw}, #{rawLevel}, #{overrideFlag}, #{overrideLevel}, #{overrideTrigger},
+             #{createBy}, now())
+    </insert>
+
+    <select id="selectByTaskId" resultMap="SpanEvaluationResult">
+        <include refid="selectSpanEvaluationVo"/>
+        where task_id = #{taskId}
+        order by unit_id, span_id
+    </select>
+</mapper>
