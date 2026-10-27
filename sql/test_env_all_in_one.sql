@@ -59,6 +59,10 @@
 --       package_size/del_flag 4 列，idx_user 升级为 uk_user_sqlite_user_id 唯一键
 --   [11] 通道A 预上传幂等登记表 bi_file_upload_registry（2026-10-21）：
 --       upload_uuid → 原图/缩略图 bi_file_map.id；响应丢失重传零流量，并作未来孤儿 GC 依据
+--   [12] 5230 正式稿评定引擎重做（2026-10-27，第八·十一部分）：人工判定 3 表
+--       bi_assess_manual_input / bi_assess_absent_mark / bi_assess_single_control_mark、
+--       评定结果 3 表 bi_assess_element_result / bi_assess_unit_result / bi_assess_bridge_result；
+--       bi_span_evaluation 补 unit_id（复用，3.3.3 冻结五列不动）；bi_v2 六表不复活
 --
 -- 幂等性：所有 ADD COLUMN / CREATE TABLE 均用存储过程探测存在性；
 --         种子数据用 WHERE NOT EXISTS 按 id 判重。可重复执行。
@@ -749,6 +753,183 @@ CREATE TABLE IF NOT EXISTS `bi_file_upload_registry` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通道A预上传幂等登记表(uploadUuid→minioId)';
 
 -- ================================================================================
+-- 第八·十一部分：JTG/T 5230—2026 正式稿评定引擎重做（2026-10-27，后端计算引擎）
+--   依据正式稿（报批稿作废）三级评定：构件 ECI/ECL(3.2) → 桥跨 BSCI/分档/3.3.3覆盖
+--   (3.3) → 评定单元三式合成(3.4.1~3.4.3) → 多单元最差(3.4.4) → 16项单项控制(3.4.5)，
+--   权重重分配 B.1.3。旧 H21 引擎(/biz/bievaluation、bi_evaluation、bi_component)不动；
+--   2026-10-14 下线的 bi_v2 六表不复活（本段全部新命名 bi_assess_*）。
+--   构成：
+--     A. 人工判定采集表 3 张（长期保存，offline_uuid 幂等 upsert + offline_deleted 物理删，
+--        经 /api/v2/sync/upload 三数组同步与 /biz/assess5230 直连接口写入）：
+--        bi_assess_manual_input       构件级 EDDI/ESDI覆盖/EFI/EAI + 3.3.3安全影响标志
+--        bi_assess_absent_mark        应设未设部件标记(3.2.2-5；按单元/跨+partKey，幻影件无PART节点)
+--        bi_assess_single_control_mark 16项单项控制命中标记(3.4.5)
+--     B. 评定结果表 3 张（每次重算事务内按 task_id 先删后插，全量幂等）：
+--        bi_assess_element_result     构件级 ECI/ECL 明细（含幻影件、共用件逐跨行）
+--        bi_assess_unit_result        评定单元 BCI/BCL + 三式插值留痕
+--        bi_assess_bridge_result      全桥 BCI/BCL + 3.4.4最差单元/3.4.5覆盖留痕
+--     C. bi_span_evaluation 复用（5.2 建表 + 9.1 冻结五列）：补 unit_id 列支持多评定单元；
+--        桥跨 BSCI 结果写本表，3.3.3 覆盖写 bsci_raw/override_* 冻结五列。
+--   ⚠ 生产上线前置卡点：本段必须由人工先执行（mapper 懒加载，不跑 DDL 启动不报错、
+--     首次 POST /biz/assess5230/task/{id}/calculate 才报表不存在）。
+-- ================================================================================
+
+-- A.1 构件级人工判定（每任务每构件至多一行；UUID 锚定 bi_element.offline_uuid，
+--     服务端按 uuid 解析回填 element_id，与 bi_span_element_part 双列锚定风格一致）
+CREATE TABLE IF NOT EXISTS `bi_assess_manual_input` (
+  `id`              BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `task_id`         BIGINT NOT NULL COMMENT '检测任务ID(bi_task.id)',
+  `element_id`      BIGINT DEFAULT NULL COMMENT '构件ID(bi_element.id;服务端按element_uuid解析回填)',
+  `element_uuid`    VARCHAR(64) NOT NULL COMMENT '构件离线UUID(bi_element.offline_uuid)',
+  `eddi`            TINYINT DEFAULT NULL COMMENT '人工EDDI耐久性标度0/1/2(3.2.2,第4章;未提供按0)',
+  `esdi_override`   TINYINT DEFAULT NULL COMMENT '人工ESDI结构性标度0~3(3.2.3;有值覆盖病害自动max)',
+  `efi`             TINYINT DEFAULT NULL COMMENT '人工EFI功能标度0/1/2(3.2.4,第14章;未提供按0)',
+  `eai`             TINYINT DEFAULT NULL COMMENT '人工EAI影响标度-1/0/1(3.2.5,第15章;仅主要构件可取非0)',
+  `safety_affected` CHAR(1) DEFAULT NULL COMMENT '缺损是否影响桥梁安全(3.3.3;1=是,仅主要构件ECL4/5时触发覆盖)',
+  `evidence`        VARCHAR(500) DEFAULT NULL COMMENT '判定依据/备注',
+  `offline_uuid`    VARCHAR(64) DEFAULT NULL COMMENT '离线记录唯一标识(UUID)',
+  `is_offline_data` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=云端,1=离线生成',
+  `offline_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=正常,1=已删除(同步物理删)',
+  `create_by`       VARCHAR(64) DEFAULT '' COMMENT '创建者',
+  `create_time`     DATETIME DEFAULT NULL COMMENT '创建时间',
+  `update_by`       VARCHAR(64) DEFAULT '' COMMENT '更新者',
+  `update_time`     DATETIME DEFAULT NULL COMMENT '更新时间',
+  `remark`          VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_assess_manual_offline_uuid` (`offline_uuid`),
+  UNIQUE KEY `uk_assess_manual_task_element` (`task_id`, `element_uuid`),
+  KEY `idx_assess_manual_task` (`task_id`),
+  KEY `idx_assess_manual_element_id` (`element_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='5230构件级人工判定录入(EDDI/ESDI/EFI/EAI/安全影响)';
+
+-- A.2 应设未设部件标记（幻影部件无 PART 实例节点，按 partKey 锚定模板部件）
+CREATE TABLE IF NOT EXISTS `bi_assess_absent_mark` (
+  `id`              BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `task_id`         BIGINT NOT NULL COMMENT '检测任务ID(bi_task.id)',
+  `unit_id`         BIGINT DEFAULT NULL COMMENT '评定单元节点ID(bi_object.id,node_type=UNIT;NULL=全桥各单元)',
+  `unit_uuid`       VARCHAR(64) DEFAULT NULL COMMENT '评定单元离线UUID(同步锚定,服务端解析回填unit_id)',
+  `span_id`         BIGINT DEFAULT NULL COMMENT '桥跨节点ID(bi_object.id,node_type=SPAN;NULL=该单元各跨)',
+  `span_uuid`       VARCHAR(64) DEFAULT NULL COMMENT '桥跨离线UUID(同步锚定,服务端解析回填span_id)',
+  `part_key`        VARCHAR(64) NOT NULL COMMENT '应设未设部件键(模板partKey,如bearing/expansionJoint)',
+  `layer_key`       VARCHAR(32) DEFAULT NULL COMMENT '所属结构层键(deck/superstructure/substructure/ancillary)',
+  `evidence`        VARCHAR(500) DEFAULT NULL COMMENT '判定依据/备注',
+  `offline_uuid`    VARCHAR(64) DEFAULT NULL COMMENT '离线记录唯一标识(UUID)',
+  `is_offline_data` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=云端,1=离线生成',
+  `offline_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=正常,1=已删除(同步物理删)',
+  `create_by`       VARCHAR(64) DEFAULT '' COMMENT '创建者',
+  `create_time`     DATETIME DEFAULT NULL COMMENT '创建时间',
+  `update_by`       VARCHAR(64) DEFAULT '' COMMENT '更新者',
+  `update_time`     DATETIME DEFAULT NULL COMMENT '更新时间',
+  `remark`          VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_assess_absent_offline_uuid` (`offline_uuid`),
+  KEY `idx_assess_absent_task` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='5230应设未设部件标记(3.2.2-5,幻影件EDI=3)';
+
+-- A.3 16 项单项控制命中标记（每任务每项至多一行）
+CREATE TABLE IF NOT EXISTS `bi_assess_single_control_mark` (
+  `id`              BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `task_id`         BIGINT NOT NULL COMMENT '检测任务ID(bi_task.id)',
+  `indicator_no`    TINYINT NOT NULL COMMENT '单项控制指标编号(1~16,对应3.4.5)',
+  `hit`             CHAR(1) NOT NULL DEFAULT '1' COMMENT '是否命中(1=命中;未命中行可不录)',
+  `span_id`         BIGINT DEFAULT NULL COMMENT '证据桥跨节点ID(可空)',
+  `span_uuid`       VARCHAR(64) DEFAULT NULL COMMENT '证据桥跨离线UUID(同步锚定)',
+  `element_id`      BIGINT DEFAULT NULL COMMENT '证据构件ID(可空)',
+  `element_uuid`    VARCHAR(64) DEFAULT NULL COMMENT '证据构件离线UUID(同步锚定)',
+  `evidence`        VARCHAR(500) DEFAULT NULL COMMENT '命中依据/描述',
+  `offline_uuid`    VARCHAR(64) DEFAULT NULL COMMENT '离线记录唯一标识(UUID)',
+  `is_offline_data` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=云端,1=离线生成',
+  `offline_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0=正常,1=已删除(同步物理删)',
+  `create_by`       VARCHAR(64) DEFAULT '' COMMENT '创建者',
+  `create_time`     DATETIME DEFAULT NULL COMMENT '创建时间',
+  `update_by`       VARCHAR(64) DEFAULT '' COMMENT '更新者',
+  `update_time`     DATETIME DEFAULT NULL COMMENT '更新时间',
+  `remark`          VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_assess_sc_offline_uuid` (`offline_uuid`),
+  UNIQUE KEY `uk_assess_sc_task_indicator` (`task_id`, `indicator_no`),
+  KEY `idx_assess_sc_task` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='5230单项控制指标命中标记(3.4.5十六项)';
+
+-- B.1 构件级评定结果（每次重算按 task_id 先删后插；共用构件在所属每跨各一行；
+--     幻影件 part_id/element_uuid 为空、absent_flag=1）
+CREATE TABLE IF NOT EXISTS `bi_assess_element_result` (
+  `id`           BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `task_id`      BIGINT NOT NULL COMMENT '检测任务ID(bi_task.id)',
+  `unit_id`      BIGINT NOT NULL COMMENT '评定单元节点ID(bi_object.id,UNIT)',
+  `span_id`      BIGINT NOT NULL COMMENT '桥跨节点ID(bi_object.id,SPAN)',
+  `part_id`      BIGINT DEFAULT NULL COMMENT '部件节点ID(bi_object.id,PART;幻影件为空)',
+  `part_key`     VARCHAR(64) NOT NULL COMMENT '部件键(模板partKey)',
+  `layer_key`    VARCHAR(32) NOT NULL COMMENT '结构层键(deck/superstructure/substructure/ancillary)',
+  `element_uuid` VARCHAR(64) DEFAULT NULL COMMENT '构件离线UUID(幻影件为空)',
+  `element_name` VARCHAR(200) DEFAULT NULL COMMENT '构件名称',
+  `is_main`      TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否主要部件构件(表3.3.3清单)',
+  `is_shared`    TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否共用构件(bi_span_element_part.is_shared)',
+  `absent_flag`  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否应设未设幻影构件(3.2.2-5)',
+  `eddi`         TINYINT NOT NULL DEFAULT 0 COMMENT 'EDDI耐久性标度',
+  `esdi`         TINYINT NOT NULL DEFAULT 0 COMMENT 'ESDI结构性标度',
+  `edi`          TINYINT NOT NULL DEFAULT 0 COMMENT 'EDI=max(EDDI,ESDI);幻影件固定3',
+  `efi`          TINYINT NOT NULL DEFAULT 0 COMMENT 'EFI功能标度',
+  `eai`          TINYINT NOT NULL DEFAULT 0 COMMENT 'EAI影响标度(-1/0/1)',
+  `eci`          TINYINT NOT NULL DEFAULT 0 COMMENT 'ECI=EDI+EFI+EAI(截断到[0,5])',
+  `ecl`          TINYINT NOT NULL DEFAULT 1 COMMENT 'ECL构件等级1~5(表3.2.6)',
+  `eddi_source`  VARCHAR(8) NOT NULL DEFAULT 'AUTO' COMMENT 'EDDI来源:AUTO自动/MANUAL人工',
+  `esdi_source`  VARCHAR(8) NOT NULL DEFAULT 'AUTO' COMMENT 'ESDI来源:AUTO病害max/MANUAL人工覆盖/ABSENT幻影',
+  `create_by`    VARCHAR(64) DEFAULT '' COMMENT '创建者',
+  `create_time`  DATETIME DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_assess_er_task` (`task_id`),
+  KEY `idx_assess_er_task_span` (`task_id`, `span_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='5230构件级评定结果明细(ECI/ECL;重算先删后插)';
+
+-- B.2 评定单元结果（多跨三式合成留痕）
+CREATE TABLE IF NOT EXISTS `bi_assess_unit_result` (
+  `id`            BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `task_id`       BIGINT NOT NULL COMMENT '检测任务ID(bi_task.id)',
+  `unit_id`       BIGINT NOT NULL COMMENT '评定单元节点ID(bi_object.id,UNIT)',
+  `bridge_type`   VARCHAR(16) DEFAULT NULL COMMENT '桥型代码(B01~B21)',
+  `bci`           DECIMAL(8,4) DEFAULT NULL COMMENT '单元技术状况指数BCI(3.4.1~3.4.3)',
+  `bcl`           INT DEFAULT NULL COMMENT '单元技术状况等级1~5',
+  `combine_mode`  VARCHAR(16) NOT NULL COMMENT '合成方式:SINGLE单跨/EQUAL同级均值/INTERP异级插值',
+  `bsci_min`      DECIMAL(8,4) DEFAULT NULL COMMENT '异级插值:最低桥跨BSCI',
+  `bsci_max`      DECIMAL(8,4) DEFAULT NULL COMMENT '异级插值:最高桥跨BSCI',
+  `bsci_avg`      DECIMAL(8,4) DEFAULT NULL COMMENT '桥跨BSCI算术均值',
+  `bsci_lim`      DECIMAL(8,4) DEFAULT NULL COMMENT '最差等级档上限(90/75/60/40)',
+  `span_count`    INT NOT NULL DEFAULT 0 COMMENT '桥跨数',
+  `create_by`     VARCHAR(64) DEFAULT '' COMMENT '创建者',
+  `create_time`   DATETIME DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_assess_unit_task_unit` (`task_id`, `unit_id`),
+  KEY `idx_assess_unit_task` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='5230评定单元结果(3.4.1~3.4.3;重算先删后插)';
+
+-- B.3 全桥结果（多评定单元取最差 + 16项单项控制覆盖留痕）
+CREATE TABLE IF NOT EXISTS `bi_assess_bridge_result` (
+  `id`                  BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `task_id`             BIGINT NOT NULL COMMENT '检测任务ID(bi_task.id)',
+  `root_object_id`      BIGINT DEFAULT NULL COMMENT '桥梁新树根节点ID(bi_building.new_root_object_id)',
+  `bci`                 DECIMAL(8,4) DEFAULT NULL COMMENT '全桥技术状况指数BCI(最终)',
+  `bcl`                 INT DEFAULT NULL COMMENT '全桥技术状况等级1~5(最终)',
+  `combine_mode`        VARCHAR(16) NOT NULL COMMENT '单元合成:SINGLE_UNIT单单元/WORST_UNIT多单元最差(3.4.4)',
+  `worst_unit_id`       BIGINT DEFAULT NULL COMMENT '最差评定单元节点ID(多单元时)',
+  `layered_bci`         DECIMAL(8,4) DEFAULT NULL COMMENT '单项控制覆盖前分层BCI(3.4.5留痕)',
+  `layered_bcl`         INT DEFAULT NULL COMMENT '单项控制覆盖前分层等级',
+  `single_control_hits` VARCHAR(200) DEFAULT NULL COMMENT '命中的单项控制编号逗号串(如3,7)',
+  `std_version`         VARCHAR(16) NOT NULL DEFAULT '5230-2026' COMMENT '评定标准版本',
+  `create_by`           VARCHAR(64) DEFAULT '' COMMENT '创建者',
+  `create_time`         DATETIME DEFAULT NULL COMMENT '创建时间',
+  `update_by`           VARCHAR(64) DEFAULT '' COMMENT '更新者',
+  `update_time`         DATETIME DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_assess_bridge_task` (`task_id`),
+  KEY `idx_assess_bridge_root` (`root_object_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='5230全桥评定结果(3.4.4/3.4.5;重算先删后插)';
+
+-- C. bi_span_evaluation 补 unit_id：多评定单元(3.1.2/3.4.4)下桥跨结果归属单元（可空走 INSTANT）
+CALL P_AddColumnIfNotExists(@db, 'bi_span_evaluation', 'unit_id',
+    'BIGINT NULL COMMENT ''评定单元节点ID(bi_object.id,UNIT;多单元3.4.4)''');
+
+-- ================================================================================
 -- 第九部分：清理存储过程
 -- ================================================================================
 DROP PROCEDURE IF EXISTS `P_AddColumnIfNotExists`;
@@ -849,5 +1030,18 @@ DROP PROCEDURE IF EXISTS `P_AddKeyIfNotExists`;
 -- SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
 --  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bi_disease' AND COLUMN_NAME='leaf_object_id';
 -- SELECT COUNT(*) FROM bi_disease WHERE leaf_object_id IS NOT NULL;
+-- 15) 5230 正式稿评定引擎 6 张 bi_assess_ 表应全部存在（第一个查询应返回 6 行），
+--     bi_span_evaluation.unit_id 列应存在（第二个查询应返回 1 行）；bi_v2 六表仍应不存在（0 行）
+-- SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+--  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN
+--    ('bi_assess_manual_input','bi_assess_absent_mark','bi_assess_single_control_mark',
+--     'bi_assess_element_result','bi_assess_unit_result','bi_assess_bridge_result')
+--  ORDER BY TABLE_NAME;
+-- SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+--  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='bi_span_evaluation' AND COLUMN_NAME='unit_id';
+-- SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+--  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN
+--    ('bi_v2_component_input','bi_v2_absent_mark','bi_v2_single_control_mark',
+--     'bi_v2_component_evaluation','bi_v2_span_part_detail','bi_bridge_evaluation');
 
 -- ============================== 全量脚本结束 ==============================
