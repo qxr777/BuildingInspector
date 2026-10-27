@@ -1,6 +1,9 @@
 package edu.whut.cs.bi.biz.service.impl;
 
 import edu.whut.cs.bi.biz.config.MinioConfig;
+import edu.whut.cs.bi.biz.domain.AssessAbsentMark;
+import edu.whut.cs.bi.biz.domain.AssessManualInput;
+import edu.whut.cs.bi.biz.domain.AssessSingleControlMark;
 import edu.whut.cs.bi.biz.domain.Attachment;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.BiTemplateObject;
@@ -25,6 +28,9 @@ import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.domain.TemplateObjectLeafObject;
 import edu.whut.cs.bi.biz.domain.UserSqlite;
 import edu.whut.cs.bi.biz.domain.vo.SqliteVo;
+import edu.whut.cs.bi.biz.mapper.AssessAbsentMarkMapper;
+import edu.whut.cs.bi.biz.mapper.AssessManualInputMapper;
+import edu.whut.cs.bi.biz.mapper.AssessSingleControlMarkMapper;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BiTemplateObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
@@ -141,6 +147,12 @@ class SqliteServiceTest {
     private RssDiseaseTypeMapper rssDiseaseTypeMapper;
     @Mock
     private TemplateObjectLeafObjectMapper templateObjectLeafObjectMapper;
+    @Mock
+    private AssessManualInputMapper assessManualInputMapper;
+    @Mock
+    private AssessAbsentMarkMapper assessAbsentMarkMapper;
+    @Mock
+    private AssessSingleControlMarkMapper assessSingleControlMarkMapper;
 
     private final List<File> generatedFiles = new ArrayList<>();
 
@@ -323,6 +335,10 @@ class SqliteServiceTest {
         verify(fileMapMapper, times(1)).insertFileMap(any(FileMap.class));
         verify(userSqliteMapper, times(1)).insertUserSqlite(any(UserSqlite.class));
         verify(userSqliteMapper, never()).updateUserSqlite(any(UserSqlite.class));
+        // 5230 人工判定三表随用户包按全部 taskId 导出
+        verify(assessManualInputMapper, times(1)).selectByTaskIds(Collections.singletonList(2001L));
+        verify(assessAbsentMarkMapper, times(1)).selectByTaskIds(Collections.singletonList(2001L));
+        verify(assessSingleControlMarkMapper, times(1)).selectByTaskIds(Collections.singletonList(2001L));
     }
 
     /**
@@ -604,6 +620,40 @@ class SqliteServiceTest {
                 .selectDiseasesByBuildingIds(Collections.singletonList(3002L));
         doReturn(new ArrayList<Attachment>()).when(attachmentService).getAttachmentBySubjectIds(anyList());
 
+        AssessManualInput manual = new AssessManualInput();
+        manual.setId(601L);
+        manual.setTaskId(2002L);
+        manual.setElementId(202L);
+        manual.setElementUuid("elem-uuid-202");
+        manual.setEddi(1);
+        manual.setEsdiOverride(2);
+        manual.setEfi(0);
+        manual.setEai(0);
+        manual.setSafetyAffected(0);
+        manual.setOfflineUuid("manual-uuid-601");
+
+        AssessAbsentMark absent = new AssessAbsentMark();
+        absent.setId(602L);
+        absent.setTaskId(2002L);
+        absent.setSpanId(100L);
+        absent.setPartKey("bearing");
+        absent.setLayerKey("superstructure");
+        absent.setOfflineUuid("absent-uuid-602");
+
+        AssessSingleControlMark single = new AssessSingleControlMark();
+        single.setId(603L);
+        single.setTaskId(2002L);
+        single.setIndicatorNo(1);
+        single.setHit(1);
+        single.setOfflineUuid("sc-uuid-603");
+
+        doReturn(Collections.singletonList(manual)).when(assessManualInputMapper)
+                .selectByTaskIds(Collections.singletonList(2002L));
+        doReturn(Collections.singletonList(absent)).when(assessAbsentMarkMapper)
+                .selectByTaskIds(Collections.singletonList(2002L));
+        doReturn(Collections.singletonList(single)).when(assessSingleControlMarkMapper)
+                .selectByTaskIds(Collections.singletonList(2002L));
+
         File result = (File) invokePrivate("doGenerateUserSqlite",
                 new Class<?>[]{Long.class}, userId);
         generatedFiles.add(result);
@@ -611,8 +661,8 @@ class SqliteServiceTest {
 
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + result.getAbsolutePath());
              Statement statement = conn.createStatement()) {
-            // 11 张用户包表
-            assertEquals(11, queryCount(statement,
+            // 14 张用户包表（含 5230 人工判定三表）
+            assertEquals(14, queryCount(statement,
                     "select count(1) from sqlite_master where type='table' and name not like 'sqlite_%'"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_project"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_task"));
@@ -632,6 +682,36 @@ class SqliteServiceTest {
             // bi_disease 携带 leaf_object_id（病害显式归属叶子），与 bi_object 冻结列互不影响
             assertEquals(1, queryCount(statement,
                     "select count(1) from pragma_table_info('bi_disease') where name='leaf_object_id'"));
+            // 5230 人工判定三表随用户包建表并各导出 1 行，云端行强制按正常态(is_offline_data=0)下发
+            assertEquals(1, queryCount(statement, "select count(1) from bi_assess_manual_input"));
+            assertEquals(1, queryCount(statement, "select count(1) from bi_assess_absent_mark"));
+            assertEquals(1, queryCount(statement, "select count(1) from bi_assess_single_control_mark"));
+            try (ResultSet rs = statement.executeQuery(
+                    "select server_id, task_id, element_uuid, eddi, esdi_override, is_offline_data "
+                            + "from bi_assess_manual_input where offline_uuid='manual-uuid-601'")) {
+                assertTrue(rs.next());
+                assertEquals(601L, rs.getLong(1));
+                assertEquals(2002L, rs.getLong(2));
+                assertEquals("elem-uuid-202", rs.getString(3));
+                assertEquals(1, rs.getInt(4));
+                assertEquals(2, rs.getInt(5));
+                assertEquals(0, rs.getInt(6));
+            }
+            try (ResultSet rs = statement.executeQuery(
+                    "select part_key, layer_key, span_id from bi_assess_absent_mark "
+                            + "where offline_uuid='absent-uuid-602'")) {
+                assertTrue(rs.next());
+                assertEquals("bearing", rs.getString(1));
+                assertEquals("superstructure", rs.getString(2));
+                assertEquals(100L, rs.getLong(3));
+            }
+            try (ResultSet rs = statement.executeQuery(
+                    "select indicator_no, hit from bi_assess_single_control_mark "
+                            + "where offline_uuid='sc-uuid-603'")) {
+                assertTrue(rs.next());
+                assertEquals(1, rs.getInt(1));
+                assertEquals(1, rs.getInt(2));
+            }
         }
     }
 

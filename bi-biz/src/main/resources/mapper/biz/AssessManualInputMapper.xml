@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="edu.whut.cs.bi.biz.mapper.AssessManualInputMapper">
+
+    <resultMap type="AssessManualInput" id="AssessManualInputResult">
+        <result property="id"             column="id"/>
+        <result property="taskId"         column="task_id"/>
+        <result property="elementId"      column="element_id"/>
+        <result property="elementUuid"    column="element_uuid"/>
+        <result property="eddi"           column="eddi"/>
+        <result property="esdiOverride"   column="esdi_override"/>
+        <result property="efi"            column="efi"/>
+        <result property="eai"            column="eai"/>
+        <result property="safetyAffected" column="safety_affected"/>
+        <result property="evidence"       column="evidence"/>
+        <result property="offlineUuid"    column="offline_uuid"/>
+        <result property="isOfflineData"  column="is_offline_data"/>
+        <result property="offlineDeleted" column="offline_deleted"/>
+        <result property="createBy"       column="create_by"/>
+        <result property="createTime"     column="create_time"/>
+        <result property="updateBy"       column="update_by"/>
+        <result property="updateTime"     column="update_time"/>
+        <result property="remark"         column="remark"/>
+    </resultMap>
+
+    <sql id="selectAssessManualInputVo">
+        select id, task_id, element_id, element_uuid, eddi, esdi_override, efi, eai, safety_affected, evidence,
+               offline_uuid, is_offline_data, offline_deleted,
+               create_by, create_time, update_by, update_time, remark
+        from bi_assess_manual_input
+    </sql>
+
+    <select id="selectByOfflineUuid" parameterType="String" resultMap="AssessManualInputResult">
+        <include refid="selectAssessManualInputVo"/>
+        where offline_uuid = #{offlineUuid} limit 1
+    </select>
+
+    <select id="selectByTaskId" resultMap="AssessManualInputResult">
+        <include refid="selectAssessManualInputVo"/>
+        where task_id = #{taskId}
+        order by id
+    </select>
+
+    <select id="selectByTaskIds" resultMap="AssessManualInputResult">
+        <include refid="selectAssessManualInputVo"/>
+        where task_id in
+        <foreach collection="taskIds" item="taskId" open="(" separator="," close=")">
+            #{taskId}
+        </foreach>
+        order by id
+    </select>
+
+    <select id="selectByTaskAndElement" resultMap="AssessManualInputResult">
+        <include refid="selectAssessManualInputVo"/>
+        where task_id = #{taskId} and element_uuid = #{elementUuid}
+        limit 1
+    </select>
+
+    <insert id="insertAssessManualInput" parameterType="AssessManualInput" useGeneratedKeys="true" keyProperty="id">
+        insert into bi_assess_manual_input
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">task_id,</if>
+            <if test="elementId != null">element_id,</if>
+            <if test="elementUuid != null">element_uuid,</if>
+            <if test="eddi != null">eddi,</if>
+            <if test="esdiOverride != null">esdi_override,</if>
+            <if test="efi != null">efi,</if>
+            <if test="eai != null">eai,</if>
+            <if test="safetyAffected != null">safety_affected,</if>
+            <if test="evidence != null">evidence,</if>
+            <if test="offlineUuid != null">offline_uuid,</if>
+            <if test="isOfflineData != null">is_offline_data,</if>
+            <if test="offlineDeleted != null">offline_deleted,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">#{taskId},</if>
+            <if test="elementId != null">#{elementId},</if>
+            <if test="elementUuid != null">#{elementUuid},</if>
+            <if test="eddi != null">#{eddi},</if>
+            <if test="esdiOverride != null">#{esdiOverride},</if>
+            <if test="efi != null">#{efi},</if>
+            <if test="eai != null">#{eai},</if>
+            <if test="safetyAffected != null">#{safetyAffected},</if>
+            <if test="evidence != null">#{evidence},</if>
+            <if test="offlineUuid != null">#{offlineUuid},</if>
+            <if test="isOfflineData != null">#{isOfflineData},</if>
+            <if test="offlineDeleted != null">#{offlineDeleted},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateAssessManualInput" parameterType="AssessManualInput">
+        update bi_assess_manual_input
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="taskId != null">task_id = #{taskId},</if>
+            <if test="elementId != null">element_id = #{elementId},</if>
+            <if test="elementUuid != null">element_uuid = #{elementUuid},</if>
+            <if test="eddi != null">eddi = #{eddi},</if>
+            <if test="esdiOverride != null">esdi_override = #{esdiOverride},</if>
+            <if test="efi != null">efi = #{efi},</if>
+            <if test="eai != null">eai = #{eai},</if>
+            <if test="safetyAffected != null">safety_affected = #{safetyAffected},</if>
+            <if test="evidence != null">evidence = #{evidence},</if>
+            <if test="isOfflineData != null">is_offline_data = #{isOfflineData},</if>
+            <if test="offlineDeleted != null">offline_deleted = #{offlineDeleted},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAssessManualInputById" parameterType="Long">
+        delete from bi_assess_manual_input where id = #{id}
+    </delete>
+
+</mapper>

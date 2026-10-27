@@ -46,6 +46,14 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private ElementMapper elementMapper;
     @Autowired
     private SpanElementPartMapper spanElementPartMapper;
+    @Autowired
+    private AssessManualInputMapper assessManualInputMapper;
+    @Autowired
+    private AssessAbsentMarkMapper assessAbsentMarkMapper;
+    @Autowired
+    private AssessSingleControlMarkMapper assessSingleControlMarkMapper;
+    @Autowired
+    private edu.whut.cs.bi.biz.service.std.evaluation.AssessInputRowValidator assessInputRowValidator;
 
     private static final String ENTITY_BUILDING = "Building";
     private static final String ENTITY_OBJECT = "BiObject";
@@ -56,6 +64,9 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
     private static final String ENTITY_ATTACHMENT = "Attachment";
     private static final String ENTITY_SPAN_COMPONENT_PART = "SpanComponentPart";
     private static final String ENTITY_SPAN_ELEMENT_PART = "SpanElementPart";
+    private static final String ENTITY_ASSESS_MANUAL_INPUT = "AssessManualInput";
+    private static final String ENTITY_ASSESS_ABSENT_MARK = "AssessAbsentMark";
+    private static final String ENTITY_ASSESS_SINGLE_CONTROL = "AssessSingleControlMark";
 
     /** bi_attachment.type：1 普通病害照片（缺省兜底），6 桥梁正/侧立面照片，8 部件当前照片 */
     private static final int ATTACHMENT_TYPE_DISEASE = 1;
@@ -130,6 +141,11 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
 
             log.info("处理 SpanElementPart...");
             processSpanElementParts(dataMap.get("spanElementParts"), syncUuid, uuidMap, result, loginName);
+
+            log.info("处理 5230 人工判定（assessManualInputs/assessAbsentMarks/assessSingleControlMarks）...");
+            processAssessManualInputs(dataMap.get("assessManualInputs"), result, loginName, uuidMap);
+            processAssessAbsentMarks(dataMap.get("assessAbsentMarks"), result, loginName, uuidMap);
+            processAssessSingleControlMarks(dataMap.get("assessSingleControlMarks"), result, loginName, uuidMap);
 
             syncLogMapper.updateStatus(syncUuid, 1, "同步成功");
 
@@ -640,6 +656,166 @@ public class SyncUploadServiceImpl implements ISyncUploadService {
                 saveMapping(ENTITY_SPAN_ELEMENT_PART, item.getOfflineUuid(), item.getId(), syncUuid, uuidMap, result);
             } catch (Exception e) {
                 result.addError(ENTITY_SPAN_ELEMENT_PART, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 5230 构件级人工判定（EDDI/ESDI覆盖/EFI/EAI/3.3.3安全影响）。
+     * 按 offline_uuid 幂等 upsert；elementUuid 必须能反查到 bi_element，否则逐行报错。
+     */
+    private void processAssessManualInputs(Object data, SyncResultVo result, String loginName,
+                                           Map<String, Long> uuidMap) {
+        if (data == null)
+            return;
+        List<AssessManualInput> list = parseList(data, AssessManualInput.class);
+        for (AssessManualInput item : list) {
+            try {
+                List<String> errors = assessInputRowValidator.validateManualInput(item);
+                if (!errors.isEmpty()) {
+                    result.addError(ENTITY_ASSESS_MANUAL_INPUT, item.getOfflineUuid(), String.join("; ", errors));
+                    continue;
+                }
+                item.setElementId(resolveElementId(item.getElementUuid(), uuidMap));
+                if (item.getElementId() == null) {
+                    result.addError(ENTITY_ASSESS_MANUAL_INPUT, item.getOfflineUuid(),
+                            "elementUuid 反查 bi_element 失败，构件可能未同步");
+                    continue;
+                }
+                AssessManualInput existing = item.getOfflineUuid() != null
+                        ? assessManualInputMapper.selectByOfflineUuid(item.getOfflineUuid()) : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        assessManualInputMapper.deleteAssessManualInputById(item.getId());
+                        continue;
+                    }
+                    assessManualInputMapper.updateAssessManualInput(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                assessManualInputMapper.insertAssessManualInput(item);
+                result.setSuccessCount(result.getSuccessCount() + 1);
+            } catch (Exception e) {
+                result.addError(ENTITY_ASSESS_MANUAL_INPUT, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 5230 应设未设部件标记（3.2.2-5）。partKey 锚定模板部件；unit/span UUID 可空，
+     * 非空时反查 bi_object（UNIT/SPAN），反查失败逐行报错。
+     */
+    private void processAssessAbsentMarks(Object data, SyncResultVo result, String loginName,
+                                          Map<String, Long> uuidMap) {
+        if (data == null)
+            return;
+        List<AssessAbsentMark> list = parseList(data, AssessAbsentMark.class);
+        for (AssessAbsentMark item : list) {
+            try {
+                List<String> errors = assessInputRowValidator.validateAbsent(item);
+                if (!errors.isEmpty()) {
+                    result.addError(ENTITY_ASSESS_ABSENT_MARK, item.getOfflineUuid(), String.join("; ", errors));
+                    continue;
+                }
+                if (item.getUnitUuid() != null) {
+                    item.setUnitId(resolveBiObjectId(item.getUnitUuid(), uuidMap));
+                    if (item.getUnitId() == null) {
+                        result.addError(ENTITY_ASSESS_ABSENT_MARK, item.getOfflineUuid(),
+                                "unitUuid 反查 bi_object 失败");
+                        continue;
+                    }
+                }
+                if (item.getSpanUuid() != null) {
+                    item.setSpanId(resolveBiObjectId(item.getSpanUuid(), uuidMap));
+                    if (item.getSpanId() == null) {
+                        result.addError(ENTITY_ASSESS_ABSENT_MARK, item.getOfflineUuid(),
+                                "spanUuid 反查 bi_object 失败");
+                        continue;
+                    }
+                }
+                AssessAbsentMark existing = item.getOfflineUuid() != null
+                        ? assessAbsentMarkMapper.selectByOfflineUuid(item.getOfflineUuid()) : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        assessAbsentMarkMapper.deleteAssessAbsentMarkById(item.getId());
+                        continue;
+                    }
+                    assessAbsentMarkMapper.updateAssessAbsentMark(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                assessAbsentMarkMapper.insertAssessAbsentMark(item);
+                result.setSuccessCount(result.getSuccessCount() + 1);
+            } catch (Exception e) {
+                result.addError(ENTITY_ASSESS_ABSENT_MARK, item.getOfflineUuid(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 5230 单项控制命中标记（3.4.5 十六项）。证据 span/element UUID 可空，反查失败不阻断
+     * （证据仅用于留痕，命中本身已由 indicatorNo+hit 表达），反查到的 id 回填。
+     */
+    private void processAssessSingleControlMarks(Object data, SyncResultVo result, String loginName,
+                                                 Map<String, Long> uuidMap) {
+        if (data == null)
+            return;
+        List<AssessSingleControlMark> list = parseList(data, AssessSingleControlMark.class);
+        for (AssessSingleControlMark item : list) {
+            try {
+                List<String> errors = assessInputRowValidator.validateSingleControl(item);
+                if (!errors.isEmpty()) {
+                    result.addError(ENTITY_ASSESS_SINGLE_CONTROL, item.getOfflineUuid(), String.join("; ", errors));
+                    continue;
+                }
+                if (item.getSpanUuid() != null) {
+                    item.setSpanId(resolveBiObjectId(item.getSpanUuid(), uuidMap));
+                }
+                if (item.getElementUuid() != null) {
+                    item.setElementId(resolveElementId(item.getElementUuid(), uuidMap));
+                }
+                AssessSingleControlMark existing = item.getOfflineUuid() != null
+                        ? assessSingleControlMarkMapper.selectByOfflineUuid(item.getOfflineUuid()) : null;
+                if (existing != null) {
+                    item.setId(existing.getId());
+                    item.setUpdateBy(loginName);
+                    item.setUpdateTime(DateUtils.getNowDate());
+                    if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                        assessSingleControlMarkMapper.deleteAssessSingleControlMarkById(item.getId());
+                        continue;
+                    }
+                    assessSingleControlMarkMapper.updateAssessSingleControlMark(item);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                    continue;
+                }
+                if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
+                    continue;
+                }
+                item.setIsOfflineData(1);
+                item.setCreateBy(loginName);
+                item.setCreateTime(DateUtils.getNowDate());
+                assessSingleControlMarkMapper.insertAssessSingleControlMark(item);
+                result.setSuccessCount(result.getSuccessCount() + 1);
+            } catch (Exception e) {
+                result.addError(ENTITY_ASSESS_SINGLE_CONTROL, item.getOfflineUuid(), e.getMessage());
             }
         }
     }

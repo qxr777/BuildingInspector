@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
  * 3. 结构物级：bi_object, bi_element, bi_attachment, bi_disease,
  * bi_disease_detail, bi_file_map, bi_span_element_part
  * 4. 共用基础级：5230 模板/叶子部件/病害字典等 10 张基础表
+ * 5. 任务业务级（用户包）：bi_assess_manual_input/bi_assess_absent_mark/
+ * bi_assess_single_control_mark 三张 5230 人工判定表（2026-10 新增）
  *
  * <p>2026-10-15：离线包由旧标 bi_component/bi_span_component_part 链切换为新标
  * bi_element/bi_span_element_part 链（JTG/T 5230—2026）；旧表 MySQL 侧保留，
@@ -70,6 +72,12 @@ public class SqliteService {
     private DiseaseScaleMapper diseaseScaleMapper;
     @Resource
     private SpanElementPartMapper spanElementPartMapper;
+    @Autowired
+    private AssessManualInputMapper assessManualInputMapper;
+    @Autowired
+    private AssessAbsentMarkMapper assessAbsentMarkMapper;
+    @Autowired
+    private AssessSingleControlMarkMapper assessSingleControlMarkMapper;
     @Resource
     private PropertyMapper propertyMapper;
     @Resource
@@ -221,11 +229,20 @@ public class SqliteService {
         try (Connection conn = connect(tempFile)) {
             // 合并创建用户级与桥梁检查级相关的所有表（新标 bi_element 链）
             createTables(conn, "bi_project", "bi_building", "bi_task", "bi_object", "bi_element", "bi_disease",
-                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_element_part", "bi_property");
+                    "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_element_part", "bi_property",
+                    "bi_assess_manual_input", "bi_assess_absent_mark", "bi_assess_single_control_mark");
 
             insertProjects(conn, projects);
             insertBuildings(conn, buildings);
             insertTasks(conn, tasks);
+
+            // 5230 人工判定（任务级业务数据）：随用户包下发，供 App 离线编辑后 upsert 回传
+            List<Long> taskIds = tasks.stream().map(Task::getId).distinct().collect(Collectors.toList());
+            if (!taskIds.isEmpty()) {
+                insertAssessManualInputs(conn, assessManualInputMapper.selectByTaskIds(taskIds));
+                insertAssessAbsentMarks(conn, assessAbsentMarkMapper.selectByTaskIds(taskIds));
+                insertAssessSingleControlMarks(conn, assessSingleControlMarkMapper.selectByTaskIds(taskIds));
+            }
 
             // 4. 将所有关联桥梁的检查数据 (部件结构树、病害、照片等) 直接装填入此单一 DB
             if (!bIds.isEmpty()) {
@@ -466,7 +483,8 @@ public class SqliteService {
 
     private void createAllTables(Connection conn) throws SQLException {
         createTables(conn, "bi_project", "bi_building", "bi_task", "bi_object", "bi_element", "bi_disease",
-                "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_element_part");
+                "bi_disease_detail", "bi_attachment", "bi_file_map", "bi_span_element_part",
+                "bi_assess_manual_input", "bi_assess_absent_mark", "bi_assess_single_control_mark");
     }
 
     private void createTables(Connection conn, String... tableNames) throws SQLException {
@@ -541,6 +559,17 @@ public class SqliteService {
             if (set.contains("bi_property"))
                 s.execute(
                         "CREATE TABLE IF NOT EXISTS bi_property (id INTEGER PRIMARY KEY, name TEXT, value TEXT, parent_id INTEGER, ancestors TEXT, order_num INTEGER, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+
+            // 5230 人工判定三表（任务级业务数据，随用户包下发；主键 offline_uuid 供 App 离线 upsert）
+            if (set.contains("bi_assess_manual_input"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_assess_manual_input (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, task_id INTEGER, element_id INTEGER, element_uuid TEXT, eddi INTEGER, esdi_override INTEGER, efi INTEGER, eai INTEGER, safety_affected INTEGER, evidence TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_assess_absent_mark"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_assess_absent_mark (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, task_id INTEGER, unit_id INTEGER, unit_uuid TEXT, span_id INTEGER, span_uuid TEXT, part_key TEXT, layer_key TEXT, evidence TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
+            if (set.contains("bi_assess_single_control_mark"))
+                s.execute(
+                        "CREATE TABLE IF NOT EXISTS bi_assess_single_control_mark (offline_uuid TEXT PRIMARY KEY, server_id INTEGER, task_id INTEGER, indicator_no INTEGER, hit INTEGER, span_id INTEGER, span_uuid TEXT, element_id INTEGER, element_uuid TEXT, evidence TEXT, is_offline_data INTEGER DEFAULT 0, offline_deleted INTEGER DEFAULT 0, create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT)");
         }
     }
 
@@ -681,6 +710,88 @@ public class SqliteService {
                 ps.setString(14, r.getUpdateBy());
                 ps.setString(15, dateToStr(r.getUpdateTime()));
                 ps.setString(16, r.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertAssessManualInputs(Connection conn, List<AssessManualInput> rows) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_assess_manual_input (offline_uuid, server_id, task_id, element_id, element_uuid, eddi, esdi_override, efi, eai, safety_affected, evidence, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (AssessManualInput r : rows) {
+                ps.setString(1, offlineUuidOrNew(r.getOfflineUuid()));
+                ps.setLong(2, r.getId());
+                setLongOrNull(ps, 3, r.getTaskId());
+                setLongOrNull(ps, 4, r.getElementId());
+                ps.setString(5, r.getElementUuid());
+                setIntOrNull(ps, 6, r.getEddi());
+                setIntOrNull(ps, 7, r.getEsdiOverride());
+                setIntOrNull(ps, 8, r.getEfi());
+                setIntOrNull(ps, 9, r.getEai());
+                setIntOrNull(ps, 10, r.getSafetyAffected());
+                ps.setString(11, r.getEvidence());
+                ps.setInt(12, 0);
+                ps.setInt(13, 0);
+                ps.setString(14, r.getCreateBy());
+                ps.setString(15, dateToStr(r.getCreateTime()));
+                ps.setString(16, r.getUpdateBy());
+                ps.setString(17, dateToStr(r.getUpdateTime()));
+                ps.setString(18, r.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertAssessAbsentMarks(Connection conn, List<AssessAbsentMark> rows) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_assess_absent_mark (offline_uuid, server_id, task_id, unit_id, unit_uuid, span_id, span_uuid, part_key, layer_key, evidence, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (AssessAbsentMark r : rows) {
+                ps.setString(1, offlineUuidOrNew(r.getOfflineUuid()));
+                ps.setLong(2, r.getId());
+                setLongOrNull(ps, 3, r.getTaskId());
+                setLongOrNull(ps, 4, r.getUnitId());
+                ps.setString(5, r.getUnitUuid());
+                setLongOrNull(ps, 6, r.getSpanId());
+                ps.setString(7, r.getSpanUuid());
+                ps.setString(8, r.getPartKey());
+                ps.setString(9, r.getLayerKey());
+                ps.setString(10, r.getEvidence());
+                ps.setInt(11, 0);
+                ps.setInt(12, 0);
+                ps.setString(13, r.getCreateBy());
+                ps.setString(14, dateToStr(r.getCreateTime()));
+                ps.setString(15, r.getUpdateBy());
+                ps.setString(16, dateToStr(r.getUpdateTime()));
+                ps.setString(17, r.getRemark());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void insertAssessSingleControlMarks(Connection conn, List<AssessSingleControlMark> rows) throws SQLException {
+        String sql = "INSERT OR REPLACE INTO bi_assess_single_control_mark (offline_uuid, server_id, task_id, indicator_no, hit, span_id, span_uuid, element_id, element_uuid, evidence, is_offline_data, offline_deleted, create_by, create_time, update_by, update_time, remark) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (AssessSingleControlMark r : rows) {
+                ps.setString(1, offlineUuidOrNew(r.getOfflineUuid()));
+                ps.setLong(2, r.getId());
+                setLongOrNull(ps, 3, r.getTaskId());
+                setIntOrNull(ps, 4, r.getIndicatorNo());
+                setIntOrNull(ps, 5, r.getHit());
+                setLongOrNull(ps, 6, r.getSpanId());
+                ps.setString(7, r.getSpanUuid());
+                setLongOrNull(ps, 8, r.getElementId());
+                ps.setString(9, r.getElementUuid());
+                ps.setString(10, r.getEvidence());
+                ps.setInt(11, 0);
+                ps.setInt(12, 0);
+                ps.setString(13, r.getCreateBy());
+                ps.setString(14, dateToStr(r.getCreateTime()));
+                ps.setString(15, r.getUpdateBy());
+                ps.setString(16, dateToStr(r.getUpdateTime()));
+                ps.setString(17, r.getRemark());
                 ps.addBatch();
             }
             ps.executeBatch();
