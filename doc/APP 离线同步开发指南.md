@@ -1,23 +1,21 @@
 # App 离线同步开发指南
 
-> 文档版本：v1.5  
+> 文档版本：v1.6  
 > 最后更新：2026-10-27  
 > 适用对象：App 端开发人员 (Vue.js + Capacitor/Cordova)
 >
-> **更新说明（v1.5，2026-10-27）：JTG/T 5230—2026 正式稿人工判定三数组（只做后端，无输入页面改动要求）**
-> 1. sync/upload 新增三个可选数组 `assessManualInputs` / `assessAbsentMarks` /
->    `assessSingleControlMarks`（§4.2 末三节给字段与值域）：承载检查人现场判定——
->    构件级 EDDI/ESDI覆盖/EFI/EAI + 3.3.3 安全影响、3.2.2-5 应设未设部件（幻影件）、
->    3.4.5 十六项单项控制命中。
-> 2. 三数组与既有实体同一套离线语义：自带 `offlineUuid` 幂等、重发走更新、`offlineDeleted:1`
->    物理删除、逐行容错；`taskId` 是**整数**；element/UNIT/SPAN 引用靠 UUID，且须已在同批前序
->    数组或云端存在。单项控制的证据 UUID 为 best-effort（反查失败不阻断）。
-> 3. **user.db 11→14 张表**：随包下发/回灌三表（§5.3 给出与服务端一致的 SQLite DDL，主键 offline_uuid）；
->    单桥 ZIP/common 包不变；评定结果四表不下发，评级走 §3.4 在线接口。
-> 4. 同步只落判定输入、**不触发评定**；`POST /biz/assess5230/task/{taskId}/calculate`
->    幂等可重算（Web 会话认证，非 `/api/v2` JWT）。
+> **更新说明（v1.6，2026-10-27）：评定后端内部触发 + bi_span_component_part 退役**
+> 1. 人工判定三表（`assessManualInputs`/`assessAbsentMarks`/`assessSingleControlMarks`）
+>    **唯一写入通道是 sync/upload**，不存在 Web/管理端直连录入；同步只落判定数据、不触发评定。
+> 2. `POST /biz/assess5230/task/{taskId}/calculate` **由后端内部调用，App 不调用、不要对接**；
+>    评定在 App 同步完成后由后端侧编排触发。tree/inputs/result/singleIndicators 四个查询端点
+>    保留（管理端 Shiro 会话认证，非 `/api/v2` JWT），App 有结果展示需求时可读 result。
+> 3. **bi_span_component_part 整链退役**：旧锚定键 `spanComponentParts` 不再发送（服务端已无
+>    对应管线段，载荷中携带会被当作未知键忽略）；新链锚定只用 `spanElementParts`。
+>    旧链 `components` 仍为冻结状态：新功能不产生、旧版本 App 传 `[]` 即可。
 >
 > **历史更新：**
+> - v1.5（2026-10-27）：JTG/T 5230—2026 正式稿人工判定三数组——sync/upload 新增 `assessManualInputs`/`assessAbsentMarks`/`assessSingleControlMarks`（检查人现场判定，offlineUuid 幂等/物理删除/逐行容错），user.db 11→14 表，评定结果四表不下发；同步不触发评定。
 > - v1.4（2026-10-21）：通道A 附件预上传提速——`uploadUuid` 幂等键（拍照产出、重试复用、重拍换新，重放零重复流量）、`/sync/attachment/batch` 批量与 `/sync/attachment/query` 回查接口（建议先 query 再分批 ≤8 张/批、批间并发 ≤3）、服务端自动生成 1024×768 缩略图并回传 `thumbMinioId`、拍照压缩长边 ≤2000px/q≈0.8/≤1MB；旧接口不带 uuid 仍返回裸 minioId，新旧 App 共存。
 > - v1.3（2026-10-20）：附件通道（通道A）加固——`attachments[]` 按 `type` 路由挂载主体、按附件自身 `offlineUuid` 幂等更新、`offlineDeleted=1` 物理删除生效、缺 `minioId`/主体反查失败按行报错、病害照片落库后自动重算 `bi_disease.attachment_count`；补齐 JTG/T 5230—2026 新链实体（`elements`/`spanElementParts`，病害新增 `elementUuid`/`leafObjectId`/`diseaseTypeId`）；父节点支持云端回查。
 > - v1.2：新增离线删除机制和离线更新机制详细说明。
@@ -83,16 +81,16 @@
 | AssessAbsentMark (`assessAbsentMarks`，v1.5) | `bi_assess_absent_mark` | 应设未设部件标记（3.2.2-5 幻影件） |
 | AssessSingleControlMark (`assessSingleControlMarks`，v1.5) | `bi_assess_single_control_mark` | 单项控制命中标记（3.4.5 十六项） |
 
-> 三数组只承载**检查人现场判定输入**，不触发评定计算；评定由 Web 端/服务端
-> `POST /biz/assess5230/task/{taskId}/calculate` 显式触发（见 §3.4）。
+> 三数组只承载**检查人现场判定输入**，不触发评定计算；App 同步完成后，评定由
+> **后端内部触发**（calculate 端点由后端调用，App 不调，见 §3.4）。
 > 四张评定结果表不下发、不同步，需要结果时走结果查询接口。
 
-**旧规范链（冻结保留，仅存量数据维护，不要在 5230 功能中使用）：**
+**旧规范链：**
 
-| 实体（载荷键） | 表名 | 说明 |
+| 实体（载荷键） | 表名 | 状态 |
 |------|------|------|
-| Component (`components`) | `bi_component` | 旧规范构件 |
-| SpanComponentPart (`spanComponentParts`) | `bi_span_component_part` | 旧链锚定关系 |
+| Component (`components`) | `bi_component` | 冻结保留，仅存量数据维护，不要在 5230 功能中使用；旧版本 App 传 `[]` 即可 |
+| ~~SpanComponentPart (`spanComponentParts`)~~ | ~~`bi_span_component_part`~~ | **v1.6 退役**：表已 DROP、管线段已删，**不要再发送该键**（携带也会被忽略） |
 
 > **新链树构建要点：App 只提交增量节点。** 评定单元 UNIT 随离线包下发、只存在于云端，App 现场新建桥跨/层/部件时，`parentUuid` 直接引用包里 UNIT 的 `offline_uuid` 即可，不要重传 UNIT；服务端解析父节点时本批未命中会自动回查云端（多轮 + DB 回查，见 Q2）。
 
@@ -562,8 +560,7 @@ Timeout: 60000
   "diseases": [...],
   "diseaseDetails": [...],
   "attachments": [...],
-  "spanComponentParts": [...],  // 旧链锚定，5230 新功能留空数组
-  "spanElementParts": [...],    // 5230 新链锚定
+  "spanElementParts": [...],    // 5230 新链锚定（旧键 spanComponentParts 已于 v1.6 退役，勿传）
   "assessManualInputs": [...],      // v1.5 构件级人工判定，可缺省
   "assessAbsentMarks": [...],       // v1.5 应设未设部件标记，可缺省
   "assessSingleControlMarks": [...] // v1.5 单项控制命中标记，可缺省
@@ -741,7 +738,7 @@ export default {
         }))
       }
 
-      // 5230 新链：components/spanComponentParts 已冻结，传 [] 即可
+      // components 为冻结旧链，传 [] 即可；spanComponentParts 已退役（v1.6），不再发送
       return {
         syncUuid: this.generateUuid(),
         clientInfo: 'BridgeInspector-Vue/3.0.0',
@@ -753,7 +750,6 @@ export default {
         diseaseDetails: await buildTableData('bi_disease_detail'),
         attachments: await buildTableData('bi_attachment'),
         components: [],
-        spanComponentParts: [],
         // v1.5：人工判定三数组（注意 snake_case → camelCase：
         // esdi_override→esdiOverride, safety_affected→safetyAffected,
         // part_key→partKey, layer_key→layerKey, unit_uuid→unitUuid,
@@ -919,17 +915,17 @@ const fetchLatestDatabase = async (userId) => {
 
 **说明：** 此接口通常不需要主动调用，因为 `/api/v2/sync/upload` 已经返回了 SQLite 下载地址。仅在需要单独获取最新数据库时使用。
 
-### 3.4 5230 评定端点（v1.5，Web 会话认证，非离线通道）
+### 3.4 5230 评定端点（v1.6，Web 会话认证，非离线通道）
 
-人工判定三数组只负责把现场判定送进服务端，**不含计算**。评定计算与结果查询是
-`/biz/assess5230` 下的在线接口（走管理端 Shiro 会话，与 `/api/v2` JWT 不同；本期无输入页面，
-App 一般不直接调用，列出以便对接）：
+人工判定三数组只负责把现场判定送进服务端，**不含计算**：App 同步成功后所有评定计算都在后端
+进行，`calculate` **由后端内部触发，App 不调用、不要对接**（sync/upload 也不会自动触发计算）。
+下列查询端点走管理端 Shiro 会话（与 `/api/v2` JWT 不同），App 需要展示评级/回查判定时只读调用：
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/biz/assess5230/task/{taskId}/tree` | GET | 结构解析预览（不落数据），返回 rootObjectId/units/warnings |
 | `/biz/assess5230/task/{taskId}/inputs` | GET | 回查任务当前三表判定输入 |
-| `/biz/assess5230/task/{taskId}/calculate` | POST | 执行评定；**幂等可重算**，四张结果表按任务先删后插 |
+| `/biz/assess5230/task/{taskId}/calculate` | POST | 执行评定；**后端内部调用，App 不调**；幂等可重算，四张结果表按任务先删后插 |
 | `/biz/assess5230/task/{taskId}/result` | GET | 四层结果：`{bridge, units[], spans[], elements[]}` |
 | `/biz/assess5230/singleIndicators` | GET | 3.4.5 十六项指标字典 `[{no,name}]` |
 
@@ -952,8 +948,7 @@ interface SyncPayload {
   diseases: Disease[];
   diseaseDetails: DiseaseDetail[];
   attachments: Attachment[];
-  spanComponentParts?: SpanComponentPart[]; // 旧链锚定，新功能传 []
-  spanElementParts?: SpanElementPart[];     // 5230 新链锚定
+  spanElementParts?: SpanElementPart[];     // 5230 新链锚定（旧键 spanComponentParts 已退役，勿传）
   // v1.5：5230 人工判定三数组（均可缺省；字段见 §4.2 末三节）
   assessManualInputs?: AssessManualInput[];
   assessAbsentMarks?: AssessAbsentMark[];
@@ -1199,7 +1194,8 @@ interface AssessSingleControlMark {
    同批其他行照常落库，整批 HTTP 仍成功；非法行在回灌包中消失，勿无限重试。
 3. **顺序依赖**：三数组在服务端管线最后处理，引用的 element/UNIT/SPAN 必须已在同批前序数组
    或云端存在（新现场构件随同批 elements + spanElementParts 提交即可）。
-4. **只输入、不计算**：同步成功不产生评定结果；评级须显式调 calculate（§3.4）。
+4. **只输入、不计算**：同步成功不产生评定结果；评级由后端内部触发 calculate 完成（§3.4），
+   App 不调用该端点，需要展示时只读查询 result。
 
 ---
 
@@ -1496,7 +1492,6 @@ if (Integer.valueOf(1).equals(item.getOfflineDeleted())) {
 | Element（新链） | 逻辑删除（`del_flag='2'`） | 是 |
 | Disease | 物理删除 | 是 |
 | DiseaseDetail | 物理删除 | 是 |
-| SpanComponentPart（旧链） | 物理删除 | 是 |
 | SpanElementPart（新链） | 物理删除 | 是 |
 | Attachment | **物理删除（v1.3 起生效）**；同时重算所属病害 `attachment_count` | 是，删除不存在的记录不报错 |
 
@@ -2047,8 +2042,11 @@ App 在下发的 UNIT 下增量建 SPAN/LAYER/PART 时直接引用 UNIT 的 `off
   `uploadUuid` 字段并返回裸整数——**App 应把"端点 404 / 响应 data 是整数"作为旧服务端探测信号，
   自动回退到串行单文件 + 本地 minioId 缓存的旧逻辑**，升级服务端后再启用增强模式。
 - v1.5 三个人工判定数组（`assessManualInputs` 等）对旧服务端是载荷里的未知键，会被直接忽略
-  （不报错也不落库），回灌的 user.db 也不含三表；App 可把「calculate/result 端点 404 或回灌包缺表」
-  作为服务端未升级的信号，此时人工判定只本地暂存、待服务端升级后再随同步提交。
+  （不报错也不落库），回灌的 user.db 也不含三表；App 可把「tree/result 等评定查询端点 404
+  或回灌包缺表」作为服务端未升级的信号，此时人工判定只本地暂存、待服务端升级后再随同步提交。
+  （v1.6 起计算由后端内部触发，App 不调用 calculate。）
+- v1.6 起旧锚定键 `spanComponentParts` 已整链退役：新服务端收到该键按未知键忽略（不报错），
+  App 升级后不应再发送；`components` 冻结旧链继续传空数组即可。
 
 ### Q4: 如何查看同步日志？
 
@@ -2299,7 +2297,6 @@ WHERE id = ?
       "offlineDeleted": 0
     }
   ],
-  "spanComponentParts": [],
   "assessManualInputs": [
     {
       "offlineUuid": "ami-uuid-xxx",
