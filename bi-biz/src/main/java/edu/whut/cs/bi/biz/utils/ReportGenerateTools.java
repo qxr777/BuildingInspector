@@ -1128,19 +1128,46 @@ public class ReportGenerateTools {
     }
 
     /**
-     * 现状照题注：有备注用备注；否则用挂接节点相对当前章节再下一级的名称，
-     * 例如桥面系下的排水系统、人行道。
+     * 现状照题注。有备注就用备注；没有备注时用当前章节的直接子节点名称，
+     * 例如桥面系下的桥面铺装、伸缩缝装置、人行道。末尾统一加「现状」。
      */
     public static String statusPhotoCaption(FileMap fileMap, BiObject sectionNode, Map<Long, BiObject> nodeMap) {
-        if (fileMap != null && StringUtils.isNotEmpty(fileMap.getAttachmentRemark())) {
-            return fileMap.getAttachmentRemark();
+        String remark = stripStatusSuffix(fileMap == null ? null : fileMap.getAttachmentRemark());
+        String body = remark.isEmpty() ? statusSubsetName(fileMap, sectionNode, nodeMap) : remark;
+        if (body.isEmpty()) {
+            body = statusSubsetName(fileMap, sectionNode, nodeMap);
         }
+        return body.endsWith("现状") ? body : body + "现状";
+    }
+
+    /** 给已有题注补上「现状」，并去掉末尾的「现状照片」。 */
+    public static String finishStatusCaption(String text) {
+        String body = stripStatusSuffix(text);
+        return body.endsWith("现状") ? body : body + "现状";
+    }
+
+    private static String statusSubsetName(FileMap fileMap, BiObject sectionNode, Map<Long, BiObject> nodeMap) {
         BiObject captionNode = statusPhotoCaptionNode(
                 fileMap != null ? fileMap.getSubjectId() : null, sectionNode, nodeMap);
-        String name = captionNode != null && StringUtils.isNotEmpty(captionNode.getName())
-                ? captionNode.getName()
-                : (sectionNode != null ? sectionNode.getName() : "");
-        return (name == null ? "" : name) + "现状照片";
+        if (captionNode != null && StringUtils.isNotEmpty(captionNode.getName())) {
+            return captionNode.getName().trim();
+        }
+        return sectionNode != null && sectionNode.getName() != null ? sectionNode.getName().trim() : "";
+    }
+
+    /** 去掉备注末尾已经写过的「现状」或「现状照片」，避免再拼一次。 */
+    static String stripStatusSuffix(String text) {
+        if (text == null) {
+            return "";
+        }
+        String trimmed = text.trim();
+        if (trimmed.endsWith("现状照片")) {
+            return trimmed.substring(0, trimmed.length() - "现状照片".length()).trim();
+        }
+        if (trimmed.endsWith("现状")) {
+            return trimmed.substring(0, trimmed.length() - "现状".length()).trim();
+        }
+        return trimmed;
     }
 
     public static int statusPhotoCaptionOrder(FileMap fileMap, BiObject sectionNode, Map<Long, BiObject> nodeMap) {
