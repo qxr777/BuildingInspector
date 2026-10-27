@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
  * bi_assess_single_control_mark 三张 5230 人工判定表（2026-10 新增）
  *
  * <p>2026-10-15：离线包由旧标 bi_component/bi_span_component_part 链切换为新标
- * bi_element/bi_span_element_part 链（JTG/T 5230—2026）；旧表 MySQL 侧保留，
- * 仅不再下发。</p>
+ * bi_element/bi_span_element_part 链（JTG/T 5230—2026）；bi_span_component_part
+ * 已于 2026-10-27 退役，bi_component 链 MySQL 侧冻结保留、仅不再下发。</p>
  *
  * @author Antigravity
  */

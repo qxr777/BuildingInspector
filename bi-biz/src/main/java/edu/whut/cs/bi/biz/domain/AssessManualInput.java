@@ -9,7 +9,7 @@ import lombok.EqualsAndHashCode;
  *
  * <p>JTG/T 5230—2026 评定中无法由采集数据自动推导的检查人判定（第 3.2 节）：
  * EDDI 耐久性标度、ESDI 人工覆盖、EFI 功能标度、EAI 影响标度及 3.3.3 安全影响标志。
- * 每任务每构件至多一行；经 sync/upload 与 /biz/assess5230 两条通道写入。</p>
+ * 每任务每构件至多一行；唯一写入通道为 App 经 sync/upload 同步（assessManualInputs 数组）。</p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

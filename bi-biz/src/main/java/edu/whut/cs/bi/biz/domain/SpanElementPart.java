@@ -9,7 +9,8 @@ import lombok.EqualsAndHashCode;
  *
  * <p>2026 新标（JTG/T 5230—2026）锚定关系：一个构件可能跨越多个桥跨，且在同一桥跨内
  * 归属某个具体部件节点。该表记录「构件(bi_element) ↔ 桥跨(SPAN) ↔ 部件(PART)」的多对多
- * 锚定，由 App 端离线建模产生、同步上传。与旧 bi_span_component_part 并存、旧表冻结。</p>
+ * 锚定，由 App 端离线建模产生、同步上传。旧表 bi_span_component_part 已于 2026-10-27
+ * 退役（由本表完全替代）。</p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

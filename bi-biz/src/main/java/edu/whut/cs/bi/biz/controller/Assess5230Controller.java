@@ -6,19 +6,14 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.ShiroUtils;
-import edu.whut.cs.bi.biz.domain.AssessAbsentMark;
-import edu.whut.cs.bi.biz.domain.AssessManualInput;
-import edu.whut.cs.bi.biz.domain.AssessSingleControlMark;
 import edu.whut.cs.bi.biz.domain.enums.SingleIndicator;
 import edu.whut.cs.bi.biz.service.std.evaluation.Assess5230CalculateService;
-import edu.whut.cs.bi.biz.service.std.evaluation.Assess5230InputService;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
@@ -28,87 +23,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * JTG/T 5230—2026 评定：人工判定直连录入 + 后端评定引擎。
+ * JTG/T 5230—2026 后端评定引擎。
  *
- * <p>人工判定三表的写入契约（不含输入页面）：与 sync/upload 离线通道
- * (assessManualInputs/assessAbsentMarks/assessSingleControlMarks 三数组) 等价的
- * 在线通道；另有结构预览、输入回查、计算触发、结果查询四个引擎端点。</p>
+ * <p>人工判定三表（bi_assess_manual_input / bi_assess_absent_mark /
+ * bi_assess_single_control_mark）的唯一写入通道是 App 经 sync/upload 同步
+ * （assessManualInputs/assessAbsentMarks/assessSingleControlMarks 三数组），
+ * 本类不提供在线录入；只提供结构预览、输入回查、计算触发、结果查询等引擎端点。
+ * calculate 由后端内部触发，App 同步只落数据不自动计算。</p>
  */
 @Controller
 @RequestMapping("/biz/assess5230")
 public class Assess5230Controller extends BaseController {
 
     @Autowired
-    private Assess5230InputService assess5230InputService;
-
-    @Autowired
     private Assess5230CalculateService assess5230CalculateService;
-
-    /** 构件级人工判定 upsert（按 taskId + elementUuid 自然键）。 */
-    @RequiresPermissions("biz:assess5230:edit")
-    @Log(title = "5230构件人工判定", businessType = BusinessType.UPDATE)
-    @PostMapping("/manual-input/upsert")
-    @ResponseBody
-    public AjaxResult upsertManualInput(@RequestBody AssessManualInput row) {
-        try {
-            AssessManualInput saved = assess5230InputService.upsertManualInput(row, ShiroUtils.getLoginName());
-            return AjaxResult.success(saved);
-        } catch (ServiceException e) {
-            return AjaxResult.error(e.getMessage());
-        }
-    }
-
-    /** 应设未设部件标记保存（id 非空更新；否则按 task+unit+span+partKey 去重新增）。 */
-    @RequiresPermissions("biz:assess5230:edit")
-    @Log(title = "5230应设未设部件标记", businessType = BusinessType.UPDATE)
-    @PostMapping("/absent-mark/save")
-    @ResponseBody
-    public AjaxResult saveAbsentMark(@RequestBody AssessAbsentMark row) {
-        try {
-            AssessAbsentMark saved = assess5230InputService.saveAbsentMark(row, ShiroUtils.getLoginName());
-            return AjaxResult.success(saved);
-        } catch (ServiceException e) {
-            return AjaxResult.error(e.getMessage());
-        }
-    }
-
-    /** 单项控制命中标记 upsert（按 taskId + indicatorNo 自然键）。 */
-    @RequiresPermissions("biz:assess5230:edit")
-    @Log(title = "5230单项控制标记", businessType = BusinessType.UPDATE)
-    @PostMapping("/single-control/upsert")
-    @ResponseBody
-    public AjaxResult upsertSingleControl(@RequestBody AssessSingleControlMark row) {
-        try {
-            AssessSingleControlMark saved = assess5230InputService.upsertSingleControl(row, ShiroUtils.getLoginName());
-            return AjaxResult.success(saved);
-        } catch (ServiceException e) {
-            return AjaxResult.error(e.getMessage());
-        }
-    }
-
-    @RequiresPermissions("biz:assess5230:edit")
-    @Log(title = "5230构件人工判定", businessType = BusinessType.DELETE)
-    @PostMapping("/manual-input/remove/{id}")
-    @ResponseBody
-    public AjaxResult removeManualInput(@PathVariable("id") Long id) {
-        return toAjax(assess5230InputService.deleteManualInput(id));
-    }
-
-    @RequiresPermissions("biz:assess5230:edit")
-    @Log(title = "5230应设未设部件标记", businessType = BusinessType.DELETE)
-    @PostMapping("/absent-mark/remove/{id}")
-    @ResponseBody
-    public AjaxResult removeAbsentMark(@PathVariable("id") Long id) {
-        return toAjax(assess5230InputService.deleteAbsentMark(id));
-    }
-
-    @RequiresPermissions("biz:assess5230:edit")
-    @Log(title = "5230单项控制标记", businessType = BusinessType.DELETE)
-    @PostMapping("/single-control/remove/{id}")
-    @ResponseBody
-    public AjaxResult removeSingleControl(@PathVariable("id") Long id) {
-        return toAjax(assess5230InputService.deleteSingleControlMark(id));
-    }
 
     // ---------------- 评定引擎 ----------------
 

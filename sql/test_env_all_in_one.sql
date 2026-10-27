@@ -29,8 +29,9 @@
 --   2. 唯一索引【全部延后】到回填后（本脚本不含回填），避免存量 NULL 冲突。
 --   3. 不含 P2 回填（用户明确排除耗时回填）。
 --   4.（2026-10-13）bi_element 为【全新空表】，与旧 bi_component 并存：不 RENAME、不迁存量数据、
---      不动 bi_disease.component_id/component_uuid、bi_span_component_part 等旧链路；
+--      不动 bi_disease.component_id/component_uuid 等旧链路；
 --      bi_component 暂冻结保留，新评定链路使用 bi_element。
+--      （2026-10-27 更新）bi_span_component_part 已退役，见第八·十二部分 DROP。
 --
 -- ⚡ 性能优化（针对「执行非常慢」，参考 P0 脚本，2026-10-05）：
 --   1. 所有 ADD COLUMN 改为【可空 NULL、无显式 DEFAULT、无 AFTER 子句】，
@@ -63,6 +64,8 @@
 --       bi_assess_manual_input / bi_assess_absent_mark / bi_assess_single_control_mark、
 --       评定结果 3 表 bi_assess_element_result / bi_assess_unit_result / bi_assess_bridge_result；
 --       bi_span_evaluation 补 unit_id（复用，3.3.3 冻结五列不动）；bi_v2 六表不复活
+--   [13] 退役旧锚定表 bi_span_component_part（2026-10-27，第八·十二部分）：
+--       由 bi_span_element_part 完全替代，sync 段与 Java domain/mapper 已删
 --
 -- 幂等性：所有 ADD COLUMN / CREATE TABLE 均用存储过程探测存在性；
 --         种子数据用 WHERE NOT EXISTS 按 id 判重。可重复执行。
@@ -928,6 +931,15 @@ CREATE TABLE IF NOT EXISTS `bi_assess_bridge_result` (
 -- C. bi_span_evaluation 补 unit_id：多评定单元(3.1.2/3.4.4)下桥跨结果归属单元（可空走 INSTANT）
 CALL P_AddColumnIfNotExists(@db, 'bi_span_evaluation', 'unit_id',
     'BIGINT NULL COMMENT ''评定单元节点ID(bi_object.id,UNIT;多单元3.4.4)''');
+
+-- ================================================================================
+-- 第八·十二部分：退役 bi_span_component_part（JTG/T 5230—2026，2026-10-27）
+--   旧链「构件(bi_component) ↔ 桥跨 ↔ 部件」锚定表，已由新链 bi_span_element_part
+--   （element ↔ SPAN ↔ PART）完全替代：离线包 2026-10-15 起不出包，sync 管线第 9 段
+--   与 domain/mapper/xml 已整链删除。本表无外键被引用，直接物理删除；
+--   生产库须由人工确认存量行后手工执行本语句。
+-- ================================================================================
+DROP TABLE IF EXISTS `bi_span_component_part`;
 
 -- ================================================================================
 -- 第九部分：清理存储过程
