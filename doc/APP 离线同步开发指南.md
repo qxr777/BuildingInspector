@@ -1,23 +1,24 @@
 # App 离线同步开发指南
 
-> 文档版本：v1.4  
-> 最后更新：2026-10-21  
+> 文档版本：v1.5  
+> 最后更新：2026-10-27  
 > 适用对象：App 端开发人员 (Vue.js + Capacitor/Cordova)
 >
-> **更新说明（v1.4，2026-10-21）：通道A 附件预上传提速（渐进式增强，新旧 App 可共存）**
-> 1. **预上传幂等化**：新增客户端幂等键 `uploadUuid`（拍照产出时生成、持久化、重试复用，重拍才换新）。
->    同 uuid 重放返回 `status=exists` 与既有 `minioId/thumbMinioId`，**零重复流量**，响应丢失/超时可安全重试。
-> 2. **新增批量与回查接口**：`POST /sync/attachment/batch`（一批多文件，逐项容错）与
->    `POST /sync/attachment/query`（同步前/响应丢失后回查已传清单）。推荐流程：先 query 跳过已传 →
->    分批 batch（建议 ≤8 张/批或 ≤10MB，批间并发 ≤3）。
-> 3. **缩略图改由服务端自动生成**：图片预上传成功即同步返回 `thumbMinioId`，App 无需自行上传缩略图；
->    非图片或生成失败时为 `null`。
-> 4. **拍照压缩要求明确**：长边 ≤2000px、JPEG 质量 ≈0.8、目标单张 ≤1MB（服务端硬上限 20MB/张、
->    20 张/批仅兜底）；服务端原样存储，不二次重编码。
-> 5. **旧接口完全保留**：`POST /sync/attachment` 不带 `uploadUuid` 时响应仍是裸 `minioId`，
->    旧版 App 不改代码可继续工作（但不享受幂等/缩略图/批量能力）。
+> **更新说明（v1.5，2026-10-27）：JTG/T 5230—2026 正式稿人工判定三数组（只做后端，无输入页面改动要求）**
+> 1. sync/upload 新增三个可选数组 `assessManualInputs` / `assessAbsentMarks` /
+>    `assessSingleControlMarks`（§4.2 末三节给字段与值域）：承载检查人现场判定——
+>    构件级 EDDI/ESDI覆盖/EFI/EAI + 3.3.3 安全影响、3.2.2-5 应设未设部件（幻影件）、
+>    3.4.5 十六项单项控制命中。
+> 2. 三数组与既有实体同一套离线语义：自带 `offlineUuid` 幂等、重发走更新、`offlineDeleted:1`
+>    物理删除、逐行容错；`taskId` 是**整数**；element/UNIT/SPAN 引用靠 UUID，且须已在同批前序
+>    数组或云端存在。单项控制的证据 UUID 为 best-effort（反查失败不阻断）。
+> 3. **user.db 11→14 张表**：随包下发/回灌三表（§5.3 给出与服务端一致的 SQLite DDL，主键 offline_uuid）；
+>    单桥 ZIP/common 包不变；评定结果四表不下发，评级走 §3.4 在线接口。
+> 4. 同步只落判定输入、**不触发评定**；`POST /biz/assess5230/task/{taskId}/calculate`
+>    幂等可重算（Web 会话认证，非 `/api/v2` JWT）。
 >
 > **历史更新：**
+> - v1.4（2026-10-21）：通道A 附件预上传提速——`uploadUuid` 幂等键（拍照产出、重试复用、重拍换新，重放零重复流量）、`/sync/attachment/batch` 批量与 `/sync/attachment/query` 回查接口（建议先 query 再分批 ≤8 张/批、批间并发 ≤3）、服务端自动生成 1024×768 缩略图并回传 `thumbMinioId`、拍照压缩长边 ≤2000px/q≈0.8/≤1MB；旧接口不带 uuid 仍返回裸 minioId，新旧 App 共存。
 > - v1.3（2026-10-20）：附件通道（通道A）加固——`attachments[]` 按 `type` 路由挂载主体、按附件自身 `offlineUuid` 幂等更新、`offlineDeleted=1` 物理删除生效、缺 `minioId`/主体反查失败按行报错、病害照片落库后自动重算 `bi_disease.attachment_count`；补齐 JTG/T 5230—2026 新链实体（`elements`/`spanElementParts`，病害新增 `elementUuid`/`leafObjectId`/`diseaseTypeId`）；父节点支持云端回查。
 > - v1.2：新增离线删除机制和离线更新机制详细说明。
 
@@ -78,6 +79,13 @@
 | Disease (`diseases`) | `bi_disease` | 病害（新链带 `elementUuid`/`leafObjectId`） |
 | DiseaseDetail (`diseaseDetails`) | `bi_disease_detail` | 病害详情 |
 | Attachment (`attachments`) | `bi_attachment` | 附件/照片（通道A：单文件预上传 + 元数据随 JSON 提交） |
+| AssessManualInput (`assessManualInputs`，v1.5) | `bi_assess_manual_input` | 构件级人工判定（EDDI/ESDI覆盖/EFI/EAI + 3.3.3 安全影响） |
+| AssessAbsentMark (`assessAbsentMarks`，v1.5) | `bi_assess_absent_mark` | 应设未设部件标记（3.2.2-5 幻影件） |
+| AssessSingleControlMark (`assessSingleControlMarks`，v1.5) | `bi_assess_single_control_mark` | 单项控制命中标记（3.4.5 十六项） |
+
+> 三数组只承载**检查人现场判定输入**，不触发评定计算；评定由 Web 端/服务端
+> `POST /biz/assess5230/task/{taskId}/calculate` 显式触发（见 §3.4）。
+> 四张评定结果表不下发、不同步，需要结果时走结果查询接口。
 
 **旧规范链（冻结保留，仅存量数据维护，不要在 5230 功能中使用）：**
 
@@ -93,7 +101,7 @@
 | 包 | 内容 | 获取方式 |
 |----|------|---------|
 | common.db（字典包，11 张表） | 桥型模板、叶子部件、病害类型/标度等 5230 字典 | `POST /api/v2/common/sqlite`，随标准升级更新 |
-| user.db（用户数据包，11 张表） | 本用户项目下桥梁/结构树/新链构件/病害/照片元数据 | 同步成功响应里直接带 URL，或 `GET/POST /api/v2/user/{id}/sqlite` |
+| user.db（用户数据包，14 张表，v1.5 起） | 本用户项目下桥梁/结构树/新链构件/病害/照片元数据 + 人工判定三表 | 同步成功响应里直接带 URL，或 `GET/POST /api/v2/user/{id}/sqlite` |
 | 单桥 ZIP（7 张表） | 单座桥检查数据（内含 `data.db`）+ 照片文件本体 | `POST /api/v2/building/{id}/package` |
 
 单桥 ZIP 为**交付/归档包**（与同步闭环无关）：内含该桥 7 表的 `data.db`，并把照片文件本体
@@ -148,7 +156,9 @@
      │ 5. 返回逐项 minioId/thumbMinioId       │
      │<──────────────────────────────────────│
      │                   │                   │
-     │ 6. 构造 JSON 载荷（两个 id 回填到 attachments[]）
+     │ 6. 构造 JSON 载荷（两个 id 回填到 attachments[]；
+     │    v1.5 起可携带 assessManualInputs/assessAbsentMarks/
+     │    assessSingleControlMarks 三个人工判定数组）
      │                   │                   │
      │ 7. POST /sync/upload                  │
      │──────────────────────────────────────>│
@@ -553,11 +563,16 @@ Timeout: 60000
   "diseaseDetails": [...],
   "attachments": [...],
   "spanComponentParts": [...],  // 旧链锚定，5230 新功能留空数组
-  "spanElementParts": [...]     // 5230 新链锚定
+  "spanElementParts": [...],    // 5230 新链锚定
+  "assessManualInputs": [...],      // v1.5 构件级人工判定，可缺省
+  "assessAbsentMarks": [...],       // v1.5 应设未设部件标记，可缺省
+  "assessSingleControlMarks": [...] // v1.5 单项控制命中标记，可缺省
 }
 ```
 
 > 各实体键均可缺省（按空列表处理），但建议显式传空数组，便于协议自检。
+> 三数组逐行字段/值域见 §4.2 末三个小节；它们排在管线最后，引用的 element/object UUID
+> 必须已在同批或云端存在。
 
 **响应 (成功 - 含 SQLite 下载地址)：**
 
@@ -738,7 +753,14 @@ export default {
         diseaseDetails: await buildTableData('bi_disease_detail'),
         attachments: await buildTableData('bi_attachment'),
         components: [],
-        spanComponentParts: []
+        spanComponentParts: [],
+        // v1.5：人工判定三数组（注意 snake_case → camelCase：
+        // esdi_override→esdiOverride, safety_affected→safetyAffected,
+        // part_key→partKey, layer_key→layerKey, unit_uuid→unitUuid,
+        // span_uuid→spanUuid, indicator_no→indicatorNo, element_uuid→elementUuid）
+        assessManualInputs: await buildTableData('bi_assess_manual_input'),
+        assessAbsentMarks: await buildTableData('bi_assess_absent_mark'),
+        assessSingleControlMarks: await buildTableData('bi_assess_single_control_mark')
       }
     },
     
@@ -897,6 +919,22 @@ const fetchLatestDatabase = async (userId) => {
 
 **说明：** 此接口通常不需要主动调用，因为 `/api/v2/sync/upload` 已经返回了 SQLite 下载地址。仅在需要单独获取最新数据库时使用。
 
+### 3.4 5230 评定端点（v1.5，Web 会话认证，非离线通道）
+
+人工判定三数组只负责把现场判定送进服务端，**不含计算**。评定计算与结果查询是
+`/biz/assess5230` 下的在线接口（走管理端 Shiro 会话，与 `/api/v2` JWT 不同；本期无输入页面，
+App 一般不直接调用，列出以便对接）：
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/biz/assess5230/task/{taskId}/tree` | GET | 结构解析预览（不落数据），返回 rootObjectId/units/warnings |
+| `/biz/assess5230/task/{taskId}/inputs` | GET | 回查任务当前三表判定输入 |
+| `/biz/assess5230/task/{taskId}/calculate` | POST | 执行评定；**幂等可重算**，四张结果表按任务先删后插 |
+| `/biz/assess5230/task/{taskId}/result` | GET | 四层结果：`{bridge, units[], spans[], elements[]}` |
+| `/biz/assess5230/singleIndicators` | GET | 3.4.5 十六项指标字典 `[{no,name}]` |
+
+> 结果表只存在于服务端 MySQL，**不在 user.db / 单桥 ZIP 内**，App 如需展示评级请调 result 接口。
+
 ---
 
 ## 4. 数据格式规范
@@ -916,6 +954,10 @@ interface SyncPayload {
   attachments: Attachment[];
   spanComponentParts?: SpanComponentPart[]; // 旧链锚定，新功能传 []
   spanElementParts?: SpanElementPart[];     // 5230 新链锚定
+  // v1.5：5230 人工判定三数组（均可缺省；字段见 §4.2 末三节）
+  assessManualInputs?: AssessManualInput[];
+  assessAbsentMarks?: AssessAbsentMark[];
+  assessSingleControlMarks?: AssessSingleControlMark[];
 }
 ```
 
@@ -1089,6 +1131,76 @@ interface Attachment {
    `minio_id → bi_file_map` 指向 MinIO）；其中**单桥 ZIP 还会把三类照片的文件本体打进包内**，
    user.db 只含指针、看图仍需访问 MinIO。
 
+#### AssessManualInput（v1.5，构件级人工判定）
+
+每任务每构件至多一行（自然唯一键 taskId + elementUuid）。检查人对构件的 EDDI/ESDI/EFI/EAI
+判定与"影响安全"标志，算法解释见正式稿 3.2 节、3.3.3。
+
+```typescript
+interface AssessManualInput {
+  offlineUuid: string;        // 必需，本行判定记录的稳定 UUID（幂等键）
+  offlineDeleted?: number;    // 1=删除该判定（物理删，幂等）
+  taskId: number;             // 必需，检测任务整数 ID（注意是数字不是 UUID）
+  elementUuid: string;        // 必需，→ elements[].offlineUuid；反查失败整行拒绝
+  eddi?: number;              // 人工 EDDI 耐久性标度：0/1/2；缺省按 0
+  esdiOverride?: number;      // 人工 ESDI 结构性标度：0~3；有值时覆盖病害自动 max；缺省走自动
+  efi?: number;               // 人工 EFI 功能标度：0/1/2；缺省按 0
+  eai?: number;               // 人工 EAI 影响标度：-1/0/1；仅主要构件可取非 0，否则引擎强制归零
+  safetyAffected?: number;    // 缺损是否影响桥梁安全（3.3.3）：0/1，缺省 0
+  evidence?: string;          // 判定依据，服务端超 500 字截断
+}
+```
+
+#### AssessAbsentMark（v1.5，应设未设部件标记，3.2.2-5）
+
+现场确认某评定单元/桥跨**按桥型模板应设置但实际未设置**的部件（无 PART 节点、无构件可挂）。
+引擎评定时为它注入"幻影构件"（EDI=3、保留模板原始 ω 但不参与权重重分配）。
+
+```typescript
+interface AssessAbsentMark {
+  offlineUuid: string;        // 必需
+  offlineDeleted?: number;
+  taskId: number;             // 必需
+  partKey: string;            // 必需，模板部件键，如 'bearing'/'expansionJoint'（取自 common 字典）
+  layerKey?: string;          // 可选，'deck' | 'superstructure' | 'substructure' | 'ancillary'
+  unitUuid?: string;          // 评定单元 UNIT 的 offlineUuid；null/缺省=全桥各单元广播
+  spanUuid?: string;          // 桥跨 SPAN 的 offlineUuid；null/缺省=该单元各跨广播
+  evidence?: string;          // 判定依据，≤500 字
+}
+```
+
+> `unitUuid`/`spanUuid` 非空时服务端必须反查到节点，否则整行拒绝；partKey 不属于该桥型
+> 模板时同步可落库、但执行 calculate 会报错。自然唯一键 taskId+unitUuid+spanUuid+partKey。
+
+#### AssessSingleControlMark（v1.5，单项控制命中标记，3.4.5）
+
+十六项单项控制指标（编号/名称字典见 `GET /biz/assess5230/singleIndicators`）。任一指标命中，
+全桥技术状况直接定 5 类、BCI=min(分层BCI, 40)。
+
+```typescript
+interface AssessSingleControlMark {
+  offlineUuid: string;        // 必需
+  offlineDeleted?: number;
+  taskId: number;             // 必需
+  indicatorNo: number;        // 必需，1~16
+  hit?: number;               // 0/1，缺省 1（未命中不必录行）
+  spanUuid?: string;          // 证据桥跨 UUID，可空；填了反查失败也【不阻断】（仅留痕）
+  elementUuid?: string;       // 证据构件 UUID，可空；同上 best-effort
+  evidence?: string;          // 命中依据/描述，≤500 字
+}
+```
+
+**三数组共同规则：**
+
+1. **生命周期**：与其他离线实体一致——本地生成即带 `offlineUuid`（`is_offline_data=1`），
+   随 sync/upload 提交；同 UUID 重发走更新（可改判定值/依据），撤销判定发 `offlineDeleted:1`
+   （服务端物理删除）；同步成功后以新 user.db 回灌，不本地维护级联。
+2. **逐行容错**：值域越界（如 efi=3、indicatorNo=17）/必填缺失/UUID 阻断性反查失败只拒绝该行，
+   同批其他行照常落库，整批 HTTP 仍成功；非法行在回灌包中消失，勿无限重试。
+3. **顺序依赖**：三数组在服务端管线最后处理，引用的 element/UNIT/SPAN 必须已在同批前序数组
+   或云端存在（新现场构件随同批 elements + spanElementParts 提交即可）。
+4. **只输入、不计算**：同步成功不产生评定结果；评级须显式调 calculate（§3.4）。
+
 ---
 
 ## 5. SQLite 表结构要求
@@ -1213,7 +1325,54 @@ CREATE TABLE bi_attachment (
     is_offline_data INTEGER DEFAULT 0,
     offline_deleted INTEGER DEFAULT 0
 );
+
+-- v1.5：5230 人工判定三表（user.db 下发的实际 DDL，均以 offline_uuid 为主键）
+CREATE TABLE bi_assess_manual_input (
+    offline_uuid TEXT PRIMARY KEY,
+    server_id INTEGER,               -- 服务端回灌的自增 id
+    task_id INTEGER,
+    element_id INTEGER,              -- 服务端按 element_uuid 解析回填，App 只认 element_uuid
+    element_uuid TEXT,
+    eddi INTEGER, esdi_override INTEGER, efi INTEGER, eai INTEGER,
+    safety_affected INTEGER,
+    evidence TEXT,
+    is_offline_data INTEGER DEFAULT 0,
+    offline_deleted INTEGER DEFAULT 0,
+    create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT
+);
+
+CREATE TABLE bi_assess_absent_mark (
+    offline_uuid TEXT PRIMARY KEY,
+    server_id INTEGER,
+    task_id INTEGER,
+    unit_id INTEGER, unit_uuid TEXT,
+    span_id INTEGER, span_uuid TEXT,
+    part_key TEXT, layer_key TEXT,
+    evidence TEXT,
+    is_offline_data INTEGER DEFAULT 0,
+    offline_deleted INTEGER DEFAULT 0,
+    create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT
+);
+
+CREATE TABLE bi_assess_single_control_mark (
+    offline_uuid TEXT PRIMARY KEY,
+    server_id INTEGER,
+    task_id INTEGER,
+    indicator_no INTEGER,
+    hit INTEGER,
+    span_id INTEGER, span_uuid TEXT,
+    element_id INTEGER, element_uuid TEXT,
+    evidence TEXT,
+    is_offline_data INTEGER DEFAULT 0,
+    offline_deleted INTEGER DEFAULT 0,
+    create_by TEXT, create_time TEXT, update_by TEXT, update_time TEXT, remark TEXT
+);
 ```
+
+> 三表只存在于 **user.db**（单桥 ZIP/common.db 不含）；服务端用 `INSERT OR REPLACE`
+> 按 offline_uuid 整包回灌，App 本地新录行照常置 `is_offline_data=1`，提交后由新包覆盖。
+> **评定结果四表（bi_assess_element_result / bi_span_evaluation / bi_assess_unit_result /
+> bi_assess_bridge_result）不在任何离线包中**，本地不要建表，需要时调 §3.4 result 接口。
 
 > **`upload_uuid` 生命周期（v1.4）：**
 > ① 拍照/选择文件并压缩保存时生成，与附件行一起持久化；
@@ -1600,8 +1759,10 @@ async function syncWithRetry(payload: SyncPayload): Promise<SyncResult> {
 
 ### 9.3 部分失败处理（重要：逐行容错）
 
-服务端**逐行 try/catch**：个别行失败（附件缺 minioId、锚定主体反查不到等）只累加
+服务端**逐行 try/catch**：个别行失败（附件缺 minioId、锚定主体反查不到、人工判定值域越界或
+elementUuid/unitUuid/spanUuid 反查失败等）只累加
 `SyncResultVo.failureCount/errors`，同批其他行照常落库，HTTP 状态仍为 200、`code:0`。
+例外：单项控制标记的证据 span/element UUID 反查失败**不阻断**该行（best-effort 留痕）。
 
 **当前可见性限制：** `/api/v2/sync/upload` 的 HTTP 响应固定为新 user.db 的 `{url,timestamp,size}`，
 **暂不包含** `successCount/failureCount/errors`（服务端已算出但 Controller 未透传，后续版本开放）。
@@ -1885,6 +2046,9 @@ App 在下发的 UNIT 下增量建 SPAN/LAYER/PART 时直接引用 UNIT 的 `off
 - 新 App + 旧服务端：旧服务端不认识 batch/query 端点（404），也会忽略单文件请求里的
   `uploadUuid` 字段并返回裸整数——**App 应把"端点 404 / 响应 data 是整数"作为旧服务端探测信号，
   自动回退到串行单文件 + 本地 minioId 缓存的旧逻辑**，升级服务端后再启用增强模式。
+- v1.5 三个人工判定数组（`assessManualInputs` 等）对旧服务端是载荷里的未知键，会被直接忽略
+  （不报错也不落库），回灌的 user.db 也不含三表；App 可把「calculate/result 端点 404 或回灌包缺表」
+  作为服务端未升级的信号，此时人工判定只本地暂存、待服务端升级后再随同步提交。
 
 ### Q4: 如何查看同步日志？
 
@@ -2135,9 +2299,46 @@ WHERE id = ?
       "offlineDeleted": 0
     }
   ],
-  "spanComponentParts": []
+  "spanComponentParts": [],
+  "assessManualInputs": [
+    {
+      "offlineUuid": "ami-uuid-xxx",
+      "taskId": 5001,
+      "elementUuid": "e1-uuid-xxx",
+      "eddi": 0, "esdiOverride": null, "efi": 1, "eai": 0,
+      "safetyAffected": 0,
+      "evidence": "现场判定：功能轻度缺损",
+      "offlineDeleted": 0
+    }
+  ],
+  "assessAbsentMarks": [
+    {
+      "offlineUuid": "aam-uuid-xxx",
+      "taskId": 5001,
+      "partKey": "bearing",
+      "layerKey": "superstructure",
+      "unitUuid": "std5230demo-b01-unit",
+      "spanUuid": null,
+      "evidence": "该桥未设置支座（整体式结构）",
+      "offlineDeleted": 0
+    }
+  ],
+  "assessSingleControlMarks": [
+    {
+      "offlineUuid": "asc-uuid-xxx",
+      "taskId": 5001,
+      "indicatorNo": 7,
+      "hit": 1,
+      "spanUuid": "o-span-xxx",
+      "elementUuid": "e1-uuid-xxx",
+      "evidence": "拱脚固结失效、明显变位",
+      "offlineDeleted": 0
+    }
+  ]
 }
 ```
+
+> `taskId` 取 user.db `bi_task.id`（整数）；三数组均可选，旧 App 不传时服务端按空数组处理。
 
 ### 响应示例 (同步成功 + SQLite 下载地址)
 
