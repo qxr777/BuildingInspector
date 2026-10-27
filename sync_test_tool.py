@@ -218,7 +218,6 @@ def fetch_table_data(conn, table_name):
         'offline_parent_uuid': 'parentUuid',
         'offline_building_uuid': 'buildingUuid',
         'offline_object_uuid': 'objectUuid',
-        'offline_component_uuid': 'componentUuid',
         'disease_uuid': 'diseaseUuid',
         'is_offline_data': 'isOfflineData'
     }
@@ -286,7 +285,6 @@ def main():
             "clientInfo": CLIENT_INFO,
             "buildings": fetch_table_data(conn, "bi_building"),
             "objects": fetch_table_data(conn, "bi_object"),
-            "components": fetch_table_data(conn, "bi_component"),
             "diseases": fetch_table_data(conn, "bi_disease"),
             "diseaseDetails": fetch_table_data(conn, "bi_disease_detail"),
             "attachments": attachments

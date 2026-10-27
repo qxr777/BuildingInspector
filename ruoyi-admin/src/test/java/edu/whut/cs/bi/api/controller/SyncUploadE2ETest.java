@@ -34,13 +34,9 @@ public class SyncUploadE2ETest {
     @Autowired
     private BiObjectMapper biObjectMapper;
     @Autowired
-    private ComponentMapper componentMapper;
-    @Autowired
     private DiseaseMapper diseaseMapper;
     @Autowired
     private DiseaseDetailMapper diseaseDetailMapper;
-    @Autowired
-    private IdMappingMapper idMappingMapper;
 
     private final Set<String> createdUuids = new LinkedHashSet<>();
 
@@ -56,12 +52,6 @@ public class SyncUploadE2ETest {
                 if (d != null && d.getId() != null) diseaseMapper.deleteDiseaseById(d.getId());
             } catch (Exception ignored) {}
             try {
-                Component c = componentMapper.selectByOfflineUuid(uuid);
-                if (c != null && c.getId() != null) {
-                    componentMapper.deleteComponentById(c.getId());
-                }
-            } catch (Exception ignored) {}
-            try {
                 BiObject o = biObjectMapper.selectByOfflineUuid(uuid);
                 if (o != null && o.getId() != null) biObjectMapper.deleteBiObjectById(o.getId());
             } catch (Exception ignored) {}
@@ -71,106 +61,6 @@ public class SyncUploadE2ETest {
             } catch (Exception ignored) {}
         }
         createdUuids.clear();
-    }
-
-    @Test
-    @DisplayName("E2E2-001: 完整同步流程 - 新增 Building+Object+Component+Disease")
-    public void testSyncUpload_NewData_HappyPath() {
-        String bUuid = "b1-uuid-test2-" + UUID.randomUUID();
-        String oUuid = "o1-uuid-test2-" + UUID.randomUUID();
-        String cUuid = "c1-uuid-test2-" + UUID.randomUUID();
-        String dUuid = "d1-uuid-test2-" + UUID.randomUUID();
-        String ddUuid = "dd1-uuid-test2-" + UUID.randomUUID();
-        registerCreatedUuids(bUuid, oUuid, cUuid, dUuid, ddUuid);
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("syncUuid", UUID.randomUUID().toString());
-        payload.put("clientInfo", "TestClient/1.0");
-
-        List<Map<String, Object>> buildings = new ArrayList<>();
-        Map<String, Object> building = new HashMap<>();
-        building.put("offlineUuid", bUuid);
-        building.put("name", "测试桥梁");
-        building.put("area", "武汉市");
-        building.put("line", "二环线");
-        building.put("status", "0");
-        building.put("isLeaf", "1");
-        building.put("rootObjectUuid", oUuid);
-        building.put("offlineDeleted", 0);
-        buildings.add(building);
-        payload.put("buildings", buildings);
-
-        List<Map<String, Object>> objects = new ArrayList<>();
-        Map<String, Object> rootObj = new HashMap<>();
-        rootObj.put("offlineUuid", oUuid);
-        rootObj.put("buildingUuid", bUuid);
-        rootObj.put("parentUuid", "0");
-        rootObj.put("name", "第一跨");
-        rootObj.put("status", "0");
-        rootObj.put("offlineDeleted", 0);
-        objects.add(rootObj);
-        payload.put("objects", objects);
-
-        List<Map<String, Object>> components = new ArrayList<>();
-        Map<String, Object> comp = new HashMap<>();
-        comp.put("offlineUuid", cUuid);
-        comp.put("objectUuid", oUuid);
-        comp.put("name", "左侧梁");
-        comp.put("code", "L01");
-        comp.put("status", "0");
-        comp.put("offlineDeleted", 0);
-        components.add(comp);
-        payload.put("components", components);
-
-        List<Map<String, Object>> diseases = new ArrayList<>();
-        Map<String, Object> disease = new HashMap<>();
-        disease.put("offlineUuid", dUuid);
-        disease.put("buildingUuid", bUuid);
-        disease.put("objectUuid", oUuid);
-        disease.put("componentUuid", cUuid);
-        disease.put("description", "梁体裂缝");
-        disease.put("type", "1");
-        disease.put("level", 2);
-        disease.put("quantity", 3);
-        disease.put("offlineDeleted", 0);
-        diseases.add(disease);
-        payload.put("diseases", diseases);
-
-        List<Map<String, Object>> details = new ArrayList<>();
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("offlineUuid", ddUuid);
-        detail.put("diseaseUuid", dUuid);
-        detail.put("reference1Location", "跨中");
-        detail.put("width", 0.3);
-        detail.put("length1", 150.0);
-        detail.put("offlineDeleted", 0);
-        details.add(detail);
-        payload.put("diseaseDetails", details);
-
-        payload.put("attachments", new ArrayList<>());
-
-        SyncResultVo result = syncUploadService.syncUpload(payload);
-
-        assertNotNull(result);
-        assertTrue(result.getSuccessCount() >= 5);
-        assertTrue(result.getErrors().isEmpty());
-
-        Building savedBuilding = buildingMapper.selectByOfflineUuid(bUuid);
-        assertNotNull(savedBuilding);
-
-        BiObject savedObject = biObjectMapper.selectByOfflineUuid(oUuid);
-        assertNotNull(savedObject);
-        // v1.6 设计：bi_object 不含 building_uuid，object→building 归属通过 bi_building.root_object_id 单向定位
-        assertEquals(savedObject.getId(), savedBuilding.getRootObjectId(), "object 应挂到 building 的 root_object_id");
-
-        Component savedComp = componentMapper.selectByOfflineUuid(cUuid);
-        assertNotNull(savedComp);
-
-        Disease savedDisease = diseaseMapper.selectByOfflineUuid(dUuid);
-        assertNotNull(savedDisease);
-
-        List<IdMapping> mappings = idMappingMapper.selectBySyncUuid((String) payload.get("syncUuid"));
-        assertFalse(mappings.isEmpty());
     }
 
     @Test
@@ -279,7 +169,6 @@ public class SyncUploadE2ETest {
         objects.add(root);
 
         payload.put("objects", objects);
-        payload.put("components", new ArrayList<>());
         payload.put("diseases", new ArrayList<>());
         payload.put("diseaseDetails", new ArrayList<>());
         payload.put("attachments", new ArrayList<>());
@@ -346,7 +235,6 @@ public class SyncUploadE2ETest {
         payload.put("syncUuid", UUID.randomUUID().toString());
         payload.put("buildings", new ArrayList<>());
         payload.put("objects", new ArrayList<>());
-        payload.put("components", new ArrayList<>());
         payload.put("diseases", new ArrayList<>());
         payload.put("diseaseDetails", new ArrayList<>());
         payload.put("attachments", new ArrayList<>());
@@ -382,7 +270,6 @@ public class SyncUploadE2ETest {
     private void fillEmptyLists(Map<String, Object> payload) {
         payload.putIfAbsent("syncUuid", UUID.randomUUID().toString());
         payload.put("objects", new ArrayList<>());
-        payload.put("components", new ArrayList<>());
         payload.put("diseases", new ArrayList<>());
         payload.put("diseaseDetails", new ArrayList<>());
         payload.put("attachments", new ArrayList<>());
@@ -404,7 +291,6 @@ public class SyncUploadE2ETest {
         payload.put("buildings", buildings);
 
         payload.put("objects", new ArrayList<>());
-        payload.put("components", new ArrayList<>());
         payload.put("diseases", new ArrayList<>());
         payload.put("diseaseDetails", new ArrayList<>());
         payload.put("attachments", new ArrayList<>());

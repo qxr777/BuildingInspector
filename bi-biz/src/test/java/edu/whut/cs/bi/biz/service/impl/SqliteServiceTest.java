@@ -255,10 +255,10 @@ class SqliteServiceTest {
             assertEquals(2, queryCount(statement,
                     "select count(1) from sqlite_master where type='table' "
                             + "and name in ('bi_element','bi_span_element_part')"));
-            // 旧链两表已不出包
+            // 旧链表 bi_component 已不出包（bi_span_component_part 已整链退役）
             assertEquals(0, queryCount(statement,
                     "select count(1) from sqlite_master where type='table' "
-                            + "and name in ('bi_component','bi_span_component_part')"));
+                            + "and name='bi_component'"));
             // 病害走新链 element_uuid：DDL 有 element_uuid、无 component_uuid，值正确落库
             assertEquals(1, queryCount(statement,
                     "select count(1) from pragma_table_info('bi_disease') where name='element_uuid'"));
@@ -670,10 +670,10 @@ class SqliteServiceTest {
             assertEquals(1, queryCount(statement, "select count(1) from bi_object"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_element"));
             assertEquals(1, queryCount(statement, "select count(1) from bi_span_element_part"));
-            // 旧链两表不存在
+            // 旧链表 bi_component 不存在（bi_span_component_part 已整链退役）
             assertEquals(0, queryCount(statement,
                     "select count(1) from sqlite_master where type='table' "
-                            + "and name in ('bi_component','bi_span_component_part')"));
+                            + "and name='bi_component'"));
             // bi_object 带主要构件标识列（评定 3.3.3 用），但不下发已冻结的单值 leaf_object_id
             assertEquals(1, queryCount(statement,
                     "select count(1) from pragma_table_info('bi_object') where name='is_main_component'"));

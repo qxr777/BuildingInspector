@@ -135,9 +135,7 @@ public class NewChainSyncUploadE2ETest {
 
     private void putEmptyLegacyLists(Map<String, Object> payload) {
         payload.put("buildings", new ArrayList<>());
-        payload.put("components", new ArrayList<>());
         payload.put("attachments", new ArrayList<>());
-        payload.put("spanComponentParts", new ArrayList<>());
     }
 
     @Test

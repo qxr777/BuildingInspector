@@ -17,7 +17,6 @@ import edu.whut.cs.bi.biz.mapper.DiseaseDetailMapper;
 import edu.whut.cs.bi.biz.mapper.DiseaseMapper;
 import edu.whut.cs.bi.biz.mapper.ElementMapper;
 import edu.whut.cs.bi.biz.mapper.IdMappingMapper;
-import edu.whut.cs.bi.biz.mapper.SpanComponentPartMapper;
 import edu.whut.cs.bi.biz.mapper.SpanElementPartMapper;
 import edu.whut.cs.bi.biz.mapper.SyncLogMapper;
 import edu.whut.cs.bi.biz.service.std.evaluation.AssessInputRowValidator;
@@ -67,8 +66,6 @@ class SyncUploadAssessMarksTest {
     private IdMappingMapper idMappingMapper;
     @Mock
     private SyncLogMapper syncLogMapper;
-    @Mock
-    private SpanComponentPartMapper spanComponentPartMapper;
     @Mock
     private ElementMapper elementMapper;
     @Mock

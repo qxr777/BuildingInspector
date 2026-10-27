@@ -66,78 +66,6 @@ public class PostSyncUploadE2ETest {
     }
 
     @Test
-    @DisplayName("PostUpload-Test1: 正常插入最小闭环")
-    void test1_insert_happyPath() throws Exception {
-        String token = loginAndGetToken();
-
-        String bUuid = rnd("t1-bld-");
-        String rootUuid = rnd("t1-obj-root-");
-        String spanUuid = rnd("t1-obj-span-");
-        String cUuid = rnd("t1-comp-");
-        String dUuid = rnd("t1-dis-");
-        String ddUuid = rnd("t1-dd-");
-
-        Map<String, Object> payload = basePayload("Test1");
-        payload.put("buildings", List.of(mapOf(
-                "offlineUuid", bUuid,
-                "name", "测试桥梁T1",
-                "isLeaf", "1",
-                "status", "0",
-                "offlineDeleted", 0,
-                "rootObjectUuid", rootUuid
-        )));
-        payload.put("objects", List.of(
-                mapOf("offlineUuid", rootUuid, "name", "上部结构", "parentUuid", "", "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0),
-                mapOf("offlineUuid", spanUuid, "name", "第1跨", "parentUuid", rootUuid, "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0)
-        ));
-        payload.put("components", List.of(mapOf(
-                "offlineUuid", cUuid,
-                "name", "主梁1",
-                "code", "T1-GL-01",
-                "status", "0",
-                "objectUuid", spanUuid,
-                "offlineDeleted", 0
-        )));
-        payload.put("diseases", List.of(mapOf(
-                "offlineUuid", dUuid,
-                "buildingUuid", bUuid,
-                "objectUuid", spanUuid,
-                "componentUuid", cUuid,
-                "taskId", 1,
-                "type", "裂缝",
-                "position", "腹板",
-                "positionNumber", 1,
-                "description", "离线裂缝",
-                "level", 1,
-                "quantity", 1,
-                "units", "m",
-                "deductPoints", 1,
-                "offlineDeleted", 0
-        )));
-        payload.put("diseaseDetails", List.of(mapOf(
-                "offlineUuid", ddUuid,
-                "diseaseUuid", dUuid,
-                "reference1Location", "距左端",
-                "reference1LocationStart", 1.2,
-                "reference1LocationEnd", 2.4,
-                "length1", 1.2,
-                "crackWidth", 0.3,
-                "offlineDeleted", 0
-        )));
-        payload.put("attachments", List.of(mapOf(
-                "offlineUuid", rnd("t1-att-"),
-                "offlineSubjectUuid", dUuid,
-                "name", "裂缝照片1.jpg",
-                "type", 1,
-                "minioId", 76115,
-                "offlineDeleted", 0
-        )));
-        JsonNode res = postUpload(token, payload, true);
-        assertUploadAccepted(res);
-        assertNotNull(buildingMapper.selectByOfflineUuid(bUuid));
-    }
-
-    @Test
     @DisplayName("PostUpload-Test2: 更新已有offlineUuid")
     void test2_update_existingOfflineUuid() throws Exception {
         String token = loginAndGetToken();
@@ -203,16 +131,6 @@ public class PostSyncUploadE2ETest {
         p3.put("diseases", List.of(mapOf("offlineUuid", rnd("t5-dis-"), "type", "裂缝", "description", "负数数量测试", "level", 1, "quantity", -1, "offlineDeleted", 0)));
         JsonNode r3 = postUpload(token, p3, true);
         assertUploadErrorOrAccepted(r3);
-
-        String bUuid = rnd("t5-bld-");
-        String oUuid = rnd("t5-obj-");
-        String cUuid = rnd("t5-comp-");
-        Map<String, Object> p4 = basePayload("Test5-4");
-        p4.put("buildings", List.of(mapOf("offlineUuid", bUuid, "name", "桥梁T5-4", "isLeaf", "1", "status", "0", "offlineDeleted", 0)));
-        p4.put("objects", List.of(mapOf("offlineUuid", oUuid, "name", "对象T5-4", "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0)));
-        p4.put("components", List.of(mapOf("offlineUuid", cUuid, "name", "构件T5-4", "code", "T5C04", "status", "0", "objectUuid", oUuid, "offlineDeleted", 0)));
-        JsonNode r4 = postUpload(token, p4, true);
-        assertUploadAccepted(r4);
     }
 
     @Test
@@ -229,29 +147,6 @@ public class PostSyncUploadE2ETest {
                 mapOf("offlineUuid", rootUuid, "name", "根节点", "parentUuid", "", "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0),
                 mapOf("offlineUuid", childUuid, "name", "子节点", "parentUuid", rootUuid, "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0)
         ));
-
-        JsonNode res = postUpload(token, payload, true);
-        assertUploadAccepted(res);
-    }
-
-    @Test
-    @DisplayName("PostUpload-Test7: 跨实体引用链")
-    void test7_cross_entity_refs() throws Exception {
-        String token = loginAndGetToken();
-        String bUuid = rnd("t7-bld-");
-        String rootUuid = rnd("t7-root-");
-        String oUuid = rnd("t7-obj-");
-        String cUuid = rnd("t7-comp-");
-        String dUuid = rnd("t7-dis-");
-
-        Map<String, Object> payload = basePayload("Test7");
-        payload.put("buildings", List.of(mapOf("offlineUuid", bUuid, "name", "桥梁T7", "isLeaf", "1", "status", "0", "offlineDeleted", 0, "rootObjectUuid", rootUuid)));
-        payload.put("objects", List.of(
-                mapOf("offlineUuid", rootUuid, "name", "上部结构", "parentUuid", "", "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0),
-                mapOf("offlineUuid", oUuid, "name", "对象T7", "parentUuid", rootUuid, "buildingUuid", bUuid, "status", "0", "offlineDeleted", 0)
-        ));
-        payload.put("components", List.of(mapOf("offlineUuid", cUuid, "name", "构件T7", "code", "T7-C01", "status", "0", "objectUuid", oUuid, "offlineDeleted", 0)));
-        payload.put("diseases", List.of(mapOf("offlineUuid", dUuid, "buildingUuid", bUuid, "objectUuid", oUuid, "componentUuid", cUuid, "type", "锈蚀", "description", "链路测试", "level", 1, "quantity", 1, "offlineDeleted", 0)));
 
         JsonNode res = postUpload(token, payload, true);
         assertUploadAccepted(res);
@@ -399,7 +294,6 @@ public class PostSyncUploadE2ETest {
         payload.put("taskId", 1);
         payload.put("buildings", new ArrayList<>());
         payload.put("objects", new ArrayList<>());
-        payload.put("components", new ArrayList<>());
         payload.put("diseases", new ArrayList<>());
         payload.put("diseaseDetails", new ArrayList<>());
         payload.put("attachments", new ArrayList<>());

@@ -5,11 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,7 +31,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -52,7 +48,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * 6) JDBC 校验闭环结果
  */
 @Tag("E2E")
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class SyncSqliteClosedLoopE2ETest {
 
     private static final String BASE_URL = System.getProperty("sync.baseUrl", "http://localhost:80");
@@ -66,311 +61,12 @@ public class SyncSqliteClosedLoopE2ETest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
-     * 顺序编排场景共享的离线 UUID：
-     * step1 先新增，step2 更新同 UUID，step3 删除同 UUID。
-     */
-    private static String orderedBuildingUuid;
-    private static String orderedDiseaseUuid;
-    private static String orderedBuildingName;
-    private static String orderedDiseaseDesc;
-    private static String orderedComponentCode;
-    private static String orderedAttachmentName;
-
-    /**
      * 外部接口健康检查：避免服务未启动时产生大量 ConnectException 堆栈。
      */
     @BeforeEach
     void ensureServerReachable() {
         Assumptions.assumeTrue(isServerReachable(),
                 () -> "外部接口不可达，请先启动服务或通过 -Dsync.baseUrl 指定可访问地址，当前=" + BASE_URL);
-    }
-
-    @Test
-    @Order(1)
-    @DisplayName("ClosedLoop-Ordered-01: 顺序编排-先新增")
-    void testOrdered01_insert_then_prepare_for_update_delete() throws Exception {
-        String token = loginAndGetToken();
-        Path baseDb = downloadUserSqlite(token, USER_ID);
-
-        orderedBuildingName = "Ordered更新桥梁-" + random5();
-        String rootUuid = uuid("e2e-ordered-root-");
-        String childUuid = uuid("e2e-ordered-child-");
-        String compUuid = uuid("e2e-ordered-comp-");
-        orderedDiseaseUuid = uuid("e2e-ordered-dis-");
-        String detailUuid = uuid("e2e-ordered-det-");
-        String attUuid = uuid("e2e-ordered-att-");
-        orderedComponentCode = "ORDER-C-" + random5();
-        orderedAttachmentName = "ordered_insert_" + random5() + ".jpg";
-
-        try (Connection c = open(baseDb)) {
-            orderedBuildingUuid = firstOfflineUuid(c, "bi_building");
-            assertNotNull(orderedBuildingUuid, "测试前置失败：bi_building 无可用 offline_uuid");
-
-            updateByOfflineUuid(c, "bi_building", orderedBuildingUuid, mapOf(
-                    "name", orderedBuildingName,
-                    "root_object_uuid", rootUuid,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_object", mapOf(
-                    "offline_uuid", rootUuid,
-                    "name", "Ordered根节点",
-                    "parent_uuid", "",
-                    "building_uuid", orderedBuildingUuid,
-                    "status", "0",
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_object", mapOf(
-                    "offline_uuid", childUuid,
-                    "name", "Ordered子节点",
-                    "parent_uuid", rootUuid,
-                    "building_uuid", orderedBuildingUuid,
-                    "status", "0",
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_component", mapOf(
-                    "offline_uuid", compUuid,
-                    "name", "Ordered构件-" + random5(),
-                    "code", orderedComponentCode,
-                    "object_uuid", childUuid,
-                    "status", "0",
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            orderedDiseaseDesc = "Ordered新增病害-" + random5();
-            insertRow(c, "bi_disease", mapOf(
-                    "offline_uuid", orderedDiseaseUuid,
-                    "building_uuid", orderedBuildingUuid,
-                    "object_uuid", childUuid,
-                    "component_uuid", compUuid,
-                    "description", orderedDiseaseDesc,
-                    "type", "1",
-                    "level", 1,
-                    "quantity", 1,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_disease_detail", mapOf(
-                    "offline_uuid", detailUuid,
-                    "disease_uuid", orderedDiseaseUuid,
-                    "reference1_location", "跨中",
-                    "length1", 2.22,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_attachment", mapOf(
-                    "offline_uuid", attUuid,
-                    "offline_subject_uuid", orderedDiseaseUuid,
-                    "name", orderedAttachmentName,
-                    "type", 1,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-        }
-
-        Map<String, Object> payload = buildPayloadFromSqlite(baseDb);
-        debugPrintUploadPayload("Ordered-01", payload);
-        preUploadAttachments(token, payload);
-        debugPrintUploadPayload("Ordered-01-after-attachment", payload);
-        JsonNode uploadRes = upload(token, payload);
-        assertSuccess(uploadRes);
-
-        Path newDb = downloadSqliteFromUploadResponse(uploadRes);
-        try (Connection c2 = open(newDb)) {
-            assertNotNull(selectOneByField(c2, "bi_building", "name", orderedBuildingName));
-            assertNotNull(selectOneByField(c2, "bi_component", "code", orderedComponentCode));
-            assertNotNull(selectOneByField(c2, "bi_disease", "description", orderedDiseaseDesc));
-            assertNotNull(selectOneByField(c2, "bi_disease_detail", "disease_uuid", orderedDiseaseUuid));
-            assertNotNull(selectOneByField(c2, "bi_attachment", "name", orderedAttachmentName));
-        }
-    }
-
-    @Test
-    @Order(2)
-    @DisplayName("ClosedLoop-Ordered-02: 顺序编排-再更新（同UUID）")
-    void testOrdered02_update_after_insert() throws Exception {
-        Assumptions.assumeTrue(orderedBuildingUuid != null && orderedDiseaseUuid != null,
-                "顺序编排前置条件不满足：Ordered-01 未成功执行（通常是服务不可达或登录失败）");
-
-        String token = loginAndGetToken();
-        Path db = downloadUserSqlite(token, USER_ID);
-
-        String updatedOrderedBuildingName = "Ordered更新后的桥梁名称-" + random5();
-        String updatedOrderedDiseaseDesc = "Ordered更新后的病害描述-" + random5();
-
-        try (Connection c = open(db)) {
-            updateByOfflineUuid(c, "bi_building", orderedBuildingUuid, mapOf(
-                    "name", updatedOrderedBuildingName,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-            updateByOfflineUuid(c, "bi_disease", orderedDiseaseUuid, mapOf(
-                    "description", updatedOrderedDiseaseDesc,
-                    "quantity", 7,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-        }
-
-        JsonNode uploadRes = upload(token, buildPayloadFromSqlite(db));
-        assertSuccess(uploadRes);
-
-        Path newDb = downloadSqliteFromUploadResponse(uploadRes);
-        try (Connection c2 = open(newDb)) {
-            Map<String, Object> b = selectOneByField(c2, "bi_building", "name", updatedOrderedBuildingName);
-            Map<String, Object> d = selectOneByField(c2, "bi_disease", "description", updatedOrderedDiseaseDesc);
-            assertNotNull(b);
-            assertNotNull(d);
-            assertEquals(updatedOrderedBuildingName, stringVal(b.get("name")));
-            assertEquals(updatedOrderedDiseaseDesc, stringVal(d.get("description")));
-        }
-    }
-
-    @Test
-    @Order(3)
-    @DisplayName("ClosedLoop-Ordered-03: 顺序编排-最后删除（同UUID）")
-    void testOrdered03_delete_after_update() throws Exception {
-        Assumptions.assumeTrue(orderedDiseaseUuid != null,
-                "顺序编排前置条件不满足：Ordered-01/02 未成功执行（通常是服务不可达或登录失败）");
-
-        String token = loginAndGetToken();
-        Path db = downloadUserSqlite(token, USER_ID);
-        String deletedOrderedDiseaseDesc = orderedDiseaseDesc;
-
-        try (Connection c = open(db)) {
-            updateByOfflineUuid(c, "bi_disease", orderedDiseaseUuid, mapOf(
-                    "is_offline_data", 1,
-                    "offline_deleted", 1
-            ));
-        }
-
-        JsonNode uploadRes = upload(token, buildPayloadFromSqlite(db));
-        assertSuccess(uploadRes);
-
-        Path newDb = downloadSqliteFromUploadResponse(uploadRes);
-        try (Connection c2 = open(newDb)) {
-            assertNull(selectOneByField(c2, "bi_disease", "description", deletedOrderedDiseaseDesc),
-                    "顺序编排删除失败：新库中仍存在该病害");
-        }
-    }
-
-    @Test
-    @DisplayName("ClosedLoop-01: 新增闭环（building/object/component/disease/detail/attachment）")
-    void test01_insert_closed_loop() throws Exception {
-        String token = loginAndGetToken();
-        Path baseDb = downloadUserSqlite(token, USER_ID);
-
-        String rootUuid = uuid("e2e-root-");
-        String childUuid = uuid("e2e-child-");
-        String compUuid = uuid("e2e-comp-");
-        String disUuid = uuid("e2e-dis-");
-        String detailUuid = uuid("e2e-det-");
-        String attUuid = uuid("e2e-att-");
-
-        String insertBuildingName = "E2E新增桥梁-" + random5();
-        String insertRootName = "根节点-" + random5();
-        String insertChildName = "子节点-" + random5();
-        String insertCompName = "E2E构件-" + random5();
-        String insertCompCode = "E2E-C-" + random5();
-        String insertDiseaseDesc = "E2E新增病害-" + random5();
-        String insertAttachmentName = "e2e_insert_" + random5() + ".jpg";
-
-        String bUuid;
-        try (Connection c = open(baseDb)) {
-            bUuid = firstOfflineUuid(c, "bi_building");
-            assertNotNull(bUuid, "测试前置失败：bi_building 无可用 offline_uuid");
-
-            updateByOfflineUuid(c, "bi_building", bUuid, mapOf(
-                    "name", insertBuildingName,
-                    "root_object_uuid", rootUuid,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_object", mapOf(
-                    "offline_uuid", rootUuid,
-                    "name", insertRootName,
-                    "parent_uuid", "",
-                    "building_uuid", bUuid,
-                    "status", "0",
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_object", mapOf(
-                    "offline_uuid", childUuid,
-                    "name", insertChildName,
-                    "parent_uuid", rootUuid,
-                    "building_uuid", bUuid,
-                    "status", "0",
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_component", mapOf(
-                    "offline_uuid", compUuid,
-                    "name", insertCompName,
-                    "code", insertCompCode,
-                    "object_uuid", childUuid,
-                    "status", "0",
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_disease", mapOf(
-                    "offline_uuid", disUuid,
-                    "building_uuid", bUuid,
-                    "object_uuid", childUuid,
-                    "component_uuid", compUuid,
-                    "description", insertDiseaseDesc,
-                    "type", "1",
-                    "level", 1,
-                    "quantity", 1,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_disease_detail", mapOf(
-                    "offline_uuid", detailUuid,
-                    "disease_uuid", disUuid,
-                    "reference1_location", "跨中",
-                    "length1", 1.23,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_attachment", mapOf(
-                    "offline_uuid", attUuid,
-                    "offline_subject_uuid", disUuid,
-                    "name", insertAttachmentName,
-                    "type", 1,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-        }
-
-        Map<String, Object> payload = buildPayloadFromSqlite(baseDb);
-        preUploadAttachments(token, payload);
-        JsonNode uploadRes = upload(token, payload);
-        assertSuccess(uploadRes);
-
-        Path newDb = downloadSqliteFromUploadResponse(uploadRes);
-        try (Connection c2 = open(newDb)) {
-            assertNotNull(selectOneByField(c2, "bi_building", "name", insertBuildingName));
-            assertNotNull(selectOneByField(c2, "bi_object", "name", insertChildName));
-            assertNotNull(selectOneByField(c2, "bi_component", "code", insertCompCode));
-            assertNotNull(selectOneByField(c2, "bi_disease", "description", insertDiseaseDesc));
-            assertNotNull(selectOneByField(c2, "bi_disease_detail", "disease_uuid", disUuid));
-            assertNotNull(selectOneByField(c2, "bi_attachment", "name", insertAttachmentName));
-        }
     }
 
     @Test
@@ -534,88 +230,6 @@ public class SyncSqliteClosedLoopE2ETest {
             assertNotNull(child);
             assertNotNull(root);
             assertEquals(stringVal(root.get("offline_uuid")), stringVal(child.get("parent_uuid")));
-        }
-    }
-
-    @Test
-    @DisplayName("ClosedLoop-06: 附件闭环（预上传成功并关联 disease）")
-    void test06_attachment_closed_loop() throws Exception {
-        String token = loginAndGetToken();
-        Path db = downloadUserSqlite(token, USER_ID);
-
-        String dUuid = uuid("e2e-att-d-");
-        String attUuid = uuid("e2e-att-");
-        String attachmentDiseaseDesc = "附件闭环病害-" + random5();
-        String attachmentName = "e2e_attachment_only_" + random5() + ".jpg";
-
-        try (Connection c = open(db)) {
-            // 选取用户 SQLite 中已存在的一条 component（优先），确保 disease 绑定到用户可见 building
-            String componentUuid = firstOfflineUuid(c, "bi_component");
-            assertNotNull(componentUuid, "测试前置失败：bi_component 无可用记录，无法构造附件闭环关联");
-
-            Map<String, Object> comp = selectByOfflineUuid(c, "bi_component", componentUuid);
-            assertNotNull(comp, "测试前置失败：无法通过 offline_uuid 获取 component 详情");
-            String objectUuid = stringVal(comp.get("object_uuid"));
-            assertNotNull(objectUuid, "测试前置失败：component.object_uuid 为空");
-
-            Map<String, Object> obj = selectByOfflineUuid(c, "bi_object", objectUuid);
-            assertNotNull(obj, "测试前置失败：无法通过 object_uuid 获取 object 详情");
-            String buildingUuid = stringVal(obj.get("building_uuid"));
-            assertNotNull(buildingUuid, "测试前置失败：object.building_uuid 为空");
-
-            // 确保关联链条实体进入本次离线增量，服务端可建立 uuidMap
-            updateByOfflineUuid(c, "bi_building", buildingUuid, mapOf(
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-            updateByOfflineUuid(c, "bi_object", objectUuid, mapOf(
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-            updateByOfflineUuid(c, "bi_component", componentUuid, mapOf(
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_disease", mapOf(
-                    "offline_uuid", dUuid,
-                    "building_uuid", buildingUuid,
-                    "object_uuid", objectUuid,
-                    "component_uuid", componentUuid,
-                    "description", attachmentDiseaseDesc,
-                    "type", "1",
-                    "level", 1,
-                    "quantity", 1,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-
-            insertRow(c, "bi_attachment", mapOf(
-                    "offline_uuid", attUuid,
-                    "offline_subject_uuid", dUuid,
-                    "name", attachmentName,
-                    "type", 1,
-                    "is_offline_data", 1,
-                    "offline_deleted", 0
-            ));
-        }
-
-        Map<String, Object> payload = buildPayloadFromSqlite(db);
-        preUploadAttachments(token, payload);
-
-        JsonNode uploadRes = upload(token, payload);
-        assertSuccess(uploadRes);
-
-        Path newDb = downloadSqliteFromUploadResponse(uploadRes);
-        try (Connection c2 = open(newDb)) {
-            Map<String, Object> att = selectOneByField(c2, "bi_attachment", "name", attachmentName);
-            Map<String, Object> disease = selectOneByField(c2, "bi_disease", "description", attachmentDiseaseDesc);
-            assertNotNull(att);
-            assertNotNull(disease);
-            assertEquals(stringVal(disease.get("offline_uuid")), stringVal(att.get("offline_subject_uuid")));
-            if (att.containsKey("minio_id")) {
-                assertNotNull(att.get("minio_id"));
-            }
         }
     }
 
@@ -882,46 +496,6 @@ public class SyncSqliteClosedLoopE2ETest {
         return MAPPER.readTree(resp.body());
     }
 
-    private void preUploadAttachments(String token, Map<String, Object> payload) throws Exception {
-        List<Map<String, Object>> atts = castListMap(payload.get("attachments"));
-        for (Map<String, Object> att : atts) {
-            Object minioId = att.get("minioId");
-            if (minioId != null && !String.valueOf(minioId).isBlank()) {
-                continue;
-            }
-            String fileName = Optional.ofNullable(att.get("name")).map(String::valueOf).orElse("e2e.jpg");
-            Long serverId = uploadAttachment(token, fileName);
-            att.put("minioId", serverId);
-        }
-    }
-
-    private Long uploadAttachment(String token, String filename) throws Exception {
-        String boundary = "----JavaE2EBoundary" + UUID.randomUUID();
-        byte[] fileBytes = "dummy-image-content".getBytes();
-
-        String part1 = "--" + boundary + "\r\n"
-                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n"
-                + "Content-Type: image/jpeg\r\n\r\n";
-        String part2 = "\r\n--" + boundary + "--\r\n";
-
-        byte[] body = concat(part1.getBytes(), fileBytes, part2.getBytes());
-
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "/api/v2/sync/attachment"))
-                .timeout(Duration.ofSeconds(30))
-                .header("Authorization", token)
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .build();
-
-        HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, resp.statusCode(), "附件预上传失败: " + resp.body());
-        JsonNode json = MAPPER.readTree(resp.body());
-        int code = json.path("code").asInt(-1);
-        assertTrue(code == 0 || code == 200, "附件预上传业务失败: " + resp.body());
-        return json.path("data").asLong();
-    }
-
     private Path downloadSqliteFromUploadResponse(JsonNode uploadRes) throws Exception {
         String url = uploadRes.path("data").path("url").asText();
         assertFalse(url.isBlank(), "upload 返回缺少 sqlite url: " + uploadRes);
@@ -962,7 +536,6 @@ public class SyncSqliteClosedLoopE2ETest {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("buildings", rowsByOffline(c, "bi_building"));
             payload.put("objects", rowsByOffline(c, "bi_object"));
-            payload.put("components", rowsByOffline(c, "bi_component"));
             payload.put("diseases", rowsByOffline(c, "bi_disease"));
             payload.put("diseaseDetails", rowsByOffline(c, "bi_disease_detail"));
             payload.put("attachments", rowsByOffline(c, "bi_attachment"));
@@ -1163,24 +736,6 @@ public class SyncSqliteClosedLoopE2ETest {
         return o == null ? null : String.valueOf(o);
     }
 
-    private static byte[] concat(byte[]... arrays) {
-        int len = 0;
-        for (byte[] arr : arrays) len += arr.length;
-        byte[] out = new byte[len];
-        int p = 0;
-        for (byte[] arr : arrays) {
-            System.arraycopy(arr, 0, out, p, arr.length);
-            p += arr.length;
-        }
-        return out;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> castListMap(Object value) {
-        if (value == null) return new ArrayList<>();
-        return (List<Map<String, Object>>) value;
-    }
-
     private static Map<String, Object> mapOf(Object... kv) {
         Map<String, Object> m = new LinkedHashMap<>();
         for (int i = 0; i < kv.length; i += 2) {
@@ -1189,14 +744,4 @@ public class SyncSqliteClosedLoopE2ETest {
         return m;
     }
 
-    private void debugPrintUploadPayload(String label, Map<String, Object> payload) throws Exception {
-        System.out.println("[E2E payload " + label + "]");
-        System.out.println("  buildings=" + castListMap(payload.get("buildings")).size());
-        System.out.println("  objects=" + castListMap(payload.get("objects")).size());
-        System.out.println("  components=" + castListMap(payload.get("components")).size());
-        System.out.println("  diseases=" + castListMap(payload.get("diseases")).size());
-        System.out.println("  diseaseDetails=" + castListMap(payload.get("diseaseDetails")).size());
-        System.out.println("  attachments=" + castListMap(payload.get("attachments")).size());
-        System.out.println("[E2E payload " + label + " detail] " + MAPPER.writeValueAsString(payload));
-    }
 }
