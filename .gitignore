@@ -70,3 +70,7 @@ doc/*
 /app-end/user.db
 /app-end/user.db-shm
 /app-end/user.db-wal
+# 现场离线作业两阶段样例库由 make_demo_user_db.py 本地生成，不入库
+/app-end/user_stage*.db
+/app-end/user_stage*.db-shm
+/app-end/user_stage*.db-wal
