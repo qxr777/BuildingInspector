@@ -275,6 +275,64 @@ public class ReportGenerateTools {
 
     private static final Pattern CAUSE_POINT_PREFIX = Pattern.compile("^[（(]?\\d+[）).、．]\\s*");
 
+    private static final List<String> CAUSE_STRUCTURE_NAMES = List.of("上部结构", "下部结构", "桥面系");
+
+    /**
+     * 成因分析、处治建议的排序键：先上部结构、下部结构、桥面系，再按该层下部件的显示顺序。
+     * 只用于排序，不把这三层名称写进正文。
+     */
+    public static int[] causeStructureSortKey(Long biObjectId, Map<Long, BiObject> nodeMap) {
+        int structureRank = CAUSE_STRUCTURE_NAMES.size();
+        int componentOrder = Integer.MAX_VALUE;
+        int selfOrder = Integer.MAX_VALUE;
+        if (biObjectId == null || nodeMap == null || nodeMap.isEmpty()) {
+            return new int[]{structureRank, componentOrder, selfOrder};
+        }
+        BiObject self = nodeMap.get(biObjectId);
+        if (self != null && self.getOrderNum() != null) {
+            selfOrder = self.getOrderNum();
+        }
+        BiObject current = self;
+        int guard = 0;
+        while (current != null && guard++ < 32) {
+            String name = current.getName() == null ? "" : current.getName().trim();
+            int rank = CAUSE_STRUCTURE_NAMES.indexOf(name);
+            if (rank >= 0) {
+                structureRank = rank;
+                componentOrder = -1;
+                break;
+            }
+            Long parentId = current.getParentId();
+            BiObject parent = parentId == null ? null : nodeMap.get(parentId);
+            if (parent != null) {
+                String parentName = parent.getName() == null ? "" : parent.getName().trim();
+                int parentRank = CAUSE_STRUCTURE_NAMES.indexOf(parentName);
+                if (parentRank >= 0) {
+                    structureRank = parentRank;
+                    componentOrder = current.getOrderNum() == null ? Integer.MAX_VALUE : current.getOrderNum();
+                    break;
+                }
+            }
+            current = parent;
+        }
+        return new int[]{structureRank, componentOrder, selfOrder};
+    }
+
+    public static int compareCauseGroup(Long leftObjectId, Long rightObjectId, Long leftTypeId, Long rightTypeId,
+                                        Map<Long, BiObject> nodeMap) {
+        int[] left = causeStructureSortKey(leftObjectId, nodeMap);
+        int[] right = causeStructureSortKey(rightObjectId, nodeMap);
+        for (int i = 0; i < left.length; i++) {
+            int compared = Integer.compare(left[i], right[i]);
+            if (compared != 0) {
+                return compared;
+            }
+        }
+        long leftType = leftTypeId == null ? Long.MAX_VALUE : leftTypeId;
+        long rightType = rightTypeId == null ? Long.MAX_VALUE : rightTypeId;
+        return Long.compare(leftType, rightType);
+    }
+
     /**
      * 重点关注病害中的一条成因。单条写成「成因分析：1）…」，多条先单独写「成因分析：」再逐条编号。
      * 知识库里已有的 1) / 1） 编号会去掉后重排，右括号用全角，以便符号走宋体、数字走 Times New Roman。

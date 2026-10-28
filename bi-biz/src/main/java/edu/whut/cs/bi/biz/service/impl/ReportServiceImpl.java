@@ -6679,26 +6679,55 @@ public class ReportServiceImpl implements IReportService {
                 .map(ComponentDiseaseType::getComponentId)
                 .distinct()
                 .collect(Collectors.toList());
-        List<Disease> allDiseases = diseaseMapper.selectDiseaseComponentData(
+        Set<String> selectedKeys = combinations.stream()
+                .filter(item -> item.getComponentId() != null && item.getDiseaseTypeId() != null)
+                .map(item -> item.getComponentId() + "_" + item.getDiseaseTypeId())
+                .collect(Collectors.toSet());
+        List<Disease> loaded = diseaseMapper.selectDiseaseComponentData(
                 componentIds, building.getId(), project.getYear());
+        List<Disease> allDiseases = loaded == null ? List.of() : loaded.stream()
+                .filter(disease -> disease.getBiObjectId() != null && disease.getDiseaseTypeId() != null
+                        && selectedKeys.contains(disease.getBiObjectId() + "_" + disease.getDiseaseTypeId()))
+                .collect(Collectors.toList());
         Map<Long, Map<Long, List<Disease>>> groupedMap = allDiseases.stream()
                 .collect(Collectors.groupingBy(
                         Disease::getBiObjectId,
                         LinkedHashMap::new,
                         Collectors.groupingBy(Disease::getDiseaseTypeId, LinkedHashMap::new, Collectors.toList())
                 ));
-        for (Long biObjectId : groupedMap.keySet()) {
-            Map<Long, List<Disease>> diseaseMap = groupedMap.get(biObjectId);
-            BiObject tempBiObject = biObjectMapper.selectBiObjectById(biObjectId);
-            for (Long diseaseTypeId : diseaseMap.keySet()) {
-                List<Disease> diseases = diseaseMap.get(diseaseTypeId);
-                Disease disease = diseases.get(0);
-                titles.add(tempBiObject.getName() + disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
-                representatives.add(disease);
-                levels.add(diseases.stream().map(Disease::getLevel).filter(Objects::nonNull)
-                        .max(Integer::compareTo).orElse(null));
+        Map<Long, BiObject> nodeMap = bridgeNodeMap(building);
+        List<Map.Entry<Long, Long>> groups = new ArrayList<>();
+        groupedMap.forEach((biObjectId, diseaseMap) -> diseaseMap.keySet()
+                .forEach(diseaseTypeId -> groups.add(Map.entry(biObjectId, diseaseTypeId))));
+        groups.sort((left, right) -> ReportGenerateTools.compareCauseGroup(
+                left.getKey(), right.getKey(), left.getValue(), right.getValue(), nodeMap));
+        for (Map.Entry<Long, Long> group : groups) {
+            Long biObjectId = group.getKey();
+            List<Disease> diseases = groupedMap.get(biObjectId).get(group.getValue());
+            Disease disease = diseases.get(0);
+            BiObject tempBiObject = nodeMap.get(biObjectId);
+            if (tempBiObject == null) {
+                tempBiObject = biObjectMapper.selectBiObjectById(biObjectId);
             }
+            String objectName = tempBiObject != null && tempBiObject.getName() != null ? tempBiObject.getName() : "";
+            titles.add(objectName + disease.getType().substring(disease.getType().lastIndexOf('#') + 1));
+            representatives.add(disease);
+            levels.add(diseases.stream().map(Disease::getLevel).filter(Objects::nonNull)
+                    .max(Integer::compareTo).orElse(null));
         }
+    }
+
+    private Map<Long, BiObject> bridgeNodeMap(Building building) {
+        if (building == null || building.getRootObjectId() == null) {
+            return Collections.emptyMap();
+        }
+        List<BiObject> nodes = biObjectMapper.selectBiObjectAndChildren(building.getRootObjectId());
+        if (nodes == null || nodes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return nodes.stream()
+                .filter(node -> node.getId() != null)
+                .collect(Collectors.toMap(BiObject::getId, node -> node, (left, right) -> left));
     }
 
     /**
