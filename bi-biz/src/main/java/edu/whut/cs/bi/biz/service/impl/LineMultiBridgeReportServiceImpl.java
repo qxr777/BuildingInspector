@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.domain.dto.CauseQuery;
+import edu.whut.cs.bi.biz.domain.enums.DisposalSuggestionEnums;
 import edu.whut.cs.bi.biz.domain.enums.ReportTemplateTypes;
 import edu.whut.cs.bi.biz.domain.temp.ComponentDiseaseType;
 import edu.whut.cs.bi.biz.domain.vo.DiseaseComparisonData;
@@ -46,6 +48,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.lang.reflect.Field;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -136,6 +139,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
     @Autowired
     private IBridgeCardService bridgeCardService;
+
+    @Autowired
+    private AttachmentService attachmentService;
 
     @Autowired
     private RegularInspectionService regularInspectionService;
@@ -270,7 +276,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
                     applyGroupIdentity(bridgeDocument, group, groupTasks.get(0).getBuilding(), project);
                     processGroupChapter(bridgeDocument, group, groupTasks, project, groupData, templateBytes,
-                            importedPreviousEvaluations);
+                            importedPreviousEvaluations, lineLevelText(allReportData, "line-next-inspection-time"));
 
                     WordFieldUtils.updateAllFields(bridgeDocument);
                     bridgeDocument.getSettings().setUpdateFields();
@@ -302,7 +308,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             out.close();
 
             // Insert source XML last so existing global font/heading passes cannot erase its formatting.
-            mergeImportedWordContent(outputFile, allReportData, groups);
+            mergeImportedWordContent(outputFile, allReportData, groups, taskById);
 
             FileMap reportFileMap = fileMapService.handleFileUploadFromFile(
                     outputFile,
@@ -335,7 +341,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
     }
 
-    private void mergeImportedWordContent(File output, List<LineReportData> rows, List<LineBridgeGroup> groups) throws Exception {
+    private void mergeImportedWordContent(File output, List<LineReportData> rows, List<LineBridgeGroup> groups,
+                                          Map<Long, Task> taskById) throws Exception {
         Set<String> groupIds = groups.stream().map(LineBridgeGroup::getId).collect(Collectors.toSet());
         Map<Long, java.nio.file.Path> sources = new HashMap<>();
         List<WordImportMerger.Item> imports = new ArrayList<>();
@@ -356,7 +363,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                     }
                 }
                 boolean dropElevationPhotos = "overallOverview".equals(row.getKey())
-                        && hasUploadedOverviewPhoto(rows, row.getGroupId());
+                        && groupOverridesImportedOverviewPhotos(groups, taskById, rows, row.getGroupId());
                 imports.add(new WordImportMerger.Item(WordImportSupport.marker(row), source, ref.getStart(), ref.getEnd(),
                         dropElevationPhotos));
             }
@@ -371,7 +378,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      */
     private void processGroupChapter(XWPFDocument document, LineBridgeGroup group, List<Task> groupTasks,
                                      Project project, List<LineReportData> groupData, byte[] templateBytes,
-                                     Map<String, BiEvaluation> importedPreviousEvaluations) {
+                                     Map<String, BiEvaluation> importedPreviousEvaluations,
+                                     String nextInspectionTime) {
         if (document == null || groupTasks == null || groupTasks.isEmpty()) {
             return;
         }
@@ -410,7 +418,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             WordSectionLayoutUtils.Layouts headerLayouts = WordSectionLayoutUtils.snapshot(document);
 
             boolean importedOverview = WordImportSupport.isImported(dataMap.get("overallOverview"));
-            boolean replaceImportedPhotos = importedOverview && hasUploadedOverviewPhoto(dataMap);
+            OverviewPhotos matchedPhotos = matchGroupOverviewPhotos(groupTasks);
+            boolean replaceImportedPhotos = importedOverview
+                    && (hasUploadedOverviewPhoto(dataMap) || matchedPhotos.hasAny());
             if (importedOverview) WordImportSupport.prepare(document, dataMap.get("overallOverview"), replaceImportedPhotos);
             else replaceOverallOverviewInBridgeBlock(document, valueOf(dataMap, "overallOverview"));
             removeTechnicalStandardInBridgeBlock(document);
@@ -418,7 +428,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 removeHeadingSection(document, "空间变位检测结果");
                 removeHeadingSection(document, "墩台倾斜度");
             }
-            if (!importedOverview || replaceImportedPhotos) insertGroupOverviewImages(document, dataMap);
+            if (!importedOverview || replaceImportedPhotos) insertGroupOverviewImages(document, dataMap, matchedPhotos);
 
             XWPFParagraph appendixHeading = findBridgeBlockHeading(document, "附表");
             XWPFParagraph blockEnd = ReportGenerateTools.findParagraphByPlaceholder(document, "${line.bridge-block-end}");
@@ -428,10 +438,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
             insertHeadingBeforePlaceholder(document, "${testConclusion}", "检测结论", 4);
             insertHeadingBeforePlaceholder(document, "${technicalAdvice}", "技术建议", 4);
+            AtomicInteger chapter3TableCounter = new AtomicInteger(1);
             processGroupAutoGeneratedContent(document, groupName, project, groupTasks, dataMap,
-                    importedPreviousEvaluations);
-            processGroupUserData(document, chapterData, groupTasks, dataMap, project);
-            fillAppendixForGroup(document, groupTasks, project, templateBytes, groupData);
+                    importedPreviousEvaluations, chapter3TableCounter);
+            processGroupUserData(document, chapterData, groupTasks, dataMap, project, chapter3TableCounter);
+            fillAppendixForGroup(document, groupTasks, project, templateBytes, groupData, nextInspectionTime);
             WordSectionLayoutUtils.rebindHeadersByOrientation(document, headerLayouts);
             WordFieldUtils.updateAllFields(document);
         } catch (Exception e) {
@@ -1115,8 +1126,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     private void processGroupAutoGeneratedContent(XWPFDocument document, String groupName,
                                                   Project project, List<Task> groupTasks,
                                                   Map<String, ReportData> dataMap,
-                                                  Map<String, BiEvaluation> importedPreviousEvaluations) {
-        AtomicInteger chapter3TableCounter = new AtomicInteger(1);
+                                                  Map<String, BiEvaluation> importedPreviousEvaluations,
+                                                  AtomicInteger chapter3TableCounter) {
+        if (chapter3TableCounter == null) {
+            chapter3TableCounter = new AtomicInteger(1);
+        }
         try {
             processAppearanceCheck(document, groupTasks, project.getId(), chapter3TableCounter,
                     parseAppearanceImageSelection(dataMap));
@@ -2111,7 +2125,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      */
     private void processGroupUserData(XWPFDocument document, List<ReportData> reportDataList,
                                       List<Task> groupTasks, Map<String, ReportData> dataMap,
-                                      Project project) {
+                                      Project project, AtomicInteger chapter3TableCounter) {
         Task firstTask = groupTasks == null || groupTasks.isEmpty() ? null : groupTasks.get(0);
         Building firstBuilding = firstTask == null ? null : firstTask.getBuilding();
         for (ReportData data : reportDataList) {
@@ -2135,7 +2149,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                     WordImportSupport.prepare(document, data);
                     continue;
                 }
-                if (isSurroundingEnvironmentKey(key)) {
+                if (isSurroundingEnvironmentKey(key) || isSurroundingEnvironmentItemKey(key)) {
                     continue;
                 }
 
@@ -2157,8 +2171,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         try {
             ReportData environmentData = findSurroundingEnvironmentData(dataMap);
-            generateBridgeSiteEnvironment(document, groupTasks,
-                    environmentData == null ? null : environmentData.getValue());
+            generateBridgeSiteEnvironment(document, groupTasks, dataMap,
+                    environmentData == null ? null : environmentData.getValue(), chapter3TableCounter);
         } catch (Exception e) {
             log.error("生成桥址周边环境调查内容失败: buildingId={}",
                     firstBuilding == null ? null : firstBuilding.getId(), e);
@@ -2220,7 +2234,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      * </ul>
      */
     private void generateBridgeSiteEnvironment(XWPFDocument document, List<Task> groupTasks,
-                                               String manualSummary) throws Exception {
+                                               Map<String, ReportData> dataMap, String manualSummary,
+                                               AtomicInteger chapter3TableCounter) throws Exception {
         if (document == null || groupTasks == null || groupTasks.isEmpty()) {
             return;
         }
@@ -2228,6 +2243,12 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         XWPFParagraph anchor = findSurroundingEnvironmentAnchor(document);
         if (anchor == null) {
             log.warn("多桥模板未找到“周边环境调查”锚点，跳过桥址周边环境导出");
+            return;
+        }
+
+        List<EnvironmentEntry> uploaded = parseSurroundingEnvironmentItems(dataMap);
+        if (!uploaded.isEmpty()) {
+            generateUploadedBridgeSiteEnvironment(document, anchor, uploaded, chapter3TableCounter);
             return;
         }
 
@@ -2253,7 +2274,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
         if (!environmentRecords.isEmpty()) {
             Map<Long, List<String>> imageReferences = collectEnvironmentImageReferences(environmentRecords);
-            WordFieldUtils.createTableCaption(document, "周边环境检查结果一览表", cursor, 3);
+            WordFieldUtils.createTableCaptionWithCounter(document, "周边环境检查结果一览表", cursor, 3,
+                    chapter3TableCounter == null ? new AtomicInteger(1) : chapter3TableCounter);
             XWPFTable table = document.insertNewTbl(cursor);
             cursor.toNextToken();
             populateBridgeSiteEnvironmentTable(table, environmentRecords, imageReferences);
@@ -2390,15 +2412,17 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             XWPFTableRow row = table.getRow(i + 1);
             setTableCell(row, 0, String.valueOf(i + 1));
             setTableCell(row, 1, environmentLocation(record));
-            setTableCell(row, 2, environmentDescription(record), false, ParagraphAlignment.LEFT);
+            setTableCell(row, 2, environmentDescription(record), false, ParagraphAlignment.CENTER);
             setEnvironmentPhotoReferenceCell(row, 3, imageReferences.get(record.getId()));
             setTableCell(row, 4, "/");
         }
     }
 
     private void applyBridgeSiteEnvironmentTableLayout(XWPFTable table) {
-        // 总宽 17.5 cm（9921 twips），按原列宽比例分配并保证合计一致。
-        final int[] widths = {656, 1731, 4715, 1611, 1208};
+        // 列宽 1.29、2.58、7.30、2.49、1.38 cm。表头行高 0.85 cm；数据行至少 1.0 cm，换行后继续加高。
+        final int[] widths = {
+                cmToTwips(1.29), cmToTwips(2.58), cmToTwips(7.30), cmToTwips(2.49), cmToTwips(1.38)
+        };
         CTTblPr tblPr = table.getCTTbl().getTblPr();
         if (tblPr == null) {
             tblPr = table.getCTTbl().addNewTblPr();
@@ -2419,15 +2443,32 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         for (int width : widths) {
             grid.addNewGridCol().setW(BigInteger.valueOf(width));
         }
-        for (XWPFTableRow row : table.getRows()) {
+        List<XWPFTableRow> rows = table.getRows();
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            XWPFTableRow row = rows.get(rowIndex);
+            setEnvironmentRowHeight(row, rowIndex == 0 ? 0.85 : 1.0, rowIndex == 0);
             for (int col = 0; col < widths.length; col++) {
                 XWPFTableCell cell = row.getCell(col);
                 CTTcPr tcPr = cell.getCTTc().isSetTcPr() ? cell.getCTTc().getTcPr() : cell.getCTTc().addNewTcPr();
                 CTTblWidth cellWidth = tcPr.isSetTcW() ? tcPr.getTcW() : tcPr.addNewTcW();
                 cellWidth.setW(BigInteger.valueOf(widths[col]));
                 cellWidth.setType(STTblWidth.DXA);
+                CTVerticalJc vAlign = tcPr.isSetVAlign() ? tcPr.getVAlign() : tcPr.addNewVAlign();
+                vAlign.setVal(STVerticalJc.CENTER);
             }
         }
+    }
+
+    /** 表头用固定行高；数据行用最小行高，文字换行时由 Word 加高。 */
+    private void setEnvironmentRowHeight(XWPFTableRow row, double centimeters, boolean exact) {
+        CTTrPr trPr = row.getCtRow().isSetTrPr() ? row.getCtRow().getTrPr() : row.getCtRow().addNewTrPr();
+        CTHeight height = trPr.sizeOfTrHeightArray() > 0 ? trPr.getTrHeightArray(0) : trPr.addNewTrHeight();
+        height.setVal(BigInteger.valueOf(cmToTwips(centimeters)));
+        height.setHRule(exact ? STHeightRule.EXACT : STHeightRule.AT_LEAST);
+    }
+
+    private static int cmToTwips(double centimeters) {
+        return (int) Math.round(centimeters * 567);
     }
 
     private Map<Long, List<String>> collectEnvironmentImageReferences(List<Disease> records) {
@@ -2494,6 +2535,126 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         }
         String normalized = key.replace("${", "").replace("}", "").trim();
         return "surroundingEnvironment".equals(normalized);
+    }
+
+    private boolean isSurroundingEnvironmentItemKey(String key) {
+        if (key == null) {
+            return false;
+        }
+        String normalized = key.replace("${", "").replace("}", "").trim();
+        return "surroundingEnvironmentItems".equals(normalized)
+                || normalized.startsWith("surroundingEnvImage")
+                || normalized.startsWith("envimg");
+    }
+
+    private static final class EnvironmentEntry {
+        private String location;
+        private String description;
+        private String imageName;
+        private String bookmark;
+    }
+
+    private List<EnvironmentEntry> parseSurroundingEnvironmentItems(Map<String, ReportData> dataMap) {
+        ReportData data = dataMap == null ? null : dataMap.get("surroundingEnvironmentItems");
+        if (data == null || isBlank(data.getValue())) {
+            return Collections.emptyList();
+        }
+        List<EnvironmentEntry> entries = new ArrayList<>();
+        try {
+            JsonNode root = new ObjectMapper().readTree(data.getValue());
+            if (!root.isArray()) {
+                return Collections.emptyList();
+            }
+            int index = 1;
+            for (JsonNode node : root) {
+                String location = node.path("location").asText("").trim();
+                String description = node.path("description").asText("").trim();
+                String imageKey = node.path("imageKey").asText("").trim();
+                String imageName = firstNonBlank(resolveUploadedImageName(dataMap, imageKey),
+                        resolveUploadedImageId(node.path("imageId").asText("")));
+                if (location.isEmpty() && description.isEmpty() && imageName == null) {
+                    continue;
+                }
+                EnvironmentEntry entry = new EnvironmentEntry();
+                entry.location = location.isEmpty() ? "桥址周边" : location;
+                entry.description = description.isEmpty() ? entry.location : description;
+                entry.imageName = imageName;
+                entry.bookmark = imageName == null ? null : "Figure_Environment_" + index;
+                entries.add(entry);
+                index++;
+            }
+        } catch (Exception e) {
+            log.warn("解析周边环境填报失败: {}", e.getMessage());
+        }
+        return entries;
+    }
+
+    private void generateUploadedBridgeSiteEnvironment(XWPFDocument document, XWPFParagraph anchor,
+                                                       List<EnvironmentEntry> entries,
+                                                       AtomicInteger chapter3TableCounter) throws Exception {
+        XmlCursor cursor = anchor.getCTP().newCursor();
+        String descriptions = entries.stream()
+                .map(entry -> entry.description)
+                .filter(value -> !isBlank(value))
+                .collect(Collectors.joining("，"));
+        XWPFParagraph intro = document.insertNewParagraph(cursor);
+        cursor.toNextToken();
+        if (chapter3TableCounter == null) {
+            chapter3TableCounter = new AtomicInteger(1);
+        }
+        String tableBookmark = WordFieldUtils.createTableCaptionWithCounter(
+                document, "周边环境检查结果一览表", cursor, 3, chapter3TableCounter);
+        WordFieldUtils.createChapterTableReference(intro, tableBookmark,
+                "本桥" + descriptions + "；检查结果见表", "。");
+        applyBodyFormat(intro, true);
+
+        XWPFTable table = document.insertNewTbl(cursor);
+        cursor.toNextToken();
+        populateUploadedEnvironmentTable(table, entries);
+
+        List<Pair<String, String>> images = new ArrayList<>();
+        for (EnvironmentEntry entry : entries) {
+            if (entry.imageName != null && entry.bookmark != null) {
+                images.add(Pair.of(entry.imageName, entry.bookmark + "|" + entry.description));
+            }
+        }
+        if (!images.isEmpty()) {
+            insertPairedImages(document, images, cursor);
+        }
+        clearParagraph(anchor);
+    }
+
+    private void populateUploadedEnvironmentTable(XWPFTable table, List<EnvironmentEntry> entries) {
+        XWPFTableRow firstRow = table.getRow(0);
+        while (firstRow.getTableCells().size() < 5) {
+            firstRow.createCell();
+        }
+        for (int i = 1; i < entries.size() + 1; i++) {
+            XWPFTableRow row = table.createRow();
+            while (row.getTableCells().size() < 5) {
+                row.createCell();
+            }
+        }
+        applyTableGrid(table, 5);
+        applyBridgeSiteEnvironmentTableLayout(table);
+        String[] headers = {"序号", "桥梁部位", "周边环境情况描述", "照片编号", "备注"};
+        for (int i = 0; i < headers.length; i++) {
+            setTableCell(table.getRow(0), i, headers[i], true);
+        }
+        ReportGenerateTools.setTableHeaderRepeat(table, 1);
+        for (int i = 0; i < entries.size(); i++) {
+            EnvironmentEntry entry = entries.get(i);
+            XWPFTableRow row = table.getRow(i + 1);
+            setTableCell(row, 0, String.valueOf(i + 1));
+            setTableCell(row, 1, entry.location);
+            setTableCell(row, 2, entry.description, false, ParagraphAlignment.CENTER);
+            if (entry.bookmark == null) {
+                setTableCell(row, 3, "/");
+            } else {
+                setEnvironmentPhotoReferenceCell(row, 3, Collections.singletonList(entry.bookmark + "|" + entry.description));
+            }
+            setTableCell(row, 4, "/");
+        }
     }
 
     private boolean isBlank(String value) {
@@ -3432,15 +3593,142 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                 && !isBlank(row.getValue()));
     }
 
+    private boolean groupOverridesImportedOverviewPhotos(List<LineBridgeGroup> groups, Map<Long, Task> taskById,
+                                                         List<LineReportData> rows, String groupId) {
+        if (hasUploadedOverviewPhoto(rows, groupId)) {
+            return true;
+        }
+        if (groups == null || groupId == null) {
+            return false;
+        }
+        for (LineBridgeGroup group : groups) {
+            if (group != null && groupId.equals(group.getId())) {
+                return matchGroupOverviewPhotos(resolveGroupTasks(group, taskById)).hasAny();
+            }
+        }
+        return false;
+    }
+
     /**
-     * 3.1 四张照片来自填报页上传，不再自动取桥梁卡片 newfront/newside。
-     * 整体概况若来自 Word 导入，只要本组上传了照片，就用这四张盖掉导入内容里的正立面照。
+     * 大桥四张概况照默认取子桥档案：第一座带「左幅」的桥提供左幅第一张正面照和立面照，
+     * 第一座带「右幅」的桥同样处理。没有左幅或右幅时，改用第一座子桥的四张照片。
+     * 填报页另外上传的照片优先。无论是否导入过往年 Word，这组照片都覆盖导入的正立面照。
      */
-    private void insertGroupOverviewImages(XWPFDocument document, Map<String, ReportData> dataMap) throws Exception {
-        String leftFront = resolveUploadedImageName(dataMap, "leftFront");
-        String rightFront = resolveUploadedImageName(dataMap, "rightFront");
-        String leftSide = resolveUploadedImageName(dataMap, "leftSide");
-        String rightSide = resolveUploadedImageName(dataMap, "rightSide");
+    private OverviewPhotos matchGroupOverviewPhotos(List<Task> groupTasks) {
+        OverviewPhotos photos = new OverviewPhotos();
+        if (groupTasks == null || groupTasks.isEmpty()) {
+            return photos;
+        }
+        Task first = null;
+        Task left = null;
+        Task right = null;
+        for (Task task : groupTasks) {
+            if (task == null || task.getBuilding() == null || task.getBuilding().getId() == null) {
+                continue;
+            }
+            if (first == null) {
+                first = task;
+            }
+            String name = bridgeMatchName(task);
+            if (left == null && name.contains("左幅")) {
+                left = task;
+            } else if (right == null && name.contains("右幅")) {
+                right = task;
+            }
+        }
+        if (left != null && right != null) {
+            String[] leftPhotos = firstFrontAndSide(left.getBuilding().getId());
+            String[] rightPhotos = firstFrontAndSide(right.getBuilding().getId());
+            photos.leftFront = leftPhotos[0];
+            photos.leftSide = leftPhotos[1];
+            photos.rightFront = rightPhotos[0];
+            photos.rightSide = rightPhotos[1];
+        }
+        if (first != null) {
+            String[] fallback = fourPhotos(first.getBuilding().getId());
+            if (photos.leftFront == null) {
+                photos.leftFront = fallback[0];
+            }
+            if (photos.rightFront == null) {
+                photos.rightFront = fallback[1];
+            }
+            if (photos.leftSide == null) {
+                photos.leftSide = fallback[2];
+            }
+            if (photos.rightSide == null) {
+                photos.rightSide = fallback[3];
+            }
+        }
+        return photos;
+    }
+
+    private String bridgeMatchName(Task task) {
+        return task.getBuilding() == null ? "" : safeText(task.getBuilding().getName());
+    }
+
+    /** 返回 [第一张正面照, 第一张立面照]，槽位 0 优先，没有则用槽位 1。 */
+    private String[] firstFrontAndSide(Long buildingId) {
+        String[] four = fourPhotos(buildingId);
+        return new String[] {four[0], four[2]};
+    }
+
+    /** 返回 [正面0, 正面1, 立面0, 立面1]。缺右槽时用左槽，缺左槽时用右槽。 */
+    private String[] fourPhotos(Long buildingId) {
+        String[] front = new String[2];
+        String[] side = new String[2];
+        if (buildingId == null) {
+            return new String[] {null, null, null, null};
+        }
+        List<Attachment> attachments = attachmentService.getAttachmentList(buildingId);
+        if (attachments != null) {
+            for (Attachment attachment : attachments) {
+                if (attachment == null || attachment.getName() == null || attachment.getMinioId() == null) {
+                    continue;
+                }
+                String[] parts = attachment.getName().split("_");
+                if (parts.length < 2) {
+                    continue;
+                }
+                int index;
+                try {
+                    index = Integer.parseInt(parts[0]);
+                } catch (NumberFormatException e) {
+                    continue;
+                }
+                if (index < 0 || index > 1) {
+                    continue;
+                }
+                FileMap fileMap = fileMapService.selectFileMapById(attachment.getMinioId());
+                if (fileMap == null || isBlank(fileMap.getNewName())) {
+                    continue;
+                }
+                String type = parts[1].toLowerCase(Locale.ROOT);
+                if ("newfront".equals(type) || "front".equals(type)) {
+                    front[index] = fileMap.getNewName();
+                } else if ("newside".equals(type) || "side".equals(type)) {
+                    side[index] = fileMap.getNewName();
+                }
+            }
+        }
+        String leftFront = front[0] != null ? front[0] : front[1];
+        String rightFront = front[1] != null ? front[1] : front[0];
+        String leftSide = side[0] != null ? side[0] : side[1];
+        String rightSide = side[1] != null ? side[1] : side[0];
+        return new String[] {leftFront, rightFront, leftSide, rightSide};
+    }
+
+    /**
+     * 填报页上传的照片优先，没上传的槽位用子桥档案自动匹配。
+     */
+    private void insertGroupOverviewImages(XWPFDocument document, Map<String, ReportData> dataMap,
+                                           OverviewPhotos matched) throws Exception {
+        if (matched == null) {
+            matched = new OverviewPhotos();
+        }
+        String leftFront = firstNonBlank(resolveUploadedImageName(dataMap, "leftFront"), matched.leftFront);
+        String rightFront = firstNonBlank(resolveUploadedImageName(dataMap, "rightFront"), matched.rightFront);
+        String leftSide = firstNonBlank(resolveUploadedImageName(dataMap, "leftSide"), matched.leftSide);
+        String rightSide = firstNonBlank(resolveUploadedImageName(dataMap, "rightSide"), matched.rightSide);
 
         replaceOverviewImage(document, "%{leftFront}", leftFront);
         replaceOverviewImage(document, "%{rightFront}", rightFront);
@@ -3470,12 +3758,23 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             return null;
         }
         try {
-            FileMap fileMap = fileMapService.selectFileMapById(Long.valueOf(firstId));
-            return fileMap == null ? null : fileMap.getNewName();
+            return resolveUploadedImageId(firstId);
         } catch (NumberFormatException e) {
             log.warn("概况照片ID无效: key={}, value={}", key, firstId);
             return null;
         }
+    }
+
+    private String resolveUploadedImageId(String fileId) {
+        if (isBlank(fileId)) {
+            return null;
+        }
+        String firstId = fileId.split(",")[0].trim();
+        if (firstId.isEmpty() || !firstId.chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        FileMap fileMap = fileMapService.selectFileMapById(Long.valueOf(firstId));
+        return fileMap == null ? null : fileMap.getNewName();
     }
 
 
@@ -3704,7 +4003,11 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         if (allImages.isEmpty()) {
             return;
         }
+        insertPairedImages(document, allImages, cursor);
+    }
 
+    private void insertPairedImages(XWPFDocument document, List<Pair<String, String>> allImages,
+                                    XmlCursor cursor) throws Exception {
         // 检测结果表与图片之间空一行：单倍行距，段前段后为 0
         insertSingleLineBreak(document, cursor);
 
@@ -4210,7 +4513,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
      */
     private void fillAppendixForGroup(XWPFDocument document, List<Task> groupTasks,
                                       Project project, byte[] templateBytes,
-                                      List<LineReportData> groupData) {
+                                      List<LineReportData> groupData, String nextInspectionTime) {
         if (document == null || groupTasks == null || groupTasks.isEmpty() || templateBytes == null) {
             return;
         }
@@ -4225,11 +4528,12 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
         for (Task task : groupTasks) {
             if (shouldGenerateAppendixCard(task, selectedCardTaskIds)) {
                 insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.BRIDGE_CARD,
-                        evaluationHistory.get(task.getId()));
+                        evaluationHistory.get(task.getId()), nextInspectionTime);
             }
         }
         for (Task task : groupTasks) {
-            insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.INSPECTION_TABLE, null);
+            insertAppendixPart(document, blockEnd, templateBytes, project, task, AppendixPart.INSPECTION_TABLE,
+                    null, nextInspectionTime);
         }
     }
 
@@ -4301,7 +4605,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     private void insertAppendixPart(XWPFDocument document, XWPFParagraph blockEnd, byte[] templateBytes,
-                                    Project project, Task task, AppendixPart part, JsonNode evaluationHistory) {
+                                    Project project, Task task, AppendixPart part, JsonNode evaluationHistory,
+                                    String nextInspectionTime) {
         Building building = task == null ? null : task.getBuilding();
         if (building == null) {
             return;
@@ -4313,13 +4618,19 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             if (part == AppendixPart.INSPECTION_TABLE) {
                 regularInspectionService.fillSingleBridgeRegularInspectionTable(
                         appendixSource, building, task, project, BRIDGE_CHAPTER_TEMPLATE_TYPE, true);
+                fillRegularInspectionNextTime(appendixSource, nextInspectionTime);
             } else {
                 BiEvaluation evaluation = task.getId() == null
                         ? null : biEvaluationService.selectBiEvaluationByTaskId(task.getId());
+                HistoryTableSpan currentYear = findCurrentYearHistorySpan(appendixSource);
                 bridgeCardService.processBridgeCardData(
                         appendixSource, building, BRIDGE_CHAPTER_TEMPLATE_TYPE,
                         evaluation == null ? null : evaluation.getSystemLevel());
-                applyAppendixEvaluationHistory(appendixSource, evaluationHistory);
+                if (currentYear == null) {
+                    currentYear = findCurrentYearHistorySpanByDate(appendixSource);
+                }
+                int currentYearRow = applyAppendixEvaluationHistory(appendixSource, evaluationHistory, currentYear);
+                fillCurrentYearNextTime(currentYear == null ? null : currentYear.table, currentYearRow, nextInspectionTime);
             }
             insertBodyElementCopies(document, blockEnd, appendixSource,
                     copyAppendixBodyElements(appendixSource, part));
@@ -4337,57 +4648,323 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
     }
 
     /**
-     * 卡片「桥梁检测评定历史」表头下一行，按填报覆盖五个格子。空白项保留卡片原值。
+     * 今年这次检测写在「${当前评定日期}」那一行，历史填报不改它的评定内容。
+     * 历史行的下次检测时间固定为 /。返回今年那一行的最终下标，供写入报告级下次检查时间。
      */
-    private void applyAppendixEvaluationHistory(XWPFDocument document, JsonNode history) {
-        if (document == null) {
-            return;
-        }
-        boolean hasHistory = history != null && !history.isNull();
-        String date = hasHistory ? formatYearMonthDash(historyText(history, "date")) : "";
-        String category = hasHistory ? historyText(history, "category") : "";
-        String result = hasHistory ? historyText(history, "result") : "";
-        String disposal = hasHistory ? historyText(history, "disposal") : "";
-        String next = hasHistory ? formatYear(historyText(history, "next")) : "";
-        XWPFTableRow dataRow = findEvaluationHistoryDataRow(document);
-        if (dataRow == null) {
-            if (hasHistory) {
-                log.warn("未找到桥梁检测评定历史第一行，跳过填报覆盖");
+    private int applyAppendixEvaluationHistory(XWPFDocument document, JsonNode history, HistoryTableSpan span) {
+        if (document == null || span == null) {
+            if (document != null) {
+                log.warn("未找到桥梁检测评定历史中的今年评定行，跳过历史填报");
             }
-            return;
+            return -1;
         }
-        List<XWPFTableCell> cells = dataRow.getTableCells();
-        if (isBlank(date) && !cells.isEmpty()) {
-            String current = cells.get(0).getText();
-            String dashed = formatYearMonthDash(current);
-            if (dashed.matches("\\d{4}-\\d{2}")) {
-                date = dashed;
+        List<JsonNode> entries = historyEntries(history);
+        XWPFTable table = span.table;
+        int currentYearIndex = span.currentYearIndex;
+        int firstHistory = span.headerIndex + 1;
+        if (firstHistory < 0 || currentYearIndex < firstHistory || currentYearIndex >= table.getNumberOfRows()) {
+            return currentYearIndex;
+        }
+        if (entries.isEmpty()) {
+            if (currentYearIndex > firstHistory) {
+                markHistoryNextAsSlash(table.getRow(firstHistory));
+            }
+            return currentYearIndex;
+        }
+        int originalSlots = currentYearIndex - firstHistory;
+        int slots = originalSlots;
+        while (slots < entries.size()) {
+            if (!insertHistoryRowCopy(table, Math.max(firstHistory, currentYearIndex - 1), currentYearIndex)) {
+                log.warn("桥梁检测评定历史加行失败，已写入 {} 行", slots);
+                break;
+            }
+            currentYearIndex++;
+            slots++;
+        }
+        int writable = Math.min(entries.size(), currentYearIndex - firstHistory);
+        for (int i = 0; i < writable; i++) {
+            writeHistoryEntry(table.getRow(firstHistory + i), entries.get(i), i >= originalSlots);
+        }
+        return currentYearIndex;
+    }
+
+    private String lineLevelText(List<LineReportData> rows, String key) {
+        if (rows == null || key == null) {
+            return null;
+        }
+        for (LineReportData data : rows) {
+            if (data == null || data.getTaskId() != null || !isBlank(data.getGroupId()) || data.getKey() == null) {
+                continue;
+            }
+            if (key.equals(data.getKey()) && (data.getType() == null || data.getType() == 0)) {
+                return data.getValue();
             }
         }
-        if (isBlank(date) && isBlank(category) && isBlank(result) && isBlank(disposal) && isBlank(next)) {
+        return null;
+    }
+
+    private String formatNextInspectionYear(String value) {
+        if (isBlank(value)) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d{4})").matcher(value);
+        return matcher.find() ? matcher.group(1) + "年" : "";
+    }
+
+    private void fillRegularInspectionNextTime(XWPFDocument document, String raw) {
+        String text = formatNextInspectionYear(raw);
+        if (document == null || isBlank(text)) {
             return;
         }
-        String[] values = {date, category, result, disposal, next};
-        for (int i = 0; i < values.length && i < cells.size(); i++) {
-            if (!isBlank(values[i])) {
-                setHistoryCell(cells.get(i), values[i]);
+        for (XWPFTable table : document.getTables()) {
+            for (XWPFTableRow row : table.getRows()) {
+                List<XWPFTableCell> cells = row.getTableCells();
+                for (int i = 0; i < cells.size() - 1; i++) {
+                    String cellText = cells.get(i).getText();
+                    if (cellText != null && cellText.contains("下次检查时间")) {
+                        setHistoryCell(cells.get(i + 1), text);
+                    }
+                }
             }
         }
     }
 
-    private XWPFTableRow findEvaluationHistoryDataRow(XWPFDocument document) {
+    private void fillCurrentYearNextTime(XWPFTable table, int rowIndex, String raw) {
+        String text = formatNextInspectionYear(raw);
+        if (table == null || isBlank(text) || rowIndex < 0 || rowIndex >= table.getNumberOfRows()) {
+            return;
+        }
+        List<XWPFTableCell> cells = table.getRow(rowIndex).getTableCells();
+        if (cells.size() > 4) {
+            setHistoryCell(cells.get(4), text);
+        }
+    }
+
+    private void markHistoryNextAsSlash(XWPFTableRow row) {
+        if (row == null) {
+            return;
+        }
+        List<XWPFTableCell> cells = row.getTableCells();
+        if (cells.size() > 4) {
+            setHistoryCell(cells.get(4), "/");
+        }
+        if (!cells.isEmpty()) {
+            normalizeHistoryDateCell(cells.get(0));
+        }
+    }
+
+    private void writeHistoryEntry(XWPFTableRow row, JsonNode entry, boolean clearBlanks) {
+        if (row == null || entry == null) {
+            return;
+        }
+        List<XWPFTableCell> cells = row.getTableCells();
+        if (cells.size() < 5) {
+            return;
+        }
+        String date = formatYearMonthDash(historyText(entry, "date"));
+        String category = historyText(entry, "category");
+        if (isBlank(category)) {
+            category = "定期检查";
+        }
+        String result = normalizeHistoryLevel(historyText(entry, "result"));
+        String disposal = disposalForHistoryLevel(result);
+        if (!isBlank(date)) {
+            setHistoryCell(cells.get(0), date);
+        } else if (clearBlanks) {
+            setHistoryCell(cells.get(0), "");
+        } else {
+            normalizeHistoryDateCell(cells.get(0));
+        }
+        setHistoryCell(cells.get(1), category);
+        if (!isBlank(result)) {
+            setHistoryCell(cells.get(2), result);
+            if (!isBlank(disposal)) {
+                setHistoryCell(cells.get(3), disposal);
+            }
+        } else {
+            setHistoryCell(cells.get(2), "");
+            setHistoryCell(cells.get(3), "");
+        }
+        setHistoryCell(cells.get(4), "/");
+    }
+
+    private void normalizeHistoryDateCell(XWPFTableCell cell) {
+        if (cell == null) {
+            return;
+        }
+        String current = cell.getText() == null ? "" : cell.getText().trim();
+        if (current.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return;
+        }
+        String dashed = formatYearMonthDash(current);
+        if (dashed.matches("\\d{4}-\\d{2}")) {
+            setHistoryCell(cell, dashed);
+        }
+    }
+
+    private HistoryTableSpan findCurrentYearHistorySpan(XWPFDocument document) {
+        if (document == null) {
+            return null;
+        }
         for (XWPFTable table : document.getTables()) {
             List<XWPFTableRow> rows = table.getRows();
-            for (int i = 0; i < rows.size() - 1; i++) {
-                String text = rows.get(i).getTableCells().stream()
-                        .map(XWPFTableCell::getText)
-                        .collect(Collectors.joining());
-                if (text.contains("评定时间") && text.contains("检测类别") && text.contains("下次检测时间")) {
-                    return rows.get(i + 1);
+            int header = -1;
+            int current = -1;
+            for (int i = 0; i < rows.size(); i++) {
+                String text = rowText(rows.get(i));
+                if (header < 0 && text.contains("评定时间") && text.contains("检测类别") && text.contains("下次检测时间")) {
+                    header = i;
                 }
+                if (text.contains("${当前评定日期}")) {
+                    current = i;
+                }
+            }
+            if (header >= 0 && current > header) {
+                return new HistoryTableSpan(table, header, current);
             }
         }
         return null;
+    }
+
+    private HistoryTableSpan findCurrentYearHistorySpanByDate(XWPFDocument document) {
+        if (document == null) {
+            return null;
+        }
+        for (XWPFTable table : document.getTables()) {
+            List<XWPFTableRow> rows = table.getRows();
+            int header = -1;
+            int current = -1;
+            for (int i = 0; i < rows.size(); i++) {
+                String text = rowText(rows.get(i));
+                if (header < 0 && text.contains("评定时间") && text.contains("检测类别") && text.contains("下次检测时间")) {
+                    header = i;
+                    continue;
+                }
+                if (header < 0) {
+                    continue;
+                }
+                if (text.contains("养护处治记录")) {
+                    break;
+                }
+                String first = rows.get(i).getTableCells().isEmpty() ? "" : rows.get(i).getCell(0).getText();
+                if (first != null && first.trim().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    current = i;
+                }
+            }
+            if (header >= 0 && current > header) {
+                return new HistoryTableSpan(table, header, current);
+            }
+        }
+        return null;
+    }
+
+    private String rowText(XWPFTableRow row) {
+        if (row == null) {
+            return "";
+        }
+        return row.getTableCells().stream().map(XWPFTableCell::getText).collect(Collectors.joining());
+    }
+
+    private List<JsonNode> historyEntries(JsonNode history) {
+        if (history == null || history.isNull() || history.isMissingNode()) {
+            return List.of();
+        }
+        List<JsonNode> entries = new ArrayList<>();
+        if (history.isArray()) {
+            history.forEach(node -> addHistoryEntry(entries, node));
+            return entries;
+        }
+        if (history.isObject()) {
+            addHistoryEntry(entries, history);
+        }
+        return entries;
+    }
+
+    private void addHistoryEntry(List<JsonNode> entries, JsonNode node) {
+        if (node == null || !node.isObject() || historyEntryBlank(node)) {
+            return;
+        }
+        entries.add(node);
+    }
+
+    private boolean historyEntryBlank(JsonNode entry) {
+        return isBlank(historyText(entry, "date"))
+                && isBlank(historyText(entry, "category"))
+                && isBlank(historyText(entry, "result"));
+    }
+
+    private String normalizeHistoryLevel(String result) {
+        if (isBlank(result)) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("([1-5])").matcher(result.trim());
+        return matcher.find() ? matcher.group(1) + "类" : "";
+    }
+
+    private String disposalForHistoryLevel(String level) {
+        if (isBlank(level) || !level.matches("[1-5]类")) {
+            return "";
+        }
+        String content = DisposalSuggestionEnums.getContentByLevel(level.charAt(0) - '0');
+        return content == null ? "" : content;
+    }
+
+    private boolean insertHistoryRowCopy(XWPFTable table, int sourceIndex, int insertIndex) {
+        try {
+            XWPFTableRow source = table.getRow(sourceIndex);
+            if (source == null) {
+                return false;
+            }
+            CTRow copied = (CTRow) source.getCtRow().copy();
+            XWPFTableRow inserted = table.insertNewTableRow(insertIndex);
+            if (inserted == null) {
+                return false;
+            }
+            inserted.getCtRow().set(copied);
+            refreshRowCells(table, inserted);
+            return inserted.getTableCells().size() >= 5;
+        } catch (Exception e) {
+            log.warn("复制桥梁检测评定历史行失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void refreshRowCells(XWPFTable table, XWPFTableRow row) throws ReflectiveOperationException {
+        Field field = XWPFTableRow.class.getDeclaredField("tableCells");
+        field.setAccessible(true);
+        List<XWPFTableCell> cells = (List<XWPFTableCell>) field.get(row);
+        cells.clear();
+        for (CTTc tc : row.getCtRow().getTcList()) {
+            cells.add(new XWPFTableCell(tc, row, table.getBody()));
+        }
+    }
+
+    private static final class OverviewPhotos {
+        private String leftFront;
+        private String rightFront;
+        private String leftSide;
+        private String rightSide;
+
+        private boolean hasAny() {
+            return !isBlank(leftFront) || !isBlank(rightFront) || !isBlank(leftSide) || !isBlank(rightSide);
+        }
+
+        private static boolean isBlank(String value) {
+            return value == null || value.isBlank();
+        }
+    }
+
+    private static final class HistoryTableSpan {
+        private final XWPFTable table;
+        private final int headerIndex;
+        private final int currentYearIndex;
+
+        private HistoryTableSpan(XWPFTable table, int headerIndex, int currentYearIndex) {
+            this.table = table;
+            this.headerIndex = headerIndex;
+            this.currentYearIndex = currentYearIndex;
+        }
     }
 
     private void setHistoryCell(XWPFTableCell cell, String text) {
@@ -4405,14 +4982,6 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             return "";
         }
         return node.asText("").trim();
-    }
-
-    private String formatYear(String value) {
-        if (isBlank(value)) {
-            return "";
-        }
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d{4})").matcher(value);
-        return matcher.find() ? matcher.group(1) + "年" : value;
     }
 
     private String formatYearMonthDash(String value) {

@@ -586,8 +586,7 @@ public class LineMultiBridgeReportDataController extends BaseController {
                 if (fileName == null || fileName.isEmpty()) {
                     continue;
                 }
-                int underscoreIndex = fileName.indexOf('_');
-                if (underscoreIndex > 0 && key.equals(fileName.substring(0, underscoreIndex))) {
+                if (fileName.startsWith(key + "_")) {
                     filesByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(file);
                 }
             }

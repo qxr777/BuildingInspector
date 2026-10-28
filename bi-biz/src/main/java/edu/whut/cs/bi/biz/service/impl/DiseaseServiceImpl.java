@@ -162,6 +162,17 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
+     * 当前选中的构件节点是不是这座桥的结构根节点。
+     */
+    private boolean isBuildingRoot(Long buildingId, Long biObjectId) {
+        if (buildingId == null || biObjectId == null) {
+            return false;
+        }
+        Building building = buildingMapper.selectBuildingById(buildingId);
+        return building != null && biObjectId.equals(building.getRootObjectId());
+    }
+
+    /**
      * 查询病害列表
      *
      * @param disease 病害
@@ -169,18 +180,20 @@ public class DiseaseServiceImpl implements IDiseaseService {
      */
     @Override
     public List<Disease> selectDiseaseList(Disease disease) {
-        // 这里是病害列表只有 biObjectId 一个查询条件
         Long biObjectId = disease.getBiObjectId();
         List<Disease> diseases;
 
-        if (biObjectId != null) {
+        // 选中桥梁根节点时按本桥、本项目列出全部病害。子节点仍只看该节点及其下级。
+        // 根节点若继续按现存构件树过滤，构件已删除或 bi_object_id 对不上的病害会被丢掉，平板按桥梁查询仍能看到。
+        if (biObjectId != null && !isBuildingRoot(disease.getBuildingId(), biObjectId)) {
             List<Long> biObjectIds = new ArrayList<>();
             biObjectIds.add(biObjectId);
             List<BiObject> biObjects = biObjectMapper.selectChildrenById(biObjectId);
-            biObjectIds.addAll(biObjects.stream().map(BiObject::getId).collect(Collectors.toList()));
+            biObjectIds.addAll(biObjects.stream().map(BiObject::getId).filter(Objects::nonNull).distinct().collect(Collectors.toList()));
             PageUtils.startPage();
             diseases = diseaseMapper.selectDiseaseListByBiObjectIds(biObjectIds, disease);
         } else {
+            disease.setBiObjectId(null);
             PageUtils.startPage();
             diseases = diseaseMapper.selectDiseaseList(disease);
         }
@@ -190,24 +203,34 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
             if (componentId != null) {
                 Component component = componentService.selectComponentById(componentId);
-                BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
-
-                if (parent != null) {
-                    component.setParentObjectName(parent.getName());
-                    BiObject grandBiObject = biObjectMapper.selectBiObjectById(parent.getParentId());
-                    if (grandBiObject != null) {
-                        component.setGrandObjectName(grandBiObject.getName());
+                if (component != null) {
+                    if (component.getBiObjectId() != null) {
+                        BiObject parent = biObjectMapper.selectDirectParentById(component.getBiObjectId());
+                        if (parent != null) {
+                            component.setParentObjectName(parent.getName());
+                            BiObject grandBiObject = biObjectMapper.selectBiObjectById(parent.getParentId());
+                            if (grandBiObject != null) {
+                                component.setGrandObjectName(grandBiObject.getName());
+                            }
+                        }
                     }
+                    ds.setComponent(component);
                 }
-                ds.setComponent(component);
             }
 
-            BiObject biObject = biObjectMapper.selectBiObjectById(ds.getBiObjectId());
-            ds.setBindBiObjectName(biObject.getName());
+            BiObject biObject = ds.getBiObjectId() == null ? null : biObjectMapper.selectBiObjectById(ds.getBiObjectId());
+            if (biObject != null) {
+                ds.setBindBiObjectName(biObject.getName());
+            } else if (StringUtils.isNotEmpty(ds.getBiObjectName())) {
+                ds.setBindBiObjectName(ds.getBiObjectName());
+            }
 
-            // 病害类型
-            DiseaseType diseaseType = diseaseTypeMapper.selectDiseaseTypeById(ds.getDiseaseTypeId());
-            ds.setBindType(diseaseType.getName());
+            DiseaseType diseaseType = ds.getDiseaseTypeId() == null ? null : diseaseTypeMapper.selectDiseaseTypeById(ds.getDiseaseTypeId());
+            if (diseaseType != null) {
+                ds.setBindType(diseaseType.getName());
+            } else if (StringUtils.isNotEmpty(ds.getType())) {
+                ds.setBindType(ds.getType());
+            }
 
             DiseaseDetail diseaseDetail = new DiseaseDetail();
             diseaseDetail.setDiseaseId(ds.getId());
@@ -220,7 +243,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
             if (CollUtil.isNotEmpty(diseaseImage)) {
                 diseaseImage.forEach(di -> {
                     Integer type = (Integer) di.get("type");
-                    if (type.equals(7)) {
+                    if (Integer.valueOf(7).equals(type)) {
                         ADImgs.add((String) di.get("url"));
                     } else {
                         images.add((String) di.get("url"));
@@ -301,7 +324,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
     /**
      * 批量加载纯Excel导出需要的数据。
-     * 不查询Excel未使用的病害详情、构件父级信息，也不逐条查询附件和文件映射。
+     * 病害详情用于长度、缝宽、面积；不查询构件父级信息，也不逐条查询附件和文件映射。
      */
     @Override
     public List<Disease> selectDiseaseListForExcel(List<Long> taskIds) {
@@ -331,6 +354,15 @@ public class DiseaseServiceImpl implements IDiseaseService {
                     .forEach(component -> componentMap.put(component.getId(), component));
         }
 
+        Map<Long, List<DiseaseDetail>> detailMap = new HashMap<>();
+        if (!diseaseIds.isEmpty()) {
+            for (DiseaseDetail detail : diseaseDetailMapper.selectDiseaseDetailsByDiseaseIds(diseaseIds)) {
+                if (detail.getDiseaseId() != null) {
+                    detailMap.computeIfAbsent(detail.getDiseaseId(), key -> new ArrayList<>()).add(detail);
+                }
+            }
+        }
+
         Map<Long, List<Attachment>> attachmentMap = new HashMap<>();
         List<Attachment> attachments = diseaseIds.isEmpty()
                 ? Collections.emptyList()
@@ -356,6 +388,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
         for (Disease disease : diseases) {
             disease.setComponent(componentMap.get(disease.getComponentId()));
+            disease.setDiseaseDetails(detailMap.getOrDefault(disease.getId(), new ArrayList<>()));
 
             List<String> imageUrls = new ArrayList<>();
             for (Attachment attachment : attachmentMap.getOrDefault(disease.getId(), Collections.emptyList())) {
@@ -1978,6 +2011,9 @@ public class DiseaseServiceImpl implements IDiseaseService {
         if (!localIds.isEmpty()) {
             Disease query = new Disease();
             query.setParams(new HashMap<>());
+            Disease first = diseases.get(0);
+            query.setBuildingId(first.getBuildingId());
+            query.setProjectId(first.getProjectId());
             query.getParams().put("localIds", new ArrayList<>(localIds));
             List<Disease> diseaseList = diseaseMapper.selectDiseaseListByLocalIds(query);
             for (Disease disease : diseaseList) {

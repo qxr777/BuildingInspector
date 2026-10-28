@@ -501,8 +501,10 @@
     <select id="selectDiseaseListByLocalIds" parameterType="Disease" resultMap="DiseaseResult">
         <include refid="selectDiseaseVo"/>
         <where>
+            <if test="buildingId != null">and d.building_id = #{buildingId}</if>
+            <if test="projectId != null">and d.project_id = #{projectId}</if>
             <if test="params.localIds != null and params.localIds.size() > 0">
-                d.local_id in
+                and d.local_id in
                 <foreach item="localId" collection="params.localIds" open="(" separator="," close=")">
                     #{localId}
                 </foreach>

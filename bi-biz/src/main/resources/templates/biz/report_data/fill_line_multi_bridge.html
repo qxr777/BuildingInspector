@@ -144,6 +144,79 @@
             padding: 3px;
         }
 
+        .surrounding-env-head,
+        .surrounding-env-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .surrounding-env-head {
+            margin-bottom: 6px;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .surrounding-env-row {
+            margin-bottom: 8px;
+        }
+
+        .surrounding-env-head .env-location,
+        .surrounding-env-row .env-location {
+            width: 180px;
+            flex: 0 0 180px;
+        }
+
+        .surrounding-env-head .env-description,
+        .surrounding-env-row .env-description {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .surrounding-env-head .env-photo,
+        .surrounding-env-row .env-photo {
+            width: 210px;
+            flex: 0 0 210px;
+        }
+
+        .surrounding-env-head .env-photo {
+            margin-right: 32px;
+        }
+
+        .surrounding-env-row .env-photo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .surrounding-env-row .image-preview {
+            margin: 0;
+        }
+
+        .surrounding-env-row .image-item {
+            margin: 0;
+        }
+
+        .surrounding-env-row .image-item img {
+            width: 72px;
+            height: 48px;
+            max-width: 72px;
+            max-height: 48px;
+            object-fit: cover;
+            padding: 0;
+        }
+
+        .surrounding-env-row .env-file {
+            display: none;
+        }
+
+        .surrounding-env-row .surrounding-env-remove {
+            flex: 0 0 auto;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
         textarea {
             resize: vertical;
             min-height: 100px;
@@ -275,6 +348,28 @@
                             </div>
                         </div>
 
+                        <div id="tab_line_next_inspection">
+                            <div class="panel panel-default">
+                                <div class="panel-heading">
+                                    <h4 class="panel-title">下次检查时间</h4>
+                                </div>
+                                <div class="panel-body">
+                                    <p class="text-muted">整份报告共用一份，和第二章分开保存。保存后需要重新生成报告才会写进去。</p>
+                                    <div class="form-group">
+                                        <label class="control-label" for="line-next-inspection-time">下次检查时间：</label>
+                                        <select id="line-next-inspection-time" class="form-control noselect2"
+                                                data-original-key="line-next-inspection-time" style="max-width: 240px;">
+                                            <option value="">请选择</option>
+                                        </select>
+                                        <small class="text-muted">选择年份，报告里写成 2029年。写入每座桥定期检查记录表的「27下次检查时间」，以及桥梁卡片里今年这次检测那一行的下次检测时间。历史行仍写 /。</small>
+                                    </div>
+                                    <div class="text-center">
+                                        <button type="button" class="btn btn-primary" onclick="saveTabData('tab_line_next_inspection')">保存下次检查时间</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label class="col-sm-2 control-label">当前大桥：</label>
                             <div class="col-sm-8">
@@ -316,7 +411,7 @@
                                             <textarea class="form-control" data-original-key="overallOverview" rows="8"
                                                       placeholder="填写该座大桥的整体概况（位置、规模、结构型式等）"></textarea>
                                         </div>
-                                        <p class="text-muted"><i class="fa fa-info-circle"></i> 整体概况如果是从上年 Word 导入的，这里上传的四张照片会盖掉导入内容里的正立面照。没上传时仍保留导入的旧照片。</p>
+                                        <p class="text-muted"><i class="fa fa-info-circle"></i> 生成时默认取本组第一座名称带「左幅」的子桥的第一张正面照和第一张立面照，右幅同样取第一座带「右幅」的子桥。没有左幅或右幅时，改用第一座子桥的四张照片。这组照片会盖掉往年 Word 里的正立面照。这里另外上传的照片优先于自动匹配。</p>
                                         <div class="row overview-photo-row">
                                             <div class="col-sm-6">
                                                 <div class="form-group image-upload-item">
@@ -444,11 +539,15 @@
                                         <h4 class="panel-title">3. 周边环境调查</h4>
                                     </div>
                                     <div class="panel-body">
-                                        <div class="form-group">
-                                            <label class="control-label">周边环境调查：</label>
-                                            <textarea class="form-control" data-original-key="surroundingEnvironment" rows="8"
-                                                      placeholder="填写桥梁周边地形、水文、交通、既有病害环境及对结构的影响"></textarea>
+                                        <p class="text-muted">每条上传一张照片。报告开头把情况描述连成一段，图注也用这条描述。</p>
+                                        <input type="hidden" id="surroundingEnvironmentItems" data-original-key="surroundingEnvironmentItems">
+                                        <div class="surrounding-env-head">
+                                            <span class="env-location">桥梁部位</span>
+                                            <span class="env-description">周围环境情况描述</span>
+                                            <span class="env-photo">照片</span>
                                         </div>
+                                        <div id="surroundingEnvironmentRows"></div>
+                                        <button type="button" class="btn btn-default btn-sm" id="addSurroundingEnvironmentRow">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -726,7 +825,7 @@
                                             </label>
                                         </div>
                                         <div id="appendixBridgeCardList"></div>
-                                        <p class="text-muted" style="margin-top:16px">每座子桥单独填写卡片里「桥梁检测评定历史」的第一行。评定时间选到年月，写入附表为 2026-05 这种形式，下次检测时间只填年份，检查结果选 1 到 5 类。没填的格子仍用桥梁卡片里的原值。</p>
+                                        <p class="text-muted" style="margin-top:16px">默认勾选前两座子桥，勾了几座就填几座的评定历史。点「+」可以再加一行。评定时间选到年月，写入为 2026-05。检测类别默认定期检查，检查结果自己选 1 到 5 类，处治对策按类别自动生成。历史行的下次检测时间仍写 /。今年那一行用上方的「下次检查时间」。</p>
                                         <input type="hidden" data-original-key="appendixEvaluationHistory" id="appendixEvaluationHistory">
                                         <div id="appendixHistoryForms"></div>
                                         <div class="form-group text-center" style="margin-top: 20px;">
@@ -1167,6 +1266,7 @@
     }
 
     $(function () {
+        initNextInspectionYears();
         initGroupSelector();
 
         // 初始化文件上传控件
@@ -1191,12 +1291,52 @@
             }
         });
         $(document).on('change', '.appendix-bridge-card-check', function () {
+            syncAppendixHistory();
             syncAppendixCardSelection();
+            renderAppendixHistoryForms();
         });
         $('#appendixBridgeCardSelectAll').on('change', function () {
+            syncAppendixHistory();
             var checked = $(this).prop('checked');
             $('#appendixBridgeCardList .appendix-bridge-card-check').prop('checked', checked);
             syncAppendixCardSelection();
+            renderAppendixHistoryForms();
+        });
+        $(document).on('click', '.appendix-history-add', function () {
+            syncAppendixHistory();
+            var taskId = String($(this).attr('data-task-id'));
+            var saved = parseAppendixHistory();
+            var rows = Array.isArray(saved[taskId]) ? saved[taskId].slice() : [];
+            rows.push(emptyHistoryRow());
+            saved[taskId] = rows;
+            $('#appendixEvaluationHistory').val(JSON.stringify(saved));
+            renderAppendixHistoryForms();
+        });
+        $(document).on('click', '.appendix-history-remove', function () {
+            syncAppendixHistory();
+            var taskId = String($(this).closest('.appendix-history-bridge').attr('data-task-id'));
+            var index = Number($(this).attr('data-row-index'));
+            var saved = parseAppendixHistory();
+            var rows = Array.isArray(saved[taskId]) ? saved[taskId].slice() : [];
+            if (rows.length > 1 && index >= 0 && index < rows.length) {
+                rows.splice(index, 1);
+                saved[taskId] = rows;
+                $('#appendixEvaluationHistory').val(JSON.stringify(saved));
+            }
+            renderAppendixHistoryForms();
+        });
+        $('#addSurroundingEnvironmentRow').on('click', function () {
+            appendSurroundingEnvironmentRow(emptyEnvironmentItem(), '');
+        });
+        $(document).on('click', '.surrounding-env-remove', function () {
+            $(this).closest('.surrounding-env-row').remove();
+            if ($('#surroundingEnvironmentRows .surrounding-env-row').length === 0) {
+                appendSurroundingEnvironmentRow(emptyEnvironmentItem(), '');
+            }
+        });
+        $(document).on('change', '.appendix-history-result', function () {
+            var level = $(this).val();
+            $(this).closest('.appendix-history-row').find('.appendix-history-disposal').val(disposalText(level));
         });
 
         // 监听折叠面板事件
@@ -1210,7 +1350,7 @@
         });
     });
 
-    var LINE_LEVEL_TAB_IDS = ['tab_line_project', 'tab_line_chapter2', 'tab_line_groups'];
+    var LINE_LEVEL_TAB_IDS = ['tab_line_project', 'tab_line_chapter2', 'tab_line_next_inspection', 'tab_line_groups'];
 
     function isLineLevelTab(tabId) {
         return LINE_LEVEL_TAB_IDS.indexOf(tabId) >= 0;
@@ -1275,16 +1415,18 @@
             return;
         }
         var selected = parseAppendixCardTaskIds($('#appendixBridgeCardTaskIds').val());
-        taskIds.forEach(function (taskId) {
-            var checked = selected == null || selected.indexOf(Number(taskId)) >= 0;
-            var $label = $('<label class="checkbox-inline" style="display:block;margin:6px 0;">');
+        taskIds.forEach(function (taskId, index) {
+            var checked = selected == null ? index < 2 : selected.indexOf(Number(taskId)) >= 0;
+            var $item = $('<div class="checkbox" style="margin-top:6px;margin-bottom:6px;">');
+            var $label = $('<label style="font-weight:normal;">');
             $label.append(
                 $('<input type="checkbox" class="appendix-bridge-card-check">')
                     .val(taskId)
                     .prop('checked', checked)
             );
             $label.append(document.createTextNode(' ' + taskNameById(taskId)));
-            $list.append($label);
+            $item.append($label);
+            $list.append($item);
         });
         syncAppendixCardSelectAll();
         renderAppendixHistoryForms();
@@ -1303,67 +1445,135 @@
         }
     }
 
+    var HISTORY_CATEGORIES = ['初始检查', '日常巡查', '经常检查', '定期检查', '特殊检查'];
+    var DISPOSAL_BY_LEVEL = {
+        '1类': '正常保养',
+        '2类': '修复养护、预防养护',
+        '3类': '修复养护、加固',
+        '4类': '修复养护、加固或改造',
+        '5类': '及时封闭交通，改建或重建'
+    };
+
+    function disposalText(level) {
+        return DISPOSAL_BY_LEVEL[level] || '';
+    }
+
+    function emptyHistoryRow() {
+        return {date: '', category: '定期检查', result: ''};
+    }
+
+    function normalizeHistoryRow(row) {
+        row = row || {};
+        var category = row.category || '定期检查';
+        if (category === '定期检测') {
+            category = '定期检查';
+        }
+        if (HISTORY_CATEGORIES.indexOf(category) < 0) {
+            category = '定期检查';
+        }
+        var result = /^[1-5]类$/.test(row.result || '') ? row.result : '';
+        return {date: row.date || '', category: category, result: result};
+    }
+
+    function historyRowsOf(saved, taskId) {
+        var value = saved[String(taskId)];
+        if (Array.isArray(value) && value.length > 0) {
+            return value.map(normalizeHistoryRow);
+        }
+        if (value && typeof value === 'object') {
+            return [normalizeHistoryRow(value)];
+        }
+        return [emptyHistoryRow()];
+    }
+
     function renderAppendixHistoryForms() {
         var $box = $('#appendixHistoryForms');
         if (!$box.length) {
             return;
         }
         $box.empty();
-        var taskIds = currentGroupTaskIds();
-        if (!currentGroupId || taskIds.length === 0) {
+        if (!currentGroupId) {
+            return;
+        }
+        var checkedIds = [];
+        $('#appendixBridgeCardList .appendix-bridge-card-check:checked').each(function () {
+            checkedIds.push(String($(this).val()));
+        });
+        if (checkedIds.length === 0) {
+            $box.append('<p class="text-muted">勾选子桥后填写这座桥的评定历史。</p>');
             return;
         }
         var saved = parseAppendixHistory();
-        taskIds.forEach(function (taskId) {
-            var row = saved[String(taskId)] || {};
-            var $panel = $('<div class="panel panel-default" style="margin-bottom:12px">');
-            $panel.append($('<div class="panel-heading" style="padding:8px 12px">').text(taskNameById(taskId)));
+        checkedIds.forEach(function (taskId) {
+            var rows = historyRowsOf(saved, taskId);
+            var $panel = $('<div class="panel panel-default appendix-history-bridge" style="margin-bottom:12px">')
+                .attr('data-task-id', taskId);
+            var $heading = $('<div class="panel-heading" style="padding:8px 12px;overflow:hidden">');
+            $heading.append($('<span>').text(taskNameById(taskId)));
+            $heading.append(
+                $('<button type="button" class="btn btn-default btn-xs appendix-history-add" style="float:right" title="加一行">')
+                    .text('+')
+                    .attr('data-task-id', taskId)
+            );
+            $panel.append($heading);
             var $body = $('<div class="panel-body" style="padding:12px">');
-            $body.append(historyField('评定时间', historyMonth(taskId, 'date', row.date)));
-            $body.append(historyField('检测类别', historyText(taskId, 'category', row.category, '不填则仍为定期检测')));
-            $body.append(historyField('检查结果', historyLevel(taskId, row.result)));
-            $body.append(historyField('处治对策', historyText(taskId, 'disposal', row.disposal, '不填则沿用桥梁卡片')));
-            $body.append(historyField('下次检测时间', historyYear(taskId, 'next', row.next)));
+            rows.forEach(function (row, index) {
+                $body.append(historyRowFields(row, index, rows.length > 1));
+            });
             $panel.append($body);
             $box.append($panel);
         });
     }
 
-    function historyField(label, control) {
+    function historyRowFields(row, index, canRemove) {
+        var $row = $('<div class="appendix-history-row">');
+        if (index > 0) {
+            $row.css({borderTop: '1px solid #eee', paddingTop: '10px', marginTop: '10px'});
+        }
+        var $title = $('<div style="margin-bottom:8px;overflow:hidden">');
+        $title.append($('<strong>').text('第 ' + (index + 1) + ' 行'));
+        if (canRemove) {
+            $title.append(
+                $('<button type="button" class="btn btn-link btn-xs appendix-history-remove" style="float:right;padding-top:0">')
+                    .text('删除')
+                    .attr('data-row-index', index)
+            );
+        }
+        $row.append($title);
+        var $cols = $('<div class="row">');
+        $cols.append(historyColumn('评定时间', historyMonth(row.date)));
+        $cols.append(historyColumn('检测类别', historyCategory(row.category)));
+        $cols.append(historyColumn('检查结果', historyLevel(row.result)));
+        $cols.append(historyColumn('处治对策', historyDisposal(row.result)));
+        $row.append($cols);
+        return $row;
+    }
+
+    function historyColumn(label, control) {
+        var $col = $('<div class="col-sm-3">');
         var $group = $('<div class="form-group" style="margin-bottom:8px">');
         $group.append($('<label class="control-label">').text(label));
         $group.append(control);
-        return $group;
+        $col.append($group);
+        return $col;
     }
 
-    function historyYear(taskId, field, value) {
-        var year = String(value || '').match(/\d{4}/);
-        return $('<input type="number" class="form-control appendix-history-input" min="1900" max="2100" step="1" placeholder="例如 2026">')
-            .attr('data-task-id', taskId)
-            .attr('data-history-field', field)
-            .val(year ? year[0] : '');
+    function historyMonth(value) {
+        return $('<input type="month" class="form-control appendix-history-date">').val(value || '');
     }
 
-    function historyMonth(taskId, field, value) {
-        return $('<input type="month" class="form-control appendix-history-input">')
-            .attr('data-task-id', taskId)
-            .attr('data-history-field', field)
-            .val(value || '');
+    function historyCategory(value) {
+        var $select = $('<select class="form-control appendix-history-category">');
+        HISTORY_CATEGORIES.forEach(function (category) {
+            $select.append($('<option>').val(category).text(category));
+        });
+        $select.val(value || '定期检查');
+        return $select;
     }
 
-    function historyText(taskId, field, value, placeholder) {
-        return $('<input type="text" class="form-control appendix-history-input">')
-            .attr('data-task-id', taskId)
-            .attr('data-history-field', field)
-            .attr('placeholder', placeholder || '')
-            .val(value || '');
-    }
-
-    function historyLevel(taskId, value) {
-        var $select = $('<select class="form-control appendix-history-input">')
-            .attr('data-task-id', taskId)
-            .attr('data-history-field', 'result');
-        $select.append($('<option>').val('').text('沿用桥梁卡片'));
+    function historyLevel(value) {
+        var $select = $('<select class="form-control appendix-history-result">');
+        $select.append($('<option>').val('').text('请选择'));
         ['1类', '2类', '3类', '4类', '5类'].forEach(function (level) {
             $select.append($('<option>').val(level).text(level));
         });
@@ -1371,19 +1581,29 @@
         return $select;
     }
 
+    function historyDisposal(level) {
+        return $('<input type="text" class="form-control appendix-history-disposal" readonly>')
+            .val(disposalText(level))
+            .attr('placeholder', '选择检查结果后自动生成');
+    }
+
     function syncAppendixHistory() {
-        var $inputs = $('#appendixHistoryForms .appendix-history-input');
-        if ($inputs.length === 0) {
+        var $bridges = $('#appendixHistoryForms .appendix-history-bridge');
+        if ($bridges.length === 0) {
             return;
         }
         var saved = parseAppendixHistory();
-        $inputs.each(function () {
-            var taskId = String($(this).data('task-id'));
-            var field = $(this).data('history-field');
-            if (!saved[taskId]) {
-                saved[taskId] = {};
-            }
-            saved[taskId][field] = $(this).val() || '';
+        $bridges.each(function () {
+            var taskId = String($(this).attr('data-task-id'));
+            var rows = [];
+            $(this).find('.appendix-history-row').each(function () {
+                rows.push({
+                    date: $(this).find('.appendix-history-date').val() || '',
+                    category: $(this).find('.appendix-history-category').val() || '定期检查',
+                    result: $(this).find('.appendix-history-result').val() || ''
+                });
+            });
+            saved[taskId] = rows;
         });
         $('#appendixEvaluationHistory').val(JSON.stringify(saved));
     }
@@ -1714,6 +1934,17 @@
         return null;
     }
 
+    function initNextInspectionYears() {
+        var $select = $('#line-next-inspection-time');
+        if (!$select.length || $select.find('option').length > 1) {
+            return;
+        }
+        var start = new Date().getFullYear();
+        for (var year = start; year <= start + 15; year++) {
+            $select.append($('<option>').val(String(year)).text(year + '年'));
+        }
+    }
+
     function initGroupSelector() {
         refreshGroupSelector();
         $('#lineGroupSelector').on('change', function () {
@@ -1722,6 +1953,7 @@
             }
             saveTabDataSync('tab_line_project');
             saveTabDataSync('tab_line_chapter2');
+            saveTabDataSync('tab_line_next_inspection');
             var activeHref = $('#reportTabs li.active a').attr('href');
             if (activeHref) {
                 saveTabDataSync(activeHref.replace('#', ''));
@@ -1776,6 +2008,8 @@
         $bridgePanes.find('.word-import-notice').remove();
         $bridgePanes.find('[id$="-display"]').val('请选择');
         $bridgePanes.find('.image-preview').empty();
+        $('#surroundingEnvironmentRows').empty();
+        $('#surroundingEnvironmentItems').val('');
     }
 
     // 初始化文件上传控件
@@ -1851,7 +2085,111 @@
     }
 
     // 填充表单数据
+    var environmentRowSeq = 0;
+
+    function emptyEnvironmentItem() {
+        return {id: nextEnvironmentId(), location: '', description: '', imageKey: ''};
+    }
+
+    function isEnvironmentImageKey(key) {
+        var text = String(key || '');
+        return text.indexOf('envimg') === 0 || text.indexOf('surroundingEnvImage') === 0;
+    }
+
+    function nextEnvironmentId() {
+        environmentRowSeq += 1;
+        return 'e' + Date.now() + environmentRowSeq;
+    }
+
+    // 图片保存按文件名第一个下划线前的文字对字段，字段名不能再带下划线。
+    function environmentImageKey(item) {
+        var raw = item && item.imageKey ? String(item.imageKey) : '';
+        if (raw && raw.indexOf('_') < 0) {
+            return raw;
+        }
+        return 'envimg' + nextEnvironmentId();
+    }
+
+    function appendSurroundingEnvironmentRow(item, imageValue) {
+        var imageKey = environmentImageKey(item);
+        var $row = $('<div class="surrounding-env-row">')
+            .attr('data-row-id', item.id || nextEnvironmentId())
+            .attr('data-image-key', imageKey);
+        $row.append($('<input type="text" class="form-control env-location" placeholder="如第2～6跨">').val(item.location || ''));
+        $row.append($('<input type="text" class="form-control env-description" placeholder="如第2～6跨桥下跨长江">').val(item.description || ''));
+        var $file = $('<input type="file" class="env-file" accept="image/*">').attr('data-key', imageKey);
+        var $upload = $('<div class="form-group image-upload-item env-photo">');
+        $upload.append($('<div class="image-preview">').attr('data-original-key', imageKey));
+        $upload.append($('<input type="hidden" class="image-value-holder">').attr('data-original-key', imageKey).val(imageValue || ''));
+        $upload.append($('<label class="btn btn-default btn-sm env-file-btn">').text('选择照片').append($file));
+        $row.append($upload);
+        $row.append($('<button type="button" class="btn btn-link btn-sm surrounding-env-remove">').text('删除'));
+        $('#surroundingEnvironmentRows').append($row);
+        $file.on('change', function () {
+            var file = this.files && this.files[0];
+            $row.data('pendingFile', file || null);
+            if (!file) {
+                return;
+            }
+            $row.find('.image-value-holder').val('');
+            var url = URL.createObjectURL(file);
+            $row.find('.image-preview').html('<div class="image-item"><img src="' + url + '" alt=""></div>');
+        });
+        var firstId = String(imageValue || '').split(',').map(function (id) { return id.trim(); }).filter(Boolean)[0];
+        if (firstId) {
+            var $preview = $row.find('.image-preview');
+            var loadCounter = {total: 1, loaded: 0, results: [], originalIds: []};
+            processImageUrl(firstId, 0, loadCounter, $preview);
+        }
+    }
+
+    function renderSurroundingEnvironment(raw, images) {
+        var $box = $('#surroundingEnvironmentRows');
+        if (!$box.length) {
+            return;
+        }
+        $box.empty();
+        var items = [];
+        if (raw) {
+            try {
+                var parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (Array.isArray(parsed)) {
+                    items = parsed;
+                }
+            } catch (e) {
+                items = [];
+            }
+        }
+        if (!items.length) {
+            items = [emptyEnvironmentItem()];
+        }
+        items.forEach(function (item) {
+            var storedKey = item.imageKey || '';
+            var imageValue = (images && images[storedKey]) || item.imageId || '';
+            appendSurroundingEnvironmentRow(item, imageValue);
+        });
+    }
+
+    function syncSurroundingEnvironment() {
+        var $rows = $('#surroundingEnvironmentRows .surrounding-env-row');
+        if (!$rows.length) {
+            return;
+        }
+        var items = [];
+        $rows.each(function () {
+            items.push({
+                id: $(this).attr('data-row-id') || '',
+                location: $(this).find('.env-location').val() || '',
+                description: $(this).find('.env-description').val() || '',
+                imageKey: $(this).attr('data-image-key') || '',
+                imageId: $(this).find('.image-value-holder').val() || ''
+            });
+        });
+        $('#surroundingEnvironmentItems').val(JSON.stringify(items));
+    }
+
     function fillFormData(dataList) {
+        var pendingEnvironmentImages = {};
         for (var i = 0; i < dataList.length; i++) {
             var data = dataList[i];
             var key = data.key;
@@ -1874,12 +2212,28 @@
                 }
                 $('textarea[data-original-key="' + key + '"]').val(value);
                 $('input[type="text"][data-original-key="' + key + '"]').val(value);
+                $('input[type="number"][data-original-key="' + key + '"]').val(value);
                 $('input[type="hidden"][data-original-key="' + key + '"]').val(value);
                 $('input[type="checkbox"][data-original-key="' + key + '"]').prop('checked', value === '1' || value === 'true');
+                var yearMatch = String(value || '').match(/\d{4}/);
+                $('select[data-original-key="' + key + '"]').each(function () {
+                    if (!yearMatch) {
+                        $(this).val('');
+                        return;
+                    }
+                    if ($(this).find('option[value="' + yearMatch[0] + '"]').length === 0) {
+                        $(this).append($('<option>').val(yearMatch[0]).text(yearMatch[0] + '年'));
+                    }
+                    $(this).val(yearMatch[0]);
+                });
                 if (key === 'line-project-overview') {
                     $('textarea[data-original-key="line-route-overview"]').val(value);
                 }
             } else if (type == 1) {
+                if (isEnvironmentImageKey(key)) {
+                    pendingEnvironmentImages[key] = value || '';
+                    continue;
+                }
                 if (value) {
                     var $valueHolder = $('.image-value-holder[data-original-key="' + key + '"]');
                     var $previewContainer = $('.image-preview[data-original-key="' + key + '"]');
@@ -1906,6 +2260,7 @@
             }
         }
 
+        renderSurroundingEnvironment($('#surroundingEnvironmentItems').val(), pendingEnvironmentImages);
         updateDiseaseDisplay('key-concern-diseases');
         updateDiseaseDisplay('cause-analysis');
         updateDiseaseDisplay('appearance-images');
@@ -2025,6 +2380,14 @@
         if (tabId === 'tab_12') {
             syncAppendixHistory();
         }
+        if (tabId === 'tab_3') {
+            syncSurroundingEnvironment();
+        }
+        if (tabId === 'tab_line_next_inspection') {
+            formData.append("dataKeys", "line-next-inspection-time");
+            formData.append("dataValues", ($('#line-next-inspection-time').val() || "").trim());
+            formData.append("dataTypes", "0");
+        }
         syncAppendixCardSelection();
         tabPane.find('input[type="checkbox"][data-original-key]').each(function () {
             var key = $(this).data('original-key');
@@ -2072,8 +2435,12 @@
                 }
 
                 // 添加新选择的文件
+                var $row = $(this).closest('.surrounding-env-row');
                 var fileInput = $(this).closest('.form-group').find('input[type="file"]');
-                var files = fileInput[0].files;
+                var files = fileInput.length ? fileInput[0].files : null;
+                if ((!files || !files.length) && $row.data('pendingFile')) {
+                    files = [$row.data('pendingFile')];
+                }
                 if (files && files.length > 0) {
                     for (var i = 0; i < files.length; i++) {
                         var originalName = files[i].name;
@@ -2110,7 +2477,11 @@
                     }
                     if (showLoading) {
                         $.modal.alertSuccess("保存成功");
-                        tabPane.find('input[type="file"]').fileinput('clear');
+                        tabPane.find('input[type="file"]').each(function () {
+                            if ($(this).data('fileinput')) {
+                                $(this).fileinput('clear');
+                            }
+                        });
                         loadReportData();
                     }
                 } else {
