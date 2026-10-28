@@ -677,6 +677,15 @@ public class ReportController extends BaseController {
         return AjaxResult.success(warnings);
     }
 
+    private boolean isSingleBridgeTemplate(ReportTemplate template) {
+        if (template == null || template.getName() == null || ReportTemplateTypes.isMultiBridge(template.getName())) {
+            return false;
+        }
+        ReportTemplateTypes type = ReportTemplateTypes.getEnumByDesc(template.getName());
+        return type != null && (ReportTemplateTypes.is1LevelSigleBridge(type.getType())
+                || ReportTemplateTypes.is2LevelSigleBridge(type.getType()));
+    }
+
     private boolean hasBridgeCard(Building building) {
         if (building == null || building.getRootPropertyId() == null) {
             return false;
@@ -797,15 +806,16 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("部分任务不存在");
             }
 
+            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+            if (template == null) {
+                return AjaxResult.error("报告模板不存在");
+            }
+            // 单桥没有卡片仍可生成，卡片表格留空；多桥和组合桥继续拦截。
+            boolean singleBridge = isSingleBridgeTemplate(template);
+
             if(tasks.size() == 1) {
                 Task task = tasks.get(0);
-                if (task.getBuilding().getRootPropertyId() == null) {
-                    return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
-                }
-                Property property = new Property();
-                property.setId(task.getBuilding().getRootPropertyId());
-                List<Property> properties = propertyService.selectPropertyList(property);
-                if (properties == null || properties.isEmpty()) {
+                if (!singleBridge && !hasBridgeCard(task.getBuilding())) {
                     return AjaxResult.error("该桥梁的桥梁信息卡片不存在,请通过excel导入");
                 }
                 BiEvaluation biEvaluation = biEvaluationService.selectBiEvaluationByTaskId(task.getId());
@@ -816,11 +826,6 @@ public class ReportController extends BaseController {
                 if (tasks.isEmpty()) {
                     return AjaxResult.error("未找到有效任务");
                 }
-            }
-
-            ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
-            if (template == null) {
-                return AjaxResult.error("报告模板不存在");
             }
             if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
                 tasks = lineMultiBridgeReportService.orderTasksBySelection(taskIds, tasks);

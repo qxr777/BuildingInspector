@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * 桥梁卡片生成服务实现类
@@ -98,6 +99,16 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
 //            replaceRemainingPlaceholders(document);
             // 改为excel导入 property
 
+            // 单桥没有卡片时不拿建筑字段凑数，表格保留，占位留空。
+            if (isSingleBridge(templateType) && properties.isEmpty()) {
+                log.info("单桥没有桥梁卡片，卡片表格按空数据生成。buildingId={}", building.getId());
+                processImageAttachments(document, building.getId(), templateType);
+                replaceRemainingPlaceholders(document, "");
+                clearChinesePlaceholders(document.getParagraphs());
+                ReportGenerateTools.applyMixedFontsToTables(document);
+                return;
+            }
+
             // 处理 特殊字段
             processSpecialProp(building, properties, templateType, minSystemLevel);
             ReportTemplateValueUtils.addAliasProperties(properties);
@@ -128,11 +139,35 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
                 }
             }
             // 替换 无效的 占位符。
-            replaceRemainingPlaceholders(document);
+            replaceRemainingPlaceholders(document, "/");
             ReportGenerateTools.applyMixedFontsToTables(document);
         } catch (Exception e) {
             log.error("处理桥梁卡片数据失败", e);
             throw new RuntimeException("处理桥梁卡片数据失败：" + e.getMessage());
+        }
+    }
+
+    private static boolean isSingleBridge(ReportTemplateTypes templateType) {
+        return templateType != null && (ReportTemplateTypes.is2LevelSigleBridge(templateType.getType())
+                || ReportTemplateTypes.is1LevelSigleBridge(templateType.getType()));
+    }
+
+    private static final Pattern CHINESE_PLACEHOLDER = Pattern.compile("\\$\\{[^}]*\\p{IsHan}[^}]*\\}");
+
+    /** 桥梁概况里来自卡片的中文占位符清掉，章节占位符仍留给后面的生成。 */
+    private void clearChinesePlaceholders(List<XWPFParagraph> paragraphs) {
+        if (paragraphs == null) {
+            return;
+        }
+        for (XWPFParagraph paragraph : paragraphs) {
+            String text = paragraph.getText();
+            if (text == null || !text.contains("${")) {
+                continue;
+            }
+            String replaced = CHINESE_PLACEHOLDER.matcher(text).replaceAll("");
+            if (!replaced.equals(text)) {
+                replaceTextInParagraphs(Collections.singletonList(paragraph), text, replaced, "桥梁卡片空数据", 12);
+            }
         }
     }
 
@@ -596,13 +631,13 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     /**
      * 替换剩余的占位符
      */
-    private void replaceRemainingPlaceholders(XWPFDocument document) {
+    private void replaceRemainingPlaceholders(XWPFDocument document, String blank) {
         for (XWPFTable table : document.getTables()) {
             for (XWPFTableRow row : table.getRows()) {
                 for (XWPFTableCell cell : row.getTableCells()) {
                     setCellVerticalCenter(cell);
                     for (XWPFParagraph paragraph : cell.getParagraphs()) {
-                        replaceRemainingPlaceholders(paragraph);
+                        replaceRemainingPlaceholders(paragraph, blank);
                     }
                 }
             }
@@ -629,7 +664,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
     /**
      * 替换剩余占位符的方法
      */
-    private void replaceRemainingPlaceholders(XWPFParagraph paragraph) {
+    private void replaceRemainingPlaceholders(XWPFParagraph paragraph, String blank) {
         String text = paragraph.getText();
         if (text.contains("${")) {
             // 清除段落中的所有runs
@@ -638,7 +673,7 @@ public class BridgeCardServiceImpl implements IBridgeCardService {
             }
 
             // 使用正则表达式替换所有剩余的${xxx}格式的占位符
-            String replacedText = text.replaceAll("\\$\\{[^}]*\\}", "/");
+            String replacedText = text.replaceAll("\\$\\{[^}]*\\}", blank == null ? "" : blank);
             ReportGenerateTools.setParagraphMixedFontText(
                     paragraph, replacedText, ReportGenerateTools.TABLE_FONT_HALF_POINTS);
         }

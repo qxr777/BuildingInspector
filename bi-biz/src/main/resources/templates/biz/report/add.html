@@ -135,7 +135,27 @@
 
     var taskWarningSeq = 0;
 
-    // 所选桥梁缺少桥梁卡片或评定结果时，生成报告会被拦截，这里提前提示
+    function isSingleBridgeTemplate() {
+        var name = $("#reportTemplateId option:selected").text() || "";
+        return name.indexOf("单桥") !== -1 && name.indexOf("多桥") === -1;
+    }
+
+    // 单桥缺卡片只提示，不拦截；缺评定结果或多桥缺卡片仍拦截
+    function blockingTaskWarnings(warnings) {
+        if (!isSingleBridgeTemplate()) {
+            return warnings;
+        }
+        var blocking = [];
+        $.each(warnings, function(_, warning) {
+            if (warning.indexOf("评定结果") !== -1) {
+                blocking.push(warning.replace("桥梁卡片、", "").replace("、桥梁卡片", ""));
+            } else if (warning.indexOf("缺少桥梁卡片") === -1) {
+                blocking.push(warning);
+            }
+        });
+        return blocking;
+    }
+
     function checkTaskWarnings(callback) {
         var seq = ++taskWarningSeq;
         var ids = $("#taskIdsInput").val();
@@ -165,14 +185,24 @@
 
     function renderTaskWarnings(warnings) {
         var $box = $("#taskWarnings");
-        if (!warnings.length) {
+        var blocking = blockingTaskWarnings(warnings);
+        var cardNotice = isSingleBridgeTemplate() && warnings.some(function(warning) {
+            return warning.indexOf("缺少桥梁卡片") !== -1;
+        });
+        if (!blocking.length && !cardNotice) {
             $box.hide().empty();
             return;
         }
-        $box.empty().append($("<div>").text("以下桥梁暂时无法生成报告，请先补齐："));
-        $.each(warnings, function(i, warning) {
-            $box.append($("<div>").text("· " + warning));
-        });
+        $box.empty();
+        if (blocking.length) {
+            $box.append($("<div>").text("以下桥梁暂时无法生成报告，请先补齐："));
+            $.each(blocking, function(i, warning) {
+                $box.append($("<div>").text("· " + warning));
+            });
+        }
+        if (cardNotice) {
+            $box.append($("<div>").text("没有桥梁卡片信息"));
+        }
         $box.show();
     }
 
@@ -264,11 +294,12 @@
             var save = function() {
                 $.operate.save(prefix + "/add", $('#form-report-add').serialize());
             };
-            if (!warnings.length) {
+            var blocking = blockingTaskWarnings(warnings);
+            if (!blocking.length) {
                 save();
                 return;
             }
-            $.modal.confirm("以下桥梁暂时无法生成报告：<br>" + warnings.map(escapeTaskWarning).join("<br>")
+            $.modal.confirm("以下桥梁暂时无法生成报告：<br>" + blocking.map(escapeTaskWarning).join("<br>")
                 + "<br>补齐后才能生成。仍要保存报告吗？", save);
         });
     }
