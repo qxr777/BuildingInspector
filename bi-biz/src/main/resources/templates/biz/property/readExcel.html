@@ -16,6 +16,12 @@
             <label class="col-sm-3 control-label">操作说明：</label>
             <div class="col-sm-8">
                 <span class="help-block"><i class="fa fa-info-circle"></i> 仅支持Excel文件</span>
+                <p class="help-block" style="margin-top:8px;">
+                    <a th:href="@{/file/bridge-card-excel-import-template.xlsx}"
+                       download="桥梁综合信息列表导入模板.xlsx">
+                        <i class="fa fa-download"></i> 下载Excel导入模板
+                    </a>
+                </p>
             </div>
         </div>
     </form>

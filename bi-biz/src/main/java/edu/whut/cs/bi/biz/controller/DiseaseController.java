@@ -145,6 +145,108 @@ public class DiseaseController extends BaseController {
     @Log(title = "病害", businessType = BusinessType.EXPORT)
     @PostMapping("/exportApparentReport")
     public void exportApparentReport(Disease disease, HttpServletResponse response) throws IOException {
+        writeApparentReport(response, buildApparentReportFile(disease));
+    }
+
+    /**
+     * 批量导出多个任务的构件表观病害检查记录表。单任务直接下载 Word，多任务打成 zip。
+     */
+    @RequiresPermissions("biz:disease:export")
+    @Log(title = "批量导出表观病害记录表", businessType = BusinessType.EXPORT)
+    @GetMapping("/batchExportApparentReport")
+    public void batchExportApparentReport(@RequestParam("taskIds") String taskIds,
+                                          HttpServletResponse response) throws IOException {
+        List<Long> taskIdList = parseTaskIds(taskIds);
+        if (taskIdList.isEmpty()) {
+            return;
+        }
+
+        if (taskIdList.size() == 1) {
+            Task task = taskService.selectTaskById(taskIdList.get(0));
+            if (task == null) {
+                return;
+            }
+            writeApparentReport(response, buildApparentReportFile(diseaseQueryForTask(task)));
+            return;
+        }
+
+        response.setContentType("application/zip");
+        String zipFileName = URLEncoder.encode("构件表观病害检查记录表.zip", StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + zipFileName + "\"");
+        response.setHeader("Cache-Control", "no-store, no-cache");
+
+        Set<String> usedNames = new HashSet<>();
+        try (ZipOutputStream zipOut = new ZipOutputStream(response.getOutputStream())) {
+            for (Long taskId : taskIdList) {
+                Task task = taskService.selectTaskById(taskId);
+                if (task == null) {
+                    continue;
+                }
+                ApparentReportFile file = buildApparentReportFile(diseaseQueryForTask(task));
+                String entryName = uniqueZipEntryName(file.fileName, usedNames);
+                zipOut.putNextEntry(new ZipEntry(entryName));
+                zipOut.write(file.content);
+                zipOut.closeEntry();
+            }
+            zipOut.flush();
+        }
+    }
+
+    private Disease diseaseQueryForTask(Task task) {
+        Disease disease = new Disease();
+        disease.setTaskId(task.getId());
+        disease.setBuildingId(task.getBuildingId());
+        disease.setProjectId(task.getProjectId());
+        return disease;
+    }
+
+    private List<Long> parseTaskIds(String taskIds) {
+        List<Long> taskIdList = new ArrayList<>();
+        if (taskIds == null || taskIds.trim().isEmpty()) {
+            return taskIdList;
+        }
+        for (String taskId : taskIds.split(",")) {
+            try {
+                taskIdList.add(Long.parseLong(taskId.trim()));
+            } catch (NumberFormatException ignored) {
+                // 忽略无效 ID
+            }
+        }
+        return taskIdList;
+    }
+
+    private void writeApparentReport(HttpServletResponse response, ApparentReportFile file) throws IOException {
+        response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        String encoded = URLEncoder.encode(file.fileName, StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + encoded + "\"");
+        response.setHeader("Cache-Control", "no-store, no-cache");
+        response.getOutputStream().write(file.content);
+        response.getOutputStream().flush();
+    }
+
+    private String uniqueZipEntryName(String fileName, Set<String> usedNames) {
+        String safeName = fileName.replace('\\', '_').replace('/', '_');
+        if (usedNames.add(safeName)) {
+            return safeName;
+        }
+        int dot = safeName.lastIndexOf('.');
+        String prefix = dot > 0 ? safeName.substring(0, dot) : safeName;
+        String suffix = dot > 0 ? safeName.substring(dot) : "";
+        int index = 2;
+        String candidate;
+        do {
+            candidate = prefix + "-" + index + suffix;
+            index++;
+        } while (!usedNames.add(candidate));
+        return candidate;
+    }
+
+    private static class ApparentReportFile {
+        private String fileName;
+        private byte[] content;
+    }
+
+    private ApparentReportFile buildApparentReportFile(Disease disease) throws IOException {
         List<Disease> diseaseList = diseaseService.selectDiseaseListForTask(disease);
 
         // -------------------------- 步骤1：生成Word文档 --------------------------
@@ -487,25 +589,18 @@ public class DiseaseController extends BaseController {
             }
         }
 
-        // -------------------------- 步骤2：直接输出Word文档 --------------------------
-        response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         LocalDateTime dateTime = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd");
         String date = dateTime.format(formatter);
-        String docFileName = URLEncoder.encode(buildingName + "-构件表观病害检查记录表-" + date + ".docx", StandardCharsets.UTF_8.name());
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + docFileName + "\"");
-        response.setHeader("Cache-Control", "no-store, no-cache");
-
-        // 将Word文档写入响应流
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             InputStream fis = new ByteArrayInputStream(baos.toByteArray())) {
+        ApparentReportFile file = new ApparentReportFile();
+        file.fileName = buildingName + "-构件表观病害检查记录表-" + date + ".docx";
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             document.write(baos);
-            baos.writeTo(response.getOutputStream());
-            response.getOutputStream().flush();
+            file.content = baos.toByteArray();
         } finally {
             document.close();
         }
-
+        return file;
     }
 
     /**

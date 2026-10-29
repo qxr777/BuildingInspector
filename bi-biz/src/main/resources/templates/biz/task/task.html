@@ -72,14 +72,14 @@
                shiro:hasPermission="biz:task:edit">
                 <i class="fa fa-edit"></i> 修改
             </a>
-            <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:task:export">
-                <i class="fa fa-download"></i> 导出
-            </a>
             <a class="btn btn-success multiple disabled" onclick="batchExportDisease()" shiro:hasPermission="biz:disease:export">
-                <i class="fa fa-download"></i> 批量导出病害
+                <i class="fa fa-download"></i> 批量导出病害及照片
             </a>
             <a id="batch-export-disease-excel-btn" class="btn btn-info multiple disabled" onclick="batchExportDiseaseExcel()" shiro:hasPermission="biz:disease:export">
                 <i class="fa fa-file-excel-o"></i> 批量导出病害Excel
+            </a>
+            <a class="btn btn-warning multiple disabled" onclick="batchExportApparentReport()" shiro:hasPermission="biz:disease:export">
+                <i class="fa fa-download"></i> 导出记录表
             </a>
             <a id="sort-by-name" class="btn btn-default task-sort-button" onclick="toggleTaskSort('buildingName')"
                title="再次点击可切换升序/降序">
@@ -411,6 +411,69 @@
     }
     
     /**
+     * 批量导出构件表观病害检查记录表。单任务下载 Word，多任务下载 zip。
+     * 用 XHR 拉取完整文件后再关加载提示，避免下载已完成却仍显示「正在导出」。
+     */
+    function batchExportApparentReport() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length == 0) {
+            $.modal.alertWarning("请至少选择一个任务");
+            return;
+        }
+        $.modal.confirm("确认要导出选中的" + rows.length + "个任务的记录表吗？", function() {
+            $.modal.loading("正在导出记录表，请稍候...");
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', ctx + "biz/disease/batchExportApparentReport?taskIds=" + encodeURIComponent(rows.join(",")), true);
+            xhr.timeout = 0;
+            xhr.responseType = 'blob';
+            xhr.onload = function () {
+                $.modal.closeLoading();
+                var contentType = xhr.getResponseHeader('Content-Type') || '';
+                var okType = contentType.indexOf('wordprocessingml') >= 0
+                    || contentType.indexOf('application/zip') >= 0
+                    || contentType.indexOf('application/octet-stream') >= 0;
+                if (xhr.status >= 200 && xhr.status < 300 && okType && xhr.response && xhr.response.size > 0) {
+                    var fileName = getApparentReportFileName(xhr, rows.length > 1);
+                    var objectUrl = window.URL.createObjectURL(xhr.response);
+                    var link = document.createElement('a');
+                    link.href = objectUrl;
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.setTimeout(function () {
+                        window.URL.revokeObjectURL(objectUrl);
+                    }, 1000);
+                    $.modal.msgSuccess('记录表已开始下载');
+                    return;
+                }
+                $.modal.alertError('导出记录表失败，请稍后重试');
+            };
+            xhr.onerror = function () {
+                $.modal.closeLoading();
+                $.modal.alertError('网络异常，导出记录表失败');
+            };
+            xhr.onabort = function () {
+                $.modal.closeLoading();
+            };
+            xhr.send();
+        });
+    }
+
+    function getApparentReportFileName(xhr, isZip) {
+        var disposition = xhr.getResponseHeader('Content-Disposition') || '';
+        var encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (encodedName && encodedName[1]) {
+            return decodeURIComponent(encodedName[1].trim());
+        }
+        var normalName = disposition.match(/filename="?([^";]+)"?/i);
+        if (normalName && normalName[1]) {
+            return decodeURIComponent(normalName[1].trim().replace(/\+/g, '%20'));
+        }
+        return isZip ? '构件表观病害检查记录表.zip' : '构件表观病害检查记录表.docx';
+    }
+
+    /**
      * 批量导出病害数据
      */
     function batchExportDisease() {
@@ -423,7 +486,7 @@
             return;
         }
         
-        $.modal.confirm("确认要导出选中的" + rows.length + "个任务的病害数据吗？", function() {
+        $.modal.confirm("确认要导出选中的" + rows.length + "个任务的病害及照片吗？", function() {
             $.modal.loading("正在导出数据，请稍候...");
             
             // 直接使用window.location进行下载，避免表单提交问题
