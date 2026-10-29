@@ -278,6 +278,8 @@ public class Report1LevelSingleBridgeServiceImpl implements Report1LevelSingleBr
             log.error("生成单桥报告失败", e);
             return null;
         } finally {
+            testConclusionService.removeDiseaseSummaryCache();
+            WordFieldUtils.removeCounters();
             // 清理资源
             try {
                 if (templateStream != null) {

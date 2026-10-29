@@ -369,6 +369,17 @@ public class ReportServiceImpl implements IReportService {
 
     private String generateReportDocument(Report report, List<Task> tasks, Long rootParentId,
                                           ReportTemplate template, String operator) {
+        try {
+            return doGenerateReportDocument(report, tasks, rootParentId, template, operator);
+        } finally {
+            // 线程池会复用 report-async 线程，生成结束后必须摘掉 ThreadLocal。
+            testConclusionService.removeDiseaseSummaryCache();
+            WordFieldUtils.removeCounters();
+        }
+    }
+
+    private String doGenerateReportDocument(Report report, List<Task> tasks, Long rootParentId,
+                                            ReportTemplate template, String operator) {
         // 判断是否为单桥模板（根据模板名称判断）
         if (report != null && report.getReportTemplateId() != null) {
             try {
@@ -665,6 +676,8 @@ public class ReportServiceImpl implements IReportService {
             log.error("生成报告报错：{}", e.getMessage());
             return null;
         } finally {
+            testConclusionService.removeDiseaseSummaryCache();
+            WordFieldUtils.removeCounters();
             // 关闭资源
             try {
                 if (templateStream != null) {
@@ -747,6 +760,9 @@ public class ReportServiceImpl implements IReportService {
             String errorReason = e.getMessage();
             updateReport.setRemark("生成报告失败，原因：" + errorReason);
             reportMapper.updateReport(updateReport);
+        } finally {
+            testConclusionService.removeDiseaseSummaryCache();
+            WordFieldUtils.removeCounters();
         }
     }
 
@@ -1001,6 +1017,8 @@ public class ReportServiceImpl implements IReportService {
             log.error("测试模板 - 生成报告报错：{}", e.getMessage());
             return null;
         } finally {
+            testConclusionService.removeDiseaseSummaryCache();
+            WordFieldUtils.removeCounters();
             // 关闭资源
             try {
                 if (templateStream != null) {
@@ -6232,6 +6250,8 @@ public class ReportServiceImpl implements IReportService {
             log.error("生成单桥报告失败", e);
             return null;
         } finally {
+            testConclusionService.removeDiseaseSummaryCache();
+            WordFieldUtils.removeCounters();
             // 清理资源
             try {
                 if (templateStream != null) {

@@ -322,6 +322,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             log.error("生成多桥报告失败", e);
             throw new IllegalStateException("生成多桥报告失败：" + e.getMessage(), e);
         } finally {
+            testConclusionService.removeDiseaseSummaryCache();
+            WordFieldUtils.removeCounters();
             try {
                 if (templateStream != null) {
                     templateStream.close();
