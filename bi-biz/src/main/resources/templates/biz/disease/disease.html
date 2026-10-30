@@ -88,6 +88,12 @@
                    shiro:hasPermission="biz:disease:remove">
                     <i class="fa fa-remove"></i> 删除
                 </a>
+                <a class="btn btn-warning" onclick="exportDiseaseExcel()" shiro:hasPermission="biz:disease:export">
+                    <i class="fa fa-download"></i> 导出
+                </a>
+                <a class="btn btn-warning" onclick="exportReport()" shiro:hasPermission="biz:disease:export">
+                    <i class="fa fa-download"></i> 导出报告
+                </a>
                 <a class="btn btn-info" onclick="importCBMSDisease()"
                    th:if="${task.project == null or task.project.year == null or task.project.year != #dates.year(#dates.createNow())}"
                    shiro:hasPermission="biz:disease:add">
@@ -404,6 +410,102 @@
     function importHistoryDisease() {
         var taskId = task.id;
         $.modal.open("导入历史病害", prefix + "/importHistory?taskId=" + taskId, '800', '600');
+    }
+
+    function showExportLoading(message) {
+        $.modal.loading(message || "正在导出，请稍候...");
+    }
+
+    function hideExportLoading() {
+        if ($.modal && typeof $.modal.closeLoading === 'function') {
+            $.modal.closeLoading();
+        }
+    }
+
+    function exportDiseaseExcel() {
+        showExportLoading("正在导出病害数据，请稍候...");
+        var projectId = task.projectId;
+        var buildingId = task.buildingId;
+        var taskId = task.id;
+        $.ajax({
+            url: '/biz/disease/export',
+            type: 'POST',
+            data: {projectId: projectId, buildingId: buildingId, taskId: taskId},
+            xhrFields: {responseType: 'blob'},
+            success: function (blob, status, xhr) {
+                hideExportLoading();
+                var fileName = '病害数据压缩包.zip';
+                var contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                if (contentDisposition) {
+                    var match = contentDisposition.match(/filename="(.*?)"/);
+                    if (match && match[1]) {
+                        fileName = decodeURIComponent(match[1]);
+                    }
+                }
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function () {
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 1000);
+            },
+            error: function (xhr) {
+                hideExportLoading();
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    $.modal.msgError(e.target.result || '导出失败，请稍后重试');
+                };
+                reader.readAsText(xhr.response);
+            },
+            complete: function () {
+                hideExportLoading();
+            }
+        });
+    }
+
+    function exportReport() {
+        showExportLoading("正在导出报告，请稍候...");
+        $.ajax({
+            url: ctx + 'biz/report/export/' + task.id,
+            type: 'GET',
+            xhrFields: {responseType: 'blob'},
+            success: function (blob, status, xhr) {
+                hideExportLoading();
+                var fileName = '病害报告.docx';
+                var contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                if (contentDisposition) {
+                    var match = contentDisposition.match(/filename="(.*?)"/);
+                    if (match && match[1]) {
+                        fileName = decodeURIComponent(match[1]);
+                    }
+                }
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function () {
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 1000);
+            },
+            error: function (xhr) {
+                hideExportLoading();
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    $.modal.msgError(e.target.result || '导出报告失败，请稍后重试');
+                };
+                reader.readAsText(xhr.response);
+            },
+            complete: function () {
+                hideExportLoading();
+            }
+        });
     }
 
 </script>
