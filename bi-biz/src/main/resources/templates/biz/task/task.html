@@ -72,6 +72,9 @@
                shiro:hasPermission="biz:task:edit">
                 <i class="fa fa-edit"></i> 修改
             </a>
+            <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:task:export">
+                <i class="fa fa-download"></i> 导出
+            </a>
             <a class="btn btn-success multiple disabled" onclick="batchExportDisease()" shiro:hasPermission="biz:disease:export">
                 <i class="fa fa-download"></i> 批量导出病害及照片
             </a>
