@@ -324,15 +324,22 @@ public class DiseaseServiceImpl implements IDiseaseService {
 
     /**
      * 批量加载纯Excel导出需要的数据。
-     * 病害详情用于长度、缝宽、面积；不查询构件父级信息，也不逐条查询附件和文件映射。
+     * 按项目+桥梁取数，避免 task_id 错乱导致丢病害；病害详情用于长度、缝宽、面积。
      */
     @Override
-    public List<Disease> selectDiseaseListForExcel(List<Long> taskIds) {
-        if (CollUtil.isEmpty(taskIds)) {
+    public List<Disease> selectDiseaseListForExcel(List<Task> tasks) {
+        if (CollUtil.isEmpty(tasks)) {
             return new ArrayList<>();
         }
 
-        List<Disease> diseases = diseaseMapper.selectDiseaseListByTaskIds(taskIds);
+        List<Task> queryTasks = tasks.stream()
+                .filter(task -> task != null && task.getProjectId() != null && task.getBuildingId() != null)
+                .collect(Collectors.toList());
+        if (queryTasks.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Disease> diseases = diseaseMapper.selectDiseaseListByProjectBuildings(queryTasks);
         if (CollUtil.isEmpty(diseases)) {
             return diseases;
         }

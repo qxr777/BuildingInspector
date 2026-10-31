@@ -609,7 +609,7 @@
         }
 
         var xhr = new XMLHttpRequest();
-        var url = ctx + "biz/task/batchExportExcel?taskIds=" + encodeURIComponent(taskIds);
+        var url = ctx + "biz/task/batchExportExcel";
 
         batchDiseaseExcelExportState.status = 'processing';
         batchDiseaseExcelExportState.taskIds = taskIds;
@@ -618,10 +618,11 @@
         setBatchDiseaseExcelButtonProcessing();
         $.modal.loading("正在导出病害Excel，请稍候...");
 
-        xhr.open('GET', url, true);
-        // 导出耗时由后端数据量决定，不设置30秒前端超时。
+        // 用 POST 传 taskIds，避免多选很多桥时 GET 查询串被截断丢任务
+        xhr.open('POST', url, true);
         xhr.timeout = 0;
         xhr.responseType = 'blob';
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
         xhr.onload = function () {
             var contentType = xhr.getResponseHeader('Content-Type') || '';
             var isExcel = contentType.indexOf('spreadsheetml') >= 0
@@ -643,7 +644,7 @@
         xhr.onabort = function () {
             finishBatchDiseaseExcelExport(false, '病害Excel导出已取消');
         };
-        xhr.send();
+        xhr.send('taskIds=' + encodeURIComponent(taskIds));
     }
 
     /**

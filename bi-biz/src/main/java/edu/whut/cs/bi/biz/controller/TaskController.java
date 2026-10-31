@@ -315,7 +315,7 @@ public class TaskController extends BaseController {
      */
     @RequiresPermissions("biz:disease:export")
     @Log(title = "批量导出任务病害Excel", businessType = BusinessType.EXPORT)
-    @GetMapping("/batchExportExcel")
+    @RequestMapping(value = "/batchExportExcel", method = {RequestMethod.GET, RequestMethod.POST})
     public void batchExportExcel(@RequestParam("taskIds") String taskIds, HttpServletResponse response) throws IOException {
         System.out.println("开始批量导出任务病害Excel，任务ID: " + taskIds);
         List<Long> taskIdList = parseTaskIds(taskIds);
@@ -381,6 +381,7 @@ public class TaskController extends BaseController {
         int rowIndex = 1;
         int diseaseSerialNum = 1;
         int photoSerialNum = 1;
+        Set<String> exportedProjectBuildings = new LinkedHashSet<>();
 
         for (Long taskId : taskIdList) {
             Task task = photoLinks ? excelData.taskMap.get(taskId) : taskService.selectTaskById(taskId);
@@ -392,8 +393,18 @@ public class TaskController extends BaseController {
             if (photoLinks) {
                 diseaseList = excelData.diseaseMap.getOrDefault(taskId, Collections.emptyList());
             } else {
+                if (task.getProjectId() == null || task.getBuildingId() == null) {
+                    continue;
+                }
+                String pairKey = projectBuildingKey(task.getProjectId(), task.getBuildingId());
+                if (!exportedProjectBuildings.add(pairKey)) {
+                    // 同一项目同一桥只导出一次，避免勾选重复任务时病害翻倍
+                    continue;
+                }
+                // 与病害页单桥导出一致：按项目+桥梁取数，不按可能错乱的 task_id 过滤
                 Disease queryDisease = new Disease();
-                queryDisease.setTaskId(taskId);
+                queryDisease.setProjectId(task.getProjectId());
+                queryDisease.setBuildingId(task.getBuildingId());
                 diseaseList = diseaseService.selectDiseaseListForTask(queryDisease);
             }
 
@@ -658,6 +669,10 @@ public class TaskController extends BaseController {
         return disease.getComponent().getName();
     }
 
+    private String projectBuildingKey(Long projectId, Long buildingId) {
+        return String.valueOf(projectId) + "_" + String.valueOf(buildingId);
+    }
+
     /**
      * 根据桥梁名称识别幅别；未包含左幅或右幅时保持为空。
      */
@@ -675,20 +690,45 @@ public class TaskController extends BaseController {
     }
 
     /**
-     * 批量准备纯Excel导出数据。ZIP导出不调用此方法，继续沿用原查询链路。
+     * 批量准备纯Excel导出数据。
+     * 病害按任务的项目+桥梁归属，避免 task_id 错乱时批量导出比单桥少。
      */
     private BatchDiseaseExcelData loadBatchDiseaseExcelData(List<Long> taskIdList) {
         BatchDiseaseExcelData data = new BatchDiseaseExcelData();
 
+        Map<Long, Task> tasksById = new LinkedHashMap<>();
+        for (Long taskId : taskIdList) {
+            // 先占位，后面用库中任务覆盖，保持勾选顺序
+            tasksById.put(taskId, null);
+        }
         for (Task task : taskService.selectTaskListByIds(taskIdList)) {
+            tasksById.put(task.getId(), task);
             data.taskMap.put(task.getId(), task);
         }
 
-        List<Disease> diseases = diseaseService.selectDiseaseListForExcel(taskIdList);
+        List<Task> loadedTasks = new ArrayList<>();
+        Map<String, Long> projectBuildingToTaskId = new LinkedHashMap<>();
+        for (Long taskId : taskIdList) {
+            Task task = tasksById.get(taskId);
+            if (task == null || task.getProjectId() == null || task.getBuildingId() == null) {
+                continue;
+            }
+            loadedTasks.add(task);
+            String pairKey = projectBuildingKey(task.getProjectId(), task.getBuildingId());
+            // 同一项目同一桥被勾选多次时，病害只挂到第一次出现的任务，避免重复行
+            projectBuildingToTaskId.putIfAbsent(pairKey, task.getId());
+        }
+
+        List<Disease> diseases = diseaseService.selectDiseaseListForExcel(loadedTasks);
         Set<Long> buildingIds = new LinkedHashSet<>();
         Set<Long> initialBiObjectIds = new LinkedHashSet<>();
         for (Disease disease : diseases) {
-            data.diseaseMap.computeIfAbsent(disease.getTaskId(), key -> new ArrayList<>()).add(disease);
+            Long ownerTaskId = projectBuildingToTaskId.get(
+                    projectBuildingKey(disease.getProjectId(), disease.getBuildingId()));
+            if (ownerTaskId == null) {
+                continue;
+            }
+            data.diseaseMap.computeIfAbsent(ownerTaskId, key -> new ArrayList<>()).add(disease);
             if (disease.getImages() != null) {
                 int photoCount = 0;
                 for (String imageUrl : disease.getImages()) {
