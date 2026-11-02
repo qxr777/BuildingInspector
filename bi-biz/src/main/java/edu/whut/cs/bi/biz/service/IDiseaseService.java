@@ -99,6 +99,15 @@ public interface IDiseaseService {
     int updateDevelopmentTrend(Long id, String developmentTrend, String updateBy);
 
     /**
+     * 给当前项目、当前桥梁中未挂构件的病害补关联。
+     * 缺损位置含 # 时，构件名称用缺损位置，编码用 # 前一段。
+     * 缺损位置不含 # 时，从病害描述开头取编码，名称拼成「编码#绑定构件」。
+     *
+     * @return 已关联条数、跳过条数
+     */
+    int[] linkMissingComponentsByPosition(Long projectId, Long buildingId, String updateBy);
+
+    /**
      * 批量删除病害
      *
      * @param ids 需要删除的病害主键集合

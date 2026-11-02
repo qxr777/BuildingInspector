@@ -88,6 +88,9 @@
                    shiro:hasPermission="biz:disease:remove">
                     <i class="fa fa-remove"></i> 删除
                 </a>
+                <a class="btn btn-info" onclick="linkMissingComponents()" shiro:hasPermission="biz:disease:edit">
+                    <i class="fa fa-link"></i> 补关联构件
+                </a>
                 <a class="btn btn-warning" onclick="exportDiseaseExcel()" shiro:hasPermission="biz:disease:export">
                     <i class="fa fa-download"></i> 导出
                 </a>
@@ -356,6 +359,33 @@
             }
         });
 
+    }
+
+    function linkMissingComponents() {
+        $.modal.confirm("只处理当前这座桥、这个项目里还没挂构件的病害。先从缺损位置取 # 前面的编号，构件名称就用缺损位置。缺损位置里没有编号时，再用病害描述 # 前面的一段当编号，构件名称拼成「编号#绑定的构件」。两处都读不出编号的会跳过。已有构件的不改。", function () {
+            $.modal.loading("正在补关联构件，请稍候...");
+            $.ajax({
+                url: prefix + "/linkMissingComponents",
+                type: "post",
+                data: {
+                    projectId: $("#projectId").val(),
+                    buildingId: $("#buildingId").val()
+                },
+                success: function (response) {
+                    $.modal.closeLoading();
+                    if (response.code === 0) {
+                        $.modal.msgSuccess(response.msg || "补关联完成");
+                        $.table.refresh();
+                    } else {
+                        $.modal.msgError(response.msg || "补关联失败");
+                    }
+                },
+                error: function () {
+                    $.modal.closeLoading();
+                    $.modal.msgError("网络错误");
+                }
+            });
+        });
     }
 
     function showDiseaseDetail(id) {

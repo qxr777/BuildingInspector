@@ -141,15 +141,32 @@ public class DiseaseServiceImpl implements IDiseaseService {
             throw new RuntimeException("biObjectId不存在！");
         }
         BiObject biObject = biObjectMapper.selectBiObjectById(biObjectId);
-        if (componentId == null) {
-            throw new RuntimeException("componentId不存在！");
+        if (biObject == null) {
+            throw new RuntimeException("biObject不存在！");
         }
-        Component component = componentService.selectComponentById(componentId);
-        disease.setComponent(component);
         disease.setBiObject(biObject);
-        BiObject biObjectParent = biObjectMapper.selectBiObjectById(biObject.getParentId());
-        disease.setBindBiObjectName(biObjectParent.getName() + "——" + biObject.getName());
-        disease.setBiObjectName(extractComponentObjectName(component.getName()));
+        if (biObject.getParentId() != null) {
+            BiObject biObjectParent = biObjectMapper.selectBiObjectById(biObject.getParentId());
+            if (biObjectParent != null) {
+                disease.setBindBiObjectName(biObjectParent.getName() + "——" + biObject.getName());
+            } else {
+                disease.setBindBiObjectName(biObject.getName());
+            }
+        } else {
+            disease.setBindBiObjectName(biObject.getName());
+        }
+
+        Component component = componentId == null ? null : componentService.selectComponentById(componentId);
+        if (component != null) {
+            disease.setComponent(component);
+            String objectName = extractComponentObjectName(component.getName());
+            if (StringUtils.isNotEmpty(objectName)) {
+                disease.setBiObjectName(objectName);
+            }
+        } else {
+            // 未挂构件时仍允许打开详情，页面上构件编码留空
+            disease.setComponent(new Component());
+        }
         DiseaseDetail diseaseDetail = new DiseaseDetail();
         diseaseDetail.setDiseaseId(id);
         List<DiseaseDetail> diseaseDetails = diseaseDetailMapper.selectDiseaseDetailList(diseaseDetail);
@@ -827,6 +844,113 @@ public class DiseaseServiceImpl implements IDiseaseService {
         update.setUpdateBy(updateBy);
         update.setUpdateTime(DateUtils.getNowDate());
         return diseaseMapper.updateDisease(update);
+    }
+
+    @Override
+    @Transactional
+    public int[] linkMissingComponentsByPosition(Long projectId, Long buildingId, String updateBy) {
+        if (projectId == null || buildingId == null) {
+            throw new ServiceException("请从任务进入病害列表后再补关联");
+        }
+        Disease query = new Disease();
+        query.setProjectId(projectId);
+        query.setBuildingId(buildingId);
+        List<Disease> diseases = diseaseMapper.selectDiseaseList(query);
+        Map<Long, Map<String, Long>> componentIdsByObject = new HashMap<>();
+        Map<Long, String> objectNames = new HashMap<>();
+        int linked = 0;
+        int skipped = 0;
+        Date now = DateUtils.getNowDate();
+        for (Disease disease : diseases) {
+            if (disease.getComponentId() != null) {
+                continue;
+            }
+            String[] nameAndCode = resolveMissingComponentNameAndCode(disease, objectNames);
+            if (nameAndCode == null) {
+                skipped++;
+                continue;
+            }
+            Long componentId = findOrCreateComponent(componentIdsByObject, disease.getBiObjectId(), nameAndCode[0], nameAndCode[1], updateBy, now);
+            Disease update = new Disease();
+            update.setId(disease.getId());
+            update.setComponentId(componentId);
+            update.setUpdateBy(updateBy);
+            update.setUpdateTime(now);
+            diseaseMapper.updateDisease(update);
+            linked++;
+        }
+        return new int[]{linked, skipped};
+    }
+
+    /**
+     * 先从缺损位置取编号，取到了构件名称就用缺损位置。
+     * 缺损位置没有编号时，才用病害描述中 # 前的一段当编号，名称拼成「编号#绑定的构件」。
+     */
+    private String[] resolveMissingComponentNameAndCode(Disease disease, Map<Long, String> objectNames) {
+        if (disease.getBiObjectId() == null) {
+            return null;
+        }
+        String position = disease.getPosition() == null ? "" : disease.getPosition().trim();
+        int positionSplit = position.indexOf('#');
+        if (positionSplit > 0) {
+            String code = position.substring(0, positionSplit).trim();
+            if (code.isEmpty() || position.length() > 20 || code.length() > 100) {
+                return null;
+            }
+            return new String[]{position, code};
+        }
+        String description = disease.getDescription() == null ? "" : disease.getDescription().trim();
+        int descriptionSplit = description.indexOf('#');
+        if (descriptionSplit <= 0) {
+            return null;
+        }
+        String code = description.substring(0, descriptionSplit).trim();
+        if (!code.matches("[A-Za-z0-9][A-Za-z0-9'-]*") || code.length() > 100) {
+            return null;
+        }
+        String objectName = objectNames.computeIfAbsent(disease.getBiObjectId(), objectId -> {
+            BiObject biObject = biObjectMapper.selectBiObjectById(objectId);
+            return biObject == null || biObject.getName() == null ? "" : biObject.getName().trim();
+        });
+        if (objectName.isEmpty()) {
+            return null;
+        }
+        String name = code + "#" + objectName;
+        if (name.length() > 20) {
+            return null;
+        }
+        return new String[]{name, code};
+    }
+
+    private Long findOrCreateComponent(Map<Long, Map<String, Long>> componentIdsByObject, Long biObjectId,
+                                       String name, String code, String updateBy, Date now) {
+        Map<String, Long> names = componentIdsByObject.computeIfAbsent(biObjectId, objectId -> {
+            Map<String, Long> existing = new HashMap<>();
+            List<Component> components = componentService.selectComponentsByBiObjectId(objectId);
+            if (components != null) {
+                for (Component component : components) {
+                    if (component.getName() != null) {
+                        existing.putIfAbsent(component.getName(), component.getId());
+                    }
+                }
+            }
+            return existing;
+        });
+        Long componentId = names.get(name);
+        if (componentId != null) {
+            return componentId;
+        }
+        Component component = new Component();
+        component.setBiObjectId(biObjectId);
+        component.setName(name);
+        component.setCode(code);
+        component.setDelFlag("0");
+        component.setCreateBy(updateBy);
+        component.setUpdateBy(updateBy);
+        component.setUpdateTime(now);
+        componentService.insertComponent(component);
+        names.put(name, component.getId());
+        return component.getId();
     }
 
     /**

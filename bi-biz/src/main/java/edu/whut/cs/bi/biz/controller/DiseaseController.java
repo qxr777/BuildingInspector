@@ -1103,6 +1103,19 @@ public class DiseaseController extends BaseController {
     }
 
     /**
+     * 当前任务这座桥、这个项目里，未挂构件的病害按缺损位置补关联。
+     */
+    @RequiresPermissions("biz:disease:edit")
+    @Log(title = "补关联构件", businessType = BusinessType.UPDATE)
+    @PostMapping("/linkMissingComponents")
+    @ResponseBody
+    public AjaxResult linkMissingComponents(Long projectId, Long buildingId) {
+        int[] counts = diseaseService.linkMissingComponentsByPosition(
+                projectId, buildingId, ShiroUtils.getLoginName());
+        return AjaxResult.success("已关联 " + counts[0] + " 条，跳过 " + counts[1] + " 条");
+    }
+
+    /**
      * 删除
      */
     @RequiresPermissions("biz:disease:remove")
