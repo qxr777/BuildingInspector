@@ -823,7 +823,8 @@ public class TaskController extends BaseController {
     }
 
     /**
-     * 与病害页导出一致：一条明细取长度或长度范围中值；多条明细取长度的最小、最大值中值。
+     * 与病害页导出一致：一条明细取总长度（L/U 型为 length1+2+3）或长度范围中值；
+     * 多条明细取各条总长度的最小、最大值中值。
      */
     private String diseaseLengthText(Disease disease) {
         List<DiseaseDetail> details = diseaseDetailsOf(disease);
@@ -832,15 +833,15 @@ public class TaskController extends BaseController {
         }
         if (details.size() == 1) {
             DiseaseDetail detail = details.get(0);
-            if (detail.getLength1() != null) {
-                return detail.getLength1().toPlainString();
+            if (detail.totalLength() != null) {
+                return detail.totalLength().toPlainString();
             }
             return averageOf(detail.getLengthRangeStart(), detail.getLengthRangeEnd());
         }
-        if (details.get(0).getLength1() == null) {
+        if (details.get(0).totalLength() == null) {
             return "";
         }
-        return averageOfExtremes(details.stream().map(DiseaseDetail::getLength1).toList());
+        return averageOfExtremes(details.stream().map(DiseaseDetail::totalLength).toList());
     }
 
     /**

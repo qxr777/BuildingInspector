@@ -671,9 +671,9 @@ public class DiseaseController extends BaseController {
             int detail_length = detailList.size();
             if (detail_length == 1) {
                 DiseaseDetail detail = detailList.get(0);
-                //长度
-                if (detail.getLength1() != null) {
-                    row.createCell(6).setCellValue(detail.getLength1().toPlainString());
+                //长度。L/U 型裂缝用 length1+2+3 总长，不能只取第一段。
+                if (detail.totalLength() != null) {
+                    row.createCell(6).setCellValue(detail.totalLength().toPlainString());
                 } else if (detail.getLengthRangeStart() != null && detail.getLengthRangeEnd() != null) {
 //                    row.createCell(6).setCellValue(detail.getLengthRangeStart().toPlainString() + "-" + detail.getLengthRangeEnd().toPlainString());
                     row.createCell(6).setCellValue(detail.getLengthRangeStart().add(detail.getLengthRangeEnd()).divide(BigDecimal.valueOf(2)).toPlainString());
@@ -727,8 +727,8 @@ public class DiseaseController extends BaseController {
             } else if (detail_length > 1) {
                 DiseaseDetail detail = detailList.get(0);
                 //长度
-                if (detail.getLength1() != null) {
-                    List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::getLength1).toList();
+                if (detail.totalLength() != null) {
+                    List<BigDecimal> tempList = detailList.stream().map(DiseaseDetail::totalLength).toList();
                     BigDecimal max = tempList.stream().filter(num -> num != null).max(BigDecimal::compareTo).get();
                     BigDecimal min = tempList.stream().filter(num -> num != null).min(BigDecimal::compareTo).get();
 //                    row.createCell(6).setCellValue(min.toPlainString() + "-" + max.toPlainString());

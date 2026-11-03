@@ -34,10 +34,23 @@ public class DiseaseDetail extends BaseEntity {
     // 距参考面2位置-终点位置
     private BigDecimal reference2LocationEnd;
 
-    // 长度
+    // 长度。L/U 型裂缝把各段存在 length1/2/3，描述写成 L=1.10+0.20+1.10。
     private BigDecimal length1;
     private BigDecimal length2;
     private BigDecimal length3;
+
+    /**
+     * 统计用总长度：三段之和。普通裂缝只有 length1，结果与 length1 相同。
+     */
+    public BigDecimal totalLength() {
+        BigDecimal total = null;
+        for (BigDecimal part : new BigDecimal[]{length1, length2, length3}) {
+            if (part != null) {
+                total = total == null ? part : total.add(part);
+            }
+        }
+        return total;
+    }
 
     // 宽度
     private BigDecimal width;
