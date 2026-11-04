@@ -658,8 +658,8 @@ public class DiseaseController extends BaseController {
             row.createCell(3).setCellValue(item.getPosition());
             // 病害描述
             row.createCell(4).setCellValue(item.getDescription());
-            // 标度
-            row.createCell(5).setCellValue(item.getLevel());
+            // 标度。不参与评定导出 0，与平板一致。
+            row.createCell(5).setCellValue(item.exportLevel());
 //            //发展趋势。
 //            row.createCell(12).setCellValue(item.getDevelopmentTrend());
             //备注

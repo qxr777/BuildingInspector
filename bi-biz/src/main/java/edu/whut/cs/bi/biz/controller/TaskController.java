@@ -486,7 +486,7 @@ public class TaskController extends BaseController {
                         disease.getDescription() != null ? disease.getDescription() : "");
                 row.createCell(cellIndex++).setCellValue(
                         disease.getRepairRecommendation() != null ? disease.getRepairRecommendation() : "");
-                row.createCell(cellIndex++).setCellValue(disease.getLevel());
+                row.createCell(cellIndex++).setCellValue(disease.exportLevel());
 
                 List<String> photoNames = new ArrayList<>();
                 List<String> photoUrls = new ArrayList<>();

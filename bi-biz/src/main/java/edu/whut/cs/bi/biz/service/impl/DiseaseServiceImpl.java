@@ -663,6 +663,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Override
     @Transactional
     public Integer insertDisease(Disease disease) {
+        applyNonParticipatingLevel(disease);
         disease.setCreateTime(DateUtils.getNowDate());
         if (disease.getType() == null || disease.getType().equals("")) {
             Long diseaseTypeId = disease.getDiseaseTypeId();
@@ -725,6 +726,15 @@ public class DiseaseServiceImpl implements IDiseaseService {
     }
 
     /**
+     * 网页保存选择不参与评定时，标度记为 0。参与评定仍使用页面选择的标度。
+     */
+    private void applyNonParticipatingLevel(Disease disease) {
+        if (disease != null && "0".equals(disease.getParticipateAssess())) {
+            disease.setLevel(0);
+        }
+    }
+
+    /**
      * 修改病害
      *
      * @param disease 病害
@@ -782,6 +792,7 @@ public class DiseaseServiceImpl implements IDiseaseService {
     @Override
     @Transactional
     public int newUpdateDisease(Disease disease) {
+        applyNonParticipatingLevel(disease);
         Disease old = diseaseMapper.selectDiseaseById(disease.getId());
         if (old == null) {
             throw new ServiceException("病害不存在，无法修改");

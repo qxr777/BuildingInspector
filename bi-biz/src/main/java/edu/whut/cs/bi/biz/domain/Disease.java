@@ -54,6 +54,16 @@ public class Disease extends BaseEntity {
     private int level;
 
     /**
+     * Excel 标度。不参与评定时网页仍可能保存标度 1，导出与平板一致写 0。
+     */
+    public int exportLevel() {
+        if ("0".equals(participateAssess)) {
+            return 0;
+        }
+        return level;
+    }
+
+    /**
      * 查询条件：选中的病害等级；为空时查询所有等级
      */
     private List<Integer> levels;
