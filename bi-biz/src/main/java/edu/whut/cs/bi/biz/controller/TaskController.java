@@ -9,13 +9,13 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.*;
-import edu.whut.cs.bi.biz.domain.enums.AreaIdentifierEnums;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
 import edu.whut.cs.bi.biz.service.ITaskService;
+import edu.whut.cs.bi.biz.utils.DiseaseExcelMetrics;
 import edu.whut.cs.bi.biz.utils.NaturalStringComparator;
 import org.apache.poi.common.usermodel.HyperlinkType;
 import org.apache.poi.ss.usermodel.Cell;
@@ -41,9 +41,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -78,8 +75,6 @@ public class TaskController extends BaseController {
     private static final int[] BATCH_DISEASE_EXCEL_MAX_WIDTHS = {
             8, 18, 10, 16, 16, 22, 26, 8, 12, 12, 12, 46, 30, 10, 12, 24, 16
     };
-
-    private static final MathContext DISEASE_AREA_CONTEXT = new MathContext(4, RoundingMode.HALF_UP);
 
     private static class BatchDiseaseExcelData {
         private final Map<Long, Task> taskMap = new HashMap<>();
@@ -479,9 +474,9 @@ public class TaskController extends BaseController {
                 }
                 row.createCell(cellIndex++).setCellValue(type != null ? type : "");
                 row.createCell(cellIndex++).setCellValue(disease.getQuantity());
-                row.createCell(cellIndex++).setCellValue(diseaseLengthText(disease));
-                row.createCell(cellIndex++).setCellValue(diseaseCrackWidthText(disease));
-                row.createCell(cellIndex++).setCellValue(diseaseAreaText(disease));
+                DiseaseExcelMetrics.writeNumber(row, cellIndex++, DiseaseExcelMetrics.length(disease));
+                DiseaseExcelMetrics.writeNumber(row, cellIndex++, DiseaseExcelMetrics.crackWidth(disease));
+                DiseaseExcelMetrics.writeNumber(row, cellIndex++, DiseaseExcelMetrics.area(disease));
                 row.createCell(cellIndex++).setCellValue(
                         disease.getDescription() != null ? disease.getDescription() : "");
                 row.createCell(cellIndex++).setCellValue(
@@ -820,114 +815,6 @@ public class TaskController extends BaseController {
             return BATCH_DISEASE_EXCEL_MAX_WIDTHS[15];
         }
         return BATCH_DISEASE_EXCEL_MAX_WIDTHS[columnIndex];
-    }
-
-    /**
-     * 与病害页导出一致：一条明细取总长度（L/U 型为 length1+2+3）或长度范围中值；
-     * 多条明细取各条总长度的最小、最大值中值。
-     */
-    private String diseaseLengthText(Disease disease) {
-        List<DiseaseDetail> details = diseaseDetailsOf(disease);
-        if (details.isEmpty()) {
-            return "";
-        }
-        if (details.size() == 1) {
-            DiseaseDetail detail = details.get(0);
-            if (detail.totalLength() != null) {
-                return detail.totalLength().toPlainString();
-            }
-            return averageOf(detail.getLengthRangeStart(), detail.getLengthRangeEnd());
-        }
-        if (details.get(0).totalLength() == null) {
-            return "";
-        }
-        return averageOfExtremes(details.stream().map(DiseaseDetail::totalLength).toList());
-    }
-
-    /**
-     * 缝宽是裂缝张开宽度，单位毫米。计算方式与长度相同。
-     */
-    private String diseaseCrackWidthText(Disease disease) {
-        List<DiseaseDetail> details = diseaseDetailsOf(disease);
-        if (details.isEmpty()) {
-            return "";
-        }
-        if (details.size() == 1) {
-            DiseaseDetail detail = details.get(0);
-            if (detail.getCrackWidth() != null) {
-                return detail.getCrackWidth().toPlainString();
-            }
-            return averageOf(detail.getCrackWidthRangeStart(), detail.getCrackWidthRangeEnd());
-        }
-        if (details.get(0).getCrackWidth() == null) {
-            return "";
-        }
-        return averageOfExtremes(details.stream().map(DiseaseDetail::getCrackWidth).toList());
-    }
-
-    /**
-     * 面积＝面积长×面积宽。平均面积再乘病害数量；多条明细时把各条面积相加。结果保留 4 位有效数字。
-     */
-    private String diseaseAreaText(Disease disease) {
-        List<DiseaseDetail> details = diseaseDetailsOf(disease);
-        if (details.isEmpty()) {
-            return "";
-        }
-        if (details.size() == 1) {
-            DiseaseDetail detail = details.get(0);
-            if (detail.getAreaLength() == null || detail.getAreaWidth() == null) {
-                return "";
-            }
-            BigDecimal area = detail.getAreaLength().multiply(detail.getAreaWidth());
-            Integer identifier = detail.getAreaIdentifier();
-            if (identifier != null && identifier == AreaIdentifierEnums.AVERAGE.getCode()) {
-                area = area.multiply(BigDecimal.valueOf(disease.getQuantity()));
-            }
-            return area.round(DISEASE_AREA_CONTEXT).toPlainString();
-        }
-
-        BigDecimal total = BigDecimal.ZERO;
-        boolean hasArea = false;
-        for (DiseaseDetail detail : details) {
-            if (detail.getAreaLength() == null || detail.getAreaWidth() == null) {
-                continue;
-            }
-            total = total.add(detail.getAreaLength().multiply(detail.getAreaWidth()));
-            hasArea = true;
-        }
-        return hasArea ? total.round(DISEASE_AREA_CONTEXT).toPlainString() : "";
-    }
-
-    private List<DiseaseDetail> diseaseDetailsOf(Disease disease) {
-        if (disease == null || disease.getDiseaseDetails() == null) {
-            return Collections.emptyList();
-        }
-        return disease.getDiseaseDetails();
-    }
-
-    private String averageOf(BigDecimal start, BigDecimal end) {
-        if (start == null || end == null) {
-            return "";
-        }
-        return start.add(end).divide(new BigDecimal("2"), 6, RoundingMode.HALF_UP)
-                .stripTrailingZeros().toPlainString();
-    }
-
-    private String averageOfExtremes(List<BigDecimal> values) {
-        BigDecimal min = null;
-        BigDecimal max = null;
-        for (BigDecimal value : values) {
-            if (value == null) {
-                continue;
-            }
-            if (min == null || value.compareTo(min) < 0) {
-                min = value;
-            }
-            if (max == null || value.compareTo(max) > 0) {
-                max = value;
-            }
-        }
-        return averageOf(min, max);
     }
 
     private CellStyle createLeftAlignedStyle(Workbook workbook) {
