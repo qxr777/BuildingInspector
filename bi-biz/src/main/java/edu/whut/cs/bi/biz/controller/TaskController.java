@@ -8,12 +8,15 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.utils.ShiroUtils;
+import edu.whut.cs.bi.biz.config.MinioConfig;
 import edu.whut.cs.bi.biz.domain.*;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
 import edu.whut.cs.bi.biz.mapper.BuildingMapper;
 import edu.whut.cs.bi.biz.mapper.ProjectMapper;
 import edu.whut.cs.bi.biz.mapper.TaskMapper;
+import edu.whut.cs.bi.biz.service.AttachmentService;
 import edu.whut.cs.bi.biz.service.IDiseaseService;
+import edu.whut.cs.bi.biz.service.IFileMapService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.utils.DiseaseExcelMetrics;
 import edu.whut.cs.bi.biz.utils.NaturalStringComparator;
@@ -46,6 +49,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -76,6 +80,16 @@ public class TaskController extends BaseController {
             8, 18, 10, 16, 16, 22, 26, 8, 12, 12, 12, 46, 30, 10, 12, 24, 16
     };
 
+    private static final String[] OVERVIEW_PHOTO_HEADERS = {
+            "序号", "桥梁名称", "幅别", "正面照", "正面照2", "立面照", "立面照2"
+    };
+
+    private static class BridgeOverviewRow {
+        private String bridgeName = "";
+        private String side = "";
+        private final String[] photoUrls = new String[4];
+    }
+
     private static class BatchDiseaseExcelData {
         private final Map<Long, Task> taskMap = new HashMap<>();
         private final Map<Long, List<Disease>> diseaseMap = new LinkedHashMap<>();
@@ -100,6 +114,15 @@ public class TaskController extends BaseController {
 
     @Resource
     private BiObjectMapper biObjectMapper;
+
+    @Resource
+    private AttachmentService attachmentService;
+
+    @Resource
+    private IFileMapService fileMapService;
+
+    @Resource
+    private MinioConfig minioConfig;
 
     // 初始化OkHttp客户端（用于下载图片）
     private final okhttp3.OkHttpClient okHttpClient = new okhttp3.OkHttpClient.Builder()
@@ -330,6 +353,248 @@ public class TaskController extends BaseController {
         } finally {
             workbook.close();
         }
+    }
+
+    /**
+     * 批量导出选中任务桥梁的正面照、立面照，Zip 内含清单和照片。
+     */
+    @RequiresPermissions("biz:disease:export")
+    @Log(title = "批量导出正立面照", businessType = BusinessType.EXPORT)
+    @RequestMapping(value = "/batchExportOverviewPhotos", method = {RequestMethod.GET, RequestMethod.POST})
+    public void batchExportOverviewPhotos(@RequestParam("taskIds") String taskIds, HttpServletResponse response) throws IOException {
+        List<Long> taskIdList = parseTaskIds(taskIds);
+        List<String> photoUrls = new ArrayList<>();
+        ByteArrayOutputStream excelBaos = new ByteArrayOutputStream();
+        try (Workbook workbook = buildOverviewPhotoWorkbook(loadOverviewPhotoRows(taskIdList), photoUrls, false)) {
+            workbook.write(excelBaos);
+        }
+
+        response.setContentType("application/zip");
+        String zipFileName = URLEncoder.encode("正面照立面照.zip", StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + zipFileName + "\"");
+        response.setHeader("Cache-Control", "no-store, no-cache");
+        response.flushBuffer();
+
+        try (ZipOutputStream zipOut = new ZipOutputStream(response.getOutputStream());
+             InputStream excelIs = new ByteArrayInputStream(excelBaos.toByteArray())) {
+            ZipEntry excelEntry = new ZipEntry("正立面照清单.xlsx");
+            zipOut.putNextEntry(excelEntry);
+            byte[] buffer = new byte[1024 * 8];
+            int len;
+            while ((len = excelIs.read(buffer)) != -1) {
+                zipOut.write(buffer, 0, len);
+            }
+            zipOut.closeEntry();
+            zipOut.flush();
+            response.flushBuffer();
+
+            for (int i = 0; i < photoUrls.size(); i++) {
+                String imgUrl = photoUrls.get(i);
+                String zipPhotoPath = "正立面照/" + String.format("%03d.jpg", i + 1);
+                zipOut.putNextEntry(new ZipEntry(zipPhotoPath));
+                try (InputStream imgIs = downloadImageByUrl(imgUrl)) {
+                    if (imgIs == null) {
+                        zipOut.write(("图片下载失败：" + imgUrl).getBytes(StandardCharsets.UTF_8));
+                        zipOut.closeEntry();
+                        zipOut.flush();
+                        response.flushBuffer();
+                        continue;
+                    }
+                    while ((len = imgIs.read(buffer)) != -1) {
+                        zipOut.write(buffer, 0, len);
+                    }
+                } catch (Exception e) {
+                    zipOut.write(("图片处理异常：" + imgUrl).getBytes(StandardCharsets.UTF_8));
+                }
+                zipOut.closeEntry();
+                zipOut.flush();
+                response.flushBuffer();
+            }
+        }
+    }
+
+    /**
+     * 批量导出正面照、立面照 Excel，照片编号链接到图片地址。
+     */
+    @RequiresPermissions("biz:disease:export")
+    @Log(title = "批量导出正立面照Excel", businessType = BusinessType.EXPORT)
+    @RequestMapping(value = "/batchExportOverviewExcel", method = {RequestMethod.GET, RequestMethod.POST})
+    public void batchExportOverviewExcel(@RequestParam("taskIds") String taskIds, HttpServletResponse response) throws IOException {
+        List<Long> taskIdList = parseTaskIds(taskIds);
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        String fileName = URLEncoder.encode("正面照立面照.xlsx", StandardCharsets.UTF_8.name());
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        response.setHeader("Cache-Control", "no-store, no-cache");
+
+        Workbook workbook = buildOverviewPhotoWorkbook(loadOverviewPhotoRows(taskIdList), null, true);
+        try {
+            workbook.write(response.getOutputStream());
+            response.getOutputStream().flush();
+        } finally {
+            workbook.close();
+        }
+    }
+
+    private List<BridgeOverviewRow> loadOverviewPhotoRows(List<Long> taskIdList) {
+        List<BridgeOverviewRow> rows = new ArrayList<>();
+        if (taskIdList.isEmpty()) {
+            return rows;
+        }
+        Map<Long, Task> tasksById = new HashMap<>();
+        for (Task task : taskService.selectTaskListByIds(taskIdList)) {
+            tasksById.put(task.getId(), task);
+        }
+        Map<Long, BridgeOverviewRow> rowsByBuilding = new LinkedHashMap<>();
+        for (Long taskId : taskIdList) {
+            Task task = tasksById.get(taskId);
+            if (task == null || task.getBuildingId() == null || rowsByBuilding.containsKey(task.getBuildingId())) {
+                continue;
+            }
+            BridgeOverviewRow row = new BridgeOverviewRow();
+            row.bridgeName = task.getBuilding() != null && task.getBuilding().getName() != null
+                    ? task.getBuilding().getName() : "";
+            row.side = resolveBridgeSide(row.bridgeName);
+            rowsByBuilding.put(task.getBuildingId(), row);
+        }
+        if (rowsByBuilding.isEmpty()) {
+            return rows;
+        }
+
+        List<Attachment> attachments = attachmentService.getAttachmentBySubjectIds(new ArrayList<>(rowsByBuilding.keySet()));
+        Map<Long, long[]> chosenAttachmentIds = new HashMap<>();
+        List<Long> minioIds = new ArrayList<>();
+        if (attachments != null) {
+            for (Attachment attachment : attachments) {
+                Integer slot = overviewPhotoSlot(attachment);
+                if (slot == null || attachment.getMinioId() == null || attachment.getId() == null) {
+                    continue;
+                }
+                BridgeOverviewRow row = rowsByBuilding.get(attachment.getSubjectId());
+                if (row == null) {
+                    continue;
+                }
+                long[] chosen = chosenAttachmentIds.computeIfAbsent(attachment.getSubjectId(), ignored -> {
+                    long[] ids = new long[4];
+                    java.util.Arrays.fill(ids, -1L);
+                    return ids;
+                });
+                if (attachment.getId() <= chosen[slot]) {
+                    continue;
+                }
+                chosen[slot] = attachment.getId();
+                if (!minioIds.contains(attachment.getMinioId())) {
+                    minioIds.add(attachment.getMinioId());
+                }
+            }
+        }
+        Map<Long, FileMap> fileMaps = new HashMap<>();
+        for (FileMap fileMap : fileMapService.selectFileMapByIds(minioIds)) {
+            if (fileMap != null && fileMap.getId() != null) {
+                fileMaps.put(fileMap.getId().longValue(), fileMap);
+            }
+        }
+        if (attachments != null) {
+            for (Attachment attachment : attachments) {
+                Integer slot = overviewPhotoSlot(attachment);
+                long[] chosen = chosenAttachmentIds.get(attachment.getSubjectId());
+                if (slot == null || chosen == null || attachment.getId() == null
+                        || attachment.getId() != chosen[slot]) {
+                    continue;
+                }
+                BridgeOverviewRow row = rowsByBuilding.get(attachment.getSubjectId());
+                FileMap fileMap = fileMaps.get(attachment.getMinioId());
+                if (row != null && fileMap != null) {
+                    row.photoUrls[slot] = overviewPhotoUrl(fileMap);
+                }
+            }
+        }
+        rows.addAll(rowsByBuilding.values());
+        return rows;
+    }
+
+    /**
+     * 0/1 槽位分别对应第一张、第二张。正面照占 0、1，立面照占 2、3。
+     */
+    private Integer overviewPhotoSlot(Attachment attachment) {
+        if (attachment == null || attachment.getName() == null) {
+            return null;
+        }
+        String[] parts = attachment.getName().split("_");
+        if (parts.length < 2) {
+            return null;
+        }
+        int index;
+        try {
+            index = Integer.parseInt(parts[0]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        if (index < 0 || index > 1) {
+            return null;
+        }
+        String type = parts[1].toLowerCase(Locale.ROOT);
+        if ("newfront".equals(type) || "front".equals(type)) {
+            return index;
+        }
+        if ("newside".equals(type) || "side".equals(type)) {
+            return index + 2;
+        }
+        return null;
+    }
+
+    private String overviewPhotoUrl(FileMap fileMap) {
+        String name = fileMap.getNewName();
+        if (name == null || name.length() < 2) {
+            return null;
+        }
+        if (name.startsWith("http://") || name.startsWith("https://")) {
+            return name;
+        }
+        return minioConfig.getUrl() + "/" + minioConfig.getBucketName() + "/"
+                + name.substring(0, 2) + "/" + name;
+    }
+
+    private Workbook buildOverviewPhotoWorkbook(List<BridgeOverviewRow> rows, List<String> photoUrls, boolean photoLinks) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("正立面照");
+        CellStyle leftAlignedStyle = createLeftAlignedStyle(workbook);
+        CellStyle hyperlinkStyle = photoLinks ? createHyperlinkStyle(workbook) : null;
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < OVERVIEW_PHOTO_HEADERS.length; i++) {
+            Cell headerCell = headerRow.createCell(i);
+            headerCell.setCellValue(OVERVIEW_PHOTO_HEADERS[i]);
+            headerCell.setCellStyle(leftAlignedStyle);
+        }
+
+        int photoSerial = 1;
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            BridgeOverviewRow overview = rows.get(rowIndex);
+            Row row = sheet.createRow(rowIndex + 1);
+            row.createCell(0).setCellValue(rowIndex + 1);
+            row.createCell(1).setCellValue(overview.bridgeName);
+            row.createCell(2).setCellValue(overview.side);
+            for (int slot = 0; slot < overview.photoUrls.length; slot++) {
+                String url = overview.photoUrls[slot];
+                Cell cell = row.createCell(3 + slot);
+                if (url == null || url.isEmpty()) {
+                    continue;
+                }
+                String fileName = String.format("%03d.jpg", photoSerial++);
+                if (photoUrls != null) {
+                    photoUrls.add(url);
+                }
+                if (photoLinks) {
+                    setPhotoHyperlink(cell, fileName, url, workbook, hyperlinkStyle);
+                } else {
+                    cell.setCellValue(fileName);
+                }
+            }
+            applyLeftAlignment(row, leftAlignedStyle, OVERVIEW_PHOTO_HEADERS.length);
+        }
+        for (int i = 0; i < OVERVIEW_PHOTO_HEADERS.length; i++) {
+            sheet.setColumnWidth(i, (i == 1 ? 28 : 16) * 256);
+        }
+        return workbook;
     }
 
     private List<Long> parseTaskIds(String taskIds) {

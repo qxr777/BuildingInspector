@@ -78,6 +78,12 @@
             <a id="batch-export-disease-excel-btn" class="btn btn-info multiple disabled" onclick="batchExportDiseaseExcel()" shiro:hasPermission="biz:disease:export">
                 <i class="fa fa-file-excel-o"></i> 批量导出病害Excel
             </a>
+            <a id="batch-export-overview-zip-btn" class="btn btn-success multiple disabled" onclick="batchExportOverviewPhotos()" shiro:hasPermission="biz:disease:export">
+                <i class="fa fa-download"></i> 批量导出正面照和立面照
+            </a>
+            <a id="batch-export-overview-excel-btn" class="btn btn-info multiple disabled" onclick="batchExportOverviewExcel()" shiro:hasPermission="biz:disease:export">
+                <i class="fa fa-file-excel-o"></i> 批量导出正面照和立面照Excel
+            </a>
             <a class="btn btn-warning multiple disabled" onclick="batchExportApparentReport()" shiro:hasPermission="biz:disease:export">
                 <i class="fa fa-download"></i> 导出记录表
             </a>
@@ -669,6 +675,153 @@
             startBatchDiseaseExcelExport(rows.join(","));
         });
     }
+
+    function createOverviewExport(config) {
+        var state = {
+            status: "idle",
+            blob: null,
+            fileName: config.fallbackName,
+            xhr: null
+        };
+
+        function resetButton() {
+            var $button = $('#' + config.buttonId);
+            $button.html(config.idleHtml);
+            $button.removeAttr('aria-disabled').removeData('export-state');
+            $button.toggleClass('disabled', $.table.selectColumns("id").length === 0);
+        }
+
+        function fileNameOf(xhr) {
+            var disposition = xhr.getResponseHeader('Content-Disposition') || '';
+            var encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (encodedName && encodedName[1]) {
+                return decodeURIComponent(encodedName[1].trim());
+            }
+            var normalName = disposition.match(/filename="?([^";]+)"?/i);
+            if (normalName && normalName[1]) {
+                return decodeURIComponent(normalName[1].trim().replace(/\+/g, '%20'));
+            }
+            return config.fallbackName;
+        }
+
+        function finish(success, message) {
+            $.modal.closeLoading();
+            state.xhr = null;
+            if (!success) {
+                state.status = 'idle';
+                state.blob = null;
+                resetButton();
+                $.modal.alertError(message || config.failMessage);
+                return;
+            }
+            var objectUrl = window.URL.createObjectURL(state.blob);
+            var downloadLink = document.createElement('a');
+            downloadLink.href = objectUrl;
+            downloadLink.download = state.fileName || config.fallbackName;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            window.setTimeout(function () {
+                window.URL.revokeObjectURL(objectUrl);
+            }, 1000);
+            state.status = 'idle';
+            state.blob = null;
+            resetButton();
+            $.modal.msgSuccess(config.successMessage);
+        }
+
+        return function () {
+            var rows = $.table.selectColumns("id");
+            if (state.status === 'processing') {
+                $.modal.alertWarning(config.busyMessage);
+                return;
+            }
+            if (rows.length == 0) {
+                $.modal.alertWarning("请至少选择一个任务");
+                return;
+            }
+            $.modal.confirm(config.confirmText(rows.length), function () {
+                var xhr = new XMLHttpRequest();
+                state.status = 'processing';
+                state.blob = null;
+                state.xhr = xhr;
+                $('#' + config.buttonId)
+                    .addClass('disabled')
+                    .attr('aria-disabled', 'true')
+                    .html('<i class="fa fa-spinner fa-spin"></i> 正在导出，请稍候...');
+                $.modal.loading(config.loadingText);
+                xhr.open('POST', ctx + config.path, true);
+                xhr.timeout = 0;
+                xhr.responseType = 'blob';
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+                xhr.onload = function () {
+                    var contentType = xhr.getResponseHeader('Content-Type') || '';
+                    var accepted = config.accept(contentType) && xhr.response && xhr.response.size > 0;
+                    if (xhr.status >= 200 && xhr.status < 300 && accepted) {
+                        state.blob = xhr.response;
+                        state.fileName = fileNameOf(xhr);
+                        finish(true);
+                    } else {
+                        finish(false, config.invalidMessage);
+                    }
+                };
+                xhr.onerror = function () {
+                    finish(false, '网络异常，导出失败');
+                };
+                xhr.send('taskIds=' + encodeURIComponent(rows.join(",")));
+            });
+        };
+    }
+
+    function batchExportOverviewPhotos() {
+        var rows = $.table.selectColumns("id");
+        if (rows.length == 0) {
+            $.modal.alertWarning("请至少选择一个任务");
+            return;
+        }
+        $.modal.confirm("确认要导出选中的" + rows.length + "个任务的正面照和立面照吗？", function () {
+            var frameName = "overview-photo-download-" + new Date().getTime();
+            var downloadFrame = $('<iframe style="display:none;" name="' + frameName + '"></iframe>');
+            var form = $('<form method="post" style="display:none;"></form>');
+            form.attr("action", ctx + "biz/task/batchExportOverviewPhotos");
+            form.attr("target", frameName);
+            form.append($('<input type="hidden" name="taskIds">').val(rows.join(",")));
+            $(document.body).append(downloadFrame).append(form);
+            downloadFrame.on("load", function () {
+                var errorText = "";
+                try {
+                    errorText = downloadFrame.contents().find("body").text().trim();
+                } catch (e) {
+                    errorText = "";
+                }
+                if (errorText) {
+                    downloadFrame.remove();
+                    form.remove();
+                    $.modal.alertError(errorText.substring(0, 200));
+                }
+            });
+            form.submit();
+            $.modal.msgSuccess("已交给浏览器下载，进度见下载栏");
+        });
+    }
+
+    var batchExportOverviewExcel = createOverviewExport({
+        buttonId: 'batch-export-overview-excel-btn',
+        path: 'biz/task/batchExportOverviewExcel',
+        fallbackName: '正面照立面照.xlsx',
+        idleHtml: '<i class="fa fa-file-excel-o"></i> 批量导出正面照和立面照Excel',
+        loadingText: '正在导出正面照和立面照Excel，请稍候...',
+        confirmText: function (count) {
+            return '确认要导出选中的' + count + '个任务的正面照和立面照Excel吗？';
+        },
+        busyMessage: '正面照和立面照Excel正在导出，请勿重复点击',
+        successMessage: 'Excel已自动开始下载',
+        failMessage: '正面照和立面照Excel导出失败，请稍后重试',
+        invalidMessage: '服务器未返回有效的Excel文件',
+        accept: function (contentType) {
+            return contentType.indexOf('spreadsheetml') >= 0 || contentType.indexOf('application/octet-stream') >= 0;
+        }
+    });
 
 </script>
 </body>
