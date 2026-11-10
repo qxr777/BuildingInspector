@@ -39,6 +39,9 @@ import org.apache.xmlbeans.XmlObject;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -46,6 +49,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import edu.whut.cs.bi.biz.mapper.ReportMapper;
 import edu.whut.cs.bi.biz.mapper.BiObjectMapper;
+import com.github.pagehelper.PageHelper;
 import com.ruoyi.common.utils.PageUtils;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.core.domain.entity.SysDept;
@@ -178,6 +182,21 @@ public class ReportServiceImpl implements IReportService {
     private ILineMultiBridgeReportService lineMultiBridgeReportService;
 
     @Resource
+    private ITaskService taskService;
+
+    @Autowired
+    @Lazy
+    private ReportServiceImpl self;
+
+    /** 同时真正生成的报告份数，其余提交进入排队。 */
+    private static final int MAX_PARALLEL_REPORTS = 3;
+    private static final int REPORT_STATUS_NONE = 0;
+    private static final int REPORT_STATUS_DONE = 1;
+    private static final int REPORT_STATUS_GENERATING = 2;
+    private static final int REPORT_STATUS_FAILED = 3;
+    private static final int REPORT_STATUS_QUEUED = 4;
+
+    @Resource
     private ReadFileService readFileService;
     @Autowired
     private AttachmentService attachmentService;
@@ -230,7 +249,109 @@ public class ReportServiceImpl implements IReportService {
                 reports = reportMapper.selectReportList(report, currentUserId, null, null);
             }
         }
+        attachQueuePositions(reports);
         return reports;
+    }
+
+    /**
+     * 生成中的报告少于 3 份时立刻开始，否则记为排队。返回 true 表示进入排队。
+     */
+    public synchronized boolean enqueueOrStart(Report report, List<Task> tasks, Long rootParentId,
+                                               ReportTemplate template, String operator) {
+        Report current = reportMapper.selectReportById(report.getId());
+        if (current != null && current.getStatus() != null
+                && (current.getStatus() == REPORT_STATUS_GENERATING || current.getStatus() == REPORT_STATUS_QUEUED)) {
+            throw new IllegalStateException(current.getStatus() == REPORT_STATUS_GENERATING
+                    ? "报告正在生成中，请稍后再试" : "报告已在排队中，请稍后再试");
+        }
+        if (countByStatus(REPORT_STATUS_GENERATING) < MAX_PARALLEL_REPORTS) {
+            markReportStatus(report.getId(), REPORT_STATUS_GENERATING, operator, "");
+            self.generateReportDocumentAsync(report, tasks, rootParentId, template, operator);
+            return false;
+        }
+        markReportStatus(report.getId(), REPORT_STATUS_QUEUED, operator, "");
+        return true;
+    }
+
+    /**
+     * 一份报告结束后补位，按提交先后启动排队中的报告。
+     */
+    public synchronized void pumpReportQueue() {
+        Set<Long> skipped = new HashSet<>();
+        while (countByStatus(REPORT_STATUS_GENERATING) < MAX_PARALLEL_REPORTS) {
+            List<Report> queued = reportMapper.selectReportsByStatus(REPORT_STATUS_QUEUED);
+            Report next = null;
+            if (queued != null) {
+                for (Report item : queued) {
+                    if (item != null && item.getId() != null && !skipped.contains(item.getId())) {
+                        next = item;
+                        break;
+                    }
+                }
+            }
+            if (next == null) {
+                return;
+            }
+            try {
+                Report full = reportMapper.selectReportById(next.getId());
+                if (full == null || full.getStatus() == null || full.getStatus() != REPORT_STATUS_QUEUED) {
+                    skipped.add(next.getId());
+                    continue;
+                }
+                QueuedGeneration generation = buildQueuedGeneration(full);
+                String operator = full.getUpdateBy() == null || full.getUpdateBy().isBlank()
+                        ? "system" : full.getUpdateBy();
+                markReportStatus(full.getId(), REPORT_STATUS_GENERATING, operator, "");
+                self.generateReportDocumentAsync(full, generation.tasks, generation.rootParentId,
+                        generation.template, operator);
+            } catch (Exception e) {
+                log.error("启动排队报告失败: reportId={}", next.getId(), e);
+                skipped.add(next.getId());
+                markReportStatus(next.getId(), REPORT_STATUS_FAILED, next.getUpdateBy(),
+                        "生成报告失败，原因：" + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 重启后内存里的生成线程已经没了。把仍标记为生成中的报告放回原排队位置，再按空位启动。
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void recoverInterruptedGenerations() {
+        List<Report> interrupted = reportMapper.selectReportsByStatus(REPORT_STATUS_GENERATING);
+        if (interrupted != null) {
+            for (Report report : interrupted) {
+                if (report == null || report.getId() == null) {
+                    continue;
+                }
+                reportMapper.requeueInterruptedReport(report.getId(), REPORT_STATUS_QUEUED,
+                        "system", "系统重启，已重新排队");
+                log.warn("报告生成因系统重启中断，已重新排队: reportId={}", report.getId());
+            }
+        }
+        try {
+            self.pumpReportQueue();
+        } catch (Exception e) {
+            log.error("启动时补位排队报告失败", e);
+        }
+    }
+
+    /**
+     * 取消排队。已经开始生成的不能取消。之前生成过的报告恢复为已生成，否则恢复为未生成。
+     */
+    public synchronized void cancelQueuedReport(Long reportId, String operator) {
+        Report current = reportMapper.selectReportById(reportId);
+        if (current == null) {
+            throw new IllegalStateException("报告不存在");
+        }
+        if (current.getStatus() == null || current.getStatus() != REPORT_STATUS_QUEUED) {
+            if (current.getStatus() != null && current.getStatus() == REPORT_STATUS_GENERATING) {
+                throw new IllegalStateException("报告已经开始生成，无法取消排队");
+            }
+            throw new IllegalStateException("报告不在排队中");
+        }
+        int restored = current.getMinioId() == null ? REPORT_STATUS_NONE : REPORT_STATUS_DONE;
+        markReportStatus(reportId, restored, operator, "");
     }
 
     /**
@@ -763,7 +884,123 @@ public class ReportServiceImpl implements IReportService {
         } finally {
             testConclusionService.removeDiseaseSummaryCache();
             WordFieldUtils.removeCounters();
+            try {
+                self.pumpReportQueue();
+            } catch (Exception e) {
+                log.error("补位启动排队报告失败", e);
+            }
         }
+    }
+
+    private void attachQueuePositions(List<Report> reports) {
+        if (reports == null || reports.isEmpty()) {
+            return;
+        }
+        boolean queued = false;
+        for (Report report : reports) {
+            if (report != null && report.getStatus() != null && report.getStatus() == REPORT_STATUS_QUEUED) {
+                queued = true;
+                break;
+            }
+        }
+        if (!queued) {
+            return;
+        }
+        PageHelper.clearPage();
+        List<Report> queue = reportMapper.selectReportsByStatus(REPORT_STATUS_QUEUED);
+        Map<Long, Integer> positions = new HashMap<>();
+        if (queue != null) {
+            for (int i = 0; i < queue.size(); i++) {
+                if (queue.get(i) != null && queue.get(i).getId() != null) {
+                    positions.put(queue.get(i).getId(), i + 1);
+                }
+            }
+        }
+        for (Report report : reports) {
+            if (report != null && report.getStatus() != null && report.getStatus() == REPORT_STATUS_QUEUED) {
+                report.setQueuePosition(positions.get(report.getId()));
+            }
+        }
+    }
+
+    private int countByStatus(int status) {
+        List<Report> reports = reportMapper.selectReportsByStatus(status);
+        return reports == null ? 0 : reports.size();
+    }
+
+    private void markReportStatus(Long reportId, int status, String operator, String remark) {
+        Report updateReport = new Report();
+        updateReport.setId(reportId);
+        updateReport.setStatus(status);
+        updateReport.setUpdateBy(operator);
+        updateReport.setRemark(remark == null ? "" : remark);
+        updateReport.setUpdateTime(new Date());
+        reportMapper.updateReport(updateReport);
+    }
+
+    private QueuedGeneration buildQueuedGeneration(Report report) {
+        if (report.getTaskIds() == null || report.getTaskIds().isBlank()) {
+            throw new IllegalStateException("报告未关联任务");
+        }
+        List<Long> taskIds = new ArrayList<>();
+        for (String taskId : report.getTaskIds().split(",")) {
+            if (taskId != null && !taskId.trim().isEmpty()) {
+                taskIds.add(Long.valueOf(taskId.trim()));
+            }
+        }
+        if (taskIds.isEmpty()) {
+            throw new IllegalStateException("报告未关联任务");
+        }
+        List<Task> tasks = taskService.selectTaskListByIds(taskIds);
+        if (tasks == null || tasks.size() != taskIds.size()) {
+            throw new IllegalStateException("部分任务不存在");
+        }
+        ReportTemplate template = reportTemplateService.selectReportTemplateById(report.getReportTemplateId());
+        if (template == null) {
+            throw new IllegalStateException("报告模板不存在");
+        }
+        Long rootParentId = null;
+        if (lineMultiBridgeReportService.isMultiBridgeTemplate(template)) {
+            tasks = lineMultiBridgeReportService.orderTasksBySelection(taskIds, tasks);
+            String error = lineMultiBridgeReportService.validateTasks(report, tasks);
+            if (error != null) {
+                throw new IllegalStateException(error);
+            }
+        } else if (template.getName() != null
+                && (template.getName().contains("斜拉桥、悬索桥通用") || template.getName().contains("测试"))) {
+            rootParentId = resolveSameRootParent(tasks);
+        }
+        QueuedGeneration generation = new QueuedGeneration();
+        generation.tasks = tasks;
+        generation.rootParentId = rootParentId;
+        generation.template = template;
+        return generation;
+    }
+
+    private Long resolveSameRootParent(List<Task> tasks) {
+        Long rootParentId = null;
+        for (Task task : tasks) {
+            Building building = task == null ? null : task.getBuilding();
+            if (building == null || building.getRootObjectId() == null) {
+                throw new IllegalStateException("任务关联的建筑不存在");
+            }
+            BiObject rootObject = biObjectMapper.selectBiObjectById(building.getRootObjectId());
+            if (rootObject == null || rootObject.getParentId() == null || rootObject.getParentId() == 0) {
+                throw new IllegalStateException("请选择组合桥的桥幅");
+            }
+            if (rootParentId == null) {
+                rootParentId = rootObject.getParentId();
+            } else if (!rootParentId.equals(rootObject.getParentId())) {
+                throw new IllegalStateException("请选择同一个组合桥下的子桥任务");
+            }
+        }
+        return rootParentId;
+    }
+
+    private static final class QueuedGeneration {
+        private List<Task> tasks;
+        private Long rootParentId;
+        private ReportTemplate template;
     }
 
     /**

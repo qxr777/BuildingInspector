@@ -25,6 +25,7 @@ import edu.whut.cs.bi.biz.service.IReportService;
 import edu.whut.cs.bi.biz.service.ITaskService;
 import edu.whut.cs.bi.biz.service.impl.FileMapServiceImpl;
 import edu.whut.cs.bi.biz.utils.LineReportWordMatcher;
+import edu.whut.cs.bi.biz.utils.NaturalStringComparator;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.WordImportSupport;
 import edu.whut.cs.bi.biz.service.impl.LineReportWordImportService;
@@ -43,6 +44,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,6 +65,27 @@ import java.util.stream.Collectors;
 public class LineMultiBridgeReportDataController extends BaseController {
     private static final String FILL_PAGE = "biz/report_data/fill_line_multi_bridge";
     private static final List<String> STRUCTURE_NAMES = List.of("上部结构", "下部结构", "桥面系");
+    /** 结构下一级评定部件，顺序与报告目录一致。 */
+    private static final Map<String, Integer> PART_ORDER = new LinkedHashMap<>();
+
+    static {
+        PART_ORDER.put("上部承重构件", 11);
+        PART_ORDER.put("上部一般构件", 12);
+        PART_ORDER.put("支座", 13);
+        PART_ORDER.put("桥墩", 21);
+        PART_ORDER.put("桥台", 22);
+        PART_ORDER.put("墩台基础", 23);
+        PART_ORDER.put("翼墙、耳墙", 24);
+        PART_ORDER.put("锥坡、护坡", 25);
+        PART_ORDER.put("河床", 26);
+        PART_ORDER.put("调治构造物", 27);
+        PART_ORDER.put("桥面铺装", 31);
+        PART_ORDER.put("伸缩缝装置", 32);
+        PART_ORDER.put("栏杆、护栏", 33);
+        PART_ORDER.put("排水系统", 34);
+        PART_ORDER.put("照明、标志", 35);
+        PART_ORDER.put("人行道", 36);
+    }
 
     @Autowired
     private ILineMultiBridgeReportDataService lineReportDataService;
@@ -363,7 +386,11 @@ public class LineMultiBridgeReportDataController extends BaseController {
             record.put("level", disease.getLevel());
             record.put("developmentTrend", disease.getDevelopmentTrend());
             if (includeImages) {
+                BiObject part = partNode(object, objects);
                 record.put("structureName", structureName(object, objects));
+                record.put("partName", part == null || part.getName() == null || part.getName().isBlank()
+                        ? "其他" : part.getName().trim());
+                record.put("partOrder", partOrder(part));
                 record.put("locationName", component != null && component.getName() != null && !component.getName().isBlank()
                         ? component.getName().trim() : (component == null || component.getCode() == null ? "" : component.getCode()));
                 record.put("defectType", reportDefectType(disease));
@@ -371,6 +398,9 @@ public class LineMultiBridgeReportDataController extends BaseController {
                 record.put("images", imageUrls.getOrDefault(disease.getId(), List.of()));
             }
             records.add(record);
+        }
+        if (includeImages) {
+            records.sort(appearanceImageOrder());
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("taskId", String.valueOf(task.getId()));
@@ -420,6 +450,85 @@ public class LineMultiBridgeReportDataController extends BaseController {
             current = parent;
         }
         return "其他";
+    }
+
+    /**
+     * 上部结构、下部结构、桥面系的直接下级，例如上部承重构件、桥墩、桥面铺装。
+     */
+    private BiObject partNode(BiObject object, Map<Long, BiObject> objects) {
+        BiObject current = object;
+        BiObject belowStructure = null;
+        for (int guard = 0; current != null && guard < 12; guard++) {
+            String name = current.getName() == null ? "" : current.getName().trim();
+            if (STRUCTURE_NAMES.contains(name)) {
+                return belowStructure;
+            }
+            belowStructure = current;
+            Long parentId = current.getParentId();
+            if (parentId == null) {
+                break;
+            }
+            BiObject parent = objects.get(parentId);
+            if (parent == null) {
+                parent = biObjectMapper.selectBiObjectById(parentId);
+                if (parent != null && parent.getId() != null) {
+                    objects.put(parent.getId(), parent);
+                }
+            }
+            current = parent;
+        }
+        return null;
+    }
+
+    private int partOrder(BiObject part) {
+        if (part == null || part.getName() == null) {
+            return Integer.MAX_VALUE;
+        }
+        String name = part.getName().trim();
+        Integer order = PART_ORDER.get(name);
+        if (order == null) {
+            order = PART_ORDER.get(name.replace("、", ""));
+        }
+        if (order != null) {
+            return order;
+        }
+        return part.getOrderNum() == null ? Integer.MAX_VALUE : 1000 + part.getOrderNum();
+    }
+
+    private Comparator<Map<String, Object>> appearanceImageOrder() {
+        return Comparator
+                .comparingInt((Map<String, Object> record) -> structureOrder(record.get("structureName")))
+                .thenComparingInt(record -> intValue(record.get("partOrder")))
+                .thenComparing(record -> textValue(record.get("componentCode")), NaturalStringComparator::compare)
+                .thenComparing(record -> textValue(record.get("locationName")), NaturalStringComparator::compare)
+                .thenComparingLong(record -> longValue(record.get("diseaseId")));
+    }
+
+    private int structureOrder(Object name) {
+        int index = STRUCTURE_NAMES.indexOf(textValue(name));
+        return index < 0 ? STRUCTURE_NAMES.size() : index;
+    }
+
+    private String textValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+
+    private int intValue(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private long longValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(textValue(value));
+        } catch (NumberFormatException e) {
+            return Long.MAX_VALUE;
+        }
     }
 
     private String reportDefectType(Disease disease) {

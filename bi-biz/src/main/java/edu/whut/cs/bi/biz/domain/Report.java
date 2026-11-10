@@ -36,4 +36,7 @@ public class Report extends BaseEntity {
 
 
     private Long minioId;
+
+    /** 排队序号，只用于列表展示，不写入数据库 */
+    private Integer queuePosition;
 }

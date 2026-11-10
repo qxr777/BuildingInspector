@@ -21,6 +21,7 @@
                                 <option value="0">未生成</option>
                                 <option value="1">已生成</option>
                                 <option value="2">生成中</option>
+                                <option value="4">排队中</option>
                                 <option value="3">生成失败</option>
                             </select>
                         </li>
@@ -133,6 +134,23 @@
                 }]
         };
         $.table.init(options);
+        setInterval(function () {
+            var $table = $('#bootstrap-table');
+            if (!$table.length || typeof $table.bootstrapTable !== 'function') {
+                return;
+            }
+            var rows = $table.bootstrapTable('getData') || [];
+            var busy = false;
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].status == 2 || rows[i].status == 4) {
+                    busy = true;
+                    break;
+                }
+            }
+            if (busy) {
+                $table.bootstrapTable('refresh', {silent: true});
+            }
+        }, 5000);
     });
 
     /* 跳转到报告数据填充页面 - 支持多模板 */
@@ -175,6 +193,9 @@
             return '<span class="badge badge-success">已生成</span>';
         } else if (value == 2) {
             return '<span class="badge badge-warning">生成中</span>';
+        } else if (value == 4) {
+            var position = row.queuePosition ? ('第' + row.queuePosition + '位') : '';
+            return '<span class="badge badge-info">排队中' + position + '</span>';
         } else if (value == 3) {
             return '<span class="badge badge-danger" title="' + failReason + '">生成失败</span>';
         }
@@ -190,8 +211,11 @@
 
         // 生成报告按钮始终显示，但根据状态决定是否禁用
         if (row.status == 2) {
-            // 生成中状态，显示禁用的生成按钮
             actions.push('<a class="btn btn-default btn-xs disabled"><i class="fa fa-spinner fa-spin"></i>生成中...</a> ');
+        } else if (row.status == 4) {
+            var position = row.queuePosition ? ('第' + row.queuePosition + '位') : '';
+            actions.push('<a class="btn btn-default btn-xs disabled"><i class="fa fa-clock-o"></i>排队中' + position + '</a> ');
+            actions.push('<a class="btn btn-warning btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="cancelReportQueue(\'' + row.id + '\')"><i class="fa fa-times"></i>取消排队</a> ');
         } else {
             // 其他状态，显示可点击的生成按钮
             actions.push('<a class="btn btn-info btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="generateReport(\'' + row.id + '\')"><i class="fa fa-file-word-o"></i>生成报告</a> ');
@@ -209,6 +233,20 @@
     function generateReport(id) {
         $.modal.confirm("确认要生成该报告吗？", function () {
             $.operate.post(prefix + "/generate/" + id, function (result) {
+                if (result.code == 0) {
+                    $.modal.msgSuccess(result.msg);
+                    $.table.refresh();
+                } else {
+                    $.modal.alertError(result.msg);
+                }
+            });
+        });
+    }
+
+    // 取消排队
+    function cancelReportQueue(id) {
+        $.modal.confirm("确认取消该报告的排队吗？", function () {
+            $.operate.post(prefix + "/cancelQueue/" + id, function (result) {
                 if (result.code == 0) {
                     $.modal.msgSuccess(result.msg);
                     $.table.refresh();

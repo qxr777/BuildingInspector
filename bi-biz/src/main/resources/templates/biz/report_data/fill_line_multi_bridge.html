@@ -82,13 +82,116 @@
 
         .appearance-image-table th:nth-child(1),
         .appearance-image-table td:nth-child(1) {
-            width: 180px;
-            white-space: nowrap;
+            width: 108px;
+            white-space: normal;
+            word-break: break-all;
+            vertical-align: top;
         }
 
         .appearance-image-table th:nth-child(2),
         .appearance-image-table td:nth-child(2) {
-            width: 220px;
+            width: 88px;
+            vertical-align: top;
+        }
+
+        .appearance-image-table th:nth-child(3),
+        .appearance-image-table td:nth-child(3) {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            vertical-align: top;
+        }
+
+        .appearance-part {
+            margin: 4px 0 12px 16px;
+        }
+
+        .appearance-part h6 {
+            margin: 8px 0 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .appearance-selected-summary {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            margin-bottom: 10px;
+            padding: 8px 10px;
+            background: #f7f8fa;
+            border: 1px solid #e4e7eb;
+            border-radius: 3px;
+        }
+
+        .appearance-selected-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 0;
+            font-size: 13px;
+        }
+
+        .appearance-selected-summary.is-open .appearance-selected-head {
+            margin-bottom: 6px;
+        }
+
+        .appearance-selected-toggle {
+            margin-left: auto;
+            border: 0;
+            background: transparent;
+            color: #3c8dbc;
+            padding: 0;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .appearance-selected-body {
+            display: none;
+            max-height: 132px;
+            overflow: auto;
+        }
+
+        .appearance-selected-summary.is-open .appearance-selected-body {
+            display: block;
+        }
+
+        .appearance-selected-head strong {
+            margin-right: 8px;
+        }
+
+        .appearance-selected-label {
+            margin: 2px 0 4px;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .appearance-selected-chip {
+            display: inline-block;
+            margin: 0 6px 6px 0;
+            padding: 2px 8px;
+            border: 1px solid #d2d6de;
+            border-radius: 3px;
+            background: #fff;
+            color: #333;
+            font-size: 12px;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+
+        .appearance-selected-chip.is-partial {
+            border-color: #f0ad4e;
+            background: #fff8ee;
+        }
+
+        .appearance-selected-remove {
+            margin-left: 4px;
+            color: #999;
+        }
+
+        .disease-record.appearance-locate td {
+            background: #fff6d8;
         }
 
         .appearance-photo input {
@@ -2608,6 +2711,7 @@
     function showDiseaseSelector(selectorType) {
         currentSelectorType = selectorType;
         $('#diseaseSelectModalLabel').text(diseaseSelectorTitle(selectorType));
+        $('#diseaseSelectModal .modal-dialog').css('width', selectorType === 'appearance-images' ? '1080px' : '');
         $('#confirmDiseaseSelection').prop('disabled', true);
         var ready = isAppearanceImageSelector()
             ? appearanceImageData && Object.keys(appearanceImageData).length
@@ -2713,80 +2817,119 @@
         html += '<div class="clearfix" style="margin-bottom:10px"><label class="pull-left"><input type="checkbox" class="select-all-diseases" data-task-id="'
             + taskAttr + '"> 全选当前筛选结果</label><span class="pull-right text-muted disease-selection-count" data-task-id="' + taskAttr + '" aria-live="polite"></span></div>';
         html += '<div class="disease-selection-list" data-task-id="' + taskAttr + '" style="max-height:450px;overflow-y:auto">';
-        var groups = {};
-        var groupOrder = [];
-        rows.forEach(function (disease) {
-            var key = imageMode
-                ? 'structure:' + (disease.structureName || '其他')
-                : (disease.componentId == null ? 'name:' + disease.componentName : 'id:' + disease.componentId);
-            if (!groups[key]) {
-                groups[key] = {name: imageMode ? (disease.structureName || '其他') : (disease.componentName || '未分类构件'), diseases: []};
-                groupOrder.push(key);
-            }
-            groups[key].diseases.push(disease);
-        });
         if (imageMode) {
-            var structureOrder = ['上部结构', '下部结构', '桥面系'];
-            groupOrder.sort(function (left, right) {
-                var leftIndex = structureOrder.indexOf(groups[left].name);
-                var rightIndex = structureOrder.indexOf(groups[right].name);
-                return (leftIndex < 0 ? 99 : leftIndex) - (rightIndex < 0 ? 99 : rightIndex);
-            });
+            html += '<div class="appearance-selected-summary" data-task-id="' + taskAttr + '">'
+                + '<div class="text-muted">还没有勾选照片</div></div>';
         }
         var seenCrack = {};
-        groupOrder.forEach(function (key, groupIndex) {
-            var group = groups[key];
-            var imageCount = imageMode ? group.diseases.reduce(function (total, disease) {
-                return total + ((disease.images || []).length);
-            }, 0) : group.diseases.length;
-            var collapseId = 'appearance-structure-' + taskAttr + '-' + groupIndex;
-            if (imageMode) {
-                html += '<div class="component-group"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px;cursor:pointer" data-toggle="collapse" data-target="#'
+        function appearancePhotoRow(disease) {
+            var photos = '';
+            (disease.images || []).forEach(function (image) {
+                var imageId = String(image.id || '');
+                var checked = selectedImages
+                    ? !!selectedImages[imageId]
+                    : (disease.crack && !seenCrack[disease.diseaseId]);
+                if (disease.crack) seenCrack[disease.diseaseId] = true;
+                photos += '<label class="appearance-photo">'
+                    + '<input type="checkbox" class="disease-checkbox" data-image-id="' + diseaseHtml(imageId)
+                    + '" data-disease-id="' + diseaseHtml(disease.diseaseId)
+                    + '" aria-label="选择图片 ' + diseaseHtml(imageId) + '"' + (checked ? ' checked' : '') + '>'
+                    + '<img src="' + diseaseHtml(image.url || '') + '" alt="病害图片">'
+                    + '<span class="appearance-photo-mark"><i class="fa fa-check"></i></span></label>';
+            });
+            return '<tr class="disease-record" data-appearance="1" data-disease-id="' + diseaseHtml(disease.diseaseId)
+                + '" data-location="' + diseaseHtml(disease.locationName || '')
+                + '" data-crack="' + (disease.crack ? '1' : '0')
+                + '" data-defect-type="' + diseaseHtml(disease.defectType || '') + '" data-matched="true">'
+                + '<td>' + diseaseHtml(disease.locationName || '—') + '</td>'
+                + '<td>' + diseaseHtml(disease.defectType || '未填写类型') + '</td>'
+                + '<td>' + diseaseHtml(disease.description || '—') + '</td>'
+                + '<td>' + photos + '</td></tr>';
+        }
+        function appearanceTable(diseases) {
+            var table = '<div class="table-responsive"><table class="table table-bordered table-hover appearance-image-table"><thead><tr>'
+                + '<th>缺损位置</th><th>缺损类型</th><th>病害描述</th><th>病害图片预览</th></tr></thead><tbody>';
+            diseases.forEach(function (disease) { table += appearancePhotoRow(disease); });
+            return table + '</tbody></table></div>';
+        }
+        if (imageMode) {
+            var structureOrder = ['上部结构', '下部结构', '桥面系'];
+            var structures = [];
+            var structureMap = {};
+            rows.forEach(function (disease) {
+                var structureName = disease.structureName || '其他';
+                var partName = disease.partName || '其他';
+                if (!structureMap[structureName]) {
+                    structureMap[structureName] = {name: structureName, parts: [], partMap: {}};
+                    structures.push(structureMap[structureName]);
+                }
+                var structure = structureMap[structureName];
+                if (!structure.partMap[partName]) {
+                    var partOrder = Number(disease.partOrder);
+                    structure.partMap[partName] = {name: partName, order: isFinite(partOrder) ? partOrder : 999999, diseases: []};
+                    structure.parts.push(structure.partMap[partName]);
+                }
+                structure.partMap[partName].diseases.push(disease);
+            });
+            structures.sort(function (left, right) {
+                var leftIndex = structureOrder.indexOf(left.name);
+                var rightIndex = structureOrder.indexOf(right.name);
+                return (leftIndex < 0 ? 99 : leftIndex) - (rightIndex < 0 ? 99 : rightIndex);
+            });
+            structures.forEach(function (structure, structureIndex) {
+                structure.parts.sort(function (left, right) { return left.order - right.order; });
+                var imageCount = structure.parts.reduce(function (total, part) {
+                    return total + part.diseases.reduce(function (count, disease) {
+                        return count + ((disease.images || []).length);
+                    }, 0);
+                }, 0);
+                var collapseId = 'appearance-structure-' + taskAttr + '-' + structureIndex;
+                html += '<div class="component-group" data-structure-name="' + diseaseHtml(structure.name) + '"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px;cursor:pointer" data-toggle="collapse" data-target="#'
                     + collapseId + '"><i class="fa fa-chevron-down"></i> '
-                    + diseaseHtml(group.name) + ' <small>（' + imageCount + '张）</small></h5><div id="' + collapseId + '" class="collapse in"><div class="table-responsive">';
-            } else {
+                    + diseaseHtml(structure.name) + ' <small>（' + imageCount + '张）</small></h5><div id="' + collapseId + '" class="collapse in">';
+                structure.parts.forEach(function (part, partIndex) {
+                    var partCount = part.diseases.reduce(function (count, disease) {
+                        return count + ((disease.images || []).length);
+                    }, 0);
+                    var partCollapseId = 'appearance-part-' + taskAttr + '-' + structureIndex + '-' + partIndex;
+                    html += '<div class="appearance-part" data-part-name="' + diseaseHtml(part.name) + '"><h6 data-toggle="collapse" data-target="#' + partCollapseId + '">'
+                        + '<i class="fa fa-chevron-down"></i> ' + diseaseHtml(part.name)
+                        + ' <small class="text-muted">（' + partCount + '张）</small></h6>'
+                        + '<div id="' + partCollapseId + '" class="collapse in">'
+                        + appearanceTable(part.diseases) + '</div></div>';
+                });
+                html += '</div></div>';
+            });
+        } else {
+            var groups = {};
+            var groupOrder = [];
+            rows.forEach(function (disease) {
+                var key = disease.componentId == null ? 'name:' + disease.componentName : 'id:' + disease.componentId;
+                if (!groups[key]) {
+                    groups[key] = {name: disease.componentName || '未分类构件', diseases: []};
+                    groupOrder.push(key);
+                }
+                groups[key].diseases.push(disease);
+            });
+            groupOrder.forEach(function (key) {
+                var group = groups[key];
                 html += '<div class="component-group"><h5 style="border-bottom:1px solid #ddd;padding-bottom:8px">'
                     + diseaseHtml(group.name) + ' <small>（' + group.diseases.length + '条）</small></h5><div class="table-responsive">';
-            }
-            html += '<table class="table table-bordered table-hover' + (imageMode ? ' appearance-image-table' : '') + '"><thead><tr>'
-                + (imageMode ? '' : '<th>选择</th>')
-                + (imageMode ? '<th>缺损位置</th><th>缺损类型</th><th>病害图片预览</th>' : '<th>构件编号 / 病害位置</th><th>病害类型</th><th>病害描述</th><th>标度</th>')
-                + '</tr></thead><tbody>';
-            group.diseases.forEach(function (disease) {
-                if (imageMode) {
-                    var photos = '';
-                    (disease.images || []).forEach(function (image) {
-                        var imageId = String(image.id || '');
-                        var checked = selectedImages
-                            ? !!selectedImages[imageId]
-                            : (disease.crack && !seenCrack[disease.diseaseId]);
-                        if (disease.crack) seenCrack[disease.diseaseId] = true;
-                        photos += '<label class="appearance-photo">'
-                            + '<input type="checkbox" class="disease-checkbox" data-image-id="' + diseaseHtml(imageId)
-                            + '" data-disease-id="' + diseaseHtml(disease.diseaseId)
-                            + '" aria-label="选择图片 ' + diseaseHtml(imageId) + '"' + (checked ? ' checked' : '') + '>'
-                            + '<img src="' + diseaseHtml(image.url || '') + '" alt="病害图片">'
-                            + '<span class="appearance-photo-mark"><i class="fa fa-check"></i></span></label>';
-                    });
-                    html += '<tr class="disease-record" data-appearance="1" data-disease-id="' + diseaseHtml(disease.diseaseId)
-                        + '" data-crack="' + (disease.crack ? '1' : '0')
-                        + '" data-defect-type="' + diseaseHtml(disease.defectType || '') + '" data-matched="true">'
-                        + '<td>' + diseaseHtml(disease.locationName || '—') + '</td>'
-                        + '<td>' + diseaseHtml(disease.defectType || '未填写类型') + '</td>'
-                        + '<td>' + photos + '</td></tr>';
-                    return;
-                }
-                html += '<tr class="disease-record" data-disease-id="' + diseaseHtml(disease.diseaseId) + '" data-matched="true">'
-                    + '<td><input type="checkbox" class="disease-checkbox" data-disease-id="' + diseaseHtml(disease.diseaseId)
-                    + '" aria-label="选择病害 ' + diseaseHtml(disease.diseaseId) + '"' + (selected[String(disease.diseaseId)] ? ' checked' : '') + '></td>'
-                    + '<td>' + diseaseHtml(disease.componentCode || '—') + '<br>' + diseaseHtml(disease.position || '未填写位置')
-                    + '<br><small class="text-muted">病害编号：' + diseaseHtml(disease.diseaseId) + '</small></td>'
-                    + '<td>' + diseaseHtml(disease.diseaseTypeName || '未填写类型') + '</td>'
-                    + '<td style="min-width:200px;white-space:pre-wrap;overflow-wrap:anywhere">' + diseaseHtml(disease.description || '未填写描述') + '</td>'
-                    + '<td style="white-space:nowrap">' + (disease.level ? diseaseHtml(disease.level) + '类' : '未标度') + '</td></tr>';
+                html += '<table class="table table-bordered table-hover"><thead><tr><th>选择</th>'
+                    + '<th>构件编号 / 病害位置</th><th>病害类型</th><th>病害描述</th><th>标度</th></tr></thead><tbody>';
+                group.diseases.forEach(function (disease) {
+                    html += '<tr class="disease-record" data-disease-id="' + diseaseHtml(disease.diseaseId) + '" data-matched="true">'
+                        + '<td><input type="checkbox" class="disease-checkbox" data-disease-id="' + diseaseHtml(disease.diseaseId)
+                        + '" aria-label="选择病害 ' + diseaseHtml(disease.diseaseId) + '"' + (selected[String(disease.diseaseId)] ? ' checked' : '') + '></td>'
+                        + '<td>' + diseaseHtml(disease.componentCode || '—') + '<br>' + diseaseHtml(disease.position || '未填写位置')
+                        + '<br><small class="text-muted">病害编号：' + diseaseHtml(disease.diseaseId) + '</small></td>'
+                        + '<td>' + diseaseHtml(disease.diseaseTypeName || '未填写类型') + '</td>'
+                        + '<td style="min-width:200px;white-space:pre-wrap;overflow-wrap:anywhere">' + diseaseHtml(disease.description || '未填写描述') + '</td>'
+                        + '<td style="white-space:nowrap">' + (disease.level ? diseaseHtml(disease.level) + '类' : '未标度') + '</td></tr>';
+                });
+                html += '</tbody></table></div></div>';
             });
-            html += '</tbody></table></div>' + (imageMode ? '</div>' : '') + '</div>';
-        });
+        }
         html += '<p class="text-center text-muted disease-no-matches" style="padding:30px;display:none">'
             + (rows.length ? '没有符合搜索条件的病害' : (imageMode ? '该子桥暂无带图片的病害' : '该子桥暂无病害数据')) + '</p></div>';
         return html;
@@ -2815,7 +2958,7 @@
             }
             $(this).attr('data-matched', String(matched)).toggle(matched);
         });
-        $pane.find('.component-group').each(function () {
+        $pane.find('.appearance-part, .component-group').each(function () {
             $(this).toggle($(this).find('.disease-record[data-matched="true"]').length > 0);
         });
         var $matched = $pane.find('.disease-record[data-matched="true"]');
@@ -2835,6 +2978,93 @@
         var total = imageMode ? $pane.find('.disease-checkbox').length : $pane.find('.disease-record').length;
         var matchedCount = imageMode ? $matched.length : $pane.find('.disease-record[data-matched="true"]').length;
         $pane.find('.disease-selection-count').text('共 ' + total + ' ' + unit + ' · 匹配 ' + matchedCount + ' ' + unit + ' · 已选 ' + selected + ' ' + unit);
+        if (imageMode) updateAppearanceSelectionSummary(taskId);
+    }
+
+    function appearanceDiseaseRows(taskId, diseaseId) {
+        return $('#task-' + taskId).find('.disease-record[data-appearance="1"]').filter(function () {
+            return $(this).attr('data-disease-id') === String(diseaseId);
+        });
+    }
+
+    function locateAppearanceDisease(taskId, diseaseId) {
+        var $pane = $('#task-' + taskId);
+        var $row = appearanceDiseaseRows(taskId, diseaseId).first();
+        if (!$row.length) return;
+        if (!$row.is(':visible')) {
+            $pane.find('.disease-search-input').val('');
+            $pane.find('.appearance-crack-filter[value="all"]').prop('checked', true);
+            filterDiseaseList(taskId);
+            $row = appearanceDiseaseRows(taskId, diseaseId).first();
+        }
+        $row.parents('.collapse').addClass('in').css('height', '');
+        var list = $row.closest('.disease-selection-list')[0];
+        if (list) {
+            list.scrollTop += $row.offset().top - $(list).offset().top - 48;
+        }
+        $pane.find('.disease-record').removeClass('appearance-locate');
+        $row.addClass('appearance-locate');
+        setTimeout(function () { $row.removeClass('appearance-locate'); }, 1600);
+    }
+
+    function updateAppearanceSelectionSummary(taskId) {
+        var $pane = $('#task-' + taskId);
+        var $box = $pane.find('.appearance-selected-summary');
+        if (!$box.length) return;
+        var groups = {};
+        var groupOrder = [];
+        var photoCount = 0;
+        var partialCount = 0;
+        $pane.find('.disease-record[data-appearance="1"]').each(function () {
+            var $row = $(this);
+            var total = $row.find('.disease-checkbox').length;
+            var checked = $row.find('.disease-checkbox:checked').length;
+            if (!total || checked < 1) return;
+            var item = {
+                diseaseId: $row.attr('data-disease-id'),
+                location: $row.attr('data-location') || '—',
+                defect: $row.attr('data-defect-type') || '未填写类型',
+                structure: $row.closest('.component-group').attr('data-structure-name') || '',
+                part: $row.closest('.appearance-part').attr('data-part-name') || '',
+                checked: checked,
+                total: total,
+                crack: $row.attr('data-crack') === '1'
+            };
+            item.partial = !item.crack && item.checked < item.total;
+            if (item.partial) partialCount++;
+            photoCount += checked;
+            var key = item.structure + '/' + item.part;
+            if (!groups[key]) {
+                groups[key] = {label: [item.structure, item.part].filter(Boolean).join(' / '), items: []};
+                groupOrder.push(key);
+            }
+            groups[key].items.push(item);
+        });
+        var diseaseCount = groupOrder.reduce(function (count, key) { return count + groups[key].items.length; }, 0);
+        if (!diseaseCount) {
+            $box.html('<div class="text-muted">还没有勾选照片</div>');
+            return;
+        }
+        var open = $box.hasClass('is-open');
+        var html = '<div class="appearance-selected-head"><strong>已选病害</strong><span class="text-muted">'
+            + diseaseCount + ' 条 · ' + photoCount + ' 张</span>';
+        if (partialCount) html += '<span class="text-warning">' + partialCount + ' 条还有照片没勾完</span>';
+        html += '<button type="button" class="appearance-selected-toggle"><i class="fa fa-'
+            + (open ? 'chevron-up' : 'chevron-down') + '"></i> ' + (open ? '收起' : '展开') + '</button></div>';
+        html += '<div class="appearance-selected-body">';
+        groupOrder.forEach(function (key) {
+            var group = groups[key];
+            html += '<div class="appearance-selected-label">' + diseaseHtml(group.label || '其他') + '</div>';
+            group.items.forEach(function (item) {
+                var countText = item.crack ? (item.checked + '张') : (item.checked + '/' + item.total + '张');
+                html += '<button type="button" class="appearance-selected-chip' + (item.partial ? ' is-partial' : '')
+                    + '" data-task-id="' + diseaseHtml(taskId) + '" data-disease-id="' + diseaseHtml(item.diseaseId)
+                    + '" title="定位到这条病害">' + diseaseHtml(item.location) + ' · ' + diseaseHtml(item.defect)
+                    + ' · ' + countText + '<i class="fa fa-times appearance-selected-remove" title="取消这条"></i></button>';
+            });
+        });
+        html += '</div>';
+        $box.html(html);
     }
 
     function bindDiseaseSelectionEvents() {
@@ -2858,6 +3088,25 @@
                     });
                 });
             }
+            updateDiseaseSelectionCount(taskId);
+        });
+        $('#diseaseTaskTabContent').off('click.appearanceToggle').on('click.appearanceToggle', '.appearance-selected-toggle', function (event) {
+            event.preventDefault();
+            var $box = $(this).closest('.appearance-selected-summary');
+            var open = !$box.hasClass('is-open');
+            $box.toggleClass('is-open', open);
+            $(this).html('<i class="fa fa-' + (open ? 'chevron-up' : 'chevron-down') + '"></i> ' + (open ? '收起' : '展开'));
+        });
+        $('#diseaseTaskTabContent').off('click.appearanceSummary').on('click.appearanceSummary', '.appearance-selected-chip', function (event) {
+            if ($(event.target).closest('.appearance-selected-remove').length) return;
+            locateAppearanceDisease($(this).attr('data-task-id'), $(this).attr('data-disease-id'));
+        });
+        $('#diseaseTaskTabContent').off('click.appearanceRemove').on('click.appearanceRemove', '.appearance-selected-remove', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            var $chip = $(this).closest('.appearance-selected-chip');
+            var taskId = $chip.attr('data-task-id');
+            appearanceDiseaseRows(taskId, $chip.attr('data-disease-id')).find('.disease-checkbox').prop('checked', false);
             updateDiseaseSelectionCount(taskId);
         });
         $('.disease-checkbox').off('change').on('change', function () {

@@ -768,16 +768,11 @@ public class ReportController extends BaseController {
                 return AjaxResult.error("报告不存在");
             }
 
-            if (report.getStatus() == 2) {
+            if (report.getStatus() != null && report.getStatus() == 2) {
                 return AjaxResult.error("报告正在生成中，请稍后再试");
             }
-
-            // 检查生成中的报告数量
-            Report queryReport = new Report();
-            queryReport.setStatus(2);
-            List<Report> generatingReports = reportMapper.selectReportList(queryReport,null,null,null);
-            if (generatingReports.size() >= 8) {
-                return AjaxResult.error("并行生成报告数量达到上限，请稍后重试");
+            if (report.getStatus() != null && report.getStatus() == 4) {
+                return AjaxResult.error("报告已在排队中，请稍后再试");
             }
 
             // 获取报告关联的任务ID
@@ -833,8 +828,7 @@ public class ReportController extends BaseController {
                 if (error != null) {
                     return AjaxResult.error(error);
                 }
-                reportServiceImpl.generateReportDocumentAsync(report, tasks, null, template, ShiroUtils.getLoginName());
-                return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
+                return submitReportGeneration(report, tasks, null, template);
             }
 
             // 验证所有任务是否属于同一组合桥下的子桥
@@ -898,13 +892,37 @@ public class ReportController extends BaseController {
             if (parentObjectIds.size() > 1) {
                 return AjaxResult.error("请选择同一个组合桥下的子桥任务");
             }
-            // 异步生成报告
-            reportServiceImpl.generateReportDocumentAsync(report, tasks, rootParentId, template, ShiroUtils.getLoginName());
-
-            return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
+            return submitReportGeneration(report, tasks, rootParentId, template);
         } catch (Exception e) {
             logger.error("生成报告失败", e);
             return AjaxResult.error("生成报告失败：" + e.getMessage());
+        }
+    }
+
+    private AjaxResult submitReportGeneration(Report report, List<Task> tasks, Long rootParentId,
+                                              ReportTemplate template) {
+        boolean queued = reportServiceImpl.enqueueOrStart(report, tasks, rootParentId, template,
+                ShiroUtils.getLoginName());
+        if (queued) {
+            return AjaxResult.success("已加入排队，最多同时生成3份，请在列表查看排队位置");
+        }
+        return AjaxResult.success("报告生成已开始，请稍后刷新页面查看状态");
+    }
+
+    /**
+     * 取消排队
+     */
+    @RequiresPermissions("biz:report:edit")
+    @Log(title = "检测报告", businessType = BusinessType.UPDATE)
+    @PostMapping("/cancelQueue/{id}")
+    @ResponseBody
+    public AjaxResult cancelQueue(@PathVariable("id") Long id) {
+        try {
+            reportServiceImpl.cancelQueuedReport(id, ShiroUtils.getLoginName());
+            return AjaxResult.success("已取消排队");
+        } catch (Exception e) {
+            logger.error("取消排队失败", e);
+            return AjaxResult.error(e.getMessage() == null ? "取消排队失败" : e.getMessage());
         }
     }
 

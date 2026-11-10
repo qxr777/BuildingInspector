@@ -21,6 +21,17 @@ public interface ReportMapper {
     public Report selectReportById(Long id);
 
     /**
+     * 按状态查询报告，按更新时间从早到晚，用于生成排队。
+     */
+    public List<Report> selectReportsByStatus(@Param("status") Integer status);
+
+    /**
+     * 把重启前仍标记为生成中的报告放回排队，不改更新时间，排队顺序保持不变。
+     */
+    public int requeueInterruptedReport(@Param("id") Long id, @Param("status") Integer status,
+                                        @Param("updateBy") String updateBy, @Param("remark") String remark);
+
+    /**
      * 查询检测报告列表
      * 
      * @param report 检测报告

@@ -106,6 +106,20 @@
         where r.id = #{id} and r.flag = 0
     </select>
 
+    <select id="selectReportsByStatus" resultMap="ReportResult">
+        <include refid="selectReportVo"/>
+        where r.flag = 0 and r.status = #{status}
+        order by r.update_time asc, r.id asc
+    </select>
+
+    <update id="requeueInterruptedReport">
+        update bi_report
+        set status = #{status},
+            update_by = #{updateBy},
+            remark = #{remark}
+        where id = #{id} and flag = 0 and status = 2
+    </update>
+
     <insert id="insertReport" parameterType="edu.whut.cs.bi.biz.domain.Report" useGeneratedKeys="true" keyProperty="id">
         insert into bi_report (
             name,
