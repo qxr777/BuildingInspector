@@ -781,6 +781,10 @@
             allowClear: true
         });
 
+        // 对齐 APP：定量数字失焦后按小数位格式化
+        $(document).on('blur', '#diseaseDetails input[type="number"]', function () {
+            formatQuantitativeNumberInput(this);
+        });
 
         // 确保发展趋势和病害性质下拉框正确初始化，不需要销毁select2实例
         // 因为我们已经在HTML中添加了no-select2类来排除它们
@@ -873,7 +877,7 @@
             refreshReferenceDropdowns();
         });
 
-        // 数量变化时渲染病害详情区
+        // 数量变化时渲染病害详情区（保留已选病害位置，仅刷新参考面选项）
         $('#quantityInput').on('change', function () {
             if (isCurrentFastenerCountDisease()) {
                 return;
@@ -881,8 +885,7 @@
 
             var quantity = $(this).val();
             updateDiseaseDetails(quantity);
-            $("#position").val("").trigger("change");
-            $("#customPosition").val("").hide().removeAttr('required');
+            refreshReferenceDropdowns();
         });
 
         // 表单验证
@@ -1800,7 +1803,7 @@
                     fieldsToShow.push({
                         label: "缝宽",
                         name: `diseaseDetails[${i}].crackWidth`,
-                        step: "0.0001",
+                        step: "0.01",
                         placeholder: "缝宽",
                         unit: "mm",
                         value: diseaseDetails[i]?.crackWidth || ""
@@ -1836,7 +1839,8 @@
                         label: "角度",
                         name: `diseaseDetails[${i}].angle`,
                         step: "1",
-                        placeholder: "角度",
+                        decimalPlaces: 0,
+                        placeholder: "角度（整数）",
                         unit: "°",
                         value: diseaseDetails[i]?.angle || ""
                     });
@@ -1922,7 +1926,7 @@
                               <div class="detail-field">
                                   <label class="field-label">${field.label}</label>
                                   <div class="measurement-control">
-                                      <input name="${field.name}" class="form-control" type="number" step="${field.step}" placeholder="${field.placeholder}" value="${field.value}">
+                                      <input name="${field.name}" class="form-control" type="number" step="${field.step}"${field.decimalPlaces !== undefined ? ` data-decimal-places="${field.decimalPlaces}"` : ''} placeholder="${field.placeholder}" value="${field.value}">
                                       <span class="input-group-addon">${field.unit}</span>
                                   </div>
                               </div>`);
@@ -2059,7 +2063,7 @@
                     label: "缝宽范围",
                     nameStart: "diseaseDetails[0].crackWidthRangeStart",
                     nameEnd: "diseaseDetails[0].crackWidthRangeEnd",
-                    step: "0.0001",
+                    step: "0.01",
                     unit: "mm",
                     valueStart: diseaseDetails[0]?.crackWidthRangeStart || "",
                     valueEnd: diseaseDetails[0]?.crackWidthRangeEnd || ""
@@ -2311,6 +2315,9 @@
                 }
             }
         }
+
+        // 对齐 APP：定量数值按约定小数位回显
+        formatAllQuantitativeNumberInputs();
     }
 
     // 计算构件扣分
@@ -2416,9 +2423,97 @@
         validateQuantity(input);
     }
 
+    // 对齐 APP ClearableNumberTextField：失焦后按小数位格式化定量数值
+    function formatNumberOrEmpty(value, decimalPlaces) {
+        var normalized = String(value == null ? '' : value).trim();
+        if (!normalized) return '';
+        var number = Number(normalized);
+        if (!isFinite(number)) return normalized;
+        var places = Math.max(0, parseInt(decimalPlaces, 10) || 0);
+        return number.toFixed(places);
+    }
+
+    function resolveQuantitativeDecimalPlaces(input) {
+        var $input = $(input);
+        var attr = $input.attr('data-decimal-places');
+        if (attr !== undefined && attr !== null && String(attr).trim() !== '') {
+            return parseInt(attr, 10);
+        }
+        var name = String($input.attr('name') || '');
+        // 参考面序号保持整数文本
+        if ($input.hasClass('special-reference-sequence-start')
+                || $input.hasClass('special-reference-sequence-end')) {
+            return 0;
+        }
+        // 角度等后端整数字段：暂时保持整数（后端 Integer）
+        if (/(^|\.)angle$/.test(name)
+                || /(^|\.)(numeratorRatio|denominatorRatio|areaIdentifier)$/.test(name)) {
+            return 0;
+        }
+        // 定量数据（含特殊结构长度/缝宽/面积/变形/偏移量）默认保留两位小数
+        return 2;
+    }
+
+    function formatQuantitativeNumberInput(input) {
+        if (!input || input.disabled || input.readOnly) return;
+        input.value = formatNumberOrEmpty(input.value, resolveQuantitativeDecimalPlaces(input));
+    }
+
+    function formatAllQuantitativeNumberInputs() {
+        $('#diseaseDetails input[type="number"]').each(function () {
+            formatQuantitativeNumberInput(this);
+        });
+    }
+
     // 表单提交时最终验证
     function validateForm() {
         return validateQuantity(document.getElementById('quantityInput'));
+    }
+
+    function isIntegerQuantitativeField(name) {
+        return /(^|\.)angle$/.test(String(name || ''))
+            || /(^|\.)(numeratorRatio|denominatorRatio|areaIdentifier)$/.test(String(name || ''));
+    }
+
+    function integerFieldTip(name) {
+        var fieldName = String(name || '');
+        if (/(^|\.)angle$/.test(fieldName)) {
+            return '角度应为整数';
+        }
+        var label = resolveErrorFieldLabel(fieldName) || '该字段';
+        return label + '应为整数';
+    }
+
+    function validateQuantitativeNumberInputs() {
+        var invalidInput = null;
+        var invalidTip = '';
+        $('#diseaseDetails input[type="number"]').each(function () {
+            if (this.disabled || this.readOnly) {
+                return;
+            }
+            var name = $(this).attr('name') || '';
+            var raw = String(this.value || '').trim();
+            if (raw && isIntegerQuantitativeField(name) && !/^-?\d+$/.test(raw)) {
+                invalidInput = this;
+                invalidTip = integerFieldTip(name);
+                return false;
+            }
+            if (typeof this.checkValidity === 'function' && !this.checkValidity()) {
+                invalidInput = this;
+                if (isIntegerQuantitativeField(name)) {
+                    invalidTip = integerFieldTip(name);
+                } else {
+                    invalidTip = this.validationMessage || "请检查定量数据中的数字格式";
+                }
+                return false;
+            }
+        });
+        if (invalidInput) {
+            $.modal.alertWarning(invalidTip || "请检查定量数据中的数字格式");
+            invalidInput.focus();
+            return false;
+        }
+        return true;
     }
 
     // 初始化等级选择按钮组
@@ -2725,10 +2820,10 @@
                     type: 'DELETE',
                     success: function (response) {
                         if (response.code === 0) {
-                            $.modal.msgSuccess("删除成功");
+                            $.modal.alertSuccess("删除成功");
                             $container.remove();
                         } else {
-                            $.modal.alertError(response.msg);
+                            $.modal.alertError(friendlyActionError(response.msg, "删除失败"));
                         }
                     },
                     error: function () {
@@ -2804,6 +2899,61 @@
         return String($('input[name="' + fieldName + '"]').val() || '').trim();
     }
 
+    function resolveErrorFieldLabel(fieldPath) {
+        var path = String(fieldPath || '');
+        var name = path.indexOf('.') >= 0 ? path.substring(path.lastIndexOf('.') + 1) : path;
+        var map = {
+            angle: '角度',
+            angleRangeStart: '角度',
+            angleRangeEnd: '角度',
+            length: '长度',
+            lengthRangeStart: '长度',
+            lengthRangeEnd: '长度',
+            width: '宽度',
+            height: '高度/深度',
+            depth: '高度/深度',
+            heightDepth: '高度/深度',
+            heightDepthRangeStart: '高度/深度',
+            heightDepthRangeEnd: '高度/深度',
+            crackWidth: '缝宽',
+            crackWidthRangeStart: '缝宽',
+            crackWidthRangeEnd: '缝宽',
+            areaLength: '面积',
+            areaWidth: '面积',
+            deformation: '变形/位移',
+            deformationRangeStart: '变形/位移',
+            deformationRangeEnd: '变形/位移',
+            quantity: '缺损数量',
+            deductPoints: '扣分'
+        };
+        return map[name] || '';
+    }
+
+    function friendlyActionError(msg, fallback) {
+        var text = String(msg == null ? '' : msg).trim();
+        if (!text) {
+            return fallback || '操作失败';
+        }
+        if (/Failed to convert|NumberFormatException|nested exception|java\.lang\.|required type/i.test(text)) {
+            var fieldMatch = text.match(/property '([^']+)'/i);
+            var fieldPath = fieldMatch && fieldMatch[1];
+            var fieldName = fieldPath && fieldPath.indexOf('.') >= 0
+                ? fieldPath.substring(fieldPath.lastIndexOf('.') + 1)
+                : (fieldPath || '');
+            var label = resolveErrorFieldLabel(fieldPath) || '该字段';
+            var requireInteger = /java\.lang\.(Integer|Long)|required type 'int'|required type 'long'/i.test(text)
+                || /^(angle|quantity|deductPoints|numeratorRatio|denominatorRatio|areaIdentifier)$/.test(fieldName);
+            if (requireInteger) {
+                if (fieldName === 'angle') {
+                    return '角度应为整数';
+                }
+                return label + '应为整数';
+            }
+            return label + '请输入有效数字';
+        }
+        return text;
+    }
+
     // 修改表单提交处理
     function submitHandler() {
         var componentCodeInput = $("#componentCode");
@@ -2824,12 +2974,23 @@
         }
         componentNameInput.val(componentName);
 
-        if ($.validate.form() && validateForm()) {
-            var formData = new FormData($("#form-disease-edit")[0]);
+        if (!$.validate.form()) {
+            $.modal.alertWarning("请完善必填项或修正标红字段后再保存");
+            return;
+        }
+        if (!validateForm()) {
+            $.modal.alertWarning("请检查缺损数量等字段是否填写正确");
+            return;
+        }
+        if (!validateQuantitativeNumberInputs()) {
+            return;
+        }
+
+        var formData = new FormData($("#form-disease-edit")[0]);
 
             // 处理自定义病害类型
             var selectedDiseaseTypeId = $("#diseaseTypeId").val();
-            var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
+            var selectedDiseaseType = selectedDiseaseTypeId && Array.isArray(diseaseTypes) ? diseaseTypes.find(function (item) {
                 return item.id == selectedDiseaseTypeId;
             }) : null;
             if (isCustomDiseaseType(selectedDiseaseType)) {
@@ -2972,12 +3133,12 @@
                 success: function (response) {
                     $.modal.closeLoading();
                     if (response.code === 0) {
-                        $.modal.msgSuccess("保存成功");
+                        $.modal.alertSuccess("保存成功");
                         localStorage.setItem("refreshDiseaseTable", Date.now()); // 设置一个刷新标志（附带时间避免缓存）
                         $.modal.closeTab();
                         parent.$.table.refresh();
                     } else {
-                        $.modal.alertError(response.msg);
+                        $.modal.alertError(friendlyActionError(response.msg, "保存失败"));
                     }
                 },
                 error: function () {
@@ -2985,7 +3146,6 @@
                     $.modal.alertError("保存失败，请稍后再试");
                 }
             });
-        }
     }
 
     // 获取已上传的附件列表
@@ -3213,7 +3373,8 @@
 
     function formatSpecialSignedOffset(referenceItem) {
         var rawOffset = String(referenceItem.find('.special-offset-value').val() || '').trim();
-        if (!rawOffset) return '';
+        // 对齐 APP toSignedOffsetText：空偏移也输出 (+0)
+        if (!rawOffset) return '(+0)';
 
         var numericOffset = Number(rawOffset);
         var absoluteOffset = Number.isNaN(numericOffset)
@@ -3223,6 +3384,7 @@
         var sign = direction === '负方向' ? '-' : '+';
         return '(' + sign + absoluteOffset + ')';
     }
+
 
     function getSpecialDetailValue(detailCard, fieldName) {
         var field = detailCard.find('[name$=".' + fieldName + '"]').first();
@@ -3234,48 +3396,79 @@
         return start || end || '';
     }
 
-    function buildSpecialQuantitativeText(detailCard) {
-        var quantitativeParts = [];
-        var lengthParts = ['length1', 'length2', 'length3'].map(function (fieldName) {
-            return getSpecialDetailValue(detailCard, fieldName);
-        }).filter(Boolean);
-        var lengthValue = lengthParts.join('+');
-        if (!lengthValue) {
-            lengthValue = formatSpecialRange(
-                    getSpecialDetailValue(detailCard, 'lengthRangeStart'),
-                    getSpecialDetailValue(detailCard, 'lengthRangeEnd')
-            );
+    function resolveSpecialFieldVisibility(selectColumn, crackType) {
+        var column = parseInt(selectColumn, 10) || 0;
+        function bit(mask) {
+            return (column & mask) === mask;
         }
-        if (lengthValue) quantitativeParts.push('L=' + lengthValue + 'mm');
+        var type = String(crackType || '').trim();
+        var lengthPartCount = 1;
+        if (type === 'L型' || type === 'UMJ+U') lengthPartCount = 2;
+        else if (type === 'U型' || type === 'U+UMJ+U') lengthPartCount = 3;
+        // 对齐 APP QuantitativeFieldVisibility.fromSelectColumnOnly
+        return {
+            crackFeature: bit(1),
+            length: bit(2),
+            crackWidth: bit(4),
+            heightDepth: bit(8),
+            area: bit(16),
+            deformation: bit(32),
+            angle: bit(64),
+            ratio: bit(128),
+            reference1: bit(256),
+            reference2: bit(512),
+            quantity: bit(1024),
+            lengthPartCount: lengthPartCount
+        };
+    }
 
+    function buildSpecialQuantitativeText(detailCard, visibility) {
+        var visible = visibility || {};
+        var quantitativeParts = [];
+
+        // 对齐 APP toSteelLengthText：仅 length 可见时拼接，取全部非空 length1/2/3
+        if (visible.length) {
+            var lengthValue = ['length1', 'length2', 'length3'].map(function (fieldName) {
+                return getSpecialDetailValue(detailCard, fieldName);
+            }).filter(Boolean).join('+');
+            if (lengthValue) {
+                quantitativeParts.push('L=' + lengthValue + 'mm');
+            }
+        }
+
+        // 对齐 APP toSteelAreaText：area 可见时始终输出 S=长x宽cm²
+        if (visible.area) {
+            var areaLength = getSpecialDetailValue(detailCard, 'areaLength');
+            var areaWidth = getSpecialDetailValue(detailCard, 'areaWidth');
+            quantitativeParts.push('S=' + areaLength + 'x' + areaWidth + 'cm²');
+        }
+
+        // 对齐 APP：缝宽/变形按有值即输出，不二次判断 visibility
         var widthValue = getSpecialDetailValue(detailCard, 'crackWidth')
                 || getSpecialDetailValue(detailCard, 'width');
-        if (!widthValue) {
-            widthValue = formatSpecialRange(
-                    getSpecialDetailValue(detailCard, 'crackWidthRangeStart'),
-                    getSpecialDetailValue(detailCard, 'crackWidthRangeEnd')
-            );
-        }
-        if (widthValue) quantitativeParts.push('W=' + widthValue + 'mm');
-
-        var areaLength = getSpecialDetailValue(detailCard, 'areaLength')
-                || getSpecialDetailValue(detailCard, 'areaLengthRange');
-        var areaWidth = getSpecialDetailValue(detailCard, 'areaWidth')
-                || getSpecialDetailValue(detailCard, 'areaWidthRange');
-        if (areaLength || areaWidth) {
-            quantitativeParts.push('S=' + [areaLength, areaWidth].filter(Boolean).join('×') + 'cm²');
+        if (widthValue) {
+            quantitativeParts.push('W=' + widthValue + 'mm');
         }
 
         var deformationValue = getSpecialDetailValue(detailCard, 'deformation');
-        if (!deformationValue) {
-            deformationValue = formatSpecialRange(
-                    getSpecialDetailValue(detailCard, 'deformationRangeStart'),
-                    getSpecialDetailValue(detailCard, 'deformationRangeEnd')
-            );
+        if (deformationValue) {
+            quantitativeParts.push('D=' + deformationValue + 'mm');
         }
-        if (deformationValue) quantitativeParts.push('D=' + deformationValue + 'mm');
 
         return quantitativeParts.join('，');
+    }
+
+    // 对齐 APP steelShapeDirection：裂缝特征开启，且方向属于 remark 形状选项时才输出
+    function resolveSteelShapeDirection(crackType, selectedDiseaseType, visibility) {
+        if (!visibility || !visibility.crackFeature) {
+            return '';
+        }
+        var options = parseCrackTypesFromRemark(selectedDiseaseType && selectedDiseaseType.remark);
+        if (!options.length) {
+            return '';
+        }
+        var direction = String(crackType || '').trim();
+        return (direction && options.indexOf(direction) >= 0) ? direction : '';
     }
 
     function extractSpecialDiseaseName(diseaseTypeText) {
@@ -3285,8 +3478,10 @@
     }
 
     function isURibDeformationDisease(diseaseName) {
-        return String(diseaseName || '').replace(/\s+/g, '') === 'U肋变形(鼓曲)';
+        var normalized = String(diseaseName || '').replace(/\s+/g, '');
+        return normalized === 'U肋变形(鼓曲)' || normalized === 'U肋变形';
     }
+
 
     function getFastenerDescriptionName(diseaseName) {
         return String(diseaseName || '').replace(/[（(]螺栓[）)]/, '');
@@ -3315,13 +3510,21 @@
         return '重度';
     }
 
-    function generateSpecialDiseaseDescription(positionNumber, crackType, diseaseTypeText, quantity, units) {
+    function generateSpecialDiseaseDescription(positionNumber, crackType, diseaseTypeText, quantity, units, selectColumn, selectedDiseaseType) {
         var diseaseName = extractSpecialDiseaseName(diseaseTypeText);
         var isURibDeformation = isURibDeformationDisease(diseaseName);
         var isFastenerCount = isCurrentFastenerCountDisease();
+        var visibility = resolveSpecialFieldVisibility(selectColumn, crackType);
+        var shapeDirection = resolveSteelShapeDirection(crackType, selectedDiseaseType, visibility);
         var descriptions = [];
+        var quantityText = String(quantity || '').trim() || '1';
+        var unitsText = String(units || '').trim() || '个';
+        var detailCards = $('#diseaseDetails .defect-card');
+        if (!detailCards.length) {
+            return '还未填写病害数据';
+        }
 
-        $('#diseaseDetails .defect-card').each(function () {
+        detailCards.each(function () {
             var detailCard = $(this);
             var reference1 = detailCard.find('.special-reference-item[data-reference-index="1"]');
             var reference2 = detailCard.find('.special-reference-item[data-reference-index="2"]');
@@ -3330,10 +3533,17 @@
                     || reference1.find('[name$=".reference1Location"]').val();
             var reference2Name = reference2.find('.special-reference-select').val()
                     || reference2.find('[name$=".reference2Location"]').val();
+            if (reference1Name === '其他') {
+                reference1Name = reference1.find('.custom-reference').val() || reference1Name;
+            }
+            if (reference2Name === '其他') {
+                reference2Name = reference2.find('.custom-reference').val() || reference2Name;
+            }
             var reference1Sequence = String(reference1.find('.special-reference-sequence-start').val() || '').trim();
             var reference2StartSequence = String(reference2.find('.special-reference-sequence-start').val() || '').trim();
             var reference2EndSequence = String(reference2.find('.special-reference-sequence-end').val() || '').trim();
 
+            // 对齐 APP toSteelBoxGirderDescription 位置码
             var reference1Text = getSpecialReferenceSymbol(1, reference1Name)
                     + String(positionNumber || '').trim()
                     + reference1Sequence
@@ -3345,164 +3555,244 @@
                 reference2Text += formatSpecialSignedOffset(reference2);
             }
 
-            var positionText = reference1Text + reference2Text;
-            var quantitativeText = buildSpecialQuantitativeText(detailCard);
+            var locationCode = reference1Text + reference2Text;
+            // 对齐 APP：非 U肋变形时，形状方向挂在位置码后
+            if (!isURibDeformation && shapeDirection) {
+                locationCode += '-' + shapeDirection;
+            }
+            var quantitativeText = buildSpecialQuantitativeText(detailCard, visibility);
             if (isFastenerCount) {
-                var countAndUnit = String(quantity || '').trim();
-                if (countAndUnit) countAndUnit += String(units || '').trim();
+                var countAndUnit = quantityText + String(units || '').trim();
                 descriptions.push([
-                    positionText,
+                    locationCode,
                     getFastenerDescriptionName(diseaseName) + countAndUnit
                 ].filter(Boolean).join('，'));
             } else if (isURibDeformation) {
+                // 对齐 APP：位置码，轻度/中度/重度 + 形状方向 + 病害名，定量
                 descriptions.push([
-                    positionText,
-                    getURibDeformationSeverity(detailCard) + String(crackType || '') + diseaseName,
+                    locationCode,
+                    getURibDeformationSeverity(detailCard) + shapeDirection + diseaseName,
                     quantitativeText
                 ].filter(Boolean).join('，'));
             } else {
-                var positionAndCrack = positionText;
-                if (crackType) positionAndCrack += '-' + crackType;
+                // 对齐 APP steelDiseaseTypeText：仅 quantity 位开启时拼接数量单位
+                var typeText = visibility.quantity
+                        ? (diseaseName + quantityText + unitsText)
+                        : diseaseName;
                 descriptions.push([
-                    positionAndCrack,
-                    diseaseName,
+                    locationCode,
+                    typeText,
                     quantitativeText
                 ].filter(Boolean).join('，'));
             }
         });
 
-        return descriptions.join('；');
+        return withoutTrailingComma(descriptions.join('；')) || '还未填写病害数据';
     }
 
-    // 生成病害描述（普通页面规则函数）
+
+    function descriptionComponentName(name) {
+        return String(name || '')
+                .replace(/[（(].*[）)]/g, '')
+                .split(/[#\-－—–]/)
+                .map(function (part) { return part.trim(); })
+                .filter(Boolean)
+                .pop() || '';
+    }
+
+    function withoutTrailingComma(text) {
+        var trimmed = String(text || '').replace(/\s+$/, '');
+        if (trimmed.slice(-1) === '，' || trimmed.slice(-1) === ',') {
+            return trimmed.slice(0, -1);
+        }
+        return String(text || '');
+    }
+
+    function toSubscriptDigits(value) {
+        var map = {
+            '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+            '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'
+        };
+        return String(value == null ? '' : value).split('').map(function (ch) {
+            return map[ch] || ch;
+        }).join('');
+    }
+
+    function toDetailAreaLabel(count, index) {
+        return count >= 2 ? ('S' + toSubscriptDigits(index + 1)) : 'S';
+    }
+
+    function toRangeAreaLabel(areaIdentifier) {
+        var value = String(areaIdentifier == null ? '' : areaIdentifier).trim();
+        if (value === '1' || value === '平均' || value === '均') return 'S₍均₎';
+        if (value === '2' || value === '总计' || value === '总') return 'S₍总₎';
+        return 'S';
+    }
+
+    // 对齐 APP QuantitativeFieldVisibility.from：裂缝特征开启时按裂缝类型覆盖字段可见性
+    function resolveQuantitativeVisibility(showColumns, crackType) {
+        var cols = showColumns || [];
+        function bit(index) {
+            return cols[index] == 1 || cols[index] === true;
+        }
+        var crackFeature = bit(0);
+        if (!crackFeature) {
+            return {
+                crackFeature: false,
+                length: bit(1),
+                crackWidth: bit(2),
+                heightDepth: bit(3),
+                area: bit(4),
+                deformation: bit(5),
+                angle: bit(6),
+                ratio: bit(7),
+                reference1: bit(8),
+                reference2: bit(9)
+            };
+        }
+        var isMesh = crackType === '网状';
+        var isOblique = crackType === '斜向';
+        return {
+            crackFeature: true,
+            length: !isMesh,
+            crackWidth: true,
+            heightDepth: true,
+            area: isMesh,
+            deformation: false,
+            angle: isOblique,
+            ratio: false,
+            reference1: true,
+            reference2: true
+        };
+    }
+
+    function buildNormalDetailText(item, visibility, crackType, count, index) {
+        var parts = [];
+        if (visibility.reference1 && item.reference1Location && item.reference1LocationStart) {
+            parts.push('距' + item.reference1Location + ' ' + item.reference1LocationStart + 'm');
+        }
+        if (visibility.reference2 && item.reference2Location && item.reference2LocationStart) {
+            parts.push('距' + item.reference2Location + ' ' + item.reference2LocationStart + 'm');
+        }
+        if (visibility.length && item.length1) {
+            var lengthParts;
+            if (crackType === 'L型') {
+                lengthParts = [item.length1, item.length2];
+            } else if (crackType === 'U型') {
+                lengthParts = [item.length1, item.length2, item.length3];
+            } else {
+                lengthParts = [item.length1];
+            }
+            lengthParts = lengthParts.filter(function (value) {
+                return value !== null && value !== undefined && String(value).trim() !== '';
+            });
+            if (lengthParts.length) {
+                parts.push('L=' + lengthParts.join('+') + 'm');
+            }
+        }
+        if (visibility.crackWidth && item.crackWidth) {
+            parts.push('W=' + item.crackWidth + 'mm');
+        }
+        if (visibility.heightDepth && item.heightDepth) {
+            parts.push('高度/深度：' + item.heightDepth + 'm');
+        }
+        if (visibility.area && item.areaLength && item.areaWidth) {
+            parts.push(toDetailAreaLabel(count, index) + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
+        }
+        if (visibility.deformation && item.deformation) {
+            parts.push('变形/位移：' + item.deformation + 'mm');
+        }
+        if (visibility.angle && item.angle) {
+            parts.push('角度：' + item.angle + '度');
+        }
+        if (visibility.ratio && item.numeratorRatio && item.denominatorRatio) {
+            parts.push('比例：' + item.numeratorRatio + '/' + item.denominatorRatio);
+        }
+        return parts.join('，');
+    }
+
+    function buildNormalRangeText(item, visibility) {
+        var parts = [];
+        if (visibility.reference1 && item.reference1Location && item.reference1LocationStart) {
+            parts.push('距' + item.reference1Location + ' ' + item.reference1LocationStart + 'm');
+        }
+        if (visibility.reference2 && item.reference2Location && item.reference2LocationStart) {
+            parts.push('距' + item.reference2Location + ' ' + item.reference2LocationStart + 'm');
+        }
+        if (visibility.length && item.lengthRangeStart && item.lengthRangeEnd) {
+            parts.push('L=' + item.lengthRangeStart + '~' + item.lengthRangeEnd + 'm');
+        }
+        if (visibility.crackWidth && item.crackWidthRangeStart && item.crackWidthRangeEnd) {
+            parts.push('W=' + item.crackWidthRangeStart + '~' + item.crackWidthRangeEnd + 'mm');
+        }
+        if (visibility.heightDepth && item.heightDepthRangeStart && item.heightDepthRangeEnd) {
+            parts.push('高度/深度：' + item.heightDepthRangeStart + '~' + item.heightDepthRangeEnd + 'm');
+        }
+        if (visibility.area && item.areaLength && item.areaWidth) {
+            parts.push(toRangeAreaLabel(item.areaIdentifier) + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
+        }
+        if (visibility.deformation && item.deformationRangeStart && item.deformationRangeEnd) {
+            parts.push('变形/位移：' + item.deformationRangeStart + '~' + item.deformationRangeEnd + 'm');
+        }
+        if (visibility.angle && item.angleRangeStart && item.angleRangeEnd) {
+            parts.push('角度：' + item.angleRangeStart + '~' + item.angleRangeEnd + '度');
+        }
+        if (visibility.ratio && item.numeratorRatio) {
+            parts.push('比例：' + item.numeratorRatio + '%');
+        }
+        return parts.join('，');
+    }
+
+    // 生成病害描述（对齐 APP DiseaseDescriptionGenerator 普通布局规则）
     function generateDiseaseDescription(data) {
-        var componentName = data.componentName;
-        var componentCode = data.componentCode;
+        var componentName = descriptionComponentName(data.componentName);
+        var componentCode = String(data.componentCode || '').trim();
         var showColumns = data.showColumns || [];
         var diseaseType = data.diseaseType;
-        var diseasePosition = data.diseasePosition;
-        var positionNumber = data.positionNumber;
-        var crackType = data.crackType;
+        var diseasePosition = String(data.diseasePosition || '').trim();
+        var positionNumber = String(data.positionNumber || '').trim();
+        var crackType = String(data.crackType || '').trim();
         var defects = data.defects || [];
-        var counts = data.counts || 0;
-        var units = data.units || '';
+        var counts = parseInt(data.counts, 10) || 0;
+        var units = String(data.units || '').trim();
         var threshold = data.threshold;
 
-        var count = defects.length;
-        if (count === 0) return '还未填写病害数据';
+        if (counts <= 0) return '还未填写病害数据';
 
-        var mileageText = ''; // 页面当前无里程字段，置空
+        var visibility = resolveQuantitativeVisibility(showColumns, crackType);
+        var diseaseTypeName = (diseaseType && String(diseaseType).indexOf('#') >= 0)
+                ? String(diseaseType).split('#').slice(1).join('#').trim()
+                : String(diseaseType || '').trim();
 
-        var description = componentCode + '#' + componentName;
-        if (componentName !== diseasePosition) {
-            description += '，' + (positionNumber ? ('第' + positionNumber + '#') : '') + diseasePosition;
+        // 前缀：code#构件[第N#位置][里程]类型或「裂缝特征+裂缝」+数量+单位（与 APP descriptionPrefix 一致，中间不加逗号）
+        var componentText = componentCode + '#' + componentName;
+        if (componentName !== diseasePosition && diseasePosition) {
+            if (positionNumber) {
+                componentText += '第' + positionNumber + '#';
+            }
+            componentText += diseasePosition;
         }
-        description += '，' + mileageText;
-        description += (diseaseType && diseaseType.split ? (diseaseType.split('#')[1] || diseaseType) : diseaseType);
-        description += (counts > 0 ? ('' + counts) : '');
-        description += (units !== '' ? units : '个');
+        // Web 页暂无里程字段，与 APP mileageText 空值行为一致
+        var typeText = (visibility.crackFeature && crackType) ? (crackType + '裂缝') : diseaseTypeName;
+        var descriptionPrefix = componentText + typeText
+                + (counts > 0 ? String(counts) : '')
+                + (units || '个');
 
-        if (showColumns[0] == 1 && crackType) {
-            description += '，' + crackType + '裂缝';
-        }
-        var descriptionArr = [];
-
+        var detailText = '';
         if (counts < threshold) {
-            var details = defects.map(function (item, index) {
-                if (showColumns[8] == 1 && item.reference1Location && item.reference1LocationStart) {
-                    descriptionArr.push('距' + item.reference1Location + ' ' + item.reference1LocationStart + 'm');
-                }
-                if (showColumns[9] == 1 && item.reference2Location && item.reference2LocationStart) {
-                    descriptionArr.push('距' + item.reference2Location + ' ' + item.reference2LocationStart + 'm');
-                }
-                if (showColumns[1] == 1 && item.length1) {
-                    var lengthUnit = specialQuantitativeLayout ? 'mm' : 'm';
-                    if (specialQuantitativeLayout) {
-                        var lengthParts = [item.length1, item.length2, item.length3].filter(function (value) {
-                            return value !== null && value !== undefined && value !== '';
-                        });
-                        descriptionArr.push('长度L=' + lengthParts.join('+') + lengthUnit);
-                    } else if (crackType === 'L型') {
-                        descriptionArr.push('长度L1=' + item.length1 + lengthUnit);
-                        if (item.length2) descriptionArr.push('L2=' + item.length2 + lengthUnit);
-                    } else if (crackType === 'U型') {
-                        descriptionArr.push('长度L1=' + item.length1 + lengthUnit);
-                        if (item.length2) descriptionArr.push('L2=' + item.length2 + lengthUnit);
-                        if (item.length3) descriptionArr.push('L3=' + item.length3 + lengthUnit);
-                    } else {
-                        descriptionArr.push('长度L=' + item.length1 + lengthUnit);
-                    }
-                }
-                if (showColumns[2] == 1 && item.crackWidth) {
-                    descriptionArr.push('缝宽：' + item.crackWidth + 'mm');
-                }
-                if (showColumns[3] == 1 && item.heightDepth) {
-                    descriptionArr.push('高度/深度：' + item.heightDepth + 'm');
-                }
-                if (showColumns[4] == 1 && item.areaLength && item.areaWidth) {
-                    if (specialQuantitativeLayout) {
-                        descriptionArr.push(item.areaLength + '×' + item.areaWidth + 'cm²');
-                    } else {
-                        var areaLabel = count >= 2 ? '_' + (index + 1) : '';
-                        descriptionArr.push('S' + areaLabel + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
-                    }
-                }
-                if (showColumns[5] == 1 && item.deformation) {
-                    descriptionArr.push('变形/位移：' + item.deformation + (specialQuantitativeLayout ? 'mm' : 'm'));
-                }
-                if (showColumns[6] == 1 && item.angle) {
-                    descriptionArr.push('角度：' + item.angle + '度');
-                }
-                if (showColumns[7] == 1 && item.numeratorRatio && item.denominatorRatio) {
-                    descriptionArr.push('比例：' + item.numeratorRatio + '/' + item.denominatorRatio);
-                }
-                var prefix = count >= 2 ? '（' + (index + 1) + '）' : '';
-                var result = prefix + descriptionArr.join('，');
-                descriptionArr = [];
-                return result;
+            if (!defects.length) return '还未填写病害数据';
+            var usedDefects = defects.slice(0, counts);
+            detailText = usedDefects.map(function (item, index) {
+                var prefix = counts >= 2 ? ('（' + (index + 1) + '）') : '';
+                return prefix + buildNormalDetailText(item, visibility, crackType, counts, index);
             }).join('；');
-
-            return description + '，' + details;
         } else {
-            var item = defects[0];
-            if (showColumns[8] == 1 && item.reference1Location && item.reference1LocationStart) {
-                descriptionArr.push('距' + item.reference1Location + ' ' + item.reference1LocationStart + 'm');
-            }
-            if (showColumns[9] == 1 && item.reference2Location && item.reference2LocationStart) {
-                descriptionArr.push('距' + item.reference2Location + ' ' + item.reference2LocationStart + 'm');
-            }
-            if (showColumns[1] == 1 && item.lengthRangeStart && item.lengthRangeEnd) {
-                descriptionArr.push('长度L=' + item.lengthRangeStart + '~' + item.lengthRangeEnd + (specialQuantitativeLayout ? 'mm' : 'm'));
-            }
-            if (showColumns[2] == 1 && item.crackWidthRangeStart && item.crackWidthRangeEnd) {
-                descriptionArr.push('缝宽：' + item.crackWidthRangeStart + '~' + item.crackWidthRangeEnd + 'mm');
-            }
-            if (showColumns[3] == 1 && item.heightDepthRangeStart && item.heightDepthRangeEnd) {
-                descriptionArr.push('高度/深度：' + item.heightDepthRangeStart + '~' + item.heightDepthRangeEnd + 'm');
-            }
-            if (showColumns[4] == 1 && item.areaLength && item.areaWidth) {
-                if (specialQuantitativeLayout) {
-                    descriptionArr.push(item.areaLength + '×' + item.areaWidth + 'cm²');
-                } else {
-                    var areaLabel2 = item.areaIdentifier == 1 ? '均' : (item.areaIdentifier == 2 ? '总' : item.areaIdentifier);
-                    descriptionArr.push('S_' + areaLabel2 + '=' + item.areaLength + '×' + item.areaWidth + 'm²');
-                }
-            }
-            if (showColumns[5] == 1 && item.deformationRangeStart && item.deformationRangeEnd) {
-                descriptionArr.push('变形/位移：' + item.deformationRangeStart + '~' + item.deformationRangeEnd + (specialQuantitativeLayout ? 'mm' : 'm'));
-            }
-            if (showColumns[6] == 1 && item.angleRangeStart && item.angleRangeEnd) {
-                descriptionArr.push('角度：' + item.angleRangeStart + '~' + item.angleRangeEnd + '度');
-            }
-            if (showColumns[7] == 1 && item.numeratorRatio && item.denominatorRatio) {
-                descriptionArr.push('比例：' + item.numeratorRatio + '/' + item.denominatorRatio);
-            }
-
-            var result2 = descriptionArr.join('，');
-            descriptionArr = [];
-            return description + '，' + result2;
+            detailText = buildNormalRangeText(defects[0] || {}, visibility);
         }
+
+        return withoutTrailingComma(descriptionPrefix + '，' + detailText);
     }
+
 
     // 采集页面数据并填充描述（新规则）
     function generateAndFillDescriptionNew() {
@@ -3515,8 +3805,8 @@
             // 组件编码：兼容名称写错的输入name
             var componentCode = $("input[name='component.code']").val() || $("input[name='component.code']").val() || '';
 
-            // 构件名称：直接从输入框
-            var componentName = $("input[name='biObjectName']").val() || '';
+            // 构件名称：对齐 APP descriptionComponentName
+            var componentName = descriptionComponentName($("input[name='biObjectName']").val() || '');
 
             // 病害类型：优先自定义
             var diseaseType = $("#diseaseTypeId option:selected").text().trim();
@@ -3536,12 +3826,15 @@
             var selectedDiseaseType = selectedDiseaseTypeId ? diseaseTypes.find(function (item) {
                 return item.id == selectedDiseaseTypeId;
             }) : null;
-            var threshold = (selectedDiseaseType && selectedDiseaseType.threshold) ? selectedDiseaseType.threshold : 10;
+            // 对齐 APP：threshold>1 才生效，否则默认 10
+            var rawThreshold = selectedDiseaseType && selectedDiseaseType.threshold
+                    ? parseInt(selectedDiseaseType.threshold, 10) : 0;
+            var threshold = rawThreshold > 1 ? rawThreshold : 10;
             var selectColumn = (selectedDiseaseType && selectedDiseaseType.selectColumn !== undefined)
                 ? parseInt(selectedDiseaseType.selectColumn || 0)
                 : 0;
 
-            // showColumns: 0-7由selectColumn位控制，8/9为参考面1/2（默认显示）
+            // showColumns：对齐 APP，按 selectColumn 各位展开（含参考面 8/9、数量 10）
             var showColumns = [
                 (selectColumn & 1) === 1 ? 1 : 0,
                 (selectColumn & 2) === 2 ? 1 : 0,
@@ -3551,8 +3844,9 @@
                 (selectColumn & 32) === 32 ? 1 : 0,
                 (selectColumn & 64) === 64 ? 1 : 0,
                 (selectColumn & 128) === 128 ? 1 : 0,
-                1,
-                1
+                (selectColumn & 256) === 256 ? 1 : 0,
+                (selectColumn & 512) === 512 ? 1 : 0,
+                (selectColumn & 1024) === 1024 ? 1 : 0
             ];
 
             // 裂缝特征（若字段存在）
@@ -3565,7 +3859,9 @@
                         crackType,
                         diseaseType,
                         quantityText,
-                        units
+                        units,
+                        selectColumn,
+                        selectedDiseaseType
                 );
                 $("#description").val(specialDescription);
                 return;

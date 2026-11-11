@@ -134,8 +134,142 @@ public class GlobalExceptionHandler
     public AjaxResult handleBindException(BindException e)
     {
         log.error(e.getMessage(), e);
+        return AjaxResult.error(toUserFriendlyBindMessage(e));
+    }
+
+    /**
+     * 将参数绑定/类型转换异常转换为面向用户的中文提示，避免直接暴露底层异常原文。
+     */
+    private String toUserFriendlyBindMessage(BindException e)
+    {
+        if (e.getAllErrors() == null || e.getAllErrors().isEmpty())
+        {
+            return "提交数据有误，请检查后重试";
+        }
         String message = e.getAllErrors().get(0).getDefaultMessage();
-        return AjaxResult.error(message);
+        if (!isTechnicalTypeConvertMessage(message))
+        {
+            return StringUtils.isNotEmpty(message) ? message : "提交数据有误，请检查后重试";
+        }
+
+        String field = e.getFieldError() != null ? e.getFieldError().getField() : null;
+        return buildTypeConvertTip(field, message);
+    }
+
+    private boolean isTechnicalTypeConvertMessage(String message)
+    {
+        if (StringUtils.isEmpty(message))
+        {
+            return false;
+        }
+        return message.contains("Failed to convert")
+                || message.contains("NumberFormatException")
+                || message.contains("nested exception")
+                || message.contains("required type")
+                || message.contains("java.lang.");
+    }
+
+    private String buildTypeConvertTip(String field, String message)
+    {
+        String fieldName = extractFieldName(field);
+        String label = resolveBindFieldLabel(field);
+        if (StringUtils.isEmpty(label))
+        {
+            label = "该字段";
+        }
+
+        boolean requireInteger = isIntegerBindField(fieldName)
+                || (StringUtils.isNotEmpty(message) && (message.contains("java.lang.Integer")
+                        || message.contains("java.lang.Long")
+                        || message.contains("required type 'int'")
+                        || message.contains("required type 'long'")));
+
+        if (requireInteger)
+        {
+            if ("angle".equals(fieldName))
+            {
+                return "角度应为整数";
+            }
+            return label + "应为整数";
+        }
+        return label + "请输入有效数字";
+    }
+
+    private boolean isIntegerBindField(String fieldName)
+    {
+        return "angle".equals(fieldName)
+                || "quantity".equals(fieldName)
+                || "deductPoints".equals(fieldName)
+                || "numeratorRatio".equals(fieldName)
+                || "denominatorRatio".equals(fieldName)
+                || "areaIdentifier".equals(fieldName);
+    }
+
+    private String extractFieldName(String field)
+    {
+        if (StringUtils.isEmpty(field))
+        {
+            return "";
+        }
+        int lastDot = field.lastIndexOf('.');
+        if (lastDot >= 0 && lastDot < field.length() - 1)
+        {
+            return field.substring(lastDot + 1);
+        }
+        return field;
+    }
+
+    private String resolveBindFieldLabel(String field)
+    {
+        if (StringUtils.isEmpty(field))
+        {
+            return null;
+        }
+        String name = extractFieldName(field);
+        switch (name)
+        {
+            case "angle":
+                return "角度";
+            case "length":
+            case "lengthRangeStart":
+            case "lengthRangeEnd":
+                return "长度";
+            case "width":
+            case "widthRangeStart":
+            case "widthRangeEnd":
+                return "宽度";
+            case "height":
+            case "depth":
+            case "heightDepth":
+            case "heightDepthRangeStart":
+            case "heightDepthRangeEnd":
+                return "高度/深度";
+            case "crackWidth":
+            case "crackWidthRangeStart":
+            case "crackWidthRangeEnd":
+                return "缝宽";
+            case "areaLength":
+            case "areaWidth":
+            case "areaRangeStart":
+            case "areaRangeEnd":
+                return "面积";
+            case "deformation":
+            case "deformationRangeStart":
+            case "deformationRangeEnd":
+                return "变形/位移";
+            case "angleRangeStart":
+            case "angleRangeEnd":
+                return "角度";
+            case "quantity":
+                return "缺损数量";
+            case "deductPoints":
+                return "扣分";
+            case "numeratorRatio":
+            case "denominatorRatio":
+                return "比例";
+            default:
+                return null;
+        }
     }
 
     /**

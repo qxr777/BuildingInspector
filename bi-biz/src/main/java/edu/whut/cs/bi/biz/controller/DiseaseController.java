@@ -810,12 +810,19 @@ public class DiseaseController extends BaseController {
      */
     @GetMapping(value = {"/add/{taskId}/{biObjectId}"})
     public String add(@PathVariable("taskId") Long taskId, @PathVariable("biObjectId") Long biObjectId, ModelMap mmap) {
+        Task task = null;
+        BiObject biObject = null;
         if (taskId != null) {
-            mmap.put("task", taskService.selectTaskById(taskId));
+            task = taskService.selectTaskById(taskId);
+            mmap.put("task", task);
         }
         if (biObjectId != null) {
-            mmap.put("biObject", biObjectService.selectBiObjectById(biObjectId));
+            biObject = biObjectService.selectBiObjectById(biObjectId);
+            mmap.put("biObject", biObject);
         }
+        mmap.put("readOnlyMode", false);
+        Long buildingId = task != null ? task.getBuildingId() : null;
+        mmap.put("specialQuantitativeLayout", isSpecialQuantitativeLayout(buildingId, biObject));
 
         return prefix + "/add";
     }
@@ -887,11 +894,21 @@ public class DiseaseController extends BaseController {
      * 桥梁根模板为 15987，且病害所在构件路径为 上部结构/加劲梁/节段。
      */
     private boolean isSpecialQuantitativeLayout(Disease disease, BiObject biObject) {
-        if (disease == null || disease.getBuildingId() == null) {
+        if (disease == null) {
+            return false;
+        }
+        return isSpecialQuantitativeLayout(disease.getBuildingId(), biObject);
+    }
+
+    /**
+     * 是否使用特殊定量编辑布局（按桥梁 + 构件判断）。
+     */
+    private boolean isSpecialQuantitativeLayout(Long buildingId, BiObject biObject) {
+        if (buildingId == null) {
             return false;
         }
 
-        Building building = buildingMapper.selectBuildingById(disease.getBuildingId());
+        Building building = buildingMapper.selectBuildingById(buildingId);
         if (building == null || building.getRootObjectId() == null) {
             return false;
         }
@@ -919,6 +936,21 @@ public class DiseaseController extends BaseController {
             return error("病害或所属构件不存在");
         }
         return success(isSpecialQuantitativeLayout(disease, biObject));
+    }
+
+    /**
+     * 新增时切换所属构件后，按桥梁重新判断是否应使用特殊定量布局。
+     */
+    @RequiresPermissions("biz:disease:add")
+    @GetMapping("/specialQuantitativeLayoutByBuilding/{buildingId}/{biObjectId}")
+    @ResponseBody
+    public AjaxResult specialQuantitativeLayoutByBuilding(@PathVariable("buildingId") Long buildingId,
+                                                          @PathVariable("biObjectId") Long biObjectId) {
+        BiObject biObject = biObjectService.selectBiObjectById(biObjectId);
+        if (buildingId == null || biObject == null) {
+            return error("桥梁或所属构件不存在");
+        }
+        return success(isSpecialQuantitativeLayout(buildingId, biObject));
     }
 
     /**
