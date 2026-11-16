@@ -25,10 +25,12 @@
         <div class="form-group">
             <label class="col-sm-3 control-label is-required">报告模板：</label>
             <div class="col-sm-8">
-                <select id="reportTemplateId" name="reportTemplateId" class="form-control" required disabled>
+                <select id="reportTemplateId" class="form-control" required disabled>
                     <option value="">请选择报告模板</option>
                     <option th:each="template : ${templates}" th:text="${template.name}" th:value="${template.id}" th:selected="${template.id == report.reportTemplateId}"></option>
                 </select>
+                <!-- disabled 控件不会进入 serialize；用隐藏域提交，避免后端误判换模板并清空填充数据 -->
+                <input type="hidden" name="reportTemplateId" th:value="${report.reportTemplateId}">
             </div>
         </div>
         <div class="form-group">

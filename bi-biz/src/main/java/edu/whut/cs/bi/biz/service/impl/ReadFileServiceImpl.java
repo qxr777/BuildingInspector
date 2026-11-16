@@ -18,6 +18,7 @@ import edu.whut.cs.bi.biz.domain.vo.BatchBridgeCardImportResult;
 import edu.whut.cs.bi.biz.domain.vo.BatchCbmsDiseaseImportResult;
 import edu.whut.cs.bi.biz.mapper.*;
 import edu.whut.cs.bi.biz.service.*;
+import edu.whut.cs.bi.biz.utils.DroneDiseaseImportParser;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
@@ -545,6 +546,400 @@ public class ReadFileServiceImpl implements ReadFileService {
         }
     }
 
+    @Override
+    public void readDroneDiseaseExcel(MultipartFile file, Long taskId) {
+        importDroneDiseaseWithPhotos(file, null, taskId);
+    }
+
+    @Override
+    public List<String> importDroneDiseaseWithPhotos(MultipartFile excelFile, MultipartFile photoZip, Long taskId) {
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            throw new ServiceException("任务不存在");
+        }
+        Building building = buildingMapper.selectBuildingById(task.getBuildingId());
+        if (building == null || building.getRootObjectId() == null) {
+            throw new ServiceException("桥梁不存在或缺少对象树");
+        }
+
+        String loginUser = ShiroUtils.getLoginName();
+        List<String> errors = new ArrayList<>();
+        List<Disease> diseases = new ArrayList<>();
+
+        try (Workbook workbook = new XSSFWorkbook(excelFile.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            List<String> headerErrors = DroneDiseaseImportParser.validateHeaders(readDroneHeaderRow(sheet));
+            if (!headerErrors.isEmpty()) {
+                throw new ServiceException(String.join("\n", headerErrors));
+            }
+
+            // 只拉当前桥对象树/构件，避免全表 selectComponentList（此前约 2 分钟慢 SQL）
+            List<BiObject> allBiObjects = biObjectMapper.selectChildrenById(building.getRootObjectId());
+            Map<String, List<Component>> componentMap = componentService
+                    .selectComponentsByBiObjectIdAndChildren(building.getRootObjectId()).stream()
+                    .collect(Collectors.groupingBy(Component::getName));
+            Map<Long, List<DiseaseType>> diseaseTypesByTemplateObjectId = new HashMap<>();
+
+            for (int i = DroneDiseaseImportParser.FIRST_DATA_ROW_INDEX; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || isDroneDiseaseRowBlank(row)) {
+                    continue;
+                }
+                int excelRow = i + 1;
+                String component3 = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_COMPONENT3));
+                String component4 = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_COMPONENT4));
+                String position = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_POSITION));
+                String typeName = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_TYPE));
+
+                JiaotouObjectPath path;
+                try {
+                    path = resolveJiaotouObjectPath(component3, component4, building.getRootObjectId(), allBiObjects);
+                } catch (ServiceException exception) {
+                    errors.add("第" + excelRow + "行：" + exception.getMessage());
+                    continue;
+                }
+                if (isBlankTemplateCell(position) || !position.contains("#")) {
+                    errors.add("第" + excelRow + "行：缺损位置要带#，#前是构件编号");
+                    continue;
+                }
+                String componentCode = position.split("#", 2)[0].trim();
+                if (componentCode.isEmpty()) {
+                    errors.add("第" + excelRow + "行：缺损位置缺少构件编号");
+                    continue;
+                }
+
+                DiseaseType diseaseType = resolveDroneDiseaseType(path, typeName, excelRow, errors, diseaseTypesByTemplateObjectId);
+                if (diseaseType == null) {
+                    continue;
+                }
+
+                Component component = findOrCreateDroneComponent(
+                        componentMap, componentCode, component4, path.getComponent4(), loginUser);
+
+                DroneDiseaseImportParser.Input input = new DroneDiseaseImportParser.Input();
+                input.rowNumber = excelRow;
+                input.diseaseType = diseaseType;
+                input.participate = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_PARTICIPATE));
+                input.quantity = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_QUANTITY));
+                input.units = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_UNITS));
+                input.level = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_LEVEL));
+                input.crackFeature = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_CRACK));
+                input.length = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_LENGTH));
+                input.crackWidth = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_CRACK_WIDTH));
+                input.heightDepth = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_HEIGHT));
+                input.areaIdentifier = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_AREA_IDENTIFIER));
+                input.areaLength = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_AREA_LENGTH));
+                input.areaWidth = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_AREA_WIDTH));
+                input.deformation = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_DEFORMATION));
+                input.angle = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_ANGLE));
+                input.ratio = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_RATIO));
+                input.reference1Name = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_REFERENCE1_NAME));
+                input.reference1Start = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_REFERENCE1_START));
+                input.reference1End = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_REFERENCE1_END));
+                input.reference2Name = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_REFERENCE2_NAME));
+                input.reference2Start = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_REFERENCE2_START));
+                input.reference2End = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_REFERENCE2_END));
+                input.developmentTrend = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_TREND));
+                input.nature = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_NATURE));
+                input.description = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_DESCRIPTION));
+                input.photo = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_PHOTO));
+                input.remark = getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_REMARK));
+
+                DroneDiseaseImportParser.Output output = DroneDiseaseImportParser.parse(input);
+                if (!output.errors.isEmpty()) {
+                    errors.addAll(output.errors);
+                    continue;
+                }
+
+                Disease disease = new Disease();
+                disease.setPosition(position);
+                disease.setCreateBy(loginUser);
+                disease.setUpdateBy(loginUser);
+                disease.setCreateTime(DateUtils.getNowDate());
+                disease.setUpdateTime(DateUtils.getNowDate());
+                disease.setParticipateAssess(output.participateAssess);
+                disease.setLevel(output.level);
+                disease.setQuantity(output.quantity);
+                disease.setUnits(output.units);
+                disease.setCrackType(output.crackType);
+                disease.setType(diseaseType.getName());
+                disease.setDiseaseTypeId(diseaseType.getId());
+                disease.setComponentId(component.getId());
+                disease.setBuildingId(building.getId());
+                disease.setProjectId(task.getProjectId());
+                disease.setBiObjectName(path.getComponent4().getName());
+                disease.setBiObjectId(path.getComponent4().getId());
+                disease.setDescription(output.description);
+                disease.setTaskId(taskId);
+                disease.setNature(output.nature);
+                disease.setDevelopmentTrend(output.developmentTrend);
+                disease.setRemark(output.remark);
+                disease.setImgNoExp(convertToDbFormat(splitPhotoName(output.photo)));
+                disease.setDiseaseDetails(List.of(output.detail));
+                diseases.add(disease);
+            }
+        } catch (IOException e) {
+            log.error("读取无人机病害Excel失败", e);
+            throw new ServiceException("读取Excel失败：" + e.getMessage());
+        }
+
+        if (!errors.isEmpty()) {
+            int shown = Math.min(errors.size(), 30);
+            String message = "无人机病害导入失败，共" + errors.size() + "处错误（已标出行号）：\n"
+                    + String.join("\n", errors.subList(0, shown));
+            if (errors.size() > shown) {
+                message = message + "\n其余" + (errors.size() - shown) + "处未列出";
+            }
+            throw new ServiceException(message);
+        }
+        if (diseases.isEmpty()) {
+            throw new ServiceException("没有可导入的病害");
+        }
+
+        Map<String, MultipartFile> photosByCode = Collections.emptyMap();
+        if (photoZip != null && !photoZip.isEmpty()) {
+            photosByCode = loadDronePhotosFromZip(photoZip);
+        }
+
+        Map<String, MultipartFile> finalPhotosByCode = photosByCode;
+        List<String> photoHints = new ArrayList<>();
+        transactionTemplate.execute(status -> {
+            diseaseMapper.batchInsertDiseases(diseases);
+            diseaseMapper.fillLocalIdWithId(diseases.stream().map(Disease::getId).toList());
+            List<DiseaseDetail> details = diseases.stream()
+                    .flatMap(disease -> disease.getDiseaseDetails().stream()
+                            .peek(detail -> detail.setDiseaseId(disease.getId())))
+                    .collect(Collectors.toList());
+            if (!details.isEmpty()) {
+                diseaseDetailMapper.insertDiseaseDetails(details);
+            }
+
+            if (!finalPhotosByCode.isEmpty()) {
+                photoHints.addAll(attachDronePhotosInBatch(diseases, finalPhotosByCode));
+            }
+            return true;
+        });
+        return photoHints;
+    }
+
+    /**
+     * 按本批 Excel 照片编号挂 ZIP 内图片（与 App 同批匹配，不依赖库内编号唯一）。
+     */
+    private List<String> attachDronePhotosInBatch(List<Disease> diseases, Map<String, MultipartFile> photosByCode) {
+        ObjectMapper mapper = new ObjectMapper();
+        Set<String> usedCodes = new HashSet<>();
+        List<String> hints = new ArrayList<>();
+
+        for (Disease disease : diseases) {
+            List<String> codes = parseDronePhotoCodes(disease.getImgNoExp(), mapper);
+            if (codes.isEmpty()) {
+                continue;
+            }
+            List<MultipartFile> matched = new ArrayList<>();
+            for (String code : codes) {
+                MultipartFile photo = photosByCode.get(code);
+                if (photo != null) {
+                    matched.add(photo);
+                    usedCodes.add(code);
+                } else {
+                    hints.add("照片编号 " + code + " 在 ZIP 中不存在");
+                }
+            }
+            if (matched.isEmpty()) {
+                continue;
+            }
+            diseaseService.handleDiseaseAttachment(matched.toArray(new MultipartFile[0]), disease.getId(), 1);
+            disease.setAttachmentCount(matched.size());
+            diseaseMapper.updateDisease(disease);
+        }
+
+        for (Map.Entry<String, MultipartFile> entry : photosByCode.entrySet()) {
+            if (!usedCodes.contains(entry.getKey())) {
+                String name = entry.getValue().getOriginalFilename();
+                hints.add((name != null ? name : entry.getKey()) + " 未在 Excel 中引用");
+            }
+        }
+        return hints;
+    }
+
+    private List<String> parseDronePhotoCodes(String imgNoExp, ObjectMapper mapper) {
+        if (imgNoExp == null || imgNoExp.trim().isEmpty() || "[]".equals(imgNoExp.trim())) {
+            return Collections.emptyList();
+        }
+        try {
+            List<String> imgs = mapper.readValue(imgNoExp, new TypeReference<List<String>>() {
+            });
+            return imgs.stream()
+                    .filter(img -> img != null && !img.trim().isEmpty())
+                    .map(String::trim)
+                    .collect(Collectors.toList());
+        } catch (JsonProcessingException e) {
+            return Collections.emptyList();
+        }
+    }
+
+    private Map<String, MultipartFile> loadDronePhotosFromZip(MultipartFile zipFile) {
+        String originalName = zipFile.getOriginalFilename();
+        if (originalName == null || !originalName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            throw new ServiceException("请上传ZIP格式的照片压缩包");
+        }
+        Map<String, MultipartFile> photosByCode = new LinkedHashMap<>();
+        List<String> duplicateNames = new ArrayList<>();
+        try {
+            readDronePhotoZipEntries(zipFile, ZIP_UTF8_CHARSET, photosByCode, duplicateNames);
+        } catch (IllegalArgumentException | IOException utf8Error) {
+            photosByCode.clear();
+            duplicateNames.clear();
+            try {
+                readDronePhotoZipEntries(zipFile, ZIP_GBK_CHARSET, photosByCode, duplicateNames);
+            } catch (IOException gbkError) {
+                throw new ServiceException("读取照片压缩包失败：" + gbkError.getMessage());
+            }
+        }
+        if (photosByCode.isEmpty()) {
+            throw new ServiceException("压缩包内没有可识别的照片文件（支持 jpg/jpeg/png）");
+        }
+        return photosByCode;
+    }
+
+    private void readDronePhotoZipEntries(MultipartFile zipFile,
+                                          Charset charset,
+                                          Map<String, MultipartFile> photosByCode,
+                                          List<String> duplicateNames) throws IOException {
+        try (ZipInputStream zipIn = new ZipInputStream(zipFile.getInputStream(), charset)) {
+            ZipEntry entry;
+            while ((entry = zipIn.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                String entryName = entry.getName().replace('\\', '/');
+                String fileName = entryName.substring(entryName.lastIndexOf('/') + 1);
+                if (fileName.startsWith(".") || fileName.isEmpty()) {
+                    continue;
+                }
+                String lower = fileName.toLowerCase(Locale.ROOT);
+                if (!(lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))) {
+                    continue;
+                }
+
+                int dotIndex = fileName.lastIndexOf('.');
+                if (dotIndex <= 0) {
+                    continue;
+                }
+                String code = fileName.substring(0, dotIndex).trim();
+                if (code.isEmpty()) {
+                    continue;
+                }
+
+                byte[] bytes = zipIn.readAllBytes();
+                MockMultipartFile photo = new MockMultipartFile(
+                        "photos",
+                        fileName,
+                        lower.endsWith(".png") ? "image/png" : "image/jpeg",
+                        bytes);
+                if (photosByCode.containsKey(code)) {
+                    duplicateNames.add(fileName);
+                } else {
+                    photosByCode.put(code, photo);
+                }
+            }
+        }
+    }
+
+    private List<String> readDroneHeaderRow(Sheet sheet) {
+        Row header = sheet.getRow(DroneDiseaseImportParser.HEADER_ROW_INDEX);
+        List<String> headers = new ArrayList<>();
+        if (header == null) {
+            return headers;
+        }
+        for (int i = 0; i < DroneDiseaseImportParser.EXPECTED_HEADERS.length; i++) {
+            headers.add(getCellValueAsString(header.getCell(i)));
+        }
+        return headers;
+    }
+
+    private boolean isDroneDiseaseRowBlank(Row row) {
+        return isBlankTemplateCell(getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_COMPONENT3)))
+                && isBlankTemplateCell(getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_COMPONENT4)))
+                && isBlankTemplateCell(getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_POSITION)))
+                && isBlankTemplateCell(getCellValueAsString(row.getCell(DroneDiseaseImportParser.COL_TYPE)));
+    }
+
+    private DiseaseType resolveDroneDiseaseType(JiaotouObjectPath path,
+                                                String typeName,
+                                                int excelRow,
+                                                List<String> errors,
+                                                Map<Long, List<DiseaseType>> diseaseTypesByTemplateObjectId) {
+        if (isBlankTemplateCell(typeName)) {
+            errors.add("第" + excelRow + "行：缺损类型不能为空");
+            return null;
+        }
+        Map<Long, DiseaseType> unique = new LinkedHashMap<>();
+        for (DiseaseType diseaseType : loadDroneDiseaseTypes(path.getComponent3().getId(), diseaseTypesByTemplateObjectId)) {
+            if (diseaseType.getId() != null) {
+                unique.putIfAbsent(diseaseType.getId(), diseaseType);
+            }
+        }
+        for (DiseaseType diseaseType : loadDroneDiseaseTypes(path.getComponent4().getId(), diseaseTypesByTemplateObjectId)) {
+            if (diseaseType.getId() != null) {
+                unique.putIfAbsent(diseaseType.getId(), diseaseType);
+            }
+        }
+        List<DiseaseType> matched = unique.values().stream()
+                .filter(diseaseType -> typeName.equals(diseaseType.getName()))
+                .toList();
+        if (matched.isEmpty()) {
+            errors.add("第" + excelRow + "行：缺损类型“" + typeName + "”不在该构件的病害类型中");
+            return null;
+        }
+        if (matched.size() > 1) {
+            String codes = matched.stream().map(DiseaseType::getCode).collect(Collectors.joining("、"));
+            errors.add("第" + excelRow + "行：该构件上有多个同名病害类型（" + codes + "），无法确定");
+            return null;
+        }
+        return matched.get(0);
+    }
+
+    private List<DiseaseType> loadDroneDiseaseTypes(Long templateObjectId,
+                                                    Map<Long, List<DiseaseType>> diseaseTypesByTemplateObjectId) {
+        if (templateObjectId == null) {
+            return Collections.emptyList();
+        }
+        return diseaseTypesByTemplateObjectId.computeIfAbsent(templateObjectId,
+                id -> diseaseTypeService.selectDiseaseTypeListByTemplateObjectId(id));
+    }
+
+    private Component findOrCreateDroneComponent(Map<String, List<Component>> componentMap,
+                                                 String componentCode,
+                                                 String component4Name,
+                                                 BiObject biObject4,
+                                                 String loginUser) {
+        String componentName = componentCode + "#" + component4Name;
+        List<Component> named = componentMap.get(componentName);
+        if (named != null) {
+            Component existing = named.stream()
+                    .filter(item -> Objects.equals(biObject4.getId(), item.getBiObjectId()))
+                    .findFirst()
+                    .orElse(null);
+            if (existing != null) {
+                return existing;
+            }
+        }
+
+        Component component = new Component();
+        component.setCode(componentCode);
+        component.setName(componentName);
+        component.setBiObjectId(biObject4.getId());
+        component.setStatus("0");
+        component.setCreateBy(loginUser);
+        component.setUpdateBy(loginUser);
+        component.setCreateTime(DateUtils.getNowDate());
+        component.setUpdateTime(DateUtils.getNowDate());
+        componentService.insertComponent(component);
+        componentMap.computeIfAbsent(componentName, key -> new ArrayList<>()).add(component);
+        return component;
+    }
+
     // 定义支持的分隔符
     private static final String SEPARATOR_DOT = "、";          // 中文顿号
     private static final String SEPARATOR_TILDE = "~";        // 波浪线
@@ -779,17 +1174,85 @@ public class ReadFileServiceImpl implements ReadFileService {
     @Override
     @Transactional
     public List<String> uploadPictures(List<MultipartFile> photos, Long taskId) {
-        // 防止
-        Task task = taskService.selectTaskById(taskId);
+        Map<String, Long> imgToDiseaseMap = buildUniquePhotoCodeToDiseaseMap(taskId);
+        List<String> unmatchedPhotos = new ArrayList<>();
+        Map<Long, List<MultipartFile>> group = new HashMap<>();
 
+        photos.forEach(photo -> {
+            String photoName = photo.getOriginalFilename();
+            if (photoName == null) {
+                unmatchedPhotos.add("null");
+                return;
+            }
+
+            int dotIndex = photoName.lastIndexOf('.');
+            if (dotIndex <= 4) {
+                unmatchedPhotos.add(photoName);
+                return;
+            }
+
+            int lastUnderlineIndex = photoName.lastIndexOf("_");
+            if (lastUnderlineIndex == -1 || lastUnderlineIndex >= dotIndex - 1) {
+                unmatchedPhotos.add(photoName);
+                return;
+            }
+
+            String code = photoName.substring(lastUnderlineIndex + 1, dotIndex);
+            Long diseaseId = imgToDiseaseMap.get(code);
+            if (diseaseId != null) {
+                group.computeIfAbsent(diseaseId, k -> new ArrayList<>()).add(photo);
+            } else {
+                unmatchedPhotos.add(photoName);
+            }
+        });
+
+        attachMatchedDiseasePhotos(group);
+        return unmatchedPhotos;
+    }
+
+    @Override
+    @Transactional
+    public List<String> uploadPicturesFromZip(MultipartFile zipFile, Long taskId) {
+        if (zipFile == null || zipFile.isEmpty()) {
+            throw new ServiceException("请上传包含病害照片的ZIP压缩包");
+        }
+        String originalName = zipFile.getOriginalFilename();
+        if (originalName == null || !originalName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            throw new ServiceException("请上传ZIP格式的照片压缩包");
+        }
+
+        Map<String, Long> imgToDiseaseMap = buildUniquePhotoCodeToDiseaseMap(taskId);
+        List<String> unmatchedPhotos = new ArrayList<>();
+        Map<Long, List<MultipartFile>> group = new HashMap<>();
+
+        try {
+            extractDronePhotoZip(zipFile, ZIP_UTF8_CHARSET, imgToDiseaseMap, group, unmatchedPhotos);
+        } catch (IllegalArgumentException | IOException utf8Error) {
+            unmatchedPhotos.clear();
+            group.clear();
+            try {
+                extractDronePhotoZip(zipFile, ZIP_GBK_CHARSET, imgToDiseaseMap, group, unmatchedPhotos);
+            } catch (IOException gbkError) {
+                throw new ServiceException("读取照片压缩包失败：" + gbkError.getMessage());
+            }
+        }
+
+        if (group.isEmpty() && unmatchedPhotos.isEmpty()) {
+            throw new ServiceException("压缩包内没有可识别的照片文件（支持 jpg/jpeg/png）");
+        }
+
+        attachMatchedDiseasePhotos(group);
+        return unmatchedPhotos;
+    }
+
+    private Map<String, Long> buildUniquePhotoCodeToDiseaseMap(Long taskId) {
+        Task task = taskService.selectTaskById(taskId);
         Disease disease = new Disease();
         disease.setBuildingId(task.getBuildingId());
         disease.setProjectId(task.getProjectId());
         List<Disease> diseases = diseaseMapper.selectDiseaseList(disease);
 
-        // 1. 收集所有 img -> diseaseId 的映射
         ObjectMapper mapper = new ObjectMapper();
-
         List<Map.Entry<String, Long>> allEntries = diseases.stream()
                 .filter(dd -> dd.getImgNoExp() != null && !dd.getImgNoExp().trim().isEmpty())
                 .flatMap(d -> {
@@ -800,56 +1263,20 @@ public class ReadFileServiceImpl implements ReadFileService {
                                 .filter(img -> img != null && !img.trim().isEmpty())
                                 .map(img -> new AbstractMap.SimpleEntry<>(img.trim(), d.getId()));
                     } catch (JsonProcessingException e) {
-                        // 如果 JSON 格式非法，可以选择记录日志或跳过
                         return Stream.empty();
                     }
                 })
                 .collect(Collectors.toList());
 
-        // 2. 统计每个 img 出现的次数
         Map<String, Long> imgCountMap = allEntries.stream()
                 .collect(Collectors.groupingBy(Map.Entry::getKey, Collectors.counting()));
 
-        // 3. 过滤掉重复的 img，只保留唯一的
-        Map<String, Long> imgToDiseaseMap = allEntries.stream()
+        return allEntries.stream()
                 .filter(e -> imgCountMap.get(e.getKey()) == 1)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
 
-        // 定义无法匹配的图片列表
-        List<String> unmatchedPhotos = new ArrayList<>();
-
-        Map<Long, List<MultipartFile>> group = new HashMap<>();
-        photos.forEach(photo -> {
-            String photoName = photo.getOriginalFilename();
-            if (photoName == null) {
-                unmatchedPhotos.add("null"); // 或者跳过，视业务而定
-                return;
-            }
-
-            int dotIndex = photoName.lastIndexOf('.');
-            if (dotIndex <= 4) {
-                unmatchedPhotos.add(photoName); // 格式不对
-                return;
-            }
-
-            int lastUnderlineIndex = photoName.lastIndexOf("_");
-            // 校验：_ 必须在后缀前，且 _ 后面有有效内容（避免如 "IMG_.JPG" 这种无效格式）
-            if (lastUnderlineIndex == -1 || lastUnderlineIndex >= dotIndex - 1) {
-                unmatchedPhotos.add(photoName); // 无 _ 或 _ 位置非法，不匹配
-                return;
-            }
-
-
-            String code = photoName.substring(lastUnderlineIndex + 1, dotIndex);
-            Long diseaseId = imgToDiseaseMap.get(code);
-
-            if (diseaseId != null) {
-                group.computeIfAbsent(diseaseId, k -> new ArrayList<>()).add(photo);
-            } else {
-                unmatchedPhotos.add(photoName);
-            }
-        });
-
+    private void attachMatchedDiseasePhotos(Map<Long, List<MultipartFile>> group) {
         group.forEach((diseaseId, ps) -> {
             diseaseService.handleDiseaseAttachment(ps.toArray(new MultipartFile[0]), diseaseId, 1);
             Disease d = diseaseService.selectDiseaseById(diseaseId);
@@ -858,11 +1285,57 @@ public class ReadFileServiceImpl implements ReadFileService {
             } else {
                 d.setAttachmentCount(ps.size());
             }
-
             diseaseMapper.updateDisease(d);
         });
+    }
 
-        return unmatchedPhotos;
+    private void extractDronePhotoZip(MultipartFile zipFile,
+                                      Charset charset,
+                                      Map<String, Long> imgToDiseaseMap,
+                                      Map<Long, List<MultipartFile>> group,
+                                      List<String> unmatchedPhotos) throws IOException {
+        try (ZipInputStream zipIn = new ZipInputStream(zipFile.getInputStream(), charset)) {
+            ZipEntry entry;
+            while ((entry = zipIn.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                String entryName = entry.getName().replace('\\', '/');
+                String fileName = entryName.substring(entryName.lastIndexOf('/') + 1);
+                if (fileName.startsWith(".") || fileName.isEmpty()) {
+                    continue;
+                }
+                String lower = fileName.toLowerCase(Locale.ROOT);
+                if (!(lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))) {
+                    continue;
+                }
+
+                int dotIndex = fileName.lastIndexOf('.');
+                if (dotIndex <= 0) {
+                    unmatchedPhotos.add(fileName);
+                    continue;
+                }
+                String code = fileName.substring(0, dotIndex).trim();
+                if (code.isEmpty()) {
+                    unmatchedPhotos.add(fileName);
+                    continue;
+                }
+
+                byte[] bytes = zipIn.readAllBytes();
+                MockMultipartFile photo = new MockMultipartFile(
+                        "photos",
+                        fileName,
+                        lower.endsWith(".png") ? "image/png" : "image/jpeg",
+                        bytes);
+
+                Long diseaseId = imgToDiseaseMap.get(code);
+                if (diseaseId != null) {
+                    group.computeIfAbsent(diseaseId, key -> new ArrayList<>()).add(photo);
+                } else {
+                    unmatchedPhotos.add(fileName);
+                }
+            }
+        }
     }
 
     @Resource

@@ -25,11 +25,33 @@ public interface ReadFileService {
     void readDiseaseExcel(MultipartFile file, Long taskId);
 
     /**
+     * 导入无人机病害 Excel。按 App 同款规则可新建构件实例，不改对象树构件数量；
+     * 定量列全部列出，入库时只保留病害类型 selectColumn 命中的列。
+     */
+    void readDroneDiseaseExcel(MultipartFile file, Long taskId);
+
+    /**
+     * 无人机病害与照片一次性导入：先落库 Excel 病害，再按本批照片编号从 ZIP 挂图（与 App 同批匹配，不查库内重名）。
+     *
+     * @param excelFile 病害 Excel
+     * @param photoZip  照片 ZIP，可为 null/空（仅导入病害）
+     * @return 照片侧提示（ZIP 未引用、编号缺图等），空表示照片全部匹配
+     */
+    List<String> importDroneDiseaseWithPhotos(MultipartFile excelFile, MultipartFile photoZip, Long taskId);
+
+    /**
      * 上传病害图片
      *
      * @param photos
      */
     List<String> uploadPictures(List<MultipartFile> photos, Long taskId);
+
+    /**
+     * 从 ZIP 导入病害照片。压缩包内照片文件名用照片编号命名，如 6759.jpg，对应 Excel 照片编号。
+     *
+     * @return 未能匹配到病害的文件名列表
+     */
+    List<String> uploadPicturesFromZip(MultipartFile zipFile, Long taskId);
 
     /**
      * 批量导入桥梁信息

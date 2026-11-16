@@ -1228,6 +1228,27 @@ public class DiseaseController extends BaseController {
     }
 
     @RequiresPermissions("biz:disease:add")
+    @GetMapping("/importDrone")
+    public String importDrone(@RequestParam("taskId") Long taskId, ModelMap mmap) {
+        mmap.put("taskId", taskId);
+        return prefix + "/importDrone";
+    }
+
+    @RequiresPermissions("biz:disease:add")
+    @Log(title = "无人机病害", businessType = BusinessType.IMPORT)
+    @PostMapping("/upload/droneDiseaseExcel")
+    @ResponseBody
+    public AjaxResult droneDiseaseExcel(@RequestParam("file") MultipartFile file,
+                                        @RequestParam(value = "photoZip", required = false) MultipartFile photoZip,
+                                        @RequestParam("taskId") Long taskId) {
+        List<String> photoHints = readFileService.importDroneDiseaseWithPhotos(file, photoZip, taskId);
+        if (photoHints != null && !photoHints.isEmpty()) {
+            return AjaxResult.success("病害已导入，部分照片未完全匹配", photoHints);
+        }
+        return AjaxResult.success("导入成功");
+    }
+
+    @RequiresPermissions("biz:disease:add")
     @Log(title = "病害", businessType = BusinessType.IMPORT)
     @PostMapping("/upload/diseaseHistoryExcel")
     @ResponseBody

@@ -388,7 +388,12 @@ public class ReportServiceImpl implements IReportService {
         Report oldReport = reportMapper.selectReportById(report.getId());
         report.setUpdateBy(ShiroUtils.getLoginName());
         int rows = reportMapper.updateReport(report);
-        if (rows > 0 && oldReport != null && !oldReport.getReportTemplateId().equals(report.getReportTemplateId())) {
+        // 编辑页模板下拉是 disabled，serialize 不会带 reportTemplateId（为 null）。
+        // 以前用 equals(null) 会被当成“换了模板”，从而清空全部填充数据。
+        // 只有请求里明确带了新模板 ID，且与旧值不同时，才重建。
+        if (rows > 0 && oldReport != null
+                && report.getReportTemplateId() != null
+                && !Objects.equals(oldReport.getReportTemplateId(), report.getReportTemplateId())) {
             // 删除原有报告数据
             reportDataService.deleteReportDataByReportId(report.getId());
             // 重新生成报告数据

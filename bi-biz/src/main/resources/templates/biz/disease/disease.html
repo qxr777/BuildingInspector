@@ -111,6 +111,10 @@
                    shiro:hasPermission="biz:disease:add">
                     <i class="fa fa-download"></i> 交投病害模板下载
                 </a>
+                <a class="btn btn-info" onclick="importDroneDisease()"
+                   shiro:hasPermission="biz:disease:add">
+                    <i class="fa fa-upload"></i> 导入无人机病害
+                </a>
             </div>
             <div class="col-sm-12 select-table table-striped">
                 <table id="bootstrap-table"></table>
@@ -440,6 +444,11 @@
     function importHistoryDisease() {
         var taskId = task.id;
         $.modal.open("导入历史病害", prefix + "/importHistory?taskId=" + taskId, '800', '600');
+    }
+
+    function importDroneDisease() {
+        var taskId = task.id;
+        $.modal.open("导入无人机病害", prefix + "/importDrone?taskId=" + taskId, '800', '650');
     }
 
     function showExportLoading(message) {

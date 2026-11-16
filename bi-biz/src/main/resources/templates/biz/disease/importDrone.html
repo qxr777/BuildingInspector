@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('导入无人机病害')" />
+</head>
+<body class="white-bg">
+<style>
+.modal-footer {
+    display: none !important;
+}
+.layui-layer-btn {
+    display: none !important;
+}
+.btn-default, .btn-primary.cancel, .btn-warning {
+    display: none !important;
+}
+</style>
+<div class="wrapper wrapper-content animated fadeInRight ibox-content">
+    <form class="form-horizontal m" id="form-drone-import" enctype="multipart/form-data">
+        <input type="hidden" id="taskId" name="taskId" th:value="${taskId}">
+
+        <h4 class="page-header">无人机病害导入</h4>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">病害模板：</label>
+            <div class="col-sm-8">
+                <a class="btn btn-info" th:href="@{/file/drone-disease-import-template.xlsx}" download="无人机病害导入模板.xlsx">
+                    <i class="fa fa-download"></i> 下载病害模板
+                </a>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">病害 Excel：</label>
+            <div class="col-sm-8">
+                <input id="file" name="file" type="file" accept=".xlsx,.xls" class="form-control" required>
+                <span class="help-block m-b-none"><i class="fa fa-info-circle"></i> 请选择 Excel 文件（.xlsx）</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">照片 ZIP：</label>
+            <div class="col-sm-8">
+                <input id="photoZip" name="photoZip" type="file" accept=".zip" class="form-control" required>
+                <span class="help-block m-b-none">
+                    <i class="fa fa-info-circle"></i>
+                    与 Excel 一起导入。ZIP 内文件名用照片编号，例如 <code>6759.jpg</code>，与 Excel「照片编号」一致。支持子目录，支持 jpg/jpeg/png
+                </span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-3 control-label">文件说明：</label>
+            <div class="col-sm-8">
+                <div class="alert alert-info">
+                    <h5><i class="fa fa-info-circle"></i> 导入规则：</h5>
+                    <ul>
+                        <li>Excel 与照片 ZIP 一次上传，按本批照片编号挂图（与 App 一样，不依赖库里旧编号是否重名）</li>
+                        <li>「缺损类型」填网页「病害类型」名称（如下拉里 # 后面那段，如麻面）；不要填「病害分组」，不要写成 5.1.1-1-2#麻面</li>
+                        <li>模板列出全部定量列。导入时只保留该缺损类型在网页上使用的列</li>
+                        <li>缺损位置写成「编号#名称」。没有同名构件时会新建，不改对象树上的构件数量</li>
+                        <li>参考面与网页一致，分三列：名称、起点(m)、终点(m)。终点可空</li>
+                        <li>是否参与评定、评定标度、发展趋势必填。不参与评定时标度留空，入库为 0</li>
+                        <li>面积标识下拉选：普通 / 平均 / 总计，空着按普通。一条病害对应一组定量数据</li>
+                        <li>请删除模板示例行后再导入</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="photoHintsDiv" class="form-group" style="display: none;">
+            <label class="col-sm-3 control-label">照片提示：</label>
+            <div class="col-sm-8">
+                <div class="alert alert-warning">
+                    <h5><i class="fa fa-exclamation-triangle"></i> 病害已导入，以下照片未完全匹配：</h5>
+                    <ul id="photoHintsList"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-sm-offset-3 col-sm-8">
+                <button type="button" class="btn btn-primary" onclick="submitDroneImportHandler()">导入</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<th:block th:include="include :: footer" />
+
+<script th:inline="javascript">
+    var prefix = ctx + "biz/disease";
+
+    $.validator.addMethod("fileExtension", function(value, element) {
+        var extension = value.split('.').pop().toLowerCase();
+        return this.optional(element) || extension === 'xlsx' || extension === 'xls';
+    }, "请选择Excel文件(.xlsx或.xls格式)");
+
+    $.validator.addMethod("zipExtension", function(value, element) {
+        var extension = value.split('.').pop().toLowerCase();
+        return this.optional(element) || extension === 'zip';
+    }, "请选择ZIP压缩包");
+
+    $(function() {
+        $("#form-drone-import").validate({
+            rules: {
+                file: {
+                    required: true,
+                    fileExtension: true
+                },
+                photoZip: {
+                    required: true,
+                    zipExtension: true
+                }
+            },
+            errorPlacement: function(error, element) {
+                error.insertAfter(element.parent());
+            }
+        });
+    });
+
+    function submitDroneImportHandler() {
+        if ($("#form-drone-import").valid()) {
+            var formData = new FormData();
+            formData.append('file', $('#file')[0].files[0]);
+            formData.append('photoZip', $('#photoZip')[0].files[0]);
+            formData.append('taskId', $("#taskId").val());
+
+            $.modal.loading("正在处理，请稍后...");
+            $.ajax({
+                url: prefix + "/upload/droneDiseaseExcel",
+                type: 'post',
+                data: formData,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function(result) {
+                    $.modal.closeLoading();
+                    if (result && result.code) {
+                        showDroneImportError(result.msg);
+                        return;
+                    }
+                    var hints = result && result.data ? result.data : [];
+                    if (hints && hints.length > 0) {
+                        $("#photoHintsList").empty();
+                        hints.forEach(function(item) {
+                            $("#photoHintsList").append("<li>" + $("<div/>").text(item).html() + "</li>");
+                        });
+                        $("#photoHintsDiv").show();
+                        $.modal.alertWarning("病害已导入，部分照片未完全匹配");
+                        localStorage.setItem("refreshDiseaseTable", Date.now());
+                    } else {
+                        $("#photoHintsDiv").hide();
+                        $.modal.alertSuccess(result.msg || "导入成功");
+                        localStorage.setItem("refreshDiseaseTable", Date.now());
+                    }
+                },
+                error: function() {
+                    $.modal.closeLoading();
+                    $.modal.alertError("导入失败，请重试");
+                }
+            });
+        }
+    }
+
+    function showDroneImportError(message) {
+        var text = message || "导入失败";
+        var html = $("<div/>").text(text).html().replace(/\n/g, "<br>");
+        $.modal.alertWarning(html);
+    }
+</script>
+</body>
+</html>
