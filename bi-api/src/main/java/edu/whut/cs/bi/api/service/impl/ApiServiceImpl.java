@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -266,124 +267,25 @@ public class ApiServiceImpl implements ApiService {
 
                     }
                 }
-                // 处理桥梁图片数据
+            }
 
-                String frontPhotoJsonPath = buildingId + "/frontPhoto.json";
-                if (extractedFiles.containsKey(frontPhotoJsonPath)) {
-                    String frontPhotoJson = new String(Files.readAllBytes(extractedFiles.get(frontPhotoJsonPath)));
-                    JSONObject jsonObject2 = JSONObject.parseObject(frontPhotoJson);
+            // 正立面照独立于病害 JSON：压缩包有 frontPhoto.json 就处理，避免无病害文件时整段被跳过
+            importElevationPhotos(extractedFiles, buildingId);
 
-                    // 获取现有的桥梁附件
-                    List<Attachment> existAttachments = attachmentService.getAttachmentBySubjectId(buildingId)
-                            .stream()
-                            .filter(e -> e.getName().matches("^\\d+_(newfront|newside)_.*$"))
-                            .toList();
-
-                    // 检查是否需要删除现有图片
-                    StringJoiner attachmentJoiner = new StringJoiner(",");
-
-                    // 处理前视图左侧图片
-                    List<String> frontLeftPaths = jsonObject2.getJSONArray("frontLeft").toJavaList(String.class);
-                    if (!frontLeftPaths.isEmpty()) {
-                        // 如果有新的frontLeft图片，删除现有的0_newfront
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("0_newfront"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 处理前视图右侧图片
-                    List<String> frontRightPaths = jsonObject2.getJSONArray("frontRight").toJavaList(String.class);
-                    if (!frontRightPaths.isEmpty()) {
-                        // 如果有新的frontRight图片，删除现有的1_newfront
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("1_newfront"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 处理侧视图左侧图片
-                    List<String> sideLeftPaths = jsonObject2.getJSONArray("sideLeft").toJavaList(String.class);
-                    if (!sideLeftPaths.isEmpty()) {
-                        // 如果有新的sideLeft图片，删除现有的0_newside
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("0_newside"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 处理侧视图右侧图片
-                    List<String> sideRightPaths = jsonObject2.getJSONArray("sideRight").toJavaList(String.class);
-                    if (!sideRightPaths.isEmpty()) {
-                        // 如果有新的sideRight图片，删除现有的1_newside
-                        existAttachments.stream()
-                                .filter(e -> e.getName().startsWith("1_newside"))
-                                .forEach(e -> attachmentJoiner.add(String.valueOf(e.getId())));
-                    }
-
-                    // 如果有附件需要删除，执行删除操作
-                    String attachmentIds = attachmentJoiner.toString();
-                    if (!attachmentIds.isEmpty()) {
-                        attachmentService.deleteAttachmentByIds(attachmentIds);
-                    }
-
-                    // 处理前视图图片
-                    List<MultipartFile> frontFiles = new ArrayList<>();
-                    List<String> frontPaths = new ArrayList<>();
-                    frontPaths.addAll(frontLeftPaths);
-                    frontPaths.addAll(frontRightPaths);
-
-                    for (String imagePath : frontPaths) {
-                        if (extractedFiles.containsKey(imagePath)) {
-                            File imageFile = extractedFiles.get(imagePath).toFile();
-                            byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                            MockMultipartFile mockFile = new MockMultipartFile(
-                                    "front",
-                                    imageFile.getName(),
-                                    Files.probeContentType(imageFile.toPath()),
-                                    fileContent);
-                            frontFiles.add(mockFile);
-                        }
-                    }
-
-                    // 处理侧视图图片
-                    List<MultipartFile> sideFiles = new ArrayList<>();
-                    List<String> sidePaths = new ArrayList<>();
-                    sidePaths.addAll(sideLeftPaths);
-                    sidePaths.addAll(sideRightPaths);
-
-                    for (String imagePath : sidePaths) {
-                        if (extractedFiles.containsKey(imagePath)) {
-                            File imageFile = extractedFiles.get(imagePath).toFile();
-                            byte[] fileContent = Files.readAllBytes(imageFile.toPath());
-                            MockMultipartFile mockFile = new MockMultipartFile(
-                                    "side",
-                                    imageFile.getName(),
-                                    Files.probeContentType(imageFile.toPath()),
-                                    fileContent);
-                            sideFiles.add(mockFile);
-                        }
-                    }
-
-                    // 调用上传桥梁图片方法
-                    if (!frontFiles.isEmpty() || !sideFiles.isEmpty()) {
-                        MultipartFile[] frontArray = frontFiles.isEmpty() ? new MultipartFile[0] : frontFiles.toArray(new MultipartFile[0]);
-                        MultipartFile[] sideArray = sideFiles.isEmpty() ? new MultipartFile[0] : sideFiles.toArray(new MultipartFile[0]);
-                        uploadBridgeDataImage(buildingId, frontArray, sideArray);
-                    }
-                }
-                if (submitTask != null) {
-                    submitTask.setType(1);
-                    submitTask.setUpdateBy(ShiroUtils.getLoginName());
-                    taskMapper.updateTask(submitTask);
-                } else if (projectId != null) {
-                    Task queryTask = new Task();
-                    queryTask.setBuildingId(buildingId);
-                    queryTask.setProjectId(projectId);
-                    List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
-                    if(!tasks.isEmpty()) {
-                        Task task = tasks.get(0);
-                        task.setType(1);
-                        task.setUpdateBy(ShiroUtils.getLoginName());
-                        taskMapper.updateTask(task);
-                    }
+            if (submitTask != null) {
+                submitTask.setType(1);
+                submitTask.setUpdateBy(ShiroUtils.getLoginName());
+                taskMapper.updateTask(submitTask);
+            } else if (projectId != null) {
+                Task queryTask = new Task();
+                queryTask.setBuildingId(buildingId);
+                queryTask.setProjectId(projectId);
+                List<Task> tasks = taskMapper.selectTaskList(queryTask, null);
+                if (!tasks.isEmpty()) {
+                    Task task = tasks.get(0);
+                    task.setType(1);
+                    task.setUpdateBy(ShiroUtils.getLoginName());
+                    taskMapper.updateTask(task);
                 }
             }
             //处理检测任务的表格数据
@@ -486,6 +388,104 @@ public class ApiServiceImpl implements ApiService {
         if (!taskSheetService.supportsJsonSheetWord(sheetType)) {
             throw new ServiceException("检测记录表导入失败：不支持的表格类型 " + sheetType);
         }
+    }
+
+    /**
+     * 按 frontPhoto.json 槽位替换正立面照。
+     * 仅当压缩包中真实存在对应图片时才删除旧附件并上传；声明了路径但缺文件时跳过该槽，避免只删不补。
+     * 槽位固定映射：frontLeft/sideLeft → index 0，frontRight/sideRight → index 1。
+     */
+    private void importElevationPhotos(Map<String, Path> extractedFiles, Long buildingId) throws IOException {
+        String frontPhotoJsonPath = buildingId + "/frontPhoto.json";
+        if (!extractedFiles.containsKey(frontPhotoJsonPath)) {
+            return;
+        }
+
+        String frontPhotoJson = new String(Files.readAllBytes(extractedFiles.get(frontPhotoJsonPath)));
+        JSONObject frontPhotoObject = JSONObject.parseObject(frontPhotoJson);
+        if (frontPhotoObject == null) {
+            log.warn("frontPhoto.json 解析为空，跳过正立面照处理: buildingId={}", buildingId);
+            return;
+        }
+
+        List<Attachment> existAttachments = attachmentService.getAttachmentBySubjectId(buildingId)
+                .stream()
+                .filter(e -> e.getName() != null && e.getName().matches("^\\d+_(newfront|newside)_.*$"))
+                .toList();
+
+        replaceElevationPhotoSlot(extractedFiles, buildingId, existAttachments, frontPhotoObject, "frontLeft", "newfront", 0);
+        replaceElevationPhotoSlot(extractedFiles, buildingId, existAttachments, frontPhotoObject, "frontRight", "newfront", 1);
+        replaceElevationPhotoSlot(extractedFiles, buildingId, existAttachments, frontPhotoObject, "sideLeft", "newside", 0);
+        replaceElevationPhotoSlot(extractedFiles, buildingId, existAttachments, frontPhotoObject, "sideRight", "newside", 1);
+    }
+
+    private void replaceElevationPhotoSlot(
+            Map<String, Path> extractedFiles,
+            Long buildingId,
+            List<Attachment> existAttachments,
+            JSONObject frontPhotoObject,
+            String field,
+            String type,
+            int index
+    ) throws IOException {
+        String imagePath = firstFrontPhotoPath(frontPhotoObject, field);
+        if (imagePath == null) {
+            return;
+        }
+
+        Path imagePathOnDisk = resolveExtractedImagePath(extractedFiles, imagePath);
+        if (imagePathOnDisk == null) {
+            log.warn("正立面照声明了路径但压缩包中缺少图片，跳过替换: buildingId={}, field={}, path={}",
+                    buildingId, field, imagePath);
+            return;
+        }
+
+        String namePrefix = index + "_" + type;
+        String attachmentIds = existAttachments.stream()
+                .filter(e -> e.getName() != null && e.getName().startsWith(namePrefix))
+                .map(e -> String.valueOf(e.getId()))
+                .collect(Collectors.joining(","));
+        if (!attachmentIds.isEmpty()) {
+            attachmentService.deleteAttachmentByIds(attachmentIds);
+        }
+
+        File imageFile = imagePathOnDisk.toFile();
+        String contentType = Files.probeContentType(imagePathOnDisk);
+        MockMultipartFile mockFile = new MockMultipartFile(
+                type,
+                imageFile.getName(),
+                contentType != null ? contentType : "image/jpeg",
+                Files.readAllBytes(imagePathOnDisk));
+        fileMapController.uploadAttachment(buildingId, mockFile, type, index);
+    }
+
+    private String firstFrontPhotoPath(JSONObject frontPhotoObject, String field) {
+        JSONArray paths = frontPhotoObject.getJSONArray(field);
+        if (paths == null || paths.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < paths.size(); i++) {
+            String path = paths.getString(i);
+            if (path != null && !path.trim().isEmpty()) {
+                return path.trim().replace('\\', '/');
+            }
+        }
+        return null;
+    }
+
+    private Path resolveExtractedImagePath(Map<String, Path> extractedFiles, String imagePath) {
+        if (imagePath == null || imagePath.isEmpty()) {
+            return null;
+        }
+        String normalized = imagePath.replace('\\', '/').replaceAll("^/+", "");
+        if (extractedFiles.containsKey(normalized)) {
+            return extractedFiles.get(normalized);
+        }
+        String withBuildingPrefix = "building/" + normalized;
+        if (extractedFiles.containsKey(withBuildingPrefix)) {
+            return extractedFiles.get(withBuildingPrefix);
+        }
+        return null;
     }
 
     public void uploadBridgeDataImage(long id, MultipartFile frontFile[], MultipartFile sideFile[]) {
