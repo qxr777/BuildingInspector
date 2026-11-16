@@ -302,6 +302,30 @@ public class ApiController {
     }
 
     /**
+     * 根据检测任务查询该任务的病害，返回结构与 /building/{bid}/disease 一致
+     */
+    @GetMapping("/task/{taskId}/disease")
+    @RequiresPermissions("biz:disease:list")
+    @ResponseBody
+    public AjaxResult getTaskDisease(@PathVariable("taskId") Long taskId) {
+        Task task = taskService.selectTaskById(taskId);
+        if (task == null) {
+            return AjaxResult.error("未找到ID为 " + taskId + " 的检测任务");
+        }
+
+        Disease disease = new Disease();
+        disease.setBuildingId(task.getBuildingId());
+        disease.setTaskId(taskId);
+        List<Disease> diseases = diseaseService.selectDiseaseListForApi(disease);
+
+        DiseasesOfYearVo diseasesOfYearVo = new DiseasesOfYearVo();
+        diseasesOfYearVo.setYear(task.getProject() != null ? task.getProject().getYear() : null);
+        diseasesOfYearVo.setBuildingId(task.getBuildingId());
+        diseasesOfYearVo.setDiseases(diseases);
+        return AjaxResult.success("查询成功", List.of(diseasesOfYearVo));
+    }
+
+    /**
      * 根据项目 ProjectId 查询任务列表
      */
 //    @PostMapping("/disease/deleteByProject")
