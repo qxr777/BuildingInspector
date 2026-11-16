@@ -67,7 +67,7 @@ public class ApiServiceImpl implements ApiService {
      * 上传桥梁压缩包
      */
     @Override
-    public AjaxResult uploadBridgeData(MultipartFile file) {
+    public AjaxResult uploadBridgeData(MultipartFile file, Long taskId) {
         if (file.isEmpty()) {
             return AjaxResult.error("上传文件为空");
         }
@@ -142,6 +142,18 @@ public class ApiServiceImpl implements ApiService {
                 throw  new ServiceException("未找到ID为 " + buildingId + " 的建筑物");
             }
 
+            Task submitTask = null;
+            if (taskId != null) {
+                submitTask = taskMapper.selectTaskById(taskId);
+                if (submitTask == null) {
+                    throw new ServiceException("未找到ID为 " + taskId + " 的检测任务");
+                }
+                if (!buildingId.equals(submitTask.getBuildingId())) {
+                    throw new ServiceException("检测任务 " + taskId + " 与桥梁 " + buildingId + " 不对应");
+                }
+                projectId = submitTask.getProjectId();
+            }
+
             // 处理桥梁结构数据
             String objectJsonPath = buildingId + "/object.json";
             if (extractedFiles.containsKey(objectJsonPath)) {
@@ -189,9 +201,22 @@ public class ApiServiceImpl implements ApiService {
                         throw  new ServiceException("building与病害数据不对应");
                     }
                 }
+                // 同一座桥同一年的病害文件可能混有多个检测任务的病害，指定了任务时只处理该任务的
+                if (taskId != null) {
+                    int totalCount = diseases.size();
+                    diseases = diseases.stream()
+                            .filter(disease -> taskId.equals(disease.getTaskId()))
+                            .toList();
+                    if (diseases.size() < totalCount) {
+                        log.info("桥梁 {} 上传只处理任务 {} 的病害 {} 条，跳过其他任务的病害 {} 条",
+                                buildingId, taskId, diseases.size(), totalCount - diseases.size());
+                    }
+                }
                 // 批量保存病害数据
                 if (!diseases.isEmpty()) {
-                    projectId =diseases.get(0).getProjectId();
+                    if (submitTask == null) {
+                        projectId = diseases.get(0).getProjectId();
+                    }
                     diseaseService.batchSaveDiseases(diseases);
                 }
                 // 处理病害图片
@@ -344,7 +369,11 @@ public class ApiServiceImpl implements ApiService {
                         uploadBridgeDataImage(buildingId, frontArray, sideArray);
                     }
                 }
-                if (projectId != null) {
+                if (submitTask != null) {
+                    submitTask.setType(1);
+                    submitTask.setUpdateBy(ShiroUtils.getLoginName());
+                    taskMapper.updateTask(submitTask);
+                } else if (projectId != null) {
                     Task queryTask = new Task();
                     queryTask.setBuildingId(buildingId);
                     queryTask.setProjectId(projectId);
@@ -358,9 +387,13 @@ public class ApiServiceImpl implements ApiService {
                 }
             }
             //处理检测任务的表格数据
-            importInspectionSheets(extractedFiles, buildingId, projectId);
+            importInspectionSheets(extractedFiles, buildingId, projectId, submitTask);
 
-            return AjaxResult.success("桥梁数据上传成功");
+            AjaxResult result = AjaxResult.success("桥梁数据上传成功");
+            if (taskId != null) {
+                result.put("taskId", taskId);
+            }
+            return result;
         } catch (Exception e) {
             try {
                 // 确保目录存在
@@ -396,7 +429,7 @@ public class ApiServiceImpl implements ApiService {
         }
     }
 
-    private void importInspectionSheets(Map<String, Path> extractedFiles, Long buildingId, Long projectId) throws IOException {
+    private void importInspectionSheets(Map<String, Path> extractedFiles, Long buildingId, Long projectId, Task submitTask) throws IOException {
         String sheetsPrefix = buildingId + "/sheets/";
         List<Map.Entry<String, Path>> sheetEntries = extractedFiles.entrySet().stream()
                 .filter(entry -> isInspectionSheetJson(entry.getKey(), sheetsPrefix))
@@ -406,11 +439,13 @@ public class ApiServiceImpl implements ApiService {
             return;
         }
 
-        if (projectId == null) {
-            throw new ServiceException("检测记录表导入失败：无法通过病害数据获取projectId，不能定位检测任务");
+        Task task = submitTask;
+        if (task == null) {
+            if (projectId == null) {
+                throw new ServiceException("检测记录表导入失败：无法通过病害数据获取projectId，不能定位检测任务");
+            }
+            task = resolveUniqueTaskForSheets(projectId, buildingId);
         }
-
-        Task task = resolveUniqueTaskForSheets(projectId, buildingId);
         for (Map.Entry<String, Path> entry : sheetEntries) {
             String sheetType = extractSheetType(entry.getKey(), sheetsPrefix);
             validateSheetType(sheetType);

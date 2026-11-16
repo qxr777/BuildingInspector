@@ -10,5 +10,8 @@ import org.springframework.web.multipart.MultipartFile;
  * @Description:
  **/
 public interface ApiService {
-    AjaxResult uploadBridgeData( MultipartFile file);
+    /**
+     * @param taskId 本次提交的检测任务ID；不为空时只处理该任务的病害，为空时按旧逻辑处理（兼容旧版平板）
+     */
+    AjaxResult uploadBridgeData(MultipartFile file, Long taskId);
 }

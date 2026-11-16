@@ -23,7 +23,7 @@ import java.nio.file.Path;
  * OSS 临时 ZIP 对象的流式 MultipartFile 适配与清理。
  *
  * <p>该组件让 OSS 对象可以直接交给既有的
- * {@code ApiService.uploadBridgeData(MultipartFile)} 处理，不需要改动旧上传解析代码。</p>
+ * {@code ApiService.uploadBridgeData(MultipartFile, Long)} 处理，不需要改动旧上传解析代码。</p>
  */
 @Slf4j
 @Component

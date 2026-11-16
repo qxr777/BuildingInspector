@@ -667,9 +667,10 @@ public class ApiController {
     @RequiresPermissions("biz:disease:add")
     @ResponseBody
     @Transactional
-    public AjaxResult uploadBridgeData(@RequestParam("file") MultipartFile file) {
+    public AjaxResult uploadBridgeData(@RequestParam("file") MultipartFile file,
+                                       @RequestParam(value = "taskId", required = false) Long taskId) {
         try {
-            return apiService.uploadBridgeData(file);
+            return apiService.uploadBridgeData(file, taskId);
         } catch (Exception e) {
             return AjaxResult.error("处理上传文件失败：" + e.getMessage());
         }
@@ -691,8 +692,9 @@ public class ApiController {
 
         try {
             String objectName = ossBridgeUploadUtil.validateObjectName(request.get("objectName"));
+            Long taskId = parseTaskId(request.get("taskId"));
             MultipartFile ossZipFile = ossBridgeUploadUtil.createMultipartFile(objectName);
-            AjaxResult result = apiService.uploadBridgeData(ossZipFile);
+            AjaxResult result = apiService.uploadBridgeData(ossZipFile, taskId);
             if (result.isError()) {
                 // 解析失败时回滚数据库操作，OSS 中的临时 ZIP 则保留以便排查或重试。
                 TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
@@ -704,6 +706,17 @@ public class ApiController {
         } catch (Exception e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return AjaxResult.error("处理上传文件失败：" + e.getMessage());
+        }
+    }
+
+    private Long parseTaskId(String taskId) {
+        if (StringUtils.isBlank(taskId)) {
+            return null;
+        }
+        try {
+            return Long.valueOf(taskId.trim());
+        } catch (NumberFormatException e) {
+            throw new ServiceException("taskId格式错误：" + taskId);
         }
     }
 
