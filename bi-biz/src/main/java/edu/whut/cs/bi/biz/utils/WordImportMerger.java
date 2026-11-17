@@ -230,16 +230,21 @@ public final class WordImportMerger {
         long drawingId = Math.max(nextId(target, "docPr", "id"), 100000);
         long bookmarkId = Math.max(nextId(target, "bookmarkStart", "id"), 100000);
         Map<String, String> bookmarkIds = new HashMap<>();
+        // Word bookmark names are capped at 40 characters; the long style prefix would get truncated.
+        Set<String> takenNames = new HashSet<>();
+        for (Element e : nodes(target, W, "bookmarkStart")) takenNames.add(e.getAttributeNS(W, "name"));
+        Map<String, String> bookmarkNames = new HashMap<>();
         for (Element fragment : fragments) for (Element e : includingAll(fragment)) {
             if ("docPr".equals(e.getLocalName())) e.setAttribute("id", String.valueOf(drawingId++));
             if (W.equals(e.getNamespaceURI()) && Set.of("bookmarkStart", "bookmarkEnd").contains(e.getLocalName())) {
                 String old = e.getAttributeNS(W, "id");
                 if (!bookmarkIds.containsKey(old)) bookmarkIds.put(old, String.valueOf(bookmarkId++));
                 e.setAttributeNS(W, "w:id", bookmarkIds.get(old));
-                if (e.hasAttributeNS(W, "name")) e.setAttributeNS(W, "w:name", prefix + e.getAttributeNS(W, "name"));
+                if (e.hasAttributeNS(W, "name"))
+                    e.setAttributeNS(W, "w:name", importedBookmarkName(e.getAttributeNS(W, "name"), bookmarkNames, takenNames));
             }
             if (W.equals(e.getNamespaceURI()) && "hyperlink".equals(e.getLocalName()) && e.hasAttributeNS(W, "anchor"))
-                e.setAttributeNS(W, "w:anchor", prefix + e.getAttributeNS(W, "anchor"));
+                e.setAttributeNS(W, "w:anchor", importedBookmarkName(e.getAttributeNS(W, "anchor"), bookmarkNames, takenNames));
         }
         for (Element style : copiedStyles) styles.getDocumentElement().appendChild(style);
         // Abstract numbering definitions precede concrete numbering instances.
@@ -249,6 +254,17 @@ public final class WordImportMerger {
         }
         for (Element fragment : fragments) targetBody.insertBefore(fragment, anchor);
         targetBody.removeChild(anchor);
+    }
+
+    /** 导入内容的域已转成纯文本，书签只剩章节内超链接在用，换成短的隐藏书签名即可。 */
+    private static String importedBookmarkName(String old, Map<String, String> renamed, Set<String> taken) {
+        String existing = renamed.get(old);
+        if (existing != null) return existing;
+        String name;
+        int index = taken.size() + 1;
+        do { name = "_WI" + index++; } while (!taken.add(name));
+        renamed.put(old, name);
+        return name;
     }
 
     /**

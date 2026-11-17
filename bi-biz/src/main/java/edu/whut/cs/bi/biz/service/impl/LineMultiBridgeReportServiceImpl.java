@@ -22,6 +22,7 @@ import edu.whut.cs.bi.biz.utils.DiseaseComparisonTableUtils;
 import edu.whut.cs.bi.biz.utils.RebarCorrosionAssessmentTableBuilder;
 import edu.whut.cs.bi.biz.utils.ReportGenerateTools;
 import edu.whut.cs.bi.biz.utils.ReportTemplateValueUtils;
+import edu.whut.cs.bi.biz.utils.WordBookmarkUtils;
 import edu.whut.cs.bi.biz.utils.WordFieldUtils;
 import edu.whut.cs.bi.biz.utils.WordReportPageNumberUtils;
 import edu.whut.cs.bi.biz.utils.WordSectionLayoutUtils;
@@ -257,6 +258,8 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
             // 清掉模板中的样例桥章节，只保留锚点和前后公共内容。
             removeBodyElementsBetween(document, masterStart, masterEnd);
+            // 每座桥都由同一模板、从 1 开始的计数器生成，书签名在桥之间会重复。
+            Set<String> takenBookmarks = WordBookmarkUtils.bookmarkNames(document);
 
             Map<String, BiEvaluation> importedPreviousEvaluations = loadImportedPreviousEvaluations(allReportData);
             for (LineBridgeGroup group : groups) {
@@ -280,8 +283,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
 
                     WordFieldUtils.updateAllFields(bridgeDocument);
                     bridgeDocument.getSettings().setUpdateFields();
-                    insertBodyElementCopies(document, masterEnd, bridgeDocument,
-                            copyBridgeBodyElements(bridgeDocument));
+                    List<IBodyElement> bridgeElements = copyBridgeBodyElements(bridgeDocument);
+                    WordBookmarkUtils.renameBookmarks(bridgeElements, takenBookmarks);
+                    insertBodyElementCopies(document, masterEnd, bridgeDocument, bridgeElements);
                 } finally {
                     bridgeDocument.close();
                 }
@@ -301,6 +305,7 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
             WordSectionLayoutUtils.continueBodyPageNumbers(document);
             applyReportHeader(document, allReportData, report);
             WordReportPageNumberUtils.useLastBodyPageForFooterTotal(document);
+            WordBookmarkUtils.normalize(document);
 
             outputFile = File.createTempFile("line_multi_bridge_report_" + report.getId(), ".docx");
             out = new FileOutputStream(outputFile);
@@ -1608,7 +1613,9 @@ public class LineMultiBridgeReportServiceImpl implements ILineMultiBridgeReportS
                     }
                     String type = d.getType() == null ? "" : d.getType().substring(d.getType().lastIndexOf("#") + 1);
                     String imageDesc = componentName + d.getPosition() + type;
-                    String bookmark = "Figure_Chapter3_" + UUID.randomUUID() + "_" + chapterImageCounter.getAndIncrement();
+                    // Word 书签名上限 40 个字符且不能含「-」，完整 UUID 会被截断，REF 域随之失效。
+                    String bookmark = "Figure_Chapter3_" + UUID.randomUUID().toString().substring(0, 8)
+                            + "_" + chapterImageCounter.getAndIncrement();
                     imageBookmarks.add(bookmark + "|" + imageDesc + "|" + attachmentId);
                 }
             }
