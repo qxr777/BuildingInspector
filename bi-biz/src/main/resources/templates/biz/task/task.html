@@ -115,6 +115,21 @@
     var prefix = ctx + "biz/task";
     var evaluationPrefix = ctx + "biz/bievaluation";
     var taskSheetPrefix = ctx + "biz/taskSheet";
+
+    // 桥名可能含换行或引号。放进 onclick 字符串会在表格插入时直接语法错误，点击无反应。
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function escapeHtmlAttr(value) {
+        return escapeHtml(value)
+            .replace(/\r/g, '&#13;')
+            .replace(/\n/g, '&#10;');
+    }
     var batchDiseaseExcelExportState = {
         status: "idle",
         taskIds: "",
@@ -156,7 +171,7 @@
                     field: 'building.name',
                     title: '桥梁名称',
                     formatter: function(value, row, index) {
-                        return '<a href="javascript:void(0)" onclick="openBuildingList(\'' + value + '\')">' + value + '</a>';
+                        return '<a href="javascript:void(0)" data-name="' + escapeHtmlAttr(value) + '" onclick="openBuildingList(this.getAttribute(\'data-name\'))">' + escapeHtml(value) + '</a>';
                     }
                 },
                 {
@@ -208,11 +223,13 @@
                     align: 'center',
                     formatter: function (value, row, index) {
                         var actions = [];
+                        var buildingName = row.building ? row.building.name : '';
+                        var rootObjectId = row.building ? row.building.rootObjectId : '';
                         actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
                         actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="inspect(\'' + row.id + '\')"><i class="fa fa-search"></i>检查</a> ');
-                        actions.push('<a class="btn btn-warning btn-xs ' + evaluateFlag + '" href="javascript:void(0)" onclick="doEvaluate(\'' + row.id + '\', \'' + row.building.rootObjectId + '\', \'' + row.building.name + '\')"><i class="fa fa-calculator"></i>评定</a> ');
-                        actions.push('<a class="btn btn-primary btn-xs ' + evaluateDetailFlag + '" href="javascript:void(0)" onclick="viewEvaluateDetail(\'' + row.id + '\', \'' + row.building.name + '\')"><i class="fa fa-list-alt"></i>评定详情</a> ');
-                        actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" onclick="openTaskSheets(\'' + row.id + '\', \'' + (row.building.name || '').replace(/'/g, "\\'") + '\')"><i class="fa fa-table"></i>检测记录</a> ');
+                        actions.push('<a class="btn btn-warning btn-xs ' + evaluateFlag + '" href="javascript:void(0)" data-task-id="' + row.id + '" data-root-id="' + rootObjectId + '" data-name="' + escapeHtmlAttr(buildingName) + '" onclick="doEvaluate(this.getAttribute(\'data-task-id\'), this.getAttribute(\'data-root-id\'), this.getAttribute(\'data-name\'))"><i class="fa fa-calculator"></i>评定</a> ');
+                        actions.push('<a class="btn btn-primary btn-xs ' + evaluateDetailFlag + '" href="javascript:void(0)" data-task-id="' + row.id + '" data-name="' + escapeHtmlAttr(buildingName) + '" onclick="viewEvaluateDetail(this.getAttribute(\'data-task-id\'), this.getAttribute(\'data-name\'))"><i class="fa fa-list-alt"></i>评定详情</a> ');
+                        actions.push('<a class="btn btn-default btn-xs" href="javascript:void(0)" data-task-id="' + row.id + '" data-name="' + escapeHtmlAttr(buildingName) + '" onclick="openTaskSheets(this.getAttribute(\'data-task-id\'), this.getAttribute(\'data-name\'))"><i class="fa fa-table"></i>检测记录</a> ');
                         return actions.join('');
                     }
                 }]
