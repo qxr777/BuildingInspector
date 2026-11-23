@@ -763,6 +763,7 @@ public class ReportController extends BaseController {
     public AjaxResult generate(@PathVariable("id") Long id) {
         try {
             // 获取报告信息
+            reportServiceImpl.releaseTimedOutGenerationsForSubmit();
             Report report = reportService.selectReportById(id);
             if (report == null) {
                 return AjaxResult.error("报告不存在");

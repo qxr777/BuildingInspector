@@ -66,6 +66,7 @@ import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -195,6 +196,11 @@ public class ReportServiceImpl implements IReportService {
     private static final int REPORT_STATUS_GENERATING = 2;
     private static final int REPORT_STATUS_FAILED = 3;
     private static final int REPORT_STATUS_QUEUED = 4;
+    /** 生成中超过此时长仍未结束，标为失败并释放并发名额。 */
+    static final long REPORT_GENERATION_TIMEOUT_MILLIS = 5L * 60 * 60 * 1000L;
+    private static final String REPORT_TIMEOUT_REMARK = "生成报告失败，原因：生成超过5小时仍未完成";
+    /** 当前进程里仍在跑的生成线程，超时后尝试中断。 */
+    private final ConcurrentHashMap<Long, Thread> generatingThreads = new ConcurrentHashMap<>();
 
     @Resource
     private ReadFileService readFileService;
@@ -258,6 +264,8 @@ public class ReportServiceImpl implements IReportService {
      */
     public synchronized boolean enqueueOrStart(Report report, List<Task> tasks, Long rootParentId,
                                                ReportTemplate template, String operator) {
+        releaseTimedOutGenerations();
+        pumpReportQueue();
         Report current = reportMapper.selectReportById(report.getId());
         if (current != null && current.getStatus() != null
                 && (current.getStatus() == REPORT_STATUS_GENERATING || current.getStatus() == REPORT_STATUS_QUEUED)) {
@@ -277,6 +285,7 @@ public class ReportServiceImpl implements IReportService {
      * 一份报告结束后补位，按提交先后启动排队中的报告。
      */
     public synchronized void pumpReportQueue() {
+        releaseTimedOutGenerations();
         Set<Long> skipped = new HashSet<>();
         while (countByStatus(REPORT_STATUS_GENERATING) < MAX_PARALLEL_REPORTS) {
             List<Report> queued = reportMapper.selectReportsByStatus(REPORT_STATUS_QUEUED);
@@ -314,14 +323,21 @@ public class ReportServiceImpl implements IReportService {
     }
 
     /**
-     * 重启后内存里的生成线程已经没了。把仍标记为生成中的报告放回原排队位置，再按空位启动。
+     * 重启后内存里的生成线程已经没了。未超过 5 小时的放回原排队位置，已经超时的标为失败。
      */
     @EventListener(ApplicationReadyEvent.class)
     public void recoverInterruptedGenerations() {
         List<Report> interrupted = reportMapper.selectReportsByStatus(REPORT_STATUS_GENERATING);
         if (interrupted != null) {
+            long now = System.currentTimeMillis();
             for (Report report : interrupted) {
                 if (report == null || report.getId() == null) {
+                    continue;
+                }
+                if (generationTimedOut(report.getUpdateTime(), now, REPORT_GENERATION_TIMEOUT_MILLIS)) {
+                    reportMapper.failGeneratingReport(report.getId(), REPORT_STATUS_FAILED,
+                            "system", REPORT_TIMEOUT_REMARK);
+                    log.warn("报告生成在重启前已超时，已标记失败: reportId={}", report.getId());
                     continue;
                 }
                 reportMapper.requeueInterruptedReport(report.getId(), REPORT_STATUS_QUEUED,
@@ -334,6 +350,48 @@ public class ReportServiceImpl implements IReportService {
         } catch (Exception e) {
             log.error("启动时补位排队报告失败", e);
         }
+    }
+
+    /**
+     * 点击生成时先检查。本报告如果已经超时，调用方会重新读取状态，不再把它当成生成中。
+     */
+    public synchronized void releaseTimedOutGenerationsForSubmit() {
+        releaseTimedOutGenerations();
+    }
+
+    /**
+     * 超过 5 小时仍是生成中就标失败，腾出并发名额。
+     * 不在这里补位，避免和 {@link #pumpReportQueue()} 互相调用。
+     */
+    private void releaseTimedOutGenerations() {
+        List<Report> generating = reportMapper.selectReportsByStatus(REPORT_STATUS_GENERATING);
+        if (generating == null || generating.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (Report report : generating) {
+            if (report == null || report.getId() == null
+                    || !generationTimedOut(report.getUpdateTime(), now, REPORT_GENERATION_TIMEOUT_MILLIS)) {
+                continue;
+            }
+            int updated = reportMapper.failGeneratingReport(report.getId(), REPORT_STATUS_FAILED,
+                    "system", REPORT_TIMEOUT_REMARK);
+            if (updated <= 0) {
+                continue;
+            }
+            log.warn("报告生成超时，已标记失败并释放名额: reportId={}", report.getId());
+            Thread worker = generatingThreads.get(report.getId());
+            if (worker != null) {
+                worker.interrupt();
+            }
+        }
+    }
+
+    static boolean generationTimedOut(Date updateTime, long nowMillis, long timeoutMillis) {
+        if (updateTime == null) {
+            return true;
+        }
+        return nowMillis - updateTime.getTime() >= timeoutMillis;
     }
 
     /**
@@ -835,6 +893,7 @@ public class ReportServiceImpl implements IReportService {
     public void generateReportDocumentAsync(Report report, List<Task> tasks, Long rootParentId,
                                             ReportTemplate template, String operator) {
         Long previousMinioId = report.getMinioId();
+        generatingThreads.put(report.getId(), Thread.currentThread());
         try {
             // 更新报告状态为生成中
             Report updateReport = new Report();
@@ -854,18 +913,12 @@ public class ReportServiceImpl implements IReportService {
             }
             log.info("生成报告结束");
 
-            // 更新报告状态为已生成并保存MinioID
-            updateReport = new Report();
-            updateReport.setId(report.getId());
-            updateReport.setStatus(1);
-            updateReport.setMinioId(Long.valueOf(minioId));
-            updateReport.setUpdateBy(operator);
-            updateReport.setRemark("");
-            updateReport.setUpdateTime(new Date());
-            reportMapper.updateReport(updateReport);
+            // 超时已经标失败时不再改回已生成。生成过程里提前写成已生成的，这里补上文件编号。
+            Long newMinioId = Long.valueOf(minioId);
+            int finished = reportMapper.completeGeneratingReport(report.getId(), newMinioId, operator);
 
             // 只有新文件已保存且报告状态已更新，才清理旧文件。
-            if (previousMinioId != null && !previousMinioId.equals(updateReport.getMinioId())) {
+            if (finished > 0 && previousMinioId != null && !previousMinioId.equals(newMinioId)) {
                 try {
                     fileMapService.deleteFileMapById(previousMinioId);
                 } catch (Exception cleanupError) {
@@ -873,25 +926,34 @@ public class ReportServiceImpl implements IReportService {
                             report.getId(), previousMinioId, cleanupError);
                 }
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("异步生成报告文档失败", e);
-            // 更新报告状态为生成失败
-            Report updateReport = new Report();
-            updateReport.setId(report.getId());
-            updateReport.setStatus(3);
-            updateReport.setUpdateBy(operator);
-            updateReport.setUpdateTime(new Date());
-            // 2025 12.5 更新
-            // 失败时设置 remark 为 错误原因 ， 在鼠标悬停时显示。
-            String errorReason = e.getMessage();
-            updateReport.setRemark("生成报告失败，原因：" + errorReason);
-            reportMapper.updateReport(updateReport);
+            try {
+                // 失败时设置 remark 为错误原因，在鼠标悬停时显示。
+                // 内存溢出是 Error，必须和 Exception 一样落成失败，否则名额不会释放。
+                String errorReason = e.getMessage();
+                if (errorReason == null || errorReason.isBlank()) {
+                    errorReason = e.getClass().getSimpleName();
+                }
+                if (errorReason.length() > 400) {
+                    errorReason = errorReason.substring(0, 400);
+                }
+                reportMapper.failGeneratingReport(report.getId(), REPORT_STATUS_FAILED, operator,
+                        "生成报告失败，原因：" + errorReason);
+            } catch (Throwable updateError) {
+                log.error("报告失败状态写回失败: reportId={}", report.getId(), updateError);
+            }
         } finally {
-            testConclusionService.removeDiseaseSummaryCache();
-            WordFieldUtils.removeCounters();
+            generatingThreads.remove(report.getId(), Thread.currentThread());
+            try {
+                testConclusionService.removeDiseaseSummaryCache();
+                WordFieldUtils.removeCounters();
+            } catch (Throwable cleanupError) {
+                log.warn("清理报告生成线程状态失败: reportId={}", report.getId(), cleanupError);
+            }
             try {
                 self.pumpReportQueue();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log.error("补位启动排队报告失败", e);
             }
         }

@@ -32,6 +32,18 @@ public interface ReportMapper {
                                         @Param("updateBy") String updateBy, @Param("remark") String remark);
 
     /**
+     * 仅当报告仍是生成中时标为失败。已经结束的报告不会被覆盖。
+     */
+    public int failGeneratingReport(@Param("id") Long id, @Param("status") Integer status,
+                                    @Param("updateBy") String updateBy, @Param("remark") String remark);
+
+    /**
+     * 生成完成时写入文件。超时已标失败的报告保持失败，不改回已生成。
+     */
+    public int completeGeneratingReport(@Param("id") Long id, @Param("minioId") Long minioId,
+                                        @Param("updateBy") String updateBy);
+
+    /**
      * 查询检测报告列表
      * 
      * @param report 检测报告

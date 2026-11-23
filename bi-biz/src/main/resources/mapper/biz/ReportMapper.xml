@@ -120,6 +120,25 @@
         where id = #{id} and flag = 0 and status = 2
     </update>
 
+    <update id="failGeneratingReport">
+        update bi_report
+        set status = #{status},
+            update_by = #{updateBy},
+            update_time = sysdate(),
+            remark = #{remark}
+        where id = #{id} and flag = 0 and status = 2
+    </update>
+
+    <update id="completeGeneratingReport">
+        update bi_report
+        set status = 1,
+            minio_id = #{minioId},
+            update_by = #{updateBy},
+            update_time = sysdate(),
+            remark = ''
+        where id = #{id} and flag = 0 and status in (1, 2)
+    </update>
+
     <insert id="insertReport" parameterType="edu.whut.cs.bi.biz.domain.Report" useGeneratedKeys="true" keyProperty="id">
         insert into bi_report (
             name,
