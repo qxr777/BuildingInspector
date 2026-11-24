@@ -23,11 +23,32 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </sql>
 
     <select id="selectPropertyList" parameterType="Property" resultMap="PropertyResult">
-        <include refid="selectProperty"/>
-        <where>
-            <if test="id != null and id > 0"> id = #{id} or find_in_set(#{id}, ancestors)</if>
-            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
-        </where>
+        <choose>
+            <when test="id != null and id > 0">
+                WITH RECURSIVE id_tree AS (
+                    SELECT id, parent_id
+                    FROM bi_property
+                    WHERE id = #{id}
+                    UNION ALL
+                    SELECT c.id, c.parent_id
+                    FROM bi_property c
+                             JOIN id_tree p ON c.parent_id = p.id
+                )
+                SELECT t.create_time, t.update_time, t.id, t.name, t.value, t.create_by, t.update_by,
+                       t.ancestors, t.order_num, t.parent_id
+                FROM bi_property t
+                         JOIN id_tree ON t.id = id_tree.id
+                <if test="name != null and name != ''">
+                    WHERE t.id = #{id} OR t.name LIKE concat('%', #{name}, '%')
+                </if>
+            </when>
+            <otherwise>
+                <include refid="selectProperty"/>
+                <where>
+                    <if test="name != null and name != ''"> and name like concat('%', #{name}, '%')</if>
+                </where>
+            </otherwise>
+        </choose>
     </select>
     
     <select id="selectPropertyById" parameterType="Long" resultMap="PropertyResult">
