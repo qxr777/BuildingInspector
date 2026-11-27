@@ -94,6 +94,16 @@ public interface DiseaseMapper {
                                                   @Param("disease") Disease disease);
 
     /**
+     * 查询指定构件中参与评定的病害。
+     *
+     * @param projectId 项目ID
+     * @param componentIds 构件ID
+     * @return 病害集合
+     */
+    List<Disease> selectAssessDiseasesByComponentIds(@Param("projectId") Long projectId,
+                                                      @Param("componentIds") List<Long> componentIds);
+
+    /**
      * 批量插入病害
      *
      * @param diseaseSet

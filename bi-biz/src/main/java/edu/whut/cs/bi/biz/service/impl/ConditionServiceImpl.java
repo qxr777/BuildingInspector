@@ -4,20 +4,25 @@ import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.BiObject;
 import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.Condition;
+import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Score;
 import edu.whut.cs.bi.biz.mapper.ConditionMapper;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
 import edu.whut.cs.bi.biz.service.IConditionService;
 import edu.whut.cs.bi.biz.service.IScoreService;
+import edu.whut.cs.bi.biz.service.PreparedCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 部件技术状况评分Service业务层处理
@@ -35,6 +40,11 @@ public class ConditionServiceImpl implements IConditionService {
 
     @Autowired
     private IBiObjectService biObjectService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    private static final int SCORE_INSERT_BATCH = 200;
 
     @Override
     public Condition selectConditionById(Long id) {
@@ -83,61 +93,72 @@ public class ConditionServiceImpl implements IConditionService {
     }
 
     @Override
-    @Transactional
     public Condition calculateCondition(BiObject biObject, Long biEvaluationId, Long projectId) {
-        // 检查参数
         if (biObject == null) {
             throw new RuntimeException("计算失败：部件对象为空");
         }
-
         if (biEvaluationId == null) {
             throw new RuntimeException("计算失败：评定ID为空");
         }
-
         if (projectId == null) {
             throw new RuntimeException("计算失败：项目ID为空");
         }
 
-        // 1. 获取或创建部件的Condition记录
-        Condition condition = selectConditionByBiObjectId(biObject.getId(),biEvaluationId);
-        if (condition == null) {
-            condition = new Condition();
-            condition.setBiObjectId(biObject.getId());
-            condition.setBiEvaluationId(biEvaluationId);
-            condition.setWeight(biObject.getWeight());
-            condition.setCreateBy(ShiroUtils.getLoginName());
-            condition.setCreateTime(new Date());
-            insertCondition(condition);
-        }
-
-        // 2. 获取该部件下所有构件的得分
+        Condition existing = selectConditionByBiObjectId(biObject.getId(), biEvaluationId);
         List<Component> components = componentService.selectComponentsByBiObjectIdAndChildren(biObject.getId());
         if (components == null) {
             throw new RuntimeException("计算失败：无法获取部件的构件列表");
         }
+        Map<Long, List<Disease>> diseasesByComponent = scoreService.loadParticipatingDiseases(projectId, components);
+        PreparedCondition prepared = prepareCondition(biObject, existing, components, diseasesByComponent);
+        prepared.getCondition().setBiEvaluationId(biEvaluationId);
+        new TransactionTemplate(transactionManager).execute(status -> {
+            writePreparedConditions(Collections.singletonList(prepared));
+            return null;
+        });
+        return prepared.getCondition();
+    }
 
-        List<Score> scores = new ArrayList<>();
-        if (components.size() > 0) {
-            scores = scoreService.calculateScore(components, condition.getId(), projectId);
+    @Override
+    public PreparedCondition prepareCondition(BiObject biObject, Condition existing, List<Component> components,
+                                              Map<Long, List<Disease>> diseasesByComponent) {
+        if (biObject == null) {
+            throw new RuntimeException("计算失败：部件对象为空");
         }
-        if (scores == null || scores.isEmpty() || biObject.getWeight()==null|| biObject.getWeight().compareTo(BigDecimal.ZERO) == 0) {
-            // 如果没有构件得分记录，说明没有病害记录，返回满分
+        if (components == null) {
+            throw new RuntimeException("计算失败：无法获取部件的构件列表");
+        }
+
+        Condition condition = existing;
+        if (condition == null) {
+            condition = new Condition();
+            condition.setBiObjectId(biObject.getId());
+            condition.setWeight(biObject.getWeight());
+            condition.setCreateBy(ShiroUtils.getLoginName());
+            condition.setCreateTime(new Date());
+        }
+
+        boolean replaceScores = !components.isEmpty();
+        List<Score> scores = replaceScores
+                ? scoreService.calculateScore(components, diseasesByComponent)
+                : new ArrayList<>();
+        if (scores == null) {
+            scores = new ArrayList<>();
+        }
+
+        if (scores.isEmpty() || biObject.getWeight() == null || biObject.getWeight().compareTo(BigDecimal.ZERO) == 0) {
             condition.setScore(new BigDecimal("100"));
             condition.setLevel(1);
-            // 如果权重为0 则评分直接为0 等级为0
             if (biObject.getWeight() == null || biObject.getWeight().compareTo(BigDecimal.ZERO) == 0) {
                 condition.setScore(new BigDecimal("0"));
                 condition.setLevel(0);
             }
-            condition.setComponentsCount(biObject.getCount());
+            condition.setComponentsCount(biObject.getCount() == null ? 0 : biObject.getCount());
             condition.setUpdateBy(ShiroUtils.getLoginName());
             condition.setUpdateTime(new Date());
-            condition.setComponentsCount(biObject.getCount()==null?0:biObject.getCount());
-            updateCondition(condition);
-            return condition;
+            return new PreparedCondition(condition, scores, replaceScores);
         }
 
-        // 获取构件数量（用于查找t值）
         Integer count = biObject.getCount();
         if (count == null || count <= 0) {
             throw new RuntimeException("计算失败：部件 " + biObject.getName() + " 构件数量为0");
@@ -145,63 +166,82 @@ public class ConditionServiceImpl implements IConditionService {
         int componentsCount = count;
         condition.setComponentsCount(componentsCount);
 
-        // 4. 计算部件得分
         BigDecimal totalScore = BigDecimal.ZERO;
         BigDecimal lowestScore = new BigDecimal("100");
-
         for (Score score : scores) {
             BigDecimal currentScore = score.getScore();
             if (currentScore == null) {
                 throw new RuntimeException("计算失败：构件得分为空");
             }
-
             totalScore = totalScore.add(currentScore);
             if (currentScore.compareTo(lowestScore) < 0) {
                 lowestScore = currentScore;
             }
         }
 
-        // 如果构件中有得分低于60分的，部件得分取最低分
         if (lowestScore.compareTo(new BigDecimal("40")) < 0 || componentsCount == 1) {
             condition.setScore(lowestScore);
         } else {
             int fullScore = 100 * (componentsCount - scores.size());
             BigDecimal realTotalScore = totalScore.add(BigDecimal.valueOf(fullScore));
-            // 5.计算平均分
             BigDecimal averageScore = realTotalScore.divide(new BigDecimal(componentsCount), 4, RoundingMode.HALF_UP);
-
-            // 6.获取t值
             double tValue = Condition.getT(componentsCount);
             if (tValue <= 0) {
                 throw new RuntimeException("计算失败：无法获取有效的t值");
             }
-
             BigDecimal tValueDecimal = new BigDecimal(String.valueOf(tValue));
-            // 按照公式计算：DCCI_i = DMCI - (100 - DMCI_min)/t
             BigDecimal adjustment = new BigDecimal("100").subtract(lowestScore)
                     .divide(tValueDecimal, 4, RoundingMode.HALF_UP);
             BigDecimal finalScore = averageScore.subtract(adjustment)
                     .setScale(2, RoundingMode.HALF_UP);
-
-            // 确保得分不小于0
             if (finalScore.compareTo(BigDecimal.ZERO) < 0) {
                 finalScore = BigDecimal.ZERO;
             }
-
             condition.setScore(finalScore);
         }
 
-        // 7. 以报告显示的一位小数作为正式得分，并据此设置技术状况等级
         BigDecimal displayedScore = condition.getScore().setScale(1, RoundingMode.HALF_UP);
         condition.setScore(displayedScore);
         condition.setLevel(calculateLevel(displayedScore));
-
-        // 8. 更新记录
         condition.setUpdateBy(ShiroUtils.getLoginName());
         condition.setUpdateTime(new Date());
-        updateCondition(condition);
+        return new PreparedCondition(condition, scores, true);
+    }
 
-        return condition;
+    @Override
+    public void writePreparedConditions(List<PreparedCondition> preparedConditions) {
+        if (preparedConditions == null || preparedConditions.isEmpty()) {
+            return;
+        }
+        for (PreparedCondition prepared : preparedConditions) {
+            if (prepared == null || prepared.getCondition() == null) {
+                continue;
+            }
+            Condition condition = prepared.getCondition();
+            if (condition.getId() == null) {
+                insertCondition(condition);
+            } else {
+                updateCondition(condition);
+            }
+            if (condition.getId() == null) {
+                throw new RuntimeException("计算失败：部件评定保存失败");
+            }
+            if (!prepared.isReplaceScores()) {
+                continue;
+            }
+            scoreService.deleteScoreByConditionId(condition.getId());
+            List<Score> scores = prepared.getScores();
+            if (scores == null || scores.isEmpty()) {
+                continue;
+            }
+            for (Score score : scores) {
+                score.setConditionId(condition.getId());
+            }
+            for (int start = 0; start < scores.size(); start += SCORE_INSERT_BATCH) {
+                int end = Math.min(start + SCORE_INSERT_BATCH, scores.size());
+                scoreService.batchInsertScores(scores.subList(start, end));
+            }
+        }
     }
 
     /**

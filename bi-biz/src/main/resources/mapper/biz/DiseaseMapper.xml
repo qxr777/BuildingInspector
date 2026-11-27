@@ -205,6 +205,17 @@
         order by d.create_time desc
     </select>
 
+    <select id="selectAssessDiseasesByComponentIds" resultMap="DiseaseResult">
+        <include refid="selectDiseaseVo"/>
+        where d.project_id = #{projectId}
+          and d.participate_assess = '1'
+          and d.component_id in
+        <foreach collection="componentIds" item="componentId" open="(" separator="," close=")">
+            #{componentId}
+        </foreach>
+        order by d.create_time desc
+    </select>
+
     <insert id="insertDisease" parameterType="Disease" useGeneratedKeys="true" keyProperty="id">
         insert into bi_disease
         <trim prefix="(" suffix=")" suffixOverrides=",">

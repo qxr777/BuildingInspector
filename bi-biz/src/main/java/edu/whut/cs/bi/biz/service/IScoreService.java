@@ -1,9 +1,11 @@
 package edu.whut.cs.bi.biz.service;
 
 import edu.whut.cs.bi.biz.domain.Component;
+import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Score;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 构件得分Service接口
@@ -66,13 +68,22 @@ public interface IScoreService {
     public int deleteScoreById(Long id);
 
     /**
-     * 计算构件得分
+     * 按构件批量读取参与评定的病害。
      *
-     * @param components  构件ID
-     * @param conditionId 部件评定ID
+     * @param projectId 项目ID
+     * @param components 构件列表
+     * @return 构件ID对应的病害
+     */
+    public Map<Long, List<Disease>> loadParticipatingDiseases(Long projectId, List<Component> components);
+
+    /**
+     * 按已读取的病害计算构件得分，不写数据库。
+     *
+     * @param components 构件列表
+     * @param diseasesByComponent 构件病害
      * @return 构件得分
      */
-    public List<Score> calculateScore(List<Component> components, Long conditionId,Long projectId);
+    public List<Score> calculateScore(List<Component> components, Map<Long, List<Disease>> diseasesByComponent);
 
     /**
      * 根据条件ID删除所有关联的构件得分

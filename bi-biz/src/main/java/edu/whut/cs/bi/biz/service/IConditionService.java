@@ -1,9 +1,12 @@
 package edu.whut.cs.bi.biz.service;
 
 import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.Condition;
+import edu.whut.cs.bi.biz.domain.Disease;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 部件评定Service接口
@@ -76,4 +79,23 @@ public interface IConditionService {
      * @return 部件评定
      */
     public Condition calculateCondition(BiObject biObject, Long biEvaluationId, Long projectId);
+
+    /**
+     * 在内存中计算部件评定和构件得分，不写数据库。
+     *
+     * @param biObject 部件
+     * @param existing 已有部件评定，没有时为空
+     * @param components 部件及其下级构件
+     * @param diseasesByComponent 构件病害
+     * @return 待保存的评定结果
+     */
+    PreparedCondition prepareCondition(BiObject biObject, Condition existing, List<Component> components,
+                                       Map<Long, List<Disease>> diseasesByComponent);
+
+    /**
+     * 保存已算好的部件评定，并按部件替换构件得分。调用方负责事务。
+     *
+     * @param preparedConditions 待保存的评定结果
+     */
+    void writePreparedConditions(List<PreparedCondition> preparedConditions);
 }

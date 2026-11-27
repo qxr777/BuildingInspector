@@ -3,20 +3,35 @@ package edu.whut.cs.bi.biz.service.impl;
 import com.ruoyi.common.utils.ShiroUtils;
 import edu.whut.cs.bi.biz.domain.BiEvaluation;
 import edu.whut.cs.bi.biz.domain.BiObject;
+import edu.whut.cs.bi.biz.domain.Component;
 import edu.whut.cs.bi.biz.domain.Condition;
+import edu.whut.cs.bi.biz.domain.Disease;
 import edu.whut.cs.bi.biz.domain.Task;
 import edu.whut.cs.bi.biz.mapper.BiEvaluationMapper;
 import edu.whut.cs.bi.biz.service.IBiEvaluationService;
 import edu.whut.cs.bi.biz.service.IBiObjectService;
+import edu.whut.cs.bi.biz.service.IComponentService;
 import edu.whut.cs.bi.biz.service.IConditionService;
+import edu.whut.cs.bi.biz.service.IScoreService;
+import edu.whut.cs.bi.biz.service.PreparedCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 桥梁技术状况评定Service业务层处理
@@ -33,11 +48,19 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
     private IConditionService conditionService;
 
     @Autowired
+    private IComponentService componentService;
+
+    @Autowired
+    private IScoreService scoreService;
+
+    @Autowired
     private TaskServiceImpl taskService;
 
-    private static BigDecimal superWeight;
-    private static BigDecimal subWeight;
-    private static BigDecimal deckWeight;
+    @Autowired
+    private DataSource dataSource;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Override
     public BiEvaluation selectBiEvaluationById(Long id) {
@@ -77,17 +100,52 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
         return biEvaluationMapper.deleteBiEvaluationById(id);
     }
 
-    @Override
-    @Transactional
     /**
-     * 计算桥幅得分
+     * 计算桥幅得分。读和计算不占数据库事务，整桥算完后一次写入。
      */
+    @Override
     public BiEvaluation calculateBiEvaluation(Long taskId, Long rootObjectId) {
-        // 检查参数
         if (taskId == null || rootObjectId == null) {
             throw new RuntimeException("计算失败：任务ID或根对象ID为空");
         }
 
+        String lockName = "bi_eval_" + taskId;
+        Connection connection = null;
+        boolean locked = false;
+        try {
+            connection = dataSource.getConnection();
+            Boolean lockResult = tryLock(connection, lockName);
+            if (lockResult == null) {
+                throw new RuntimeException("计算失败：无法锁定评定任务");
+            }
+            if (!lockResult) {
+                throw new RuntimeException("计算失败：该任务正在评定，请稍后再试");
+            }
+            locked = true;
+
+            TransactionTemplate readTemplate = new TransactionTemplate(transactionManager);
+            readTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+            return readTemplate.execute(status -> calculateBiEvaluationLocked(taskId, rootObjectId));
+        } catch (SQLException e) {
+            throw new RuntimeException("计算失败：无法锁定评定任务", e);
+        } finally {
+            if (connection != null) {
+                try {
+                    if (locked) {
+                        releaseLock(connection, lockName);
+                    }
+                } finally {
+                    try {
+                        connection.close();
+                    } catch (SQLException ignored) {
+                        // 连接关闭失败时，连接池会丢弃异常连接
+                    }
+                }
+            }
+        }
+    }
+
+    private BiEvaluation calculateBiEvaluationLocked(Long taskId, Long rootObjectId) {
         Task task = taskService.selectTaskById(taskId);
         if (task == null) {
             throw new RuntimeException("计算失败：未找到任务信息");
@@ -98,100 +156,141 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
             throw new RuntimeException("计算失败：任务未关联项目");
         }
 
-        // 1. 获取或创建评定记录
-        BiEvaluation biEvaluation = selectBiEvaluationByTaskId(taskId);
-        if (biEvaluation == null) {
+        BiEvaluation loadedEvaluation = selectBiEvaluationByTaskId(taskId);
+        final BiEvaluation biEvaluation;
+        if (loadedEvaluation == null) {
             biEvaluation = new BiEvaluation();
             biEvaluation.setTaskId(taskId);
             biEvaluation.setCreateBy(ShiroUtils.getLoginName());
             biEvaluation.setCreateTime(new Date());
-            insertBiEvaluation(biEvaluation);
+        } else {
+            biEvaluation = loadedEvaluation;
         }
 
-        // 2. 获取所有第二层的节点
-        List<BiObject> secondLevelObject = biObjectService.selectDirectChildrenByParentId(rootObjectId);
-        if (secondLevelObject == null || secondLevelObject.isEmpty()) {
+        List<BiObject> secondLevelObjects = biObjectService.selectDirectChildrenByParentId(rootObjectId);
+        if (secondLevelObjects == null || secondLevelObjects.isEmpty()) {
             throw new RuntimeException("计算失败：未找到桥梁结构的子节点");
         }
 
-        // 重置权重变量，避免使用上次计算的值
-        superWeight = null;
-        subWeight = null;
-        deckWeight = null;
-
-        for (int i = 0; i < secondLevelObject.size(); i++) {
-            BiObject object = secondLevelObject.get(i);
+        List<PartWork> parts = new ArrayList<>();
+        List<Component> allComponents = new ArrayList<>();
+        for (BiObject object : secondLevelObjects) {
             if (object == null) {
                 throw new RuntimeException("计算失败：子节点对象为空");
             }
-
-            if (object.getWeight() != null) {
-                calculatePartScore(object, biEvaluation, projectId);
-            } else {
+            if (object.getWeight() == null) {
                 throw new RuntimeException("计算失败：" + object.getName() + "的权重为空");
             }
+            List<BiObject> leafNodes = biObjectService.selectDirectChildrenByParentId(object.getId());
+            if (leafNodes == null || leafNodes.isEmpty()) {
+                throw new RuntimeException("计算失败：" + object.getName() + "下没有子节点");
+            }
+            List<LeafWork> leaves = new ArrayList<>();
+            for (BiObject leaf : leafNodes) {
+                if (leaf == null) {
+                    continue;
+                }
+                List<Component> components = componentService.selectComponentsByBiObjectIdAndChildren(leaf.getId());
+                if (components == null) {
+                    throw new RuntimeException("计算失败：无法获取部件的构件列表");
+                }
+                leaves.add(new LeafWork(leaf, components));
+                allComponents.addAll(components);
+            }
+            parts.add(new PartWork(object, leaves));
         }
 
-        // 3. 计算桥梁总体技术状况得分
-        calculateOverallScore(biEvaluation);
+        Map<Long, List<Disease>> diseasesByComponent = scoreService.loadParticipatingDiseases(projectId, allComponents);
+        Map<Long, Condition> existingByObjectId = loadExistingConditions(biEvaluation.getId());
+        PartWeights weights = new PartWeights();
+        List<PreparedCondition> preparedConditions = new ArrayList<>();
+        for (PartWork part : parts) {
+            calculatePartScore(part, biEvaluation, projectId, weights, existingByObjectId, diseasesByComponent, preparedConditions);
+        }
+        calculateOverallScore(biEvaluation, weights);
 
-        // 4. 更新评定记录
         biEvaluation.setUpdateBy(ShiroUtils.getLoginName());
         biEvaluation.setUpdateTime(new Date());
-        updateBiEvaluation(biEvaluation);
-
+        new TransactionTemplate(transactionManager).execute(status -> {
+            saveEvaluation(biEvaluation, preparedConditions);
+            return null;
+        });
         return biEvaluation;
+    }
+
+    private Map<Long, Condition> loadExistingConditions(Long biEvaluationId) {
+        Map<Long, Condition> existingByObjectId = new HashMap<>();
+        if (biEvaluationId == null) {
+            return existingByObjectId;
+        }
+        List<Condition> existingConditions = conditionService.selectConditionsByBiEvaluationId(biEvaluationId);
+        if (existingConditions == null) {
+            return existingByObjectId;
+        }
+        for (Condition existing : existingConditions) {
+            if (existing != null && existing.getBiObjectId() != null && !existingByObjectId.containsKey(existing.getBiObjectId())) {
+                existingByObjectId.put(existing.getBiObjectId(), existing);
+            }
+        }
+        return existingByObjectId;
+    }
+
+    private void saveEvaluation(BiEvaluation biEvaluation, List<PreparedCondition> preparedConditions) {
+        if (biEvaluation.getId() == null) {
+            insertBiEvaluation(biEvaluation);
+        } else {
+            updateBiEvaluation(biEvaluation);
+        }
+        if (biEvaluation.getId() == null) {
+            throw new RuntimeException("计算失败：评定记录保存失败");
+        }
+        for (PreparedCondition prepared : preparedConditions) {
+            if (prepared != null && prepared.getCondition() != null) {
+                prepared.getCondition().setBiEvaluationId(biEvaluation.getId());
+            }
+        }
+        conditionService.writePreparedConditions(preparedConditions);
     }
 
     /**
      * 计算部分（上部结构、下部结构、桥面系统）得分
      */
-    private void calculatePartScore(BiObject part, BiEvaluation biEvaluation, Long projectId) {
-        // 检查参数
-        if (part == null) {
+    private void calculatePartScore(PartWork partWork, BiEvaluation biEvaluation, Long projectId, PartWeights weights,
+                                    Map<Long, Condition> existingByObjectId, Map<Long, List<Disease>> diseasesByComponent,
+                                    List<PreparedCondition> preparedConditions) {
+        if (partWork == null || partWork.part == null) {
             throw new RuntimeException("计算失败：部件对象为空");
         }
-
-        if (biEvaluation == null || biEvaluation.getId() == null) {
+        BiObject part = partWork.part;
+        if (biEvaluation == null) {
             throw new RuntimeException("计算失败：评定记录为空或ID为空");
         }
-
         if (projectId == null) {
             throw new RuntimeException("计算失败：项目ID为空");
         }
 
-        // 获取该部分下所有孩子节点
-        List<BiObject> leafNodes = biObjectService.selectDirectChildrenByParentId(part.getId());
-        if (leafNodes == null || leafNodes.isEmpty()) {
-            throw new RuntimeException("计算失败：" + part.getName() + "下没有子节点");
-        }
-
-        // 计算加权平均分
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal weightedScore = BigDecimal.ZERO;
         Integer worstLevel = 1;
         boolean hasValidCondition = false;
 
-        for (BiObject leaf : leafNodes) {
-            if (leaf == null) {
+        for (LeafWork leafWork : partWork.leaves) {
+            if (leafWork == null || leafWork.leaf == null) {
                 continue;
             }
-
-            // 计算部件得分
-            Condition condition = conditionService.calculateCondition(leaf, biEvaluation.getId(), projectId);
+            BiObject leaf = leafWork.leaf;
+            PreparedCondition prepared = conditionService.prepareCondition(
+                    leaf, existingByObjectId.get(leaf.getId()), leafWork.components, diseasesByComponent);
+            preparedConditions.add(prepared);
+            Condition condition = prepared.getCondition();
             if (condition != null) {
                 hasValidCondition = true;
-
                 BigDecimal weight = leaf.getWeight() != null ? leaf.getWeight() : BigDecimal.ZERO;
                 totalWeight = totalWeight.add(weight);
-
                 if (condition.getScore() == null) {
                     throw new RuntimeException("计算失败：" + leaf.getName() + "的评分为空");
                 }
-
                 weightedScore = weightedScore.add(condition.getScore().multiply(weight));
-
-                // 更新最差等级
                 if (condition.getLevel() > worstLevel) {
                     worstLevel = condition.getLevel();
                 }
@@ -202,13 +301,11 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
             throw new RuntimeException("计算失败：" + part.getName() + "下没有有效的评定数据");
         }
 
-        // 计算最终得分，并以报告显示的一位小数作为正式得分
         BigDecimal finalScore = totalWeight.compareTo(BigDecimal.ZERO) > 0 ?
                 weightedScore.divide(totalWeight, 2, RoundingMode.HALF_UP) : new BigDecimal("100");
         finalScore = finalScore.setScale(1, RoundingMode.HALF_UP);
         int level = calculateLevel(finalScore);
 
-        // 设置得分和等级
         if (part.getName() == null) {
             throw new RuntimeException("计算失败：部件名称为空");
         }
@@ -217,17 +314,19 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
             case "上部结构":
                 biEvaluation.setSuperstructureScore(finalScore);
                 biEvaluation.setSuperstructureLevel(level);
-                superWeight = part.getWeight();
+                weights.superWeight = part.getWeight();
                 break;
             case "下部结构":
                 biEvaluation.setSubstructureScore(finalScore);
                 biEvaluation.setSubstructureLevel(level);
-                subWeight = part.getWeight();
+                weights.subWeight = part.getWeight();
                 break;
             case "桥面系":
                 biEvaluation.setDeckSystemScore(finalScore);
                 biEvaluation.setDeckSystemLevel(level);
-                deckWeight = part.getWeight();
+                weights.deckWeight = part.getWeight();
+                break;
+            default:
                 break;
         }
     }
@@ -235,12 +334,11 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
     /**
      * 计算桥梁总体技术状况得分
      */
-    private void calculateOverallScore(BiEvaluation biEvaluation) {
+    private void calculateOverallScore(BiEvaluation biEvaluation, PartWeights weights) {
         if (biEvaluation == null) {
             throw new RuntimeException("计算失败：评定记录为空");
         }
 
-        // 1. 计算系统总分
         BigDecimal superScore = biEvaluation.getSuperstructureScore();
         BigDecimal subScore = biEvaluation.getSubstructureScore();
         BigDecimal deckScore = biEvaluation.getDeckSystemScore();
@@ -249,24 +347,22 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
             throw new RuntimeException("计算失败：上部结构、下部结构或桥面系统的得分为空");
         }
 
-        if (superWeight == null || subWeight == null || deckWeight == null) {
+        if (weights.superWeight == null || weights.subWeight == null || weights.deckWeight == null) {
             throw new RuntimeException("计算失败：数据异常，权重数据为空");
         }
 
-        // 检查权重总和是否为1
-        BigDecimal totalWeight = superWeight.add(subWeight).add(deckWeight);
+        BigDecimal totalWeight = weights.superWeight.add(weights.subWeight).add(weights.deckWeight);
         if (totalWeight.compareTo(BigDecimal.ONE) != 0) {
             throw new RuntimeException("计算失败：权重之和不等于1，当前总和为" + totalWeight);
         }
 
-        BigDecimal systemScore = superScore.multiply(superWeight)
-                .add(subScore.multiply(subWeight))
-                .add(deckScore.multiply(deckWeight))
+        BigDecimal systemScore = superScore.multiply(weights.superWeight)
+                .add(subScore.multiply(weights.subWeight))
+                .add(deckScore.multiply(weights.deckWeight))
                 .setScale(1, RoundingMode.HALF_UP);
 
         biEvaluation.setSystemScore(systemScore);
 
-        // 2. 确定最差部位等级
         Integer superLevel = biEvaluation.getSuperstructureLevel();
         Integer subLevel = biEvaluation.getSubstructureLevel();
         Integer deckLevel = biEvaluation.getDeckSystemLevel();
@@ -278,7 +374,6 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
         int worstLevel = Math.max(Math.max(superLevel, subLevel), deckLevel);
         biEvaluation.setWorstPartLevel(worstLevel);
 
-        // 3. 设置系统等级（取决于系统得分）
         biEvaluation.setSystemLevel(calculateLevel(systemScore));
         //当上部结构和下部结构技术状况等级为3类、桥面系技术状况等级为4类，且桥梁总体技术状况评分为40<D<60时，桥梁总体技术状况等级应评定为3类。
         if (biEvaluation.getSuperstructureLevel() == 3 && biEvaluation.getSubstructureLevel() == 3 && biEvaluation.getDeckSystemLevel() == 4 && biEvaluation.getSystemLevel() == 4) {
@@ -300,6 +395,61 @@ public class BiEvaluationServiceImpl implements IBiEvaluationService {
             return 4;
         } else {
             return 5;
+        }
+    }
+
+    private Boolean tryLock(Connection connection, String lockName) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT GET_LOCK(?, 0)")) {
+            statement.setString(1, lockName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                Object value = resultSet.getObject(1);
+                if (value == null) {
+                    return null;
+                }
+                return ((Number) value).intValue() == 1;
+            }
+        }
+    }
+
+    private void releaseLock(Connection connection, String lockName) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+            statement.setString(1, lockName);
+            statement.execute();
+        } catch (SQLException ex) {
+            try {
+                connection.abort(Runnable::run);
+            } catch (SQLException ignored) {
+                // 释放失败时中止连接，避免锁留在连接池里的会话上
+            }
+        }
+    }
+
+    private static final class PartWeights {
+        private BigDecimal superWeight;
+        private BigDecimal subWeight;
+        private BigDecimal deckWeight;
+    }
+
+    private static final class PartWork {
+        private final BiObject part;
+        private final List<LeafWork> leaves;
+
+        private PartWork(BiObject part, List<LeafWork> leaves) {
+            this.part = part;
+            this.leaves = leaves;
+        }
+    }
+
+    private static final class LeafWork {
+        private final BiObject leaf;
+        private final List<Component> components;
+
+        private LeafWork(BiObject leaf, List<Component> components) {
+            this.leaf = leaf;
+            this.components = components;
         }
     }
 }
